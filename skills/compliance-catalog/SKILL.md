@@ -23,7 +23,7 @@ The base catalog (`catalog/base.md`, two directories above this file) is the reu
 3. Scenario coverage: list the project's scenarios (start from the base scenario library and add the project's own). Every scenario names the rules that decide it. A scenario with no deciding rule is a gap: add a rule from an industry standard with its provenance, or list it under "Gaps".
 4. Source conflicts: where two project sources disagree, the catalog states the newer explicit owner ruling and lists the conflicting lines under "Source conflicts" for the project to clean up.
 5. Header: the base version the overlay was built against, the date, and the commit of the sources read.
-6. **Weakness audit** with a different model (`templates/catalog-audit.md`): missing rules, weak or unfalsifiable rules, wrong provenance (external citations fetched where possible), scenarios that cannot be judged, and missing scenarios. Apply the findings, then re-audit only the audit's sections. The catalog is ready when the audit rates it ADEQUATE.
+6. **Weakness audit** by a fresh agent that shares no context with the author (`templates/catalog-audit.md`): missing rules, weak or unfalsifiable rules, wrong provenance (external citations fetched where possible), scenarios that cannot be judged, and missing scenarios. Apply the findings, then re-audit only the audit's sections. The catalog is ready when the audit rates it ADEQUATE.
 
 ## Updating the base catalog
 

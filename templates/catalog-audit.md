@@ -1,6 +1,6 @@
 # Catalog weakness audit
 
-Read-only. Use a different model from the catalog's author.
+Read-only. Run as a fresh agent that shares no context with the catalog's author (a new session or subagent, given only this brief and the files).
 
 - Catalog: `<absolute path>` at `<commit>`; base version `<v>` if this is an overlay.
 - Sources: `<the project's binding documents>`; external standards named in the provenance column.
