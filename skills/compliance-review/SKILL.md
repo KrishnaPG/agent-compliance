@@ -9,7 +9,7 @@ A review checks the artifact against a fixed set of rules. It does not hunt for 
 
 ## Inputs
 
-- **Base catalog:** the `catalog/` directory of this plugin (two directories above this file). Ready to use; never rebuilt by a review. Load in this order, and nothing more: `catalog/index.md` (version, readings, terms, domain and pack lists, scenario index); `catalog/base/<DOMAIN>.md` for each domain in scope; `catalog/packs/<pack>/<DOMAIN>.md` for the same domains, for each pack the overlay's header names; `catalog/scenarios.md` when scoping by scenario.
+- **Base catalog:** the `catalog/` directory of this plugin (two directories above this file). Ready to use; never rebuilt by a review. Load in this order, and nothing more: `catalog/index.md` (version, readings, terms, domain and pack lists, scenario index); `catalog/base/<DOMAIN>.md` for each domain in scope; `catalog/base/HS.md` whenever HO is in scope; `catalog/packs/<pack>/<DOMAIN>.md` for the same domains, for each pack the overlay's header (or, without an overlay, the review brief) names, and for a pack-only domain (UI) when the artifact has that surface; `catalog/scenarios.md` when scoping by scenario.
 - **Project overlay:** the project's own rules. Default path `docs/agents/design-compliance.md`; a project may name another path in its AGENTS.md or CLAUDE.md. Its header names the base version it was built against and the packs it uses. An overlay row that names a base or pack id under "Tightens" decides in place of that rule. No overlay: review against the base alone, with no pack, and say so.
 - **Artifact:** the design, spec, plan or diff, at a fixed commit.
 

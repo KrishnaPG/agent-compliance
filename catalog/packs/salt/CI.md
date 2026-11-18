@@ -4,4 +4,4 @@ Pack `salt` for base catalog 1.0.0. Scope: requisites, concurrent runs, managed 
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|
-| SALT-02 | No second salt-ssh call targets a host while a converge of it runs: both share the host's thin directory, and the first to exit wipes it. | Salt documentation: salt-ssh (`ssh_wipe`, thin directory) | Can a probe or second run reach a target mid-converge? |
+| SALT-02 | No second salt-ssh call targets a host while a converge of it runs: calls to one host share its thin directory, and where wiping (`--wipe`, `ssh_wipe`) is on, the first to exit removes it under the other; a probe uses its own thin directory (`--rand-thin-dir`), never the converge's. | Salt documentation: salt-ssh (`--wipe`, `--rand-thin-dir`), roster `thin_dir` | Can a probe or second run reach a target mid-converge? |

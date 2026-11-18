@@ -4,4 +4,4 @@ Pack `salt` for base catalog 1.0.0. Scope: requisites, concurrent runs, managed 
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|
-| SALT-04 | A template reads secrets at execution, not at render, and a converge logs changes and failures only, never file contents. | Salt documentation: pillar, `file.managed` (`show_changes`) | Is any secret read at render or written to a log? |
+| SALT-04 | A secret reaches a minion only through pillar (compiled on the master, readable only by the targeted minion) and is never written to the state tree or version control; every file state that holds a secret sets `show_changes: False`, so the run output reports that the file changed, never its contents. | Salt documentation: pillar (storing sensitive data); `file.managed` `show_changes` | Is any secret in the state tree, or shown in a state's diff output? |
