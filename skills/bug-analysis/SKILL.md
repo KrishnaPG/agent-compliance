@@ -10,7 +10,7 @@ A bug is any defect anyone notices, in any file, however small: wrong behaviour 
 ## Inputs
 
 - **Catalog and overlay:** as `../compliance-review/SKILL.md` "Inputs" loads them; only the domains the failing path touches.
-- **Project bindings:** `docs/agents/compliance-bindings.md`, or the path the project's AGENTS.md or CLAUDE.md names: the tracker, the ledger, the commands that draft, post and close a record, the review command, the forms a `Test:` takes. No bindings file: one tracker issue per bug by hand; with no tracker, the record goes in the reply and says it is unrecorded.
+- **Project bindings:** found as `../compliance-review/SKILL.md` "Inputs" says: the tracker, the ledger, the commands that draft, post and close a record, the review command, the forms a `Test:` takes. No bindings: one tracker issue per bug by hand; with no tracker, the full record goes in the reply, says it is unrecorded and gives the setup prompt.
 
 ## The record
 
@@ -39,4 +39,4 @@ The ledger is every record on the tracker, read by the bindings' ledger command:
 - A bug no fix can close gets a `Closure:` comment naming the record, `Exit:` `stale`, `duplicate`, `data-action` or `test-defect`, and `Evidence:` that resolves (the change that removed it, the surviving record, the reading after the action, the owner's proof).
 - Readings taken while fixing are collected and posted as one comment at the end, not one by one.
 
-A subagent brief for a bug names this skill and the bindings file.
+A subagent brief for a bug names this skill and the path of the bindings.

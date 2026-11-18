@@ -72,7 +72,8 @@ case('bug-record-rule-lines','bug-analysis',{'src/cleanup.py':BUGSRC},
  tool('no-pack-file','Read',r'catalog/packs/',0,0),
  tool('no-subagent','Agent',None,0,0),
  rx('analysis-heading',r'Analysis:'), rx('rule-line-id01',r'Rule:\s*\**\s*ID-01\s*\**\s*BROKEN'),
- rx('says-unrecorded',r'unrecorded|not recorded',flags='i')],18)
+ rx('says-unrecorded',r'unrecorded|not recorded',flags='i'),
+ rx('gives-setup-prompt',r'compliance bindings from templates/compliance-bindings\.md',flags='i')],18)
 REL='''name: release
 on: { push: { tags: ["v*"] } }
 jobs:
@@ -114,4 +115,5 @@ case('oss-judged-by-rule-ids','vet-oss',{'scripts/backup.sh':BK,'clone/tinybacku
  tool('no-pack-file','Read',r'catalog/packs/',0,0),
  rx('rows-carry-rule-ids',r'\|\s*\**`?(SC|ID|NO|DS|RL|OB|LC|PF)-\d\d'),
  rx('supply-chain-rule-broken',r'SC-\d\d[^\n]*BROKEN'),
- rx('not-presented',r'no OSS meets the rules',flags='i')],40)
+ rx('not-presented',r'no OSS meets the rules',flags='i'),
+ rx('gives-setup-prompt',r'compliance bindings from templates/compliance-bindings\.md',flags='i')],40)

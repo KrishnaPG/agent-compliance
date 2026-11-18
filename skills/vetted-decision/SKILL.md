@@ -10,7 +10,7 @@ The answer is its own proof: every verdict names a catalog rule id and its evide
 ## Inputs
 
 - **Catalog and overlay:** as `../compliance-review/SKILL.md` "Inputs" loads them (index, in-scope domains, packs, the project overlay).
-- **Project bindings:** `docs/agents/compliance-bindings.md`, or the path the project's AGENTS.md or CLAUDE.md names. It gives the tracker, where a decision is recorded, the escalation categories and the evidence environment. No bindings file: put the decision in the reply and say it is unrecorded.
+- **Project bindings:** found as `../compliance-review/SKILL.md` "Inputs" says. They give the tracker, where a decision is recorded, the escalation categories and the evidence environment. No bindings: put the full decision in the reply, say it is unrecorded and give the setup prompt.
 
 **Once per question.** A decision is recorded where the bindings say, headed `Decision: <question>` with the date and commit. Search for that heading first: when one exists, reuse it and re-judge only the rows whose cited inputs (a `path:line`, a catalog rule, an owner's answer) changed since. Unchanged inputs give the same decision.
 

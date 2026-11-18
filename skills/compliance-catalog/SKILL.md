@@ -24,6 +24,7 @@ The base catalog (`catalog/` two directories above this file: `index.md`, one `b
 4. Source conflicts: where two project sources disagree, the catalog states the newer explicit owner ruling and lists the conflicting lines under "Source conflicts" for the project to clean up.
 5. Header: the base version the overlay was built against, the packs it uses, the date, the commit of the sources read, and where review verdicts are recorded (`Verdicts:` a tracking issue or PR, or a file path).
 6. **Weakness audit** by a fresh agent that shares no context with the author (`templates/catalog-audit.md`): missing rules, weak or unfalsifiable rules, wrong provenance (external citations fetched where possible), scenarios that cannot be judged, and missing scenarios. Apply the findings, then re-audit only the audit's sections. The catalog is ready when the audit rates it ADEQUATE.
+7. **Bindings.** Unless the project already has bindings (found as `../compliance-review/SKILL.md` "Inputs" says), copy `templates/compliance-bindings.md` to the path the project's AGENTS.md or CLAUDE.md names, or `docs/agents/compliance-bindings.md`. Fill each row from what the sources state (tracker, commands, escalation categories, the overlay path just written), keep an unknown value as its placeholder, delete a row the project lacks, and tell the project to add one line to AGENTS.md or CLAUDE.md only if the path is not the default.
 
 ## Updating the base catalog
 

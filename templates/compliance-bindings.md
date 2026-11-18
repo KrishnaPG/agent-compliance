@@ -1,6 +1,6 @@
 # Compliance bindings
 
-What the agent-compliance skills read for this project. Default path `docs/agents/compliance-bindings.md`; name another path in AGENTS.md or CLAUDE.md. One line per binding; delete a line the project does not have.
+What the agent-compliance skills read for this project. Kept at the path AGENTS.md or CLAUDE.md names, else `docs/agents/compliance-bindings.md`. One line per binding; delete a line the project does not have.
 
 | Binding | Value |
 |---|---|

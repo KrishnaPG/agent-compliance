@@ -57,7 +57,7 @@ In a running session, run `/reload-plugins` to load the plugin.
 
    The `compliance-catalog` skill reads those sources, adds only rows the base catalog does not already state (or that tighten a base rule), covers the scenarios, has a fresh agent audit the result, and writes `docs/agents/design-compliance.md`.
 
-2. **Optionally write the bindings file.** Copy `templates/compliance-bindings.md` to `docs/agents/compliance-bindings.md` and keep the lines you have: tracker, where decisions and vettings are posted, bug ledger and close commands, evidence environment, and the escalation categories only the project owner rules on. The decision, vetting and bug skills read it. Without it they put results in the reply and say they are unrecorded.
+2. **Bindings.** Step 1 also writes the bindings file from `templates/compliance-bindings.md` (at the path your AGENTS.md or CLAUDE.md names, else `docs/agents/compliance-bindings.md`): tracker, where decisions and vettings are posted, bug ledger and close commands, evidence environment, and the escalation categories only the project owner rules on. Without step 1, ask: `Write our compliance bindings from templates/compliance-bindings.md`. The decision, vetting and bug skills read it; without it they put results in the reply, say they are unrecorded and give that prompt.
 
 3. **Run a first review:**
 
