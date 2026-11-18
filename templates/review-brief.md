@@ -2,7 +2,7 @@
 
 Read-only review: do not edit, commit or post.
 
-- Base catalog: `<absolute path to catalog/base.md>` (version `<v>`).
+- Base catalog (version `<v>`): `<absolute path to catalog/index.md>`, and for your domains `<absolute paths to catalog/base/<DOMAIN>.md>` and `<absolute paths to catalog/packs/<pack>/<DOMAIN>.md>` for the packs the overlay names.
 - Project overlay: `<absolute path>` at `<commit>` (or "none").
 - Artifact: `<path>` at `<commit>`.
 - Your domains: `<ids>`.

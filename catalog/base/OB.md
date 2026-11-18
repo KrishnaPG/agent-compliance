@@ -1,0 +1,23 @@
+# OB: Observability
+
+Base catalog 1.0.0. Scope: operator screens, alerts, telemetry bounds, audit records, unknown is not healthy. Each row is the whole rule; judge it from the row alone.
+
+| ID | Rule | Provenance | Test question |
+|---|---|---|---|
+| OB-01 | The cause of every failure the design can produce MUST be readable on the screens the platform's operator uses daily (dashboards, log and trace search, alerts, each tool's admin UI). Where they cannot show it, that gap is closed before the product fix, and diagnosis never needs a shell, a direct database read or a raw log file. | Google SRE book ch. 6, ch. 12 (effective troubleshooting) | On which screen would an operator read the cause of each failure? |
+| OB-02 | Status comes from the owner's native status and bounded telemetry. A log line is never completion evidence; the real effect is measured through owner status or release smoke. A flow's subject key is its execution label, never a metric or log-stream label. | Google SRE book ch. 6 | What proves each effect happened? |
+| OB-03 | Every alert is on a symptom someone or something must act on, and names that action (its runbook or automatic remediation); no alert exists only to inform. | Google SRE book ch. 6 "Monitoring Distributed Systems" | For each alert: what action follows it? |
+| OB-04 | Every run and test prints its environment, run id, where its logs and traces are, and its run-scoped cleanup command. | Google SRE book ch. 6 | From a run's output alone, can its logs be found? |
+| OB-05 | A failure reports a stable code, the owner or boundary, the safe expected and observed state, the sanitized target and the remediation. | Google SRE book ch. 6 | What does each failure message tell the reader to do? |
+| OB-06 | Telemetry never authorizes readiness or deployment and never drives a business effect. | Google SRE book ch. 6 | Does a gate or decision read telemetry instead of the owner? |
+| OB-07 | Telemetry export uses bounded queues and batches, reports drops and retry exhaustion, and never blocks product or release work. | Google SRE book ch. 6 | What happens to the product or release when the telemetry backend is slow or down? |
+| OB-08 | Logs never contain secret bytes, signed URLs, bulk payloads or file contents; a converge logs changes and failures only. | Google SRE book ch. 6 | What does each step log on success and on failure? |
+| OB-09 | The monitoring path is itself watched: a dead-man's-switch alert pages through a second path when alerts stop arriving. | Google SRE book ch. 6 | What notices that the collector, rule engine or alert route stopped? |
+| OB-10 | Telemetry and audit records of an installation are exported to a store outside what they describe, so they outlive its loss or reset; a shared host's telemetry does not depend on any one installation. | NIST SP 800-53 Rev. 5 AU-9(2); CIS GCP Foundation v4.0.0 2.2 | After the watched installation is destroyed, where are its last records read? |
+| OB-11 | Unknown is not healthy: when a gate cannot read its source (the alert manager, an owner's status, a metric, a ledger), it fails closed or marks the run unverified; it never admits the run as clean. | NIST SP 800-53 Rev. 5 SC-24, SI-4 | What does each gate decide when it cannot read its source? |
+| OB-12 | Each journey states a completion objective from its pivot to the terminal owner fact; passing it raises an alert. | Google SRE book ch. 6 | What is the deadline from start to done for each journey, and what fires past it? |
+| OB-13 | An alert on an objective states how long a failure takes to alert (its `for:` and window) and how long it takes to clear after the fix. | Site Reliability Workbook ch. 5 "Alerting on SLOs" | How long until each failure alerts, and until the alert clears? |
+| OB-14 | User-visible status comes from a native admin or debug surface. A container healthcheck serves startup ordering only and is never semantic readiness. | Google SRE book ch. 6 | What is "ready" measured by, beyond a process answering? |
+| OB-15 | The evidence for one run or request is joined by one correlation root (LC-28, LC-31) and readable in one query; a reused pattern carries its observability once. | Google SRE book ch. 6 | Is the evidence for one run in one place, joined by one id? |
+| OB-16 | Every metric and log-stream label set is bounded: no tenant, execution, user or request id as a label, and hitting an ingestion cardinality limit alerts. | Prometheus "Instrumentation" (label use) | Which new label can grow with tenants or requests? |
+| OB-17 | Certificate expiry and clock synchronization each have a machine-read alert before they fail. | NIST SP 800-53 Rev. 5 SC-17, SC-45 | What alerts before a certificate expires or the clock drifts? |
