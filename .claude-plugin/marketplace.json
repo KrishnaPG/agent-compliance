@@ -8,11 +8,11 @@
     {
       "name": "agent-compliance",
       "source": "./",
-      "version": "1.1.0",
+      "version": "1.2.0",
       "description": "Review designs, plans, decisions, OSS tools and bugs against a ready-made industry-standard rule catalog plus a project overlay."
     }
   ],
   "metadata": {
-    "version": "1.1.0"
+    "version": "1.2.0"
   }
 }
