@@ -1,6 +1,6 @@
 # Compliance catalog
 
-Version: 1.1.0
+Version: 1.2.0
 
 The fixed rule set a design, spec, decision record or implementation plan is reviewed against. A review records one reading per rule, so review rounds converge.
 
@@ -97,7 +97,7 @@ Deciding rule ids are in `scenarios.md`.
 | # | Scenario | Domains |
 |---|---|---|
 | 1 | First install on an empty machine | LC, RL, ID, SC, CF, DS |
-| 2 | No-change release | LC, RL, SC, PF |
+| 2 | Release whose commit leaves a stage's inputs unchanged | LC, RL, SC, PF |
 | 3 | Release with changes | LC, RL, SC, PF, NO, PL |
 | 4 | From-scratch release | LC, RL, ID, CF, DS |
 | 5 | Release killed, timed out, or host reboot mid-stage | LC, HO, RL, SC, CI, DS |

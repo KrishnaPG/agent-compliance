@@ -5,7 +5,7 @@ Base catalog 1.1.0. Each scenario lists the base rules that decide it, and the p
 | # | Scenario | Base rules | Pack rules |
 |---|---|---|---|
 | 1 | First install on an empty machine | LC-01, LC-02, LC-05, LC-06, LC-07, LC-08, LC-16, LC-30, LC-33, RL-05, RL-06, RL-27, ID-14, LC-35, SC-14, CF-04, CF-06, DS-03, DS-12, ID-10, ID-06, RL-10 | KF-04, KF-02, KF-12 |
-| 2 | No-change release | PF-12, PF-02, LC-03, RL-09, SC-05 | KF-05, KF-07 |
+| 2 | Release whose commit leaves a stage's inputs unchanged | PF-12, PF-02, LC-03, RL-09, SC-05 | KF-05, KF-07 |
 | 3 | Release with changes | LC-03, LC-23, LC-24, LC-25, LC-32, NO-20, LC-02, PL-03, PF-12, PF-03, RL-28, SC-05, SC-11, NO-24, NO-25 | TF-04, KF-07 |
 | 4 | From-scratch release | LC-02, LC-19, LC-20, LC-16, DS-01, DS-02, DS-07, DS-10, DS-12, DS-09, RL-27, CF-04, RL-05, ID-06 | KF-10 |
 | 5 | Release killed, timed out, or host reboot mid-stage | LC-18, LC-21, LC-28, RL-06, RL-07, RL-14, RL-17, HO-17, HO-32, HO-06, DS-10, SC-11, CI-13 | TF-02, KF-06, SD-01 |

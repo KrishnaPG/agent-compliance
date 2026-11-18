@@ -6,3 +6,4 @@
 - 1.1.0: ID-09 states its NA condition (no inbound surface).
 - 1.1.0: ID-05, ID-07, ID-10, ID-14, CI-05, CI-07, CI-08 test questions ask for the concrete failing input or location, with the NA condition where one exists.
 - 1.1.0: index.md readings: an absence is BROKEN only when the rule requires the artifact to state it.
+- 1.2.0: PF-12 and scenario 2: no "no-change release" (a commit already released does not start a release; a release runs only the stages its commit changed, each skip on the owner's recorded state).
