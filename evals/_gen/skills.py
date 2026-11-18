@@ -9,13 +9,13 @@ def tool(name,tool,match,lo,hi=None):
 def rx(name,pat,match=None,target=None,flags=None):
     return name,f"---\ntype: regex\npattern: '{pat}'\n"+(f"match: {match}\n" if match else "")+(f"target: {target}\n" if target else "")+(f"flags: {flags}\n" if flags else "")+"---\n"
 NODUP=rx("no-catalog-file-read-twice", r'file_path\\?":\s*\\?"([^"\\]*/catalog/[^"\\]+)\\?"[\s\S]*file_path\\?":\s*\\?"\1\\?"','not_contains','trace')
-def case(name,skill,files,ask,graders,turns):
+def case(name,skill,files,ask,graders,turns,tools='Skill, Read, Glob, Grep, Agent',env='No shell or network is available in this session and nothing can be written'):
     d=f"{R}/{name}"; p=d+'/proj'
     for rel,txt in files.items():
         os.makedirs(os.path.dirname(f"{p}/{rel}"),exist_ok=True); open(f"{p}/{rel}",'w').write(txt)
     os.makedirs(d+'/graders')
     open(d+'/case.yaml','w').write(f'schema_version: "1.1"\nname: {name}\ncontext:\n  add_dirs: [proj]\n')
-    open(d+'/prompt.md','w').write(f"---\ntags: [skills]\nmodel: sonnet\nmax_turns: {turns}\ntimeout_seconds: 900\nallowed_tools: [Skill, Read, Glob, Grep, Agent]\n---\nThe project is the directory {p}. No shell or network is available in this session and nothing can be written; put the result in your reply.\n\n{ask}\n")
+    open(d+'/prompt.md','w').write(f"---\ntags: [skills]\nmodel: sonnet\nmax_turns: {turns}\ntimeout_seconds: 900\nallowed_tools: [{tools}]\n---\nThe project is the directory {p}. {env}; put the result in your reply.\n\n{ask}\n")
     for n,g in [tool('skill-fired','Skill',skill,1),NODUP]+graders: open(f"{d}/graders/{n}.md",'w').write(g)
 CLEAN='''import datetime, subprocess
 
@@ -117,3 +117,16 @@ case('oss-judged-by-rule-ids','vet-oss',{'scripts/backup.sh':BK,'clone/tinybacku
  rx('supply-chain-rule-broken',r'SC-\d\d[^\n]*BROKEN'),
  rx('not-presented',r'no OSS meets the rules',flags='i'),
  rx('gives-setup-prompt',r'compliance bindings from templates/compliance-bindings\.md',flags='i')],40)
+CP='''#!/bin/sh
+# Copies rows changed since the last run from the source database to the replica, once a minute.
+while true; do
+  psql "$SOURCE_URL" -c "\\copy (SELECT * FROM orders WHERE updated_at > now() - interval '1 minute') TO STDOUT" |
+    psql "$REPLICA_URL" -c "\\copy orders FROM STDIN"
+  sleep 60
+done
+'''
+case('established-no-clone','vet-oss',{'scripts/copy-changes.sh':CP},
+ "scripts/copy-changes.sh copies changed rows between two PostgreSQL 16 databases by polling a timestamp column every minute. Should we replace it with PostgreSQL 16's built-in logical replication (publication and subscription)? There is no bindings file and no overlay.",[
+ tool('no-clone','Bash',r'git clone',0,0),
+ rx('versioned-docs-cited',r'postgresql\.org/docs/16')],30,
+ tools='Skill, Read, Glob, Grep, Bash, WebFetch',env='Nothing in it may be written')
