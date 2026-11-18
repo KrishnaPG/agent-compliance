@@ -1,6 +1,6 @@
 ---
 name: compliance-review
-description: Review a design, spec, ADR, implementation plan or diff for compliance against a fixed rule catalog (the ready-made base catalog plus the project's overlay) and return one HELD/BROKEN/NA verdict per rule, so review rounds converge instead of finding new ad-hoc issues. Use for any design, spec, plan or architecture review, a re-review after fixes, or a check that a plan can be followed without decisions. Do NOT use to build or change a catalog (use compliance-catalog).
+description: Review a design, spec, ADR, implementation plan or diff against a fixed rule catalog (the base catalog plus the project's overlay): one HELD/BROKEN/NA verdict per rule, so review rounds converge. Load before reading the artifact for any design, spec, plan or architecture review, a re-review after fixes, or a check that a plan can be followed as written, without decisions. Do NOT use to hunt bugs in code or a PR, to choose between options (vetted-decision), or to build or change a catalog (compliance-catalog).
 ---
 
 # Compliance review

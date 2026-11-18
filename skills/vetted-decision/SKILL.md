@@ -1,6 +1,6 @@
 ---
 name: vetted-decision
-description: Decide a design question by judging every option against the compliance catalog and recommending one with no BROKEN rule. Load before any research when a design must be chosen or recommended - adopt, replace, move or delete a mechanism; X or Y; who owns X; a path that failed twice; any option list for the project owner. Do NOT use for which work to do next, a mechanical edit of a settled design, explaining code, running checks, or choosing a third-party tool (vet-oss first).
+description: Decide a design question by judging every option against the compliance catalog and recommending one with no BROKEN rule. Load before any research when a design must be chosen or recommended - adopt, replace, move or delete a mechanism; X or Y; who owns X; a path that failed twice; any option list for the project owner. Do NOT use for which work to do next, a mechanical edit of a settled design, explaining code, running checks, or whether to adopt or pick a third-party tool (vet-oss).
 ---
 
 # Vetted decision

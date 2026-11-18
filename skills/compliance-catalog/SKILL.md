@@ -1,6 +1,6 @@
 ---
 name: compliance-catalog
-description: Build or rebuild a compliance rule catalog: a project's overlay (its own rules beyond the base catalog) or the base catalog itself, then audit it for weakness with a fresh agent that shares no context with the author. Use only when a project has no overlay yet, its own rules changed, a "possible missing rule" was accepted, or an industry standard changed. Normal reviews use compliance-review with the existing catalog and never rebuild.
+description: Build or rebuild a compliance rule catalog: a project's overlay (its own rules beyond the base catalog) or the base catalog itself, then audit it with a fresh agent. Load before any search when a project has no overlay yet, its own rules changed, a "possible missing rule" was accepted, or an industry standard changed. Do NOT use to review an artifact (compliance-review); a review never rebuilds the catalog.
 ---
 
 # Compliance catalog

@@ -1,7 +1,7 @@
 ---
 tags: [trigger, no-trigger]
 model: sonnet
-max_turns: 6
+max_turns: 2
 allowed_tools: [Skill]
 ---
 Explain what this function does:

@@ -1,5 +1,5 @@
-Key: docs/design.md@60fed050f25e | base 1.0.0 | overlay f2ba8695ef26 | packs postgresql | scope all
-Catalog: base 1.0.0 + packs postgresql + overlay docs/agents/design-compliance.md (built against base 1.0.0)
+Key: docs/design.md@60fed050f25e | base 1.1.0 | overlay 1b5dd5b623cc | packs postgresql | scope all
+Catalog: base 1.1.0 + packs postgresql + overlay docs/agents/design-compliance.md (built against base 1.1.0)
 Artifact: docs/design.md
 Scope: DC, DS, PN, PR; out of scope: every other domain: no surface in this design
 Verdict: FAIL (2 BROKEN)

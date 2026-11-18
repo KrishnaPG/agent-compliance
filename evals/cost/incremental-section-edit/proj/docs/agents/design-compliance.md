@@ -1,6 +1,6 @@
 # Design compliance overlay (mini project)
 
-Base: 1.0.0 | Packs: postgresql | Date: 2026-11-18 | Sources: a1b2c3d | Verdicts: docs/reviews/compliance/<artifact-name>.md
+Base: 1.1.0 | Packs: postgresql | Date: 2026-11-18 | Sources: a1b2c3d | Verdicts: docs/reviews/compliance/<artifact-name>.md
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|
