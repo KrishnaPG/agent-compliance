@@ -1,6 +1,12 @@
 {
   "name": "agent-compliance",
-  "version": "0.1.0",
-  "description": "Review designs, specs and plans for compliance against a ready-made catalog of industry-standard rules plus a project's own rules: one HELD/BROKEN/NA verdict per rule, so review rounds converge.",
-  "keywords": ["review", "compliance", "standards", "design", "plan"]
+  "version": "1.1.0",
+  "description": "Review designs, specs, plans, design decisions, OSS tool choices and bug records against a ready-made catalog of industry-standard rules plus a project's own rules: one HELD/BROKEN/NA verdict per rule, cached by key, so reviews converge and repeat runs cost little.",
+  "keywords": [
+    "review",
+    "compliance",
+    "standards",
+    "design",
+    "plan"
+  ]
 }
