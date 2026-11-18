@@ -1,0 +1,6 @@
+{
+  "name": "agent-compliance",
+  "version": "0.1.0",
+  "description": "Review designs, specs and plans for compliance against a ready-made catalog of industry-standard rules plus a project's own rules: one HELD/BROKEN/NA verdict per rule, so review rounds converge.",
+  "keywords": ["review", "compliance", "standards", "design", "plan"]
+}

@@ -1,0 +1,14 @@
+{
+  "name": "agent-compliance",
+  "owner": { "name": "KrishnaPG" },
+  "description": "Compliance catalogs and review skills for design and plan reviews.",
+  "plugins": [
+    {
+      "name": "agent-compliance",
+      "source": "./",
+      "version": "0.1.0",
+      "description": "Review designs, specs and plans against a ready-made industry-standard rule catalog plus a project overlay."
+    }
+  ],
+  "metadata": { "version": "0.1.0" }
+}
