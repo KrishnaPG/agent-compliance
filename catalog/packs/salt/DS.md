@@ -1,6 +1,6 @@
 # Salt pack, DS rules
 
-Pack `salt` for base catalog 1.0.0. Scope: requisites, concurrent runs, managed directories, secrets at render. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `salt` for base catalog 1.1.0. Scope: requisites, concurrent runs, managed directories, secrets at render. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

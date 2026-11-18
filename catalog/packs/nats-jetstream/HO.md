@@ -1,6 +1,6 @@
 # NATS JetStream pack, HO rules
 
-Pack `nats-jetstream` for base catalog 1.0.0. Scope: streams, consumers, message ids, users and accounts, dead letters. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `nats-jetstream` for base catalog 1.1.0. Scope: streams, consumers, message ids, users and accounts, dead letters. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

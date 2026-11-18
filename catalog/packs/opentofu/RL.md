@@ -1,6 +1,6 @@
 # OpenTofu pack, RL rules
 
-Pack `opentofu` for base catalog 1.0.0. Scope: state, locking, plans, secrets in state, destroy protection. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `opentofu` for base catalog 1.1.0. Scope: state, locking, plans, secrets in state, destroy protection. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

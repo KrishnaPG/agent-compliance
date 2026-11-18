@@ -1,6 +1,6 @@
 # NO: Native owners and least code
 
-Base catalog 1.0.0. Scope: use the owner directly, OSS before code, lowest native rung, delete replaced wiring, no over-engineering. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: use the owner directly, OSS before code, lowest native rung, delete replaced wiring, no over-engineering. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # React web frontend pack, UI rules
 
-Pack `react` for base catalog 1.0.0. Scope: request data, push channels, render flow, modularity. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `react` for base catalog 1.1.0. Scope: request data, push channels, render flow, modularity. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

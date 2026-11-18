@@ -1,6 +1,6 @@
 # Google Cloud pack, ID rules
 
-Pack `gcp` for base catalog 1.0.0. Scope: IAM, service accounts, workload identity federation, audit logging. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `gcp` for base catalog 1.1.0. Scope: IAM, service accounts, workload identity federation, audit logging. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

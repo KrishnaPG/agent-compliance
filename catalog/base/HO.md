@@ -1,6 +1,6 @@
 # HO: Hand-offs and remote calls
 
-Base catalog 1.0.0. Scope: messaging between owners, acknowledgement, idempotency, retries, deadlines, dead letters, sagas, reconciliation. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: messaging between owners, acknowledgement, idempotency, retries, deadlines, dead letters, sagas, reconciliation. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

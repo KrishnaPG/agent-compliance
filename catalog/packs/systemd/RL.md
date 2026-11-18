@@ -1,6 +1,6 @@
 # systemd pack, RL rules
 
-Pack `systemd` for base catalog 1.0.0. Scope: unit timeouts and results, ordering, drop-ins, timers. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `systemd` for base catalog 1.1.0. Scope: unit timeouts and results, ordering, drop-ins, timers. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

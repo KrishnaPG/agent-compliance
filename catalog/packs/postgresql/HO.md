@@ -1,6 +1,6 @@
 # PostgreSQL pack, HO rules
 
-Pack `postgresql` for base catalog 1.0.0. Scope: shared cluster, per-tenant configuration, replication slots. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `postgresql` for base catalog 1.1.0. Scope: shared cluster, per-tenant configuration, replication slots. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

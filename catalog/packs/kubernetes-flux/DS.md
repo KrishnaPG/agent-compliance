@@ -1,6 +1,6 @@
 # Kubernetes with Flux pack, DS rules
 
-Pack `kubernetes-flux` for base catalog 1.0.0. Scope: one applier, dependency edges, health, intervals, Jobs, Helm, prune, secrets by External Secrets Operator, admission webhook. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `kubernetes-flux` for base catalog 1.1.0. Scope: one applier, dependency edges, health, intervals, Jobs, Helm, prune, secrets by External Secrets Operator, admission webhook. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

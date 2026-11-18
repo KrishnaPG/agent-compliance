@@ -1,6 +1,6 @@
 # CF: Configuration and portability
 
-Base catalog 1.0.0. Scope: no hardcoded setup, one record, class parity, zero remembrance, named boundaries. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: no hardcoded setup, one record, class parity, zero remembrance, named boundaries. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

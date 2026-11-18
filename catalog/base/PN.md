@@ -1,6 +1,6 @@
 # PN: Plans
 
-Base catalog 1.0.0. Scope: step format a junior can follow, gates, traceability, real-flow evidence, rollback order. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: step format a junior can follow, gates, traceability, real-flow evidence, rollback order. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # PF: Performance and footprint
 
-Base catalog 1.0.0. Scope: budgets with numbers, dirty-only work, parallelism, zero-copy, bounded settings. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: budgets with numbers, dirty-only work, parallelism, zero-copy, bounded settings. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # OB: Observability
 
-Base catalog 1.0.0. Scope: operator screens, alerts, telemetry bounds, audit records, unknown is not healthy. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: operator screens, alerts, telemetry bounds, audit records, unknown is not healthy. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

@@ -1,6 +1,6 @@
 # DC: Documents
 
-Base catalog 1.0.0. Scope: current-rule documents, one home per rule, conflicts named, no assumed capability. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: current-rule documents, one home per rule, conflicts named, no assumed capability. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

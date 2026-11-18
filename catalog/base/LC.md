@@ -1,6 +1,6 @@
 # LC: Lifecycle and ownership
 
-Base catalog 1.0.0. Scope: levels, parent-first acquisition, child-first release, crash recovery, one owner per fact, lineage. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: levels, parent-first acquisition, child-first release, crash recovery, one owner per fact, lineage. Each row is the whole rule; judge it from the row alone.
 
 The default lifecycle model. A project may tighten it in its overlay. A project that uses another level model states the mapping of its levels to L0-L6 in its overlay header; the rows are then read through that mapping.
 

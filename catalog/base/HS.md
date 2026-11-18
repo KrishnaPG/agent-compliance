@@ -1,6 +1,6 @@
 # HS: Hand-off scenarios
 
-Base catalog 1.0.0. Scope: one row per kind of hand-off (event, command, webhook, bulk transfer, projection, repair, deletion, control plane). Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: one row per kind of hand-off (event, command, webhook, bulk transfer, projection, repair, deletion, control plane). Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

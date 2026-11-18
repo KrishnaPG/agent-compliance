@@ -1,6 +1,6 @@
 # RL: Reliability and recovery
 
-Base catalog 1.0.0. Scope: detect, remediate, verify, escalate; deadlines; no timers; idempotent re-runs; rollback; unattended runs. Each row is the whole rule; judge it from the row alone.
+Base catalog 1.1.0. Scope: detect, remediate, verify, escalate; deadlines; no timers; idempotent re-runs; rollback; unattended runs. Each row is the whole rule; judge it from the row alone.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

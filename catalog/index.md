@@ -1,6 +1,6 @@
 # Compliance catalog
 
-Version: 1.0.0
+Version: 1.1.0
 
 The fixed rule set a design, spec, decision record or implementation plan is reviewed against. A review records one reading per rule, so review rounds converge.
 
@@ -17,6 +17,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 - `HELD`: the artifact location that satisfies the rule.
 - `BROKEN`: the rule id, the artifact location, the failing input, and the fix by the right standard, pattern or reused code. For a runtime domain (every domain but DC, PN, PR) the failing input is the concrete input or reachable state that gives a wrong product, data, money or recovery outcome. For DC, PN and PR the location that breaks the rule's text is enough.
 - `NA`: one sentence why the rule has no surface. A whole domain with no surface is `NA` with one sentence.
+- An absence is `BROKEN` only when the rule requires the artifact to state something (a declaration, a number, a named boundary); otherwise a rule the artifact does not touch is `NA`, never `BROKEN` for silence.
 - A requirement the reviewer infers and no row states is never `BROKEN`; it goes under `Possible missing rules` for the catalog owner.
 - The artifact passes when no rule is `BROKEN`. A re-review checks only the rules that were `BROKEN` and the rules whose evidence the fix touched.
 - A reading is a review record. It never qualifies a capability and never gates a commit or release.

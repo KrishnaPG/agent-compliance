@@ -1,6 +1,6 @@
 # Scenarios
 
-Base catalog 1.0.0. Each scenario lists the base rules that decide it, and the pack rules that add to them when the pack is in use. A scenario the artifact touches puts every listed rule in scope; the project overlay adds its own rules and scenarios.
+Base catalog 1.1.0. Each scenario lists the base rules that decide it, and the pack rules that add to them when the pack is in use. A scenario the artifact touches puts every listed rule in scope; the project overlay adds its own rules and scenarios.
 
 | # | Scenario | Base rules | Pack rules |
 |---|---|---|---|
