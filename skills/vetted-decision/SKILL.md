@@ -1,0 +1,44 @@
+---
+name: vetted-decision
+description: Decide a design question by judging every option against the compliance catalog and recommending one with no BROKEN rule. Load before any research when a design must be chosen or recommended - adopt, replace, move or delete a mechanism; X or Y; who owns X; a path that failed twice; any option list for the project owner. Do NOT use for which work to do next, a mechanical edit of a settled design, explaining code, running checks, or choosing a third-party tool (vet-oss first).
+---
+
+# Vetted decision
+
+The answer is its own proof: every verdict names a catalog rule id and its evidence. The rules come from the catalog, never from sources this skill picks.
+
+## Inputs
+
+- **Catalog and overlay:** as `../compliance-review/SKILL.md` "Inputs" loads them (index, in-scope domains, packs, the project overlay).
+- **Project bindings:** `docs/agents/compliance-bindings.md`, or the path the project's AGENTS.md or CLAUDE.md names. It gives the tracker, where a decision is recorded, the escalation categories and the evidence environment. No bindings file: put the decision in the reply and say it is unrecorded.
+
+**Once per question.** A decision is recorded where the bindings say, headed `Decision: <question>` with the date and commit. Search for that heading first: when one exists, reuse it and re-judge only the rows whose cited inputs (a `path:line`, a catalog rule, an owner's answer) changed since. Unchanged inputs give the same decision.
+
+**Short mode** (another skill asks about one item): reply with the Recommendation section alone, its BROKEN rows and the falsifying call.
+
+**Cost:** read line ranges, never whole documents; about 15 tool calls.
+
+## Steps
+
+1. **Current.** The code path that does it today and the approved clause that governs it, each as `path:line` plus a few words; then the effects any replacement must keep.
+2. **Options.** Always: keep the current design; each mechanism native to the owner (inside an adopted owner, lowest rung first, catalog NO-06); delete it. A third-party tool is an option only after `vet-oss` passed it.
+3. **Trace, per option.** Each value, secret and record hop by hop: producer, carrier, reader. Per hop: who can see a secret, whose privilege, who owns the fact, what happens on retry, crash and delete.
+4. **Judge, per option,** by the compliance-review method: scope the domains from `catalog/index.md`, then one row per in-scope rule, `| Rule | Option | HELD/BROKEN/NA | Evidence |`. Evidence is a `path:line` of the project's code or the owner's source, or a real call with the owner's answer. A runtime rule that only documentation supports is UNVERIFIED, never HELD. List only BROKEN, UNVERIFIED and the HELD rows that separate the options; give the count of the rest.
+5. **Attack the leading option.** What breaks if it is chosen: consumers, other installations, unattended runs, human steps, recovery (which failure goes unseen, what could be deleted, how it is restored). Each finding is a rule row in step 4.
+6. **Falsifying call.** The one real call whose answer would prove the recommendation wrong. Run it and show the owner's answer, never a secret value. Not runnable yet: the recommendation is UNVERIFIED and says so.
+7. **Recommendation.** One option with no BROKEN and no UNVERIFIED rule, and one line per rejected option naming the rule ids it broke. No option qualifies: say so, and name the rule and the redesign that would clear it. A point only the project owner decides (catalog PR-10: conflict between approved documents, new owner, wider privilege, retention, scope; the bindings' categories) is named as such with the recommendation; work continues around it.
+
+## Output
+
+```
+Decision: <question> (<date>, <commit>)
+Catalog: base <version> + packs <names> + overlay <path>@<commit>
+Current: ...
+Options: O1 keep ...; O2 ...; O3 delete ...
+Trace: <per option>
+| Rule | Option | Verdict | Evidence |
+Attack: ...
+Falsifying call: <call> -> <owner's answer>
+Recommendation: <option>; rejected: O2 (CI-09, HO-14), ...
+Owner decides: <category: question> or none
+```
