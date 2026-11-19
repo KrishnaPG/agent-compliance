@@ -1,0 +1,32 @@
+# ID-15 (authentication, signature and authorization checks run once, where
+# material enters the trust boundary), TypeScript. Written for ast-grep 0.51.3.
+# The harness runs this rule on every module except the project's
+# `entry_modules` bind; a match there is the one check at the entry.
+id: ID-15.typescript
+language: typescript
+severity: error
+message: Token or signature verification outside the entry (catalog ID-15). Verify once where material enters the trust boundary and pass the verified principal and claims inward.
+note: Flags jsonwebtoken jwt.verify, jose jwtVerify, compactVerify, flattenedVerify and generalVerify, node crypto verify and createVerify, and verifySignature or verify_signature calls.
+metadata:
+  catalog: [ID-15]
+  pack: base
+rule:
+  kind: call_expression
+  any:
+    - pattern: jwt.verify($$$)
+    - pattern: jsonwebtoken.verify($$$)
+    - pattern: jwtVerify($$$)
+    - pattern: compactVerify($$$)
+    - pattern: flattenedVerify($$$)
+    - pattern: generalVerify($$$)
+    - pattern: $JOSE.jwtVerify($$$)
+    - pattern: $JOSE.compactVerify($$$)
+    - pattern: $JOSE.flattenedVerify($$$)
+    - pattern: $JOSE.generalVerify($$$)
+    - pattern: crypto.verify($$$)
+    - pattern: createVerify($$$)
+    - pattern: crypto.createVerify($$$)
+    - pattern: verifySignature($$$)
+    - pattern: $OBJ.verifySignature($$$)
+    - pattern: verify_signature($$$)
+    - pattern: $OBJ.verify_signature($$$)

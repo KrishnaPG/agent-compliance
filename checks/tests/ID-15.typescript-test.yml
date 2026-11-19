@@ -1,0 +1,31 @@
+id: ID-15.typescript
+valid:
+  # handed the verified principal: no re-verification
+  - |
+    export function placeOrder(principal: Principal, order: Order) {
+      if (principal.tenantId !== order.tenantId) throw new Forbidden();
+      return repo.save(order);
+    }
+  # look-alikes that verify nothing
+  - |
+    const s = decodeURIComponent(q);
+    user.verify();
+    schema.verify(input);
+    const parts = token.split(".");
+invalid:
+  - |
+    const claims = jwt.verify(token, publicKey, { algorithms: ["RS256"] });
+  - |
+    const { payload } = await jwtVerify(token, JWKS, { issuer, audience });
+  - |
+    const { payload } = await jose.jwtVerify(token, key);
+  - |
+    const result = await compactVerify(jws, key);
+  - |
+    const ok = crypto.verify("sha256", data, publicKey, signature);
+  - |
+    const v = createVerify("SHA256");
+  - |
+    if (!verifySignature(body, sig, secret)) throw new Unauthorized();
+  - |
+    webhooks.verifySignature(req.body, req.headers["x-signature"]);

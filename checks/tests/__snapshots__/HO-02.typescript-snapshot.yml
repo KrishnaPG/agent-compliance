@@ -1,0 +1,38 @@
+id: HO-02.typescript
+snapshots:
+  "await producer.send({ topic: \"orders\", messages: [{ value }] });\n":
+    labels:
+    - source: "producer.send({ topic: \"orders\", messages: [{ value }] })"
+      style: primary
+      start: 6
+      end: 63
+  "await this.js.publish(subject, data);\n":
+    labels:
+    - source: this.js.publish(subject, data)
+      style: primary
+      start: 6
+      end: 36
+  "await this.kafkaProducer.sendBatch({ topicMessages });\n":
+    labels:
+    - source: this.kafkaProducer.sendBatch({ topicMessages })
+      style: primary
+      start: 6
+      end: 53
+  "const ack = await js.publish(\"orders.created\", payload);\n":
+    labels:
+    - source: js.publish("orders.created", payload)
+      style: primary
+      start: 18
+      end: 55
+  "nc.publish(\"orders.created\", payload);\n":
+    labels:
+    - source: nc.publish("orders.created", payload)
+      style: primary
+      start: 0
+      end: 37
+  "producer.produce(\"orders\", null, Buffer.from(value));\n":
+    labels:
+    - source: producer.produce("orders", null, Buffer.from(value))
+      style: primary
+      start: 0
+      end: 52

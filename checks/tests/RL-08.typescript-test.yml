@@ -1,0 +1,53 @@
+id: RL-08.typescript
+valid:
+  # a single timeout outside a loop (a deadline, not a wait loop)
+  - |
+    const timer = setTimeout(() => controller.abort(), 5000);
+  # a loop that blocks on the producer's event
+  - |
+    for await (const msg of sub) {
+      await handle(msg);
+      msg.ack();
+    }
+  # a sleep inside a function declared in a loop body belongs to that function
+  - |
+    for (const name of names) {
+      function later() { setTimeout(run, 10); }
+      register(name, later);
+    }
+  # interval settings that are not polling
+  - |
+    const retryInterval = 0;
+    const opts = { heartbeatInterval: 5, interval: 1 };
+invalid:
+  - |
+    setInterval(() => refresh(), 1000);
+  - |
+    window.setInterval(check, 500);
+  - |
+    while (true) {
+      if (await isDone(id)) break;
+      await sleep(1000);
+    }
+  - |
+    for (let i = 0; i < 10; i++) {
+      if (await ready()) break;
+      await new Promise((resolve) => setTimeout(resolve, 200));
+    }
+  - |
+    do {
+      status = await getStatus();
+      await timers.setTimeout(250);
+    } while (status !== "done");
+  - |
+    const client = new Client({ pollInterval: 2000 });
+  - |
+    const opts = { polling_interval_ms: 100 };
+  - |
+    const POLL_INTERVAL = 5000;
+  - |
+    class Watcher {
+      pollIntervalMs = 1000;
+    }
+  - |
+    this.pollInterval = 3000;

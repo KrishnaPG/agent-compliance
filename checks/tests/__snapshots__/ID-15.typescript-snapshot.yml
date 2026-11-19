@@ -1,0 +1,50 @@
+id: ID-15.typescript
+snapshots:
+  "const claims = jwt.verify(token, publicKey, { algorithms: [\"RS256\"] });\n":
+    labels:
+    - source: "jwt.verify(token, publicKey, { algorithms: [\"RS256\"] })"
+      style: primary
+      start: 15
+      end: 70
+  "const ok = crypto.verify(\"sha256\", data, publicKey, signature);\n":
+    labels:
+    - source: crypto.verify("sha256", data, publicKey, signature)
+      style: primary
+      start: 11
+      end: 62
+  "const result = await compactVerify(jws, key);\n":
+    labels:
+    - source: compactVerify(jws, key)
+      style: primary
+      start: 21
+      end: 44
+  "const v = createVerify(\"SHA256\");\n":
+    labels:
+    - source: createVerify("SHA256")
+      style: primary
+      start: 10
+      end: 32
+  "const { payload } = await jose.jwtVerify(token, key);\n":
+    labels:
+    - source: jose.jwtVerify(token, key)
+      style: primary
+      start: 26
+      end: 52
+  "const { payload } = await jwtVerify(token, JWKS, { issuer, audience });\n":
+    labels:
+    - source: jwtVerify(token, JWKS, { issuer, audience })
+      style: primary
+      start: 26
+      end: 70
+  "if (!verifySignature(body, sig, secret)) throw new Unauthorized();\n":
+    labels:
+    - source: verifySignature(body, sig, secret)
+      style: primary
+      start: 5
+      end: 39
+  "webhooks.verifySignature(req.body, req.headers[\"x-signature\"]);\n":
+    labels:
+    - source: webhooks.verifySignature(req.body, req.headers["x-signature"])
+      style: primary
+      start: 0
+      end: 62

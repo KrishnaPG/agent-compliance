@@ -1,0 +1,61 @@
+{
+  "version": 1,
+  "checks": [
+    {
+      "rule": "RL-08",
+      "pack": "base",
+      "ecosystem": "python",
+      "tool": "ast-grep",
+      "file": "checks/base/RL-08.python.yml",
+      "binds": []
+    },
+    {
+      "rule": "RL-08",
+      "pack": "base",
+      "ecosystem": "typescript",
+      "tool": "ast-grep",
+      "file": "checks/base/RL-08.typescript.yml",
+      "binds": []
+    },
+    {
+      "rule": "HO-02",
+      "pack": "base",
+      "ecosystem": "python",
+      "tool": "ast-grep",
+      "file": "checks/base/HO-02.python.yml",
+      "binds": [
+        "outbox_modules"
+      ]
+    },
+    {
+      "rule": "HO-02",
+      "pack": "base",
+      "ecosystem": "typescript",
+      "tool": "ast-grep",
+      "file": "checks/base/HO-02.typescript.yml",
+      "binds": [
+        "outbox_modules"
+      ]
+    },
+    {
+      "rule": "ID-15",
+      "pack": "base",
+      "ecosystem": "python",
+      "tool": "ast-grep",
+      "file": "checks/base/ID-15.python.yml",
+      "binds": [
+        "entry_modules"
+      ]
+    },
+    {
+      "rule": "ID-15",
+      "pack": "base",
+      "ecosystem": "typescript",
+      "tool": "ast-grep",
+      "file": "checks/base/ID-15.typescript.yml",
+      "binds": [
+        "entry_modules"
+      ]
+    }
+  ]
+}

@@ -1,0 +1,54 @@
+id: RL-08.python
+valid:
+  # a single delay outside any loop is not a polling loop
+  - |
+    import time
+    time.sleep(0.1)
+  # a loop that blocks on the producer's event, not on a timer
+  - |
+    async def consume(sub):
+        async for msg in sub.messages:
+            await handle(msg)
+            await msg.ack()
+  # a sleep inside a function defined in a loop body belongs to that function
+  - |
+    for name in names:
+        def later():
+            time.sleep(1)
+        register(name, later)
+  # interval settings that are not polling
+  - |
+    retention_interval = 30
+    configure(heartbeat_interval=5, flush_interval=1)
+  - |
+    settings = {"interval": 5, "poller": "native"}
+invalid:
+  - |
+    while True:
+        if job_done(job_id):
+            break
+        time.sleep(5)
+  - |
+    async def wait_ready():
+        while not await ready():
+            await asyncio.sleep(1)
+  - |
+    for attempt in range(10):
+        if fetch():
+            break
+        sleep(2)
+  - |
+    import trio
+    async def watch():
+        while True:
+            await trio.sleep(0.5)
+  - |
+    client = Client(poll_interval=2)
+  - |
+    run(polling_interval_seconds=10)
+  - |
+    POLL_INTERVAL = 5
+  - |
+    self.poll_interval = 3
+  - |
+    config = {"poll_interval_ms": 500}

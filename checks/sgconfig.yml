@@ -1,0 +1,4 @@
+ruleDirs:
+  - base
+testConfigs:
+  - testDir: tests

@@ -1,0 +1,104 @@
+id: RL-08.python
+snapshots:
+  "POLL_INTERVAL = 5\n":
+    labels:
+    - source: POLL_INTERVAL = 5
+      style: primary
+      start: 0
+      end: 17
+    - source: POLL_INTERVAL
+      style: secondary
+      start: 0
+      end: 13
+  "async def wait_ready():\n    while not await ready():\n        await asyncio.sleep(1)\n":
+    labels:
+    - source: asyncio.sleep(1)
+      style: primary
+      start: 67
+      end: 83
+    - source: |-
+        while not await ready():
+                await asyncio.sleep(1)
+      style: secondary
+      start: 28
+      end: 83
+  "client = Client(poll_interval=2)\n":
+    labels:
+    - source: poll_interval=2
+      style: primary
+      start: 16
+      end: 31
+    - source: poll_interval
+      style: secondary
+      start: 16
+      end: 29
+  "config = {\"poll_interval_ms\": 500}\n":
+    labels:
+    - source: "\"poll_interval_ms\": 500"
+      style: primary
+      start: 10
+      end: 33
+    - source: "\"poll_interval_ms\""
+      style: secondary
+      start: 10
+      end: 28
+  "for attempt in range(10):\n    if fetch():\n        break\n    sleep(2)\n":
+    labels:
+    - source: sleep(2)
+      style: primary
+      start: 60
+      end: 68
+    - source: |-
+        for attempt in range(10):
+            if fetch():
+                break
+            sleep(2)
+      style: secondary
+      start: 0
+      end: 68
+  "import trio\nasync def watch():\n    while True:\n        await trio.sleep(0.5)\n":
+    labels:
+    - source: trio.sleep(0.5)
+      style: primary
+      start: 61
+      end: 76
+    - source: |-
+        while True:
+                await trio.sleep(0.5)
+      style: secondary
+      start: 35
+      end: 76
+  "run(polling_interval_seconds=10)\n":
+    labels:
+    - source: polling_interval_seconds=10
+      style: primary
+      start: 4
+      end: 31
+    - source: polling_interval_seconds
+      style: secondary
+      start: 4
+      end: 28
+  "self.poll_interval = 3\n":
+    labels:
+    - source: self.poll_interval = 3
+      style: primary
+      start: 0
+      end: 22
+    - source: self.poll_interval
+      style: secondary
+      start: 0
+      end: 18
+  "while True:\n    if job_done(job_id):\n        break\n    time.sleep(5)\n":
+    labels:
+    - source: time.sleep(5)
+      style: primary
+      start: 55
+      end: 68
+    - source: |-
+        while True:
+            if job_done(job_id):
+                break
+            time.sleep(5)
+      style: secondary
+      start: 0
+      end: 68

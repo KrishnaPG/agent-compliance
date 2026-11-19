@@ -1,0 +1,29 @@
+id: HO-02.python
+valid:
+  # an outbox row written in the change's transaction
+  - |
+    async with conn.transaction():
+        await conn.execute("insert into orders values ($1)", order_id)
+        await conn.execute("insert into outbox (subject, payload) values ($1, $2)", subj, body)
+  # look-alikes on objects that are not brokers
+  - |
+    sock.send(data)
+    gen.send(None)
+    article.publish()
+    post.publish(at=now)
+    channel_layer.group_send(group, msg)
+invalid:
+  - |
+    await nc.publish("orders.created", payload)
+  - |
+    ack = await js.publish("orders.created", payload)
+  - |
+    await self.js.publish(subject, data, headers=h)
+  - |
+    producer.produce("orders", value=payload)
+  - |
+    producer.send("orders", payload)
+  - |
+    await self.kafka_producer.send_and_wait("orders", payload)
+  - |
+    await jetstream.publish_async(subject, data)

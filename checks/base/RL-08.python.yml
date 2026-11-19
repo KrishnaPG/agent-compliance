@@ -1,0 +1,43 @@
+# RL-08 (no timer or waiting loop of ours) and LC-17 (a wait is on the owner's
+# native primitive, without polling), Python. Written for ast-grep 0.51.3.
+# A `while True` loop whose body sleeps is reported at its sleep call.
+id: RL-08.python
+language: python
+severity: error
+message: Polling or timed wait (catalog RL-08, LC-17). Block on the producer's event through its native mechanism instead.
+note: Flags a sleep inside a loop (time, asyncio, trio, anyio or a bare sleep), and a polling-interval setting named like poll*interval* or polling_interval*.
+metadata:
+  catalog: [RL-08, LC-17]
+  pack: base
+rule:
+  any:
+    - all:
+        - kind: call
+        - any:
+            - pattern: time.sleep($$$)
+            - pattern: asyncio.sleep($$$)
+            - pattern: trio.sleep($$$)
+            - pattern: anyio.sleep($$$)
+            - pattern: sleep($$$)
+        - inside:
+            any:
+              - kind: for_statement
+              - kind: while_statement
+            stopBy:
+              any:
+                - kind: function_definition
+                - kind: lambda
+                - kind: for_statement
+                - kind: while_statement
+    - kind: keyword_argument
+      has:
+        field: name
+        regex: '(?i)^_*poll(ing)?_?[a-z0-9_]*interval'
+    - kind: assignment
+      has:
+        field: left
+        regex: '(?i)(^|\.)_*poll(ing)?_?[a-z0-9_]*interval[a-z0-9_]*$'
+    - kind: pair
+      has:
+        field: key
+        regex: '(?i)^["'']_*poll(ing)?_?[a-z0-9_]*interval'

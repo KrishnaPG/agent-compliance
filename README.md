@@ -1,6 +1,6 @@
 # agent-compliance
 
-A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of industry-standard rules (321 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged the same way each time.
+A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of industry-standard rules (326 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged the same way each time.
 
 ## Why use it
 
@@ -12,7 +12,7 @@ A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, de
 
 ## Salient features
 
-- Ready-made base catalog: 321 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 63 generic scenarios that each name the rules that decide them.
+- Ready-made base catalog: 326 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 63 generic scenarios that each name the rules that decide them.
 - Opt-in technology packs: `gcp`, `opentofu`, `nats-jetstream`, `kubernetes-flux`, `react`, `postgresql`, `systemd`, `salt` (56 rules).
 - Project overlay: your own rules, and rows that tighten a base or pack rule.
 - Incremental re-review: only BROKEN rules, touched anchors and changed catalog ids are re-run.
@@ -118,7 +118,13 @@ catalog/
   packs/<pack>/<DOMAIN>.md  technology packs a project opts into
   scenarios.md     generic scenarios with the base and pack rules that decide each
   CHANGES.md       one line per added or changed rule id, per base version
+checks/
+  index.json       every static check: rule id, pack, ecosystem, tool, file, project binds
+  base/<RULE>.<ecosystem>.yml  ast-grep rules that find a base rule's breach in code
+  tests/           ast-grep rule tests (valid and invalid cases) and their snapshots
 ```
+
+**Checks** (`checks/README.md`) are static checks that give code evidence for some rules (no polling, publish only after commit, verify once at entry). The harness runs them by default; a project opts a rule out only in its overlay, with a reason.
 
 **A rule row** has four columns: `ID | Rule | Provenance | Test question`. The rule is a full testable statement (must or never, its numbers, its exceptions, the case it governs). Provenance names the project file or external standard it comes from; it is not something a reviewer needs to open. The test question tells the reviewer what to look for. Pack rule ids carry the pack prefix (for example `KF-04`, `TF-02`, `PG-01`).
 
