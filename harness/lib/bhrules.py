@@ -377,7 +377,7 @@ def classes(cfg: Any, bricks: list[dict[str, Any]], root: Path) -> dict[str, set
 def packet_rules(
     cfg: Any, brick: dict[str, Any], bricks: list[dict[str, Any]]
 ) -> list[dict[str, str]]:
-    """The packet's rules: the item's own ``rules`` (the plan agent picks them), most often
+    """The packet's rules: the item's own ``rules`` (the plan agent picks them) less any a brick it depends on embodies, most often
     broken in findings first, at most ``limits.packet_rules``, each ``{id, text}``."""
     _, packs = detect(cfg.dir)
     rows = rule_rows(cfg, packs | set(cfg.data.get("standards", {}).get("packs", [])))
@@ -385,7 +385,14 @@ def packet_rules(
     for f in _findings(cfg):
         if f.get("rule"):
             broken[f["rule"]] = broken.get(f["rule"], 0) + 1
-    ids = sorted(dict.fromkeys(brick.get("rules", [])), key=lambda r: (-broken.get(r, 0), r))
+    used = {
+        r
+        for d in brick.get("depends_on", [])
+        for x in bricks
+        if x["id"] == d
+        for r in x.get("embodies", [])
+    }
+    ids = sorted(set(brick.get("rules", [])) - used, key=lambda r: (-broken.get(r, 0), r))
     return [{"id": r, "text": rows.get(r, "")} for r in ids[: cfg.limit("packet_rules")]]
 
 

@@ -313,6 +313,8 @@ def test_the_packet_has_the_items_own_rules_with_one_line_each(toy):
     assert got["NO-02"] == "OSS before code."
     assert got["RL-05"] == "A process waits on its dependency's native readiness."
     assert rules_of(toy, "json-writer") == []  # no rules of its own
+    plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(depends_on=["json-writer"]))
+    assert "HO-02" not in {r["id"] for r in rules_of(toy)}  # embodied by a brick it uses
 
 
 def test_findings_rank_the_rules_and_the_limit_caps_them(toy):
