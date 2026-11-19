@@ -1,0 +1,100 @@
+#!/usr/bin/env python3
+"""The files tracker adapter: entries kept as .brick-harness/work/<ref>.json, one committed
+file each (so branches merge per file), printed in the shapes of schema/tracker.schema.json.
+
+Used only when no tracker is configured; the runner calls it as the files adapter's commands.
+The directory is $BH_WORK_DIR, else .brick-harness/work under the current directory.
+Exit 0, or 2 with {"error": ...} on stderr.
+
+  bh-work create --title T [--body B] [--type item] [--parent REF] [--deps kind:REF,...]
+          [--labels a,b] [--metadata JSON]       prints {"ref": ...} (same content, same ref)
+  bh-work show REF                                prints the entry
+  bh-work list --limit N [--state open|live|closed|all] [--parent REF] [--type T] [--key K]
+  bh-work link REF TO --kind blocks|discovered-from|related|tracks|parent-child
+  bh-work state REF open|in_progress|closed|deferred [--note TEXT] [--assignee NAME]
+"""
+
+import argparse
+import json
+import os
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhtracker import (  # noqa: E402
+    HarnessError,
+    loads,
+    work_create,
+    work_list,
+    work_read,
+    work_view,
+    work_write,
+)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-work", description=__doc__.splitlines()[0])
+    sub = ap.add_subparsers(dest="op", required=True)
+    c = sub.add_parser("create")
+    c.add_argument("--title", required=True)
+    c.add_argument("--body", default="")
+    c.add_argument("--type", default="item")
+    c.add_argument("--parent")
+    c.add_argument("--deps", default="")
+    c.add_argument("--labels", default="")
+    c.add_argument("--metadata", default="{}")
+    sub.add_parser("show").add_argument("ref")
+    li = sub.add_parser("list")
+    li.add_argument("--limit", type=int, default=50)
+    li.add_argument("--state", default="live")
+    li.add_argument("--parent")
+    li.add_argument("--type")
+    li.add_argument("--key")
+    k = sub.add_parser("link")
+    k.add_argument("ref")
+    k.add_argument("to")
+    k.add_argument("--kind", default="blocks")
+    s = sub.add_parser("state")
+    s.add_argument("ref")
+    s.add_argument("to", choices=["open", "in_progress", "closed", "deferred"])
+    s.add_argument("--note", default="")
+    s.add_argument("--assignee")
+    a = ap.parse_args()
+    d = Path(os.environ.get("BH_WORK_DIR") or ".brick-harness/work")
+    try:
+        if a.op == "create":
+            e = work_create(
+                d, a.title, a.body, a.type, a.parent,
+                [x for x in a.deps.split(",") if x], [x for x in a.labels.split(",") if x],
+                loads(a.metadata),
+            )
+            out = {"ref": e["ref"]}
+        elif a.op == "show":
+            out = work_view(work_read(d, a.ref))
+        elif a.op == "list":
+            out = [work_view(e) for e in work_list(d, a.limit, a.state, a.parent, a.type, a.key)]
+        elif a.op == "link":
+            e = work_read(d, a.ref)
+            lk = {"kind": a.kind, "to": a.to}
+            if lk not in e["links"]:
+                e["links"].append(lk)
+                work_write(d, e)
+            out = {"ref": a.ref}
+        else:
+            e = work_read(d, a.ref)
+            e["state"] = a.to
+            if a.assignee is not None:
+                e["assignee"] = a.assignee or None
+            if a.note:
+                e.setdefault("notes", []).append(a.note)
+            work_write(d, e)
+            out = {"ref": a.ref}
+        print(json.dumps(out))
+    except (HarnessError, OSError, ValueError, KeyError) as e:
+        print(json.dumps({"error": str(e)}), file=sys.stderr)
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

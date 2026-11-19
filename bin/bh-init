@@ -1,0 +1,97 @@
+#!/usr/bin/env python3
+"""Scaffold .brick-harness/ in a project; never overwrites an existing file.
+
+Writes .brick-harness/config.json (paths to the project's own documents, a standards
+section for the rule catalog layers, with placeholders) and .brick-harness/.gitignore
+(out/). It writes no project document unless asked: --missing features writes a features
+template. Unset values stay
+<placeholders>, which the gaps phase reports. It authors no rules and no decisions.
+Prints {"created", "kept"}. Exit 0, or 2 on error.
+
+  bh-init [--root DIR] [--features PATH ...] [--standards PATH ...] [--build-order PATH]
+          [--status PATH] [--test CMD] [--ecosystem NAME ...] [--missing features]
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+FEATURES = """# Features
+
+One section per feature. Every number states where it comes from.
+
+## F1 <name>
+
+- Acceptance checks:
+  - <given ... when ... then ...>
+- KPIs (numeric, with source):
+  - <metric> <op> <value> <unit>  (source: <who stated it, or the document and line>)
+"""
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-init", description=__doc__.splitlines()[0])
+    ap.add_argument("--root", default=".")
+    ap.add_argument("--features", nargs="*", default=["docs/features.md"])
+    ap.add_argument(
+        "--standards", nargs="*", default=[], help="rule documents, when there is no catalog"
+    )
+    ap.add_argument("--build-order", default=None)
+    ap.add_argument("--status", default=None)
+    ap.add_argument("--test", default="<test command writing JUnit XML to {out}/junit.xml>")
+    ap.add_argument("--ecosystem", nargs="*", default=["<ecosystem>"])
+    ap.add_argument(
+        "--missing",
+        nargs="*",
+        default=[],
+        choices=["features"],
+        help="project documents to start: a features template (opt in)",
+    )
+    a = ap.parse_args()
+    root = Path(a.root).resolve()
+    paths: dict[str, object] = {"features": a.features if len(a.features) != 1 else a.features[0]}
+    for key, val in (
+        ("standards", a.standards or None),
+        ("build_order", a.build_order),
+        ("status", a.status),
+    ):
+        if val:
+            paths[key] = val
+    config = {
+        "paths": paths,
+        "standards": {
+            "base_version": "<pinned catalog version>",
+            "packs": [],
+            "note": "Rules and checks come from this plugin's catalog (base, packs) and the "
+            "project overlay; set catalog to a path to use another. Missing layers are gaps.",
+        },
+        "commands": {"test": {"run": a.test, "junit": "{out}/junit.xml"}},
+        "ecosystems": a.ecosystem,
+    }
+    files = {
+        root / ".brick-harness" / "config.json": json.dumps(config, indent=2) + "\n",
+        root / ".brick-harness" / ".gitignore": "out/\n",
+    }
+    if "features" in a.missing:
+        for f in a.features:
+            files[root / f] = FEATURES
+    created, kept = [], []
+    try:
+        for path, text in files.items():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            try:
+                with path.open("x") as fh:  # exclusive: never overwrite
+                    fh.write(text)
+                created.append(str(path.relative_to(root)))
+            except FileExistsError:
+                kept.append(str(path.relative_to(root)))
+    except OSError as e:
+        print(json.dumps({"error": str(e)}))
+        return 2
+    print(json.dumps({"created": created, "kept": kept}))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

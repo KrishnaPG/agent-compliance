@@ -1,0 +1,203 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "work items (bricks and system items)",
+  "type": "object",
+  "required": [
+    "bricks"
+  ],
+  "properties": {
+    "bricks": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "job"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^[a-z0-9][a-z0-9-]*$"
+          },
+          "job": {
+            "type": "string",
+            "description": "The one job, in one sentence."
+          },
+          "kind": {
+            "enum": [
+              "brick",
+              "system",
+              "change"
+            ],
+            "description": "brick = a reusable package (early stage); system = a feature's end-to-end acceptance wired from bricks; change = one tracker issue or a batch of related issues (growth stage). Only items are measured; a feature or goal is never an item."
+          },
+          "features": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "depends_on": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            }
+          },
+          "ecosystem": {
+            "type": "string"
+          },
+          "path": {
+            "type": "string"
+          },
+          "contract": {
+            "type": "string"
+          },
+          "commands": {
+            "type": "object",
+            "additionalProperties": false,
+            "properties": {
+              "test": {
+                "type": "object",
+                "required": [
+                  "run"
+                ],
+                "description": "Same shape as commands.test in the config."
+              },
+              "bench": {
+                "type": "object",
+                "required": [
+                  "run",
+                  "results",
+                  "metrics"
+                ],
+                "description": "Same shape as commands.bench in the config."
+              },
+              "env_setup": {
+                "type": "string"
+              }
+            }
+          },
+          "source": {
+            "type": "string",
+            "description": "file:line in the project's build order this item comes from."
+          },
+          "paths": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "More paths the item owns, beside `path`. A result holds at HEAD only while these, its dependencies' paths and the protected paths are unchanged; an item with no path is compared on the whole root."
+          },
+          "purpose": {
+            "type": "string",
+            "description": "What the item is for, in one sentence (sizing note when it joins two jobs)."
+          },
+          "hides": {
+            "type": "string",
+            "description": "What the item hides behind its interface."
+          },
+          "interface": {
+            "type": "string",
+            "description": "What it takes, returns and raises, in one line."
+          },
+          "consumers": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Who uses it (item ids or named callers)."
+          },
+          "oss_checked": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "tool",
+                "version"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "tool": {
+                  "type": "string"
+                },
+                "version": {
+                  "type": "string"
+                },
+                "fits": {
+                  "type": "boolean",
+                  "description": "true when the tool does the job (a sizing note: why a package?)."
+                },
+                "lacks": {
+                  "type": "string",
+                  "description": "What the tool lacks."
+                }
+              }
+            }
+          },
+          "est_loc": {
+            "type": "integer",
+            "minimum": 0,
+            "description": "Estimated lines of code; compared with config sizing (a note, never a gate)."
+          },
+          "refs": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Tracker refs this item resolves (e.g. #123); a fact the item carries, read by nothing yet."
+          },
+          "context": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": [
+                "path",
+                "lines"
+              ],
+              "additionalProperties": false,
+              "properties": {
+                "path": {
+                  "type": "string"
+                },
+                "lines": {
+                  "type": "string",
+                  "pattern": "^[0-9]+-[0-9]+$"
+                }
+              }
+            },
+            "description": "Citations of the exact spec passages the item needs, as {path, lines: \"a-b\"}; never copied text. bh-brief extracts them into the work packet."
+          },
+          "rules": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Catalog rule ids that apply to the item; printed in its work packet."
+          },
+          "split_from": {
+            "type": "string",
+            "description": "Id of the item this one was split from. Children own disjoint paths taken from the parent's; the parent keeps its targets and depends on every child, so it is measured after them."
+          },
+          "embodies": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "Catalog rule ids the item satisfies by being used (class embodied); judgment rules of its users leave them out."
+          },
+          "split_kind": {
+            "enum": [
+              "spike",
+              "path",
+              "interface",
+              "data",
+              "rules"
+            ],
+            "description": "Why a split child was cut (SPIDR): spike, path, interface, data or rules. A child without one is listed as a fact."
+          }
+        }
+      }
+    }
+  }
+}

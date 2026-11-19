@@ -1,0 +1,36 @@
+#!/usr/bin/env python3
+"""File the findings committed in gaps.json to the tracker.
+
+Highest SG-12 rank first, one at a time under the harness lock, at most limits.file_per_run.
+Looks each finding's key up (list, metadata bh_key) before it creates and after a timeout, writes
+the returned ref into the finding (filed), and leaves what is not filed ranked in gaps.json
+(`unfiled` is the count). A key found twice is the fact duplicate_filed. Without --write
+it lists what it would file. Exit 0, or 2 on error.
+
+  bh-file --config .brick-harness/config.json [--write]
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhtracker import Config, HarnessError, file_findings  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-file", description=__doc__.splitlines()[0])
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument("--write", action="store_true", help="create entries (default: print only)")
+    a = ap.parse_args()
+    try:
+        print(json.dumps(file_findings(Config(a.config), a.write), sort_keys=True))
+    except (HarnessError, OSError, ValueError, KeyError, TypeError) as e:
+        print(json.dumps({"error": str(e)}))
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

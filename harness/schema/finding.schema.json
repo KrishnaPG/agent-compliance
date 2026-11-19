@@ -1,0 +1,82 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "review findings (input of bh-rank --add)",
+  "description": "Recorded by bh-rank in .brick-harness/gaps.json as entries with source finding (the one place findings live; the project's tracker takes them from there). A finding becomes work only as a failing test or target the measurer runs; ranking never drops or decides anything. bh-rank sorts by (impact count desc, severity S1..S4, evidence reproduced..theoretical, id); a missing severity or evidence ranks last. In gaps.json the evidence level is stored as proof and where as evidence.",
+  "type": "object",
+  "properties": {
+    "findings": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/finding"
+      }
+    }
+  },
+  "$defs": {
+    "finding": {
+      "type": "object",
+      "required": [
+        "summary"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string",
+          "description": "Assigned from source, rule and summary when absent."
+        },
+        "summary": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "missing-context",
+            "other"
+          ],
+          "description": "missing-context: a builder needed something its work packet did not hold (feeds the owner's learning loop). Default other."
+        },
+        "severity": {
+          "enum": [
+            "S1",
+            "S2",
+            "S3",
+            "S4"
+          ],
+          "description": "S1 worst. Missing ranks last."
+        },
+        "evidence": {
+          "enum": [
+            "reproduced",
+            "trigger",
+            "theoretical"
+          ],
+          "description": "reproduced: a failing test or run shows it; trigger: a concrete input that would; theoretical: argued only."
+        },
+        "impact": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ids of the targets or acceptance checks the finding touches; more first in bh-rank."
+        },
+        "rule": {
+          "type": "string",
+          "description": "Catalog rule id or document rule the finding cites."
+        },
+        "source": {
+          "type": "string",
+          "description": "Who found it: review, plan, ..."
+        },
+        "state": {
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "description": "Default open. A re-review is given the open ones."
+        },
+        "where": {
+          "type": "string",
+          "description": "file:line the finding is about."
+        }
+      }
+    }
+  }
+}

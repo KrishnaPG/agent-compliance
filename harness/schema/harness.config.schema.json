@@ -1,0 +1,524 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "brick-harness project config",
+  "description": "Default location .brick-harness/config.json. Paths and commands resolve from the project root: `root` (relative to this file), else the parent of a .brick-harness/ directory holding this file, else this file's directory. Harness-owned files default under .brick-harness/ and are committed; only .brick-harness/out/ is ignored. The project's own documents (features, standards, decisions, build order, status) are read only.",
+  "type": "object",
+  "required": [
+    "commands",
+    "ecosystems"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "$schema": {
+      "type": "string"
+    },
+    "paths": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "features": {
+          "$ref": "#/$defs/pathOrList",
+          "description": "Project document: feature descriptions (any text format). Read only."
+        },
+        "acceptance": {
+          "$ref": "#/$defs/pathOrList",
+          "description": "Project document: acceptance checks, prose or executable. Read only."
+        },
+        "targets": {
+          "type": "string",
+          "description": "Harness-owned (default .brick-harness/targets.json): KPI targets (targets.schema.json); the measurer's only source of numbers to meet."
+        },
+        "standards": {
+          "$ref": "#/$defs/pathOrList",
+          "description": "Project document: rules decided by the owner. Read only."
+        },
+        "feature_slices": {
+          "type": "string",
+          "description": "Harness-owned (default .brick-harness/features.json): features with the owner's slice and value (features.schema.json); orders the work."
+        },
+        "answers": {
+          "type": "string",
+          "description": "Harness-owned (default .brick-harness/decisions): decision records D-n written by bh-answer (decision.schema.json)."
+        },
+        "decisions_dir": {
+          "type": "string",
+          "description": "Project document: decision records. Read only; the harness never writes one."
+        },
+        "stack_manifest": {
+          "$ref": "#/$defs/pathOrList",
+          "description": "Project document: stack picks. Read only."
+        },
+        "bricks": {
+          "type": "string",
+          "description": "Harness-owned (default .brick-harness/bricks.json): work items (bricks.schema.json)."
+        },
+        "contracts_dir": {
+          "type": "string",
+          "description": "Harness-owned (default .brick-harness/contracts): one input/output contract per item."
+        },
+        "catalogue": {
+          "type": "string",
+          "description": "Harness-owned (default .brick-harness/catalogue.json): helper catalogue (catalogue.schema.json)."
+        },
+        "lockfiles": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Versions are read from these; never copied into the catalogue."
+        },
+        "scoreboard": {
+          "type": "string",
+          "description": "Default .brick-harness/scoreboard.json; written only by the measurer."
+        },
+        "scoreboard_md": {
+          "type": "string"
+        },
+        "measure_out": {
+          "type": "string",
+          "description": "Raw test and bench output (default .brick-harness/out); git-ignored."
+        },
+        "build_order": {
+          "$ref": "#/$defs/pathOrList",
+          "description": "Project document: the build order the plan phase turns into items (see `sections`)."
+        },
+        "status": {
+          "$ref": "#/$defs/pathOrList",
+          "description": "Project document: what is done, in progress, blocked."
+        },
+        "gaps": {
+          "type": "string",
+          "description": "Default .brick-harness/gaps.json; written only by bh-gaps."
+        },
+        "gaps_md": {
+          "type": "string"
+        }
+      }
+    },
+    "commands": {
+      "type": "object",
+      "required": [
+        "test"
+      ],
+      "additionalProperties": false,
+      "description": "Shell commands, run from the project root in the measured checkout. Placeholders: {item} {brick_path} {out} {slot} {port_base} {workdir} {root} {ref}. A command may run the work elsewhere (e.g. on another host) as long as it leaves its results at the configured path under {out}.",
+      "properties": {
+        "test": {
+          "$ref": "#/$defs/test"
+        },
+        "bench": {
+          "$ref": "#/$defs/bench"
+        },
+        "env_setup": {
+          "type": "string",
+          "description": "Prepares the environment slot (work dir, ports) before tests."
+        },
+        "measure": {
+          "type": "string",
+          "description": "How agents call the measurer; default `bh-measure --config <config>`."
+        },
+        "state": {
+          "type": "string",
+          "description": "How agents read state; default `bh-state --config <config>`."
+        },
+        "commit": {
+          "type": "string",
+          "description": "How agents commit the plan files; default `bh-commit --config <config>`."
+        },
+        "timeout_s": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Per command (env_setup, test, bench). One measurer call runs all three for an item, so 3 x timeout_s must fit the caller's shell limit (about 10 minutes for an agent's shell call in Claude Code); a longer run is started as a background task whose completion the caller waits on."
+        },
+        "gaps": {
+          "type": "string",
+          "description": "How agents write the gap report; default `bh-gaps --config <config>`."
+        },
+        "merge": {
+          "type": "string",
+          "description": "How agents merge met refs; default `bh-merge --config <config>`."
+        },
+        "rank": {
+          "type": "string",
+          "description": "How agents call the findings ranker (bh-rank); default `bh-rank --config <config>`."
+        }
+      }
+    },
+    "slots": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "port_base": {
+          "type": "integer",
+          "minimum": 1024
+        },
+        "port_stride": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    },
+    "concurrency": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 16
+    },
+    "max_rounds": {
+      "type": "integer",
+      "minimum": 1,
+      "maximum": 20
+    },
+    "models": {
+      "type": "object",
+      "description": "Model per phase agent, passed through as-is; omitted means the session model.",
+      "propertyNames": {
+        "$ref": "#/$defs/phase"
+      },
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "efforts": {
+      "type": "object",
+      "propertyNames": {
+        "$ref": "#/$defs/phase"
+      },
+      "additionalProperties": {
+        "enum": [
+          "low",
+          "medium",
+          "high",
+          "xhigh",
+          "max"
+        ]
+      }
+    },
+    "ecosystems": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      }
+    },
+    "catalogue_jobs": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Helper jobs the catalogue names a library for, per ecosystem. Default: [\"testing\"]. Jobs listed in `na` are skipped."
+    },
+    "root": {
+      "type": "string",
+      "description": "Project root, relative to this file."
+    },
+    "sections": {
+      "type": "object",
+      "description": "Section heading per path key, e.g. {\"build_order\": \"10. Build order\"}; gaps checks it exists.",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
+    "standards": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The owner's versioned rule catalog: base rules with provenance, technology packs, and the project's overlay (the rule ids or own rules it holds itself to). The harness authors no rules and uses this plugin's skills by name (agent-compliance:compliance-review is the method of the read-only gaps reviewer, agent-compliance:vet-oss the OSS rule for builders, agent-compliance:vetted-decision is named on owner-level gaps and agent-compliance:bug-analysis on items still unmet after a run; named, never run by the harness). Projects without a catalog list rule documents in paths.standards.",
+      "properties": {
+        "catalog": {
+          "type": "string",
+          "description": "Optional: a path to another catalog (a directory holding catalog/ and checks/). Unset, a <placeholder> or the plugin's name means this plugin's own catalog and checks."
+        },
+        "base_version": {
+          "type": "string"
+        },
+        "packs": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "note": {
+          "type": "string"
+        },
+        "stack": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "The stack record: package names (optionally `name==version` or `name@version`) the project has chosen. A ref's added or changed lockfile packages are reported against it (dependencies.not_in_stack, second_major); never scored."
+        },
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Paths of recorded decisions: settled inputs for the gaps and plan agents, who look for gaps in what is not settled; a gap that would reopen one says so (reopens)."
+        },
+        "suppressions": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Project suppression markers (besides noqa, nosemgrep, type: ignore, eslint-disable ...) listed when a ref adds one; a fact, never scored."
+        }
+      }
+    },
+    "protected": {
+      "type": "array",
+      "items": {
+        "type": "string"
+      },
+      "description": "Paths (relative to the root; a directory covers everything under it; glob patterns allowed) a built ref may not change: acceptance tests, bench programs, runner scripts. The measurer fails a ref that changes one."
+    },
+    "na": {
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      },
+      "description": "Design-checklist area ids and catalogue jobs that do not apply to this project, each with the reason. They are not reported as gaps."
+    },
+    "checklist": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "$ref": "#/$defs/area"
+      },
+      "description": "Design areas the project must settle: a JSON file under the root ({\"areas\": [...]}) or an inline list. Default: the plugin's small generic list (schema/design-checklist.json)."
+    },
+    "environments": {
+      "type": "object",
+      "description": "Named places a test command can run (e.g. a staging host or a compose stack). Item commands.test.environment names one.",
+      "additionalProperties": {
+        "type": "object",
+        "required": [
+          "run"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "run": {
+            "type": "string",
+            "description": "Shell template that runs a command there; `{cmd}` is the (shell-quoted) test command, after placeholder expansion. It must leave results at the test's junit path under {out}."
+          },
+          "description": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "budgets": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Cost limits; what is left when one ends the run is listed in stuck with reason budget. Limits only, never a verdict on an item.",
+      "properties": {
+        "run_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Tokens the run may spend (workflow budget spent() since the run started). Before each round the run ends when what is left (also bounded by the workflow budget's remaining()) is below one round's reserve."
+        },
+        "round_reserve_tokens": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Reserve for one round before any round has run; afterwards the largest round so far is used when higher."
+        }
+      }
+    },
+    "sizing": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Thresholds for the sizing notes of the gaps report (est_loc or measured lines per item); notes for the owner, never a gate.",
+      "properties": {
+        "min_loc": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Below this an item may be too small for a package (default 150)."
+        },
+        "max_loc": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Above this an item may be too large for one agent session (default 2000)."
+        },
+        "packet_tokens": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "A work packet above this many tokens (characters / 4) is a sizing note suggesting a split (default 1600)."
+        }
+      }
+    },
+    "learning": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Learning from the owner's answers (SG-16).",
+      "properties": {
+        "overlay_after": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "An area with at least this many decision records is listed as an overlay candidate (default 3)."
+        }
+      }
+    },
+    "limits": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Output limits; they bound what is printed or done per call, never what is measured.",
+      "properties": {
+        "decision_items": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Items not met listed in one page of the decision part (default 25); bh-state --part pending --after ID pages on."
+        },
+        "packet_rules": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Judgment rules in one work packet (default 8)."
+        },
+        "file_per_run": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Findings bh-file files in one run (default 10)."
+        },
+        "tracker_read": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Entries one tracker read asks for (default 200); a cut is reported as more."
+        }
+      }
+    },
+    "checks": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The catalog's checks run by default with the pinned checker (checkers.json); nothing is needed here. checker overrides the pinned tool with a command of the same interface (tests).",
+      "properties": {
+        "checker": {
+          "type": "string"
+        }
+      }
+    },
+    "tracker": {
+      "type": "object",
+      "description": "The project's tracker (schema/tracker.schema.json $defs/config); absent means the files adapter."
+    },
+    "horizon": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "Rolling wave and WIP limit.",
+      "properties": {
+        "items": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Admitted items not met at most (default 20); admission takes tracker entries into the room left."
+        }
+      }
+    }
+  },
+  "$defs": {
+    "pathOrList": {
+      "type": [
+        "string",
+        "array"
+      ],
+      "items": {
+        "type": "string"
+      }
+    },
+    "phase": {
+      "enum": [
+        "loader",
+        "gaps",
+        "plan",
+        "build",
+        "measure",
+        "integrate",
+        "harvest"
+      ]
+    },
+    "test": {
+      "type": "object",
+      "required": [
+        "run"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "type": "string"
+        },
+        "junit": {
+          "type": "string",
+          "description": "JUnit XML path; default {out}/junit.xml."
+        },
+        "pending": {
+          "type": "string",
+          "description": "Declared but not yet present (why): the measurer fails closed without running it; gaps lists it."
+        },
+        "environment": {
+          "type": "string",
+          "description": "Name of an entry of `environments`: the test command runs there, and the result records where it ran. Default: this machine (local)."
+        }
+      }
+    },
+    "bench": {
+      "type": "object",
+      "required": [
+        "run",
+        "results",
+        "metrics"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "run": {
+          "type": "string"
+        },
+        "results": {
+          "type": "string"
+        },
+        "format": {
+          "enum": [
+            "json",
+            "csv"
+          ]
+        },
+        "metrics": {
+          "type": "object",
+          "description": "metric name -> extractor: dotted path (json) or column[:first|last|min|max|mean|median] (csv). Targets name them bench.<metric>.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "pending": {
+          "type": "string",
+          "description": "Declared but not yet present (why): the measurer fails closed without running it; gaps lists it."
+        }
+      }
+    },
+    "area": {
+      "type": "object",
+      "required": [
+        "id",
+        "area"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "area": {
+          "type": "string"
+        },
+        "keywords": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Where to look in the documents (whole-word, case-insensitive); a mention is a place to look, not a decision."
+        },
+        "config": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Dotted config keys that settle the area when set (not pending, not a placeholder), e.g. commands.test."
+        }
+      }
+    }
+  }
+}

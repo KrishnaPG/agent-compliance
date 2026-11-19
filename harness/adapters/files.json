@@ -1,0 +1,47 @@
+{
+  "name": "files",
+  "description": "The harness's own files, used only when no tracker is configured: one committed JSON file per entry in .brick-harness/work/, written by bh-work, so branches merge per file. The claim is the create-only origin ref.",
+  "capabilities": {
+    "atomic_claim": false,
+    "hierarchy": true,
+    "defer": true,
+    "compaction": false,
+    "ready_filter": false
+  },
+  "types": {
+    "goal": "goal",
+    "feature": "feature",
+    "item": "item"
+  },
+  "commands": {
+    "show": "bh-work show {ref}",
+    "create": "bh-work create --title {title} [--body {body}] [--type {type}] [--parent {parent}] [--deps {deps}] [--labels {labels}] [--metadata {metadata}]",
+    "link": "bh-work link {ref} {to} --kind {kind}",
+    "close": "bh-work state {ref} closed --note {reason}",
+    "reopen": "bh-work state {ref} open --note {reason}",
+    "defer": "bh-work state {ref} deferred --note {reason}",
+    "list": "bh-work list --limit {limit} --state {state} [--parent {parent}] [--type {type}] [--key {key}]"
+  },
+  "output": {
+    "link": "none",
+    "close": "none",
+    "reopen": "none",
+    "defer": "none"
+  },
+  "created_ref": "ref",
+  "states": {
+    "open": "open",
+    "in_progress": "in_progress",
+    "closed": "closed",
+    "deferred": "deferred"
+  },
+  "list_states": {
+    "open": "open",
+    "live": "live",
+    "closed": "closed",
+    "all": "all"
+  },
+  "missing": "(?i)no entry",
+  "id_prefix": "wk",
+  "deps_format": "kinded"
+}

@@ -1,0 +1,49 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "features with the owner's slice and value (.brick-harness/features.json)",
+  "description": "Slice and value are the owner's data, each with a cited source, never an agent's estimate. A feature without slice, value or a resolving source ranks last and is listed as unvalued. bhcore.value_queue orders the work from these.",
+  "type": "object",
+  "required": [
+    "features"
+  ],
+  "properties": {
+    "features": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "title",
+          "acceptance"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string"
+          },
+          "title": {
+            "type": "string"
+          },
+          "slice": {
+            "type": "integer",
+            "minimum": 1,
+            "description": "1 = the smallest sellable end-to-end product; each next slice the next most valuable increment."
+          },
+          "value": {
+            "type": "number",
+            "minimum": 0,
+            "description": "The owner's value of the feature (any unit; compared only between features)."
+          },
+          "acceptance": {
+            "type": "string",
+            "description": "Id of the system item that measures the feature end to end."
+          },
+          "source": {
+            "type": "string",
+            "description": "file:line (checked) or tracker ref of the owner's statement of slice and value."
+          }
+        }
+      }
+    }
+  }
+}

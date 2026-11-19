@@ -1,0 +1,12 @@
+{
+  "targets": [
+    {"item": "csv-reader", "metric": "tests.failed", "op": "==", "value": 0},
+    {"item": "csv-reader", "metric": "tests.passed", "op": ">=", "value": 1},
+    {"item": "csv-reader", "metric": "bench.rows_per_s", "op": ">=", "value": 20000, "unit": "rows/s", "source": "features.md:8"},
+    {"item": "json-writer", "metric": "tests.failed", "op": "==", "value": 0},
+    {"item": "json-writer", "metric": "tests.passed", "op": ">=", "value": 1},
+    {"item": "csv2json", "metric": "tests.failed", "op": "==", "value": 0},
+    {"item": "csv2json", "metric": "tests.passed", "op": ">=", "value": 1},
+    {"item": "csv2json", "metric": "bench.rows_per_s", "op": ">=", "value": 20000, "unit": "rows/s", "source": "features.md:8"}
+  ]
+}

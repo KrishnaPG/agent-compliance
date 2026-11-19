@@ -1,0 +1,57 @@
+{
+  "paths": {
+    "features": "features.md",
+    "decisions_dir": "decisions",
+    "stack_manifest": "stack.json",
+    "build_order": "PLAN.md",
+    "status": "PLAN.md",
+    "lockfiles": []
+  },
+  "sections": {
+    "build_order": "Build order",
+    "status": "Status"
+  },
+  "commands": {
+    "test": {
+      "run": "PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider tests/{item} --junitxml {out}/junit.xml",
+      "junit": "{out}/junit.xml"
+    },
+    "bench": {
+      "run": "PYTHONPATH=src python3 bench.py --item {item} --out {out}/bench.json",
+      "results": "{out}/bench.json",
+      "format": "json",
+      "metrics": {
+        "rows_per_s": "rows_per_s",
+        "p50_ms": "p50_ms"
+      }
+    },
+    "timeout_s": 120
+  },
+  "protected": [
+    "tests/",
+    "bench.py",
+    "remote_test.sh"
+  ],
+  "concurrency": 2,
+  "max_rounds": 3,
+  "ecosystems": [
+    "python"
+  ],
+  "catalogue_jobs": [
+    "formats",
+    "testing",
+    "benchmarking"
+  ],
+  "checklist": "design-checklist.json",
+  "na": {
+    "database": "a file converter; it stores nothing",
+    "api-style": "a command-line tool; no network API",
+    "authn-authz": "runs locally on the user's own files",
+    "data-placement": "no data leaves the user's machine",
+    "deployment": "run from a checkout; nothing is deployed",
+    "observability": "a one-shot command; its exit code and output are the signal",
+    "backup-recovery": "keeps no state",
+    "security-review": "reads one local file the user names; no inputs from others",
+    "licensing": "an example inside this plugin; it ships under the plugin's licence"
+  }
+}

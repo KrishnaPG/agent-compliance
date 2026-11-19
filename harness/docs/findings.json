@@ -1,0 +1,83 @@
+{
+  "about": "Open issues of the harness itself, ranked by bh-rank's key (impact, severity, evidence). Filed to the tracker once one is bound.",
+  "findings": [
+    {
+      "id": "H-1",
+      "summary": "No full cycle has ended all met since SG-01 to SG-19 landed; no safeguard has been exercised by a real workflow run, so what the agents do with the new fields and prompts is unknown.",
+      "kind": "other",
+      "severity": "S2",
+      "evidence": "trigger",
+      "impact": [],
+      "source": "toy runs 6 and 7 (7 stopped); safeguards.json",
+      "state": "open",
+      "where": "workflows"
+    },
+    {
+      "id": "H-2",
+      "summary": "bh-gaps drops a gap whose cited line does not resolve (merge_gaps, rejected list): a refusal, not a fact; whether it stays or becomes a reported fact is the owner's call.",
+      "kind": "other",
+      "severity": "S3",
+      "evidence": "reproduced",
+      "impact": [],
+      "source": "toy run 4 rejected a review gap citing a line past the file's end",
+      "state": "open",
+      "where": "lib/bhcore.py merge_gaps"
+    },
+    {
+      "id": "H-3",
+      "summary": "bh-commit refuses a plan that drops or changes existing targets: a refusal kept so a plan agent cannot lower the bar; awaiting the owner's view.",
+      "kind": "other",
+      "severity": "S4",
+      "evidence": "theoretical",
+      "impact": [],
+      "source": "owner question 2026-11-19",
+      "state": "open",
+      "where": "lib/bhcore.py commit_harness"
+    },
+    {
+      "id": "H-4",
+      "summary": "bh-state time grows with the number of items: 0.33 s at 10, 1.10 s at 100, 9.26 s at 1000 on the scale fixture (one path per item, no test runs); a per-item result cache keyed by the item's tree, or an archive of met items, would bound it.",
+      "kind": "other",
+      "severity": "S3",
+      "evidence": "trigger",
+      "impact": [],
+      "source": "tests/scale_fixture.py timing, 2026-11-19",
+      "state": "open",
+      "where": "lib/bhcore.py state"
+    },
+    {
+      "id": "H-5",
+      "summary": "The packet report runs git reads per unmet item and has not been timed at 1000 items.",
+      "kind": "other",
+      "severity": "S4",
+      "evidence": "theoretical",
+      "impact": [],
+      "source": "SG-18 build report",
+      "state": "open",
+      "where": "lib/bhcore.py packet facts"
+    },
+    {
+      "id": "H-6",
+      "summary": "SG-16's overlay rule line (a rule id plus covers: AREA) was invented by the builder and is not aligned with the compliance-catalog overlay form; nothing has used it.",
+      "kind": "other",
+      "severity": "S3",
+      "evidence": "theoretical",
+      "impact": [],
+      "source": "SG-16 build report",
+      "state": "closed",
+      "where": "SG-16 overlay candidates",
+      "resolution": "The harness reads overlay check opt-outs in exactly the catalog's form (checks/README.md): '- <RULE-ID> not-applicable: <reason>' under '## Check opt-outs'; a line without a reason opts nothing out (test_a_project_opts_a_rule_out_only_in_the_catalogs_form_with_a_reason). The SG-16 'covers: AREA' line is unchanged."
+    },
+    {
+      "id": "H-7",
+      "summary": "'In progress' for finish-before-start (SG-17) is defined by the builder as any status other than unmeasured or blocked, or an existing bh/<item> branch; the register entry did not define it.",
+      "kind": "other",
+      "severity": "S4",
+      "evidence": "theoretical",
+      "impact": [],
+      "source": "SG-17 build report",
+      "state": "open",
+      "where": "lib/bhcore.py state"
+    }
+  ]
+}

@@ -1,0 +1,57 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "decision record D-n (.brick-harness/decisions/D-n.json)",
+  "description": "An answered blocking question, written by bh-answer. A new gap of a kind and area it covers cites it (answered_by) and stops blocking.",
+  "type": "object",
+  "required": [
+    "id",
+    "gap",
+    "question",
+    "answer",
+    "source",
+    "kinds",
+    "areas",
+    "date"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "id": {
+      "type": "string",
+      "pattern": "^D-[0-9]+$"
+    },
+    "gap": {
+      "type": "string",
+      "description": "Id of the gap the owner answered."
+    },
+    "question": {
+      "type": "string"
+    },
+    "answer": {
+      "type": "string"
+    },
+    "source": {
+      "type": "string",
+      "description": "file:line or tracker ref of the owner's answer."
+    },
+    "kinds": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "description": "Gap kinds the answer settles."
+    },
+    "areas": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "string"
+      },
+      "description": "Paths (a directory covers what is under it) or spec/checklist area ids the answer settles."
+    },
+    "date": {
+      "type": "string",
+      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+    }
+  }
+}

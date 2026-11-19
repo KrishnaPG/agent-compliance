@@ -1,0 +1,5 @@
+id: rl-08
+language: python
+rule:
+  pattern: time.sleep($A)
+severity: error

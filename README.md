@@ -32,7 +32,7 @@ claude plugin marketplace add KrishnaPG/agent-compliance
 claude plugin install agent-compliance@agent-compliance
 ```
 
-Pin a release by adding a tag to the marketplace source: `claude plugin marketplace add KrishnaPG/agent-compliance#v1.2.0`.
+Pin a release by adding a tag to the marketplace source: `claude plugin marketplace add KrishnaPG/agent-compliance#v1.4.0`.
 
 For a team, put this in the project's `.claude/settings.json` so everyone gets the same pinned version:
 
@@ -40,7 +40,7 @@ For a team, put this in the project's `.claude/settings.json` so everyone gets t
 {
   "extraKnownMarketplaces": {
     "agent-compliance": {
-      "source": { "source": "github", "repo": "KrishnaPG/agent-compliance", "ref": "v1.2.0" }
+      "source": { "source": "github", "repo": "KrishnaPG/agent-compliance", "ref": "v1.4.0" }
     }
   },
   "enabledPlugins": { "agent-compliance@agent-compliance": true }
@@ -48,6 +48,8 @@ For a team, put this in the project's `.claude/settings.json` so everyone gets t
 ```
 
 In a running session, run `/reload-plugins` to load the plugin.
+
+The plugin ships executables in `bin/` (the harness tools), so it installs in Claude Code only; claude.ai and Cowork do not install a plugin with a `bin/` directory.
 
 ## Quick start
 
@@ -78,6 +80,7 @@ In a running session, run `/reload-plugins` to load the plugin.
 | `vetted-decision` | Choosing or recommending a design: adopt, replace, move or delete a mechanism; X or Y; who owns X; a path that failed twice | Which work to do next; a mechanical edit of a settled design; explaining code; running checks; picking a third-party tool (`vet-oss`) | A `Decision:` record: options, per-rule verdicts, attack on the leading option, a falsifying call, one recommendation with no BROKEN rule |
 | `vet-oss` | Before suggesting, comparing or adopting an OSS tool, operator, chart, library, image or SaaS, or replacing project code with one | Upgrading an already adopted tool; how-to questions about an adopted tool | A `Vetted:` record judged from the pinned source clone: passes, or "no OSS meets the rules" with the broken rule ids |
 | `bug-analysis` | Any defect of any size, with or without a failing test; before any `fix` commit | New features, redesigns, prose edits that change no meaning | A bug record (class, cause, broken rule ids, siblings, test, falsifying call, where), a `fix(#N):` commit, closure only when the test passes |
+| `harness` | Running the build harness: report spec gaps in the project's own documents, plan, build, measure and harvest its build-order items | Reviewing a design or plan (`compliance-review`); choosing between options (`vetted-decision`); fixing one bug (`bug-analysis`) | `.brick-harness/` state: gap report with file:line evidence, items and targets, a scoreboard written only by the measurer, merged code |
 
 ### compliance-review
 
@@ -108,6 +111,12 @@ Reads the candidate's API types, delete and recovery paths, install manifest (RB
 Records the bug in the turn it is found and before the first edit of a fix. A cause is never rewritten: a changed cause is a new `Analysis:` comment. Records form a ledger that can be grouped by rule id. The fix commit is `fix(#N): ...` with no closing keyword; the bug closes only when the record's `Test:` passes on the fixed product.
 
 > The export job writes the wrong totals on retry. Analyze it and record the bug.
+
+### harness
+
+Reports spec gaps in the project's own documents (never decides them) and executes its build order: each item is built in its own git worktree, and a deterministic measurer alone decides what met its targets. The catalog's checks (`checks/`) run with every measurement by default, from this plugin, with nothing to configure; a project opts a rule out only in its overlay. Its tools (`bh-*`) are on `PATH` while the plugin is enabled; its workflows are `agent-compliance:harness-gaps`, `-plan`, `-build`, `-measure`, `-harvest` and `harness-run` (all of them). Reference: [`harness/README.md`](harness/README.md).
+
+> Run the harness on this repo, dry run first.
 
 ## The catalog
 

@@ -1,0 +1,5 @@
+{
+  "brick": "json-writer",
+  "input": {"type": "array", "items": {"type": "object", "additionalProperties": {"type": "string"}}},
+  "output": {"type": "string", "description": "JSON array text, UTF-8, keys in input order."}
+}

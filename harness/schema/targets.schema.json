@@ -1,0 +1,58 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "measured targets",
+  "type": "object",
+  "required": [
+    "targets"
+  ],
+  "properties": {
+    "targets": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "item",
+          "metric",
+          "op",
+          "value"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "item": {
+            "type": "string"
+          },
+          "metric": {
+            "type": "string",
+            "pattern": "^(tests\\.(total|passed|failed|errors|skipped)|bench\\.[A-Za-z0-9_.-]+)$"
+          },
+          "op": {
+            "enum": [
+              ">=",
+              "<=",
+              "==",
+              "!=",
+              ">",
+              "<"
+            ]
+          },
+          "value": {
+            "type": "number"
+          },
+          "unit": {
+            "type": "string"
+          },
+          "source": {
+            "type": "string",
+            "description": "file:line (relative to the root) of the line stating the number. Required for every target except tests.failed == 0, tests.errors == 0 and tests.passed >= 1; the gaps phase reports a missing source or a line that does not state the value."
+          },
+          "runs": {
+            "type": "integer",
+            "minimum": 1,
+            "maximum": 99,
+            "description": "Bench targets only: run the bench this many times (default 1); the median is the measured value and the spread of the runs is recorded beside it, with the targets whose value lies inside that spread listed as within-noise."
+          }
+        }
+      }
+    }
+  }
+}

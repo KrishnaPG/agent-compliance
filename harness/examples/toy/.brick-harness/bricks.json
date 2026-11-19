@@ -1,0 +1,7 @@
+{
+  "bricks": [
+    {"id": "csv-reader", "job": "Read CSV text into a list of row objects keyed by the header.", "features": ["F1"], "ecosystem": "python", "path": "src/csv_reader.py", "contract": ".brick-harness/contracts/csv-reader.json", "source": "PLAN.md:5"},
+    {"id": "json-writer", "job": "Write a list of row objects as a JSON array.", "features": ["F1"], "ecosystem": "python", "path": "src/json_writer.py", "contract": ".brick-harness/contracts/json-writer.json", "source": "PLAN.md:6"},
+    {"id": "csv2json", "kind": "system", "job": "CLI: CSV file in, JSON array out.", "features": ["F1"], "ecosystem": "python", "depends_on": ["csv-reader", "json-writer"], "path": "src/csv2json.py", "source": "PLAN.md:7"}
+  ]
+}

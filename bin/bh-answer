@@ -1,0 +1,56 @@
+#!/usr/bin/env python3
+"""Record the owner's answer to a blocking question as a decision record D-n.
+
+D-n holds {id, gap, question, answer, source, kinds, areas, date} and is written under
+.brick-harness/decisions/ (committed by bh-commit). A later gap of a kind and area it covers
+cites it (answered_by) and stops blocking. SOURCE is where the owner's answer is stated:
+file:line (checked) or a tracker ref. The same gap and answer again returns the record that
+exists. Writes only with --write. Exit 0, or 2 with {"error": ...}.
+
+  bh-answer --config C --gap GAP_ID --answer TEXT --source FILE:LINE
+            --kinds KIND[,KIND] --areas AREA[,AREA] [--question TEXT] [--date YYYY-MM-DD] [--write]
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhcore import Config, HarnessError, record_answer  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-answer", description=__doc__.splitlines()[0])
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument("--gap", required=True)
+    ap.add_argument("--answer", required=True)
+    ap.add_argument("--source", required=True)
+    ap.add_argument("--kinds", required=True, help="gap kinds, comma separated")
+    ap.add_argument("--areas", required=True, help="paths or spec ids, comma separated")
+    ap.add_argument("--question")
+    ap.add_argument("--date")
+    ap.add_argument("--write", action="store_true")
+    a = ap.parse_args()
+    split = lambda v: [x.strip() for x in v.split(",") if x.strip()]  # noqa: E731
+    try:
+        out = record_answer(
+            Config(a.config),
+            a.gap,
+            a.answer,
+            a.source,
+            split(a.kinds),
+            split(a.areas),
+            a.question,
+            a.date,
+            a.write,
+        )
+    except (HarnessError, OSError) as e:
+        print(json.dumps({"error": str(e)}))
+        return 2
+    print(json.dumps(out, sort_keys=True))
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,8 @@
+{
+  "entries": [
+    {"job": "formats:csv", "ecosystem": "python", "library": "stdlib:csv", "used_by": ["csv-reader"], "why": "RFC 4180 quoting handled; no dependency."},
+    {"job": "formats:json", "ecosystem": "python", "library": "stdlib:json", "used_by": ["json-writer"], "why": "Standard JSON; no dependency."},
+    {"job": "testing", "ecosystem": "python", "library": "pytest", "used_by": ["csv-reader", "json-writer", "csv2json"], "why": "JUnit XML output the measurer reads."},
+    {"job": "benchmarking", "ecosystem": "python", "library": "stdlib:time", "used_by": ["csv-reader", "csv2json"], "why": "perf_counter is enough for one throughput number."}
+  ]
+}

@@ -1,0 +1,5 @@
+id: id-01
+language: python
+rule:
+  pattern: request.args
+severity: error
