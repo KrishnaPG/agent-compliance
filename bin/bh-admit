@@ -1,0 +1,38 @@
+#!/usr/bin/env python3
+"""Admission: take entries from the tracker into the plan, within the horizon.
+
+room = horizon.items minus the items not met (blocked ones count). Takes ready entries of the
+goal (config tracker.goal) of type item, in the order of lib's admission_order, claims each
+before writing it to bricks.json (id derived from its ref; a repeat is a no-op) as an item of
+kind change with its ref. Without --write nothing is claimed or written. Prints the entries
+admitted, not_admitted (count), stalled (with the blocking gap ids), claimed_elsewhere,
+claim_held (stale claims with their release command), released claim refs, unreachable and
+facts (pin-mismatch, ...). Exit 0, or 2 on error. Facts only; no status changes.
+
+  bh-admit --config .brick-harness/config.json [--write]
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhtracker import Config, HarnessError, admit  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-admit", description=__doc__.splitlines()[0])
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument("--write", action="store_true", help="claim and write (default: print only)")
+    a = ap.parse_args()
+    try:
+        print(json.dumps(admit(Config(a.config), a.write), sort_keys=True))
+    except (HarnessError, OSError, ValueError, KeyError, TypeError) as e:
+        print(json.dumps({"error": str(e)}))
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

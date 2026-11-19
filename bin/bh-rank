@@ -1,0 +1,77 @@
+#!/usr/bin/env python3
+"""Rank findings (or gaps) by a fixed key; record review findings; give a re-review its input.
+
+Order only: every finding is printed, none is dropped, filtered or decided. The key is
+(impact ids desc, severity S1..S4, evidence reproduced..theoretical, id); a missing severity
+or evidence ranks last (see schema/finding.schema.json).
+
+  bh-rank [--input FILE|-]              rank a JSON list (or {"findings"|"gaps": [...]})
+  bh-rank --config C                    rank the findings in .brick-harness/gaps.json
+                                        (entries with source "finding", apart from spec gaps)
+  bh-rank --config C --open             open findings only, plus the review gaps
+  bh-rank --config C --add FILE|- [--write]
+                                        record findings in gaps.json by id (a repeat replaces,
+                                        so a re-review can close one); written only with --write
+  bh-rank --config C --review-input     {since, head, changed, diff, open}: all a re-review gets
+                                        (bh-gaps --source review --write records the review's head)
+
+Exit 0, or 2 on error (printed as {"error": ...}).
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhcore import (  # noqa: E402
+    RANK_KEY,
+    Config,
+    HarnessError,
+    add_findings,
+    all_findings,
+    loads,
+    open_findings,
+    rank_findings,
+    review_input,
+)
+
+
+def _read(src: str) -> list:
+    raw = sys.stdin.read() if src == "-" else Path(src).read_text()
+    doc = loads(raw) if raw.strip() else []
+    if isinstance(doc, dict):
+        doc = doc.get("findings", doc.get("gaps", []))
+    if not isinstance(doc, list):
+        raise HarnessError("input must be a JSON list")
+    return doc
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-rank", description=__doc__.splitlines()[0])
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument("--input", help="JSON file to rank, or - for stdin (needs no config)")
+    ap.add_argument("--add", help="JSON file of findings to record, or - for stdin")
+    ap.add_argument("--open", action="store_true", help="open findings only")
+    ap.add_argument("--review-input", action="store_true")
+    ap.add_argument("--write", action="store_true", help="write findings.json (default: print)")
+    a = ap.parse_args()
+    try:
+        if a.input:
+            out = {"findings": rank_findings(_read(a.input)), "key": RANK_KEY}
+        elif a.add:
+            out = add_findings(Config(a.config), _read(a.add), write=a.write)
+        elif a.review_input:
+            out = review_input(Config(a.config))
+        else:
+            cfg = Config(a.config)
+            out = {"findings": open_findings(cfg) if a.open else all_findings(cfg), "key": RANK_KEY}
+        print(json.dumps(out, sort_keys=True))
+    except (HarnessError, OSError, ValueError, KeyError, TypeError) as e:
+        print(json.dumps({"error": str(e), "findings": []}))
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

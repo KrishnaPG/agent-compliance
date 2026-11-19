@@ -1,0 +1,80 @@
+{
+  "$schema": "../schema/harness.config.schema.json",
+  "paths": {
+    "features": [
+      "docs/features.md",
+      "docs/more-features.md"
+    ],
+    "acceptance": "tests/acceptance",
+    "standards": "docs/standards.md",
+    "decisions_dir": "docs/decisions",
+    "stack_manifest": "docs/stack.md",
+    "build_order": "docs/plan.md",
+    "status": "STATUS.md",
+    "lockfiles": [
+      "uv.lock",
+      "web/package-lock.json"
+    ]
+  },
+  "sections": {
+    "build_order": "Build order"
+  },
+  "standards": {
+    "base_version": "<pinned version>",
+    "packs": [],
+    "overlay": "docs/standards-overlay.md"
+  },
+  "commands": {
+    "test": {
+      "run": "scripts/run-elsewhere.sh test {item} {out}",
+      "junit": "{out}/junit.xml",
+      "pending": "scripts/run-elsewhere.sh is not written yet"
+    },
+    "bench": {
+      "run": "make bench ITEM={item} OUT={out}/bench.csv",
+      "results": "{out}/bench.csv",
+      "format": "csv",
+      "metrics": {
+        "p50_ms": "latency_ms:median",
+        "rps": "rps:max"
+      }
+    },
+    "env_setup": "make env SLOT={slot} PORT_BASE={port_base}",
+    "timeout_s": 180
+  },
+  "protected": [
+    "tests/acceptance",
+    "bench/",
+    "scripts/run-elsewhere.sh"
+  ],
+  "slots": {
+    "port_base": 30000,
+    "port_stride": 100
+  },
+  "concurrency": 4,
+  "max_rounds": 3,
+  "models": {
+    "loader": "MODEL-FOR-MECHANICAL-WORK",
+    "build": "MODEL-FOR-BUILDING",
+    "gaps": "MODEL-FOR-REVIEW",
+    "plan": "MODEL-FOR-REVIEW"
+  },
+  "efforts": {
+    "loader": "low",
+    "measure": "low",
+    "gaps": "high"
+  },
+  "ecosystems": [
+    "python",
+    "node"
+  ],
+  "checklist": "docs/design-areas.json",
+  "na": {
+    "api-style": "batch jobs only; no network API"
+  },
+  "catalogue_jobs": [
+    "testing",
+    "formats",
+    "http-retries"
+  ]
+}

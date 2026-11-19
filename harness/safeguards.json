@@ -1,0 +1,252 @@
+{
+  "about": "Pitfalls the harness guards against, without gates: gates invite gaming. An item moves on only when its targets are measured met; nothing else passes or fails it. Mechanism kinds: structure (gaming is impossible by construction), fact (recorded on the scoreboard or report, never changes a status), order (ranks work, never filters it), limit (caps cost; what is left is listed), decision (still being decided). A mechanism of kind gate exists only with status to-remove. tests/test_safeguards.py fails when an entry claims more than its tests show. Entry status: implemented | partial | planned | deciding.",
+  "safeguards": [
+    {
+      "id": "SG-01",
+      "risk": "Builders game the scoring: weaken, skip or special-case tests, or edit targets.",
+      "seen": "design review",
+      "catalog": ["PR-08", "PN-16"],
+      "mechanism": [
+        {"kind": "structure", "where": "bh-measure", "does": "the measurer overlays the plan commit's protected paths (tests, targets, contracts) on the ref's checkout before measuring, so edits to them in the ref have no effect", "status": "implemented"},
+        {"kind": "structure", "where": "bh-measure", "does": "held-out acceptance cases live on ref refs/brick-harness/holdout, never in a builder's checkout; the measurer overlays that ref's tree too, and the held-out cases are part of the item's tests", "status": "implemented"},
+        {"kind": "fact", "where": "scoreboard", "does": "a ref's edits to protected paths are listed under the item as ignored-edits", "status": "implemented"},
+        {"kind": "structure", "where": "bh-merge", "does": "after a merge the plan and protected paths are put back as they were before it, so a ref's edits there (ignored by the measurer) never reach HEAD", "status": "implemented"}
+      ],
+      "tests": ["test_ref_edits_to_plan_and_protected_paths_have_no_effect_and_are_listed", "test_weakened_tests_and_a_wrong_implementation_are_still_unmet", "test_file_added_under_a_protected_path_is_removed_from_the_checkout", "test_branch_accepts_edits_to_protected_paths", "test_holdout_cases_are_overlaid_and_part_of_the_items_tests", "test_holdout_files_a_ref_also_holds_are_replaced_and_listed", "test_merge_restores_plan_and_protected_paths_a_ref_edited"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-02",
+      "risk": "Scope creep and gold-plating: a builder adds files, features or public entry points beyond the item's contract.",
+      "seen": "design review",
+      "catalog": ["PN-13", "NO-14"],
+      "mechanism": [
+        {"kind": "fact", "where": "scoreboard", "does": "per item, the paths the ref changed outside the item's owned paths (path, extra_paths) and the public top-level names not in the contract's exports; reported, never scored", "status": "implemented"}
+      ],
+      "tests": ["test_scope_lists_paths_outside_the_item_and_names_the_contract_does_not_export", "test_scope_without_declared_exports_lists_only_paths", "test_scope_is_absent_when_the_ref_stays_inside_the_item"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-03",
+      "risk": "Re-litigation: gaps or reviews reopen a decision already settled.",
+      "seen": "this project: settled options re-proposed; ADR review rounds",
+      "catalog": ["NO-22", "PN-10", "PN-07"],
+      "mechanism": [
+        {"kind": "structure", "where": "gaps and plan prompts", "does": "agents receive the list of recorded decisions (config standards.decisions) as settled inputs, by path, and look for gaps in what is not settled", "status": "implemented"},
+        {"kind": "fact", "where": "gaps report", "does": "a gap that names a recorded decision is listed in its own section, reopens, with its evidence, for the owner; no tool accepts or rejects it", "status": "implemented"}
+      ],
+      "tests": ["test_reopens_are_listed_in_their_own_section_and_nothing_is_decided", "test_config_standards_decisions_validate", "test_gaps_and_plan_prompts_hand_over_the_recorded_decisions_as_settled_inputs"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-04",
+      "risk": "Oscillation: fixing A breaks B and fixing B breaks A, round after round.",
+      "seen": "design review",
+      "catalog": ["PR-11"],
+      "mechanism": [
+        {"kind": "fact", "where": "scoreboard history", "does": "per item and round, each target's met or unmet result; a target that went met to unmet after another item's change, twice, is reported as oscillating with both items named", "status": "implemented"},
+        {"kind": "limit", "where": "harness-run.js", "does": "rebuilds stop at max_rounds like any other item; an oscillating item is listed in stuck with reason oscillating", "status": "implemented"}
+      ],
+      "tests": ["test_measuring_records_each_targets_result_per_item_in_out", "test_a_target_that_went_met_to_unmet_after_another_items_change_twice_is_oscillating", "test_one_regression_or_a_regression_after_no_other_change_is_not_oscillation", "test_candidates_do_not_count_and_history_is_bounded_and_survives_a_bad_file", "test_oscillating_items_are_derived_by_bh_gaps_with_both_items_named", "test_a_stuck_reason_reaches_the_unmet_gap"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-05",
+      "risk": "Flaky tests are treated as product bugs and start rebuild rounds.",
+      "seen": "design review",
+      "catalog": ["PR-01"],
+      "mechanism": [
+        {"kind": "fact", "where": "scoreboard", "does": "results are keyed by the git tree sha of the item's paths; two different pass or fail results for the same tree sha are recorded as flaky with both runs' errors and shown in the report", "status": "implemented"}
+      ],
+      "tests": ["test_same_tree_passing_and_failing_is_recorded_as_flaky_without_changing_status", "test_different_trees_with_different_results_are_not_flaky"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-06",
+      "risk": "Benchmark noise reports a met target as unmet and starts a rebuild loop.",
+      "seen": "this project: benchmarks on a busy host",
+      "catalog": ["PF-01"],
+      "mechanism": [
+        {"kind": "structure", "where": "targets schema, bh-measure", "does": "a bench target carries runs (count); the bench runs that many times and the median is the measured value", "status": "implemented"},
+        {"kind": "fact", "where": "scoreboard", "does": "the spread of the runs is recorded beside the median; a median within the spread of the target is reported as within-noise", "status": "implemented"}
+      ],
+      "tests": ["test_bench_runs_repeat_and_the_median_is_the_value", "test_a_single_bench_run_records_no_noise"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-07",
+      "risk": "Agents carry data instead of references; long JSON retyped by an agent is shortened or altered.",
+      "seen": "toy runs 4 and 5: state reload failed its checksum",
+      "catalog": ["NO-21"],
+      "mechanism": [
+        {"kind": "structure", "where": "bh-state", "does": "parts with checksums; a compact decision part; --value for bare slices", "status": "implemented"},
+        {"kind": "structure", "where": "lib/prelude.js", "does": "every part read is checked against its checksum and re-read in slices up to 3 times; the run stops naming the part", "status": "implemented"},
+        {"kind": "structure", "where": "workflows", "does": "round reloads ask only for small parts; agents pass item ids, shas and paths, never state values", "status": "implemented"}
+      ],
+      "tests": ["test_state_parts_checksums_and_unknown_part", "test_state_value_prints_the_bare_value_with_the_parts_checksum", "test_prelude_rereads_a_part_that_fails_its_checksum_up_to_three_times", "test_prelude_rejects_a_wrapped_value_with_a_wrong_checksum", "test_round_reloads_ask_only_for_small_parts", "test_harness_reloads_only_parts_it_or_its_phases_read"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-08",
+      "risk": "Cost runaway: rounds and agents keep spending without converging.",
+      "seen": "design review",
+      "catalog": [],
+      "mechanism": [
+        {"kind": "limit", "where": "harness-run.js", "does": "max_rounds per run; items not met at the end are listed in stuck with reason and errors", "status": "implemented"},
+        {"kind": "limit", "where": "harness.config budgets, harness-run.js", "does": "budgets.run_tokens: before each round the run ends when the workflow budget's remaining() is below one round's reserve; what is left is listed in stuck with reason budget", "status": "implemented"}
+      ],
+      "tests": ["test_harness_keeps_rebuilding_unmet_items_until_max_rounds_then_reports_them", "test_stuck_is_derived_by_the_tool_and_the_run_passes_only_what_it_attempted", "test_every_item_not_met_is_stuck_in_gaps_json_with_reason_and_errors", "test_config_budgets_and_sizing_validate", "test_without_budgets_the_run_stops_only_at_max_rounds", "test_run_tokens_ends_the_run_before_a_round_that_does_not_fit_and_lists_what_is_left", "test_the_workflow_budget_bounds_the_run_even_without_a_config_cap", "test_the_configured_reserve_applies_before_the_first_round"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-09",
+      "risk": "Library sprawl: each brick quietly adds dependencies, some incompatible with the pinned stack.",
+      "seen": "this project: AntD 6 vs Refine on AntD 5",
+      "catalog": ["NO-05", "NO-07"],
+      "mechanism": [
+        {"kind": "fact", "where": "scoreboard", "does": "per item, packages the ref added or changed in the lockfiles against the plan head, whether the stack record (config standards.stack) names each, and any second major version of a package already pinned; reported, never scored", "status": "implemented"}
+      ],
+      "tests": ["test_added_and_changed_lockfile_packages_are_reported_against_the_stack_record", "test_no_dependency_fact_when_the_lockfiles_are_unchanged"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-10",
+      "risk": "Mocked success: tests pass against mocks while the real integration fails.",
+      "seen": "design review",
+      "catalog": ["PN-14", "PN-15"],
+      "mechanism": [
+        {"kind": "structure", "where": "bricks schema commands", "does": "a system item's acceptance command names the environment it runs in (config.environments); the measurer runs it there", "status": "implemented"},
+        {"kind": "fact", "where": "scoreboard", "does": "for each system item, the environment its met result came from", "status": "implemented"}
+      ],
+      "tests": ["test_system_item_runs_in_its_named_environment_and_records_it", "test_system_item_without_an_environment_records_local", "test_an_undefined_environment_cannot_run_and_says_so"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-11",
+      "risk": "The gaps phase floods the plan with items that matter little.",
+      "seen": "toy runs: owner-decides gaps on every run",
+      "catalog": ["PR-10"],
+      "mechanism": [
+        {"kind": "order", "where": "bh-gaps, gaps report", "does": "gaps carry the ranking fields of SG-12 and the report lists them in rank order; nothing is dropped, the owner reads from the top", "status": "implemented"}
+      ],
+      "tests": ["test_gaps_report_lists_every_gap_in_rank_order", "test_a_gap_ranks_by_its_proof_like_a_finding_ranks_by_its_evidence"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-12",
+      "risk": "Endless fixing of minor or theoretical bugs and review findings while the goal waits.",
+      "seen": "this project: review rounds; owner's instruction",
+      "catalog": ["PR-01", "PR-09"],
+      "mechanism": [
+        {"kind": "structure", "where": "build rounds", "does": "rounds work only on items with unmet measured targets; a finding becomes work only as a failing test or target that the measurer runs, so an unreproduced finding has nothing to fix", "status": "implemented"},
+        {"kind": "order", "where": "schema/finding.schema.json, bin/bh-rank", "does": "findings carry severity S1-S4, evidence reproduced|trigger|theoretical, impact (the targets or acceptance ids it touches) and rule; bh-rank prints them sorted by a fixed key; recorded on the project's tracker, never in prose; findings live only in .brick-harness/gaps.json as entries with source finding (the one place; bh-file will file them from there)", "status": "implemented"}
+      ],
+      "tests": ["test_rank_sorts_by_impact_then_severity_then_evidence_and_drops_nothing", "test_rank_input_forms_and_errors", "test_findings_are_recorded_in_gaps_json_apart_from_spec_gaps", "test_a_repeated_finding_replaces_itself_so_a_re_review_can_close_it", "test_a_malformed_finding_is_an_error_and_writes_nothing", "test_findings_schema_agrees_with_jsonschema", "test_build_rounds_work_only_on_items_with_unmet_measured_targets", "test_build_workflow_measures_before_it_builds_and_never_builds_a_met_item"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-13",
+      "risk": "Review rounds never converge: each re-review finds new nitpicks.",
+      "seen": "this project: ADR review rounds",
+      "catalog": ["PR-04"],
+      "mechanism": [
+        {"kind": "structure", "where": "review step", "does": "a re-review is given only the diff since the last review and the open findings; its findings are ranked like any other (SG-12) and become work only as failing tests or targets", "status": "implemented"}
+      ],
+      "tests": ["test_re_review_is_given_the_diff_since_the_last_review_and_the_open_findings", "test_re_review_diff_is_capped_and_says_so", "test_gaps_workflow_hands_a_re_review_only_the_diff_and_open_findings", "test_sg13_is_met_by_the_input_not_by_asking_the_reviewer_to_behave"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-14",
+      "risk": "Bricks sized wrong: too large for one agent session, or too small to justify a package and its prompt overhead.",
+      "seen": "owner's question",
+      "catalog": ["NO-19", "PN-13", "NO-05"],
+      "mechanism": [
+        {"kind": "fact", "where": "bricks schema, gaps report", "does": "items carry purpose, hides, interface, consumers, oss_checked and est_loc; the report lists sizing notes (est_loc or measured new lines against config.sizing, purpose joining two jobs, a single consumer, a passing OSS tool) for the owner to decide", "status": "implemented"}
+      ],
+      "tests": ["test_sizing_notes_list_facts_against_config_thresholds_and_change_no_status", "test_sizing_thresholds_come_from_config_and_lines_are_measured", "test_the_toy_without_sizing_fields_has_no_sizing_notes_and_stays_valid", "test_bricks_schema_sizing_fields_are_optional_and_typed"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-15",
+      "risk": "No work hierarchy or growth-stage tracking: items cannot be split, pending work grows without bound, issues are outside the harness.",
+      "seen": "owner's question; decision docs/decisions/0001-work-tracking.md",
+      "catalog": ["PN-08", "PN-13", "PF-06", "PF-11", "PR-09", "NO-20", "CI-06", "CI-03", "HO-16", "HO-17", "RL-07"],
+      "mechanism": [
+        {"kind": "limit", "where": "bh-state decision part", "does": "M1: lists only items not met, in build order, at most limits.decision_items, with counts per status, more (the count left) and the paging command bh-state --part pending --after ID; branches only for listed items; met items appear as counts only", "status": "implemented"},
+        {"kind": "structure", "where": "NEED of harness-run.js, harness-build.js, harness-measure.js, harness-plan.js, harness-harvest.js; bh-gaps --source cycle", "does": "M2: no workflow loads bricks or commands for all items; rounds read the capped decision part (it carries commands and last results for ready items); plan reads the ids of items naming the horizon's features; harvest reads items merged since its last run; stuck is derived by bh-gaps --source cycle from the files plus the ids and reasons attempted in the run, full list in gaps.json, report capped with more", "status": "implemented"},
+        {"kind": "structure", "where": "bricks and targets schema, bh-gaps", "does": "M3: kind change and refs (tracker refs an item resolves); split_from on a split child; a split parent depends on each child and keeps its targets, so it is measured after them; a target source '<ref>: \"<quote>\"' is a tracker ref (M5)", "status": "implemented"},
+        {"kind": "fact", "where": "gaps report", "does": "M4: per feature in the horizon, items met/total (rollup derived at read time); split parents missing a dependency on a child; paths owned by two items (shared-path); tracker-closed items not met and tracker-open items met (M8); never scored", "status": "implemented"},
+        {"kind": "structure", "where": "config tracker, schema/tracker.schema.json, lib tracker runner", "does": "M5: the tracker interface: nine operations ready (limit, parent, type), show, create (parent, deps, labels, metadata), link, claim, close, reopen, defer and list, each mapped by config to a command printing JSON in the schema's shapes (output checked, limit+1 asked so a cut is reported as more); the adapter declares capabilities atomic_claim, hierarchy, defer, compaction and ready_filter; one runner runs them, shell-quoted, with a timeout; actor from config tracker.actor (default a hash of host and clone path, never a person); measure, build and merge never call the tracker; bh-gaps calls show to resolve a target source '<ref>: \"<quote>\"' (unresolved, offline included, is a blocking gap like a missing source); close and reopen run only from bh-reconcile", "status": "implemented", "est_loc": 220},
+        {"kind": "structure", "where": "adapters/beads.json, adapters/github.json, adapters/files.json, bh-work (new)", "does": "M6: adapters are data: beads (bd 1.3.4; tarball sha256 from the release checksums.txt, bd binary sha256 checked at run time, a mismatch is the fact pin-mismatch and the binary is not run (a supply-chain check, not a gate on work): that run's tracker operations use the files adapter; types epic/feature/task; always -t and -n on ready), github (gh 2.94.0 or later: sub-issues, issue types, blocked-by; types or type: labels) and files (bh-work over .brick-harness/work/<id>.json, one committed file per entry, used only when no tracker is configured); the config names one and may override any command", "status": "implemented", "est_loc": 260},
+        {"kind": "structure", "where": "lib tracker runner, bh-admit", "does": "M7: fallbacks for missing capabilities: no atomic_claim -> push a claim commit of its own (child of origin main, message naming item and actor) to refs/heads/bh/<item> on origin with --force-with-lease=refs/heads/bh/<item>: (create-only, one winner); a rejection is the fact claimed-elsewhere; the holder read from the commit message makes a re-claim a no-op; the ref stays while the item is in the plan (a reopened item keeps its holder) and is deleted with a lease on the observed sha when the item leaves the plan; no origin -> harness_lock and the local bh-branch; no ready_filter -> ready computed from list (open, not deferred, item type, no open dependency, no open child, not claimed) in the tracker's order; no hierarchy -> label bh-parent:<ref>; no defer -> label bh-deferred; no compaction -> reads bounded by limits and paging", "status": "implemented", "est_loc": 200},
+        {"kind": "structure", "where": "bh-reconcile (new), harness and harvest after bh-commit, before admission", "does": "M8: reconciliation, the only caller of close and reopen: pages to the end through admitted items with refs; an entry whose item is measured met at HEAD and is open is closed with the sha and targets digest as reason, acting as the claim holder; an entry closed while its item is not met at HEAD is reopened; entries not mapped to an admitted item are never touched; nothing is deleted (a missing ref is the fact ref-missing); writes only on a mismatch, so a repeat is a no-op; every mismatch is listed as a fact in the gaps report; tracker unreachable is a fact", "status": "implemented", "est_loc": 180},
+        {"kind": "limit", "where": "harness-plan, bh-admit (new), config horizon.items", "does": "M9: admission: room = horizon.items minus the admitted items not met (blocked ones count; rolling wave and Kanban WIP); calls ready(limit=room, type=item, parent=config goal), so only leaves are taken, in the order of value_queue (SG-17) for entries that are items already, then the tracker's own order for entries not yet items; claims each entry before writing it to bricks.json with an id derived from its ref (a re-admission is a no-op); an item with an open owner question is blocked by that gap; the plan report lists not_admitted (count), stalled with the blocking gap ids, claimed-elsewhere, claim-held (stale claims with their release command) and tracker unreachable as facts", "status": "implemented", "est_loc": 150},
+        {"kind": "order", "where": "bh-file (new)", "does": "M10: files findings committed in gaps.json (the outbox) through create (item type, labels from the finding, deps discovered-from:<source ref>, metadata bh_key), highest SG-12 rank first, serially under harness_lock, at most limits.file_per_run; looks the key up with list before creating and after a timeout; writes the returned ref into the finding (filed); what is not filed stays ranked in gaps.json with the count; a key found twice is the fact duplicate-filed", "status": "implemented", "est_loc": 140},
+        {"kind": "fact", "where": "gaps report", "does": "M11: per admitted item the INVEST facts: independent (in a dependency cycle or not), valuable (feature link through features or a tracker parent of the feature type), estimable (est_loc present), small (SG-14 sizing notes), testable (blocked by a gap or not); Kanban flow per cycle from the plan commit time and the scoreboard measured_at: cycle time per item first met, throughput, WIP against horizon.items; never scored", "status": "implemented", "est_loc": 140},
+        {"kind": "structure", "where": "bricks schema, build rounds, gaps report", "does": "M12: a split child carries split_kind (spike, path, interface, data, rules), and a child without one is listed as the fact split-without-kind; only leaves run: an item named in another item's split_from is never given to a builder, only measured, and when its children are met and it is not, the fact parent-unmet-after-children names it", "status": "implemented", "est_loc": 70}
+      ],
+      "tests": ["test_decision_lists_only_items_not_met_in_build_order_with_counts_and_paging", "test_branches_are_listed_for_listed_items_only", "test_decision_size_does_not_grow_with_the_items_met", "test_decision_part_is_small_and_complete", "test_every_item_not_met_is_stuck_in_gaps_json_with_reason_and_errors", "test_need_lists_hold_no_part_a_workflow_does_not_read", "test_features_part_rolls_up_items_met_of_total_and_caps_ids", "test_merged_part_lists_items_met_since_the_last_harvest_with_their_commands", "test_change_items_refs_and_split_from_are_optional_and_validated", "test_a_split_parent_waits_for_its_children_and_is_measured_after_them", "test_a_split_from_an_unknown_item_is_a_blocking_gap", "test_gaps_report_carries_the_rollup_and_structure_facts_and_changes_no_status", "test_workflows_read_the_capped_decision_and_derive_their_lists_from_it", "test_placeholders_are_shell_quoted_and_empty_parts_dropped", "test_an_unconfigured_tracker_is_the_files_adapter", "test_every_operation_runs_its_command_and_reads_the_entry_shape", "test_list_asks_one_more_and_reports_more", "test_output_that_fails_the_schema_is_a_reported_error", "test_a_failed_command_is_an_error_with_its_exit_and_text", "test_a_command_that_outlives_its_timeout_is_a_timeout_error", "test_target_source_is_resolved_through_show_by_bh_gaps_and_never_by_state", "test_measure_build_and_merge_never_call_the_tracker", "test_close_and_reopen_are_called_only_from_reconcile", "test_adapters_are_valid_data_with_the_nine_operations_and_five_capabilities", "test_beads_adapter_maps_every_command_and_reads_its_json", "test_beads_claim_refused_for_another_holder_is_claimed_elsewhere", "test_pin_mismatch_is_not_run_and_the_files_adapter_serves_that_run", "test_config_overrides_any_adapter_command_and_adapters_load_from_a_path", "test_github_adapter_renders_every_command_and_reads_its_json", "test_every_shipped_command_renders_to_valid_shell", "test_missing_hierarchy_defer_and_ready_filter_are_labels_and_the_list", "test_claim_race_between_two_clones_has_exactly_one_winner", "test_a_reclaim_by_the_holder_is_a_noop_and_a_ref_survives_a_reopen", "test_a_claim_without_an_origin_is_local_under_the_lock", "test_released_claims_are_only_ours_and_only_when_the_item_left_the_plan", "test_admission_takes_ready_leaves_in_order_up_to_the_room_and_claims_first", "test_a_readmission_after_a_crash_between_claim_and_write_adopts_the_claimed_entry", "test_a_claim_held_elsewhere_is_a_fact_and_the_entry_is_not_admitted", "test_admission_order_is_one_call_ranking_queued_items_first_then_the_trackers_order", "test_an_unreachable_tracker_admits_nothing_and_says_so", "test_a_stalled_horizon_lists_the_gaps_that_block_items", "test_reconcile_lists_and_fixes_mismatches_and_touches_only_admitted_entries", "test_reconcile_closes_an_entry_only_when_its_item_is_measured_met", "test_a_missing_ref_is_a_fact_and_nothing_is_deleted", "test_the_gaps_report_lists_tracker_mismatches_as_facts_and_changes_no_status", "test_bh_file_files_by_rank_looks_the_key_up_first_and_records_the_ref", "test_a_finding_whose_key_is_already_in_the_tracker_is_adopted_not_created", "test_bh_file_files_at_most_file_per_run_and_leaves_the_rest_ranked", "test_a_key_found_twice_is_duplicate_filed_and_a_tracker_error_stops_the_run", "test_a_tracker_error_stops_filing_and_leaves_the_findings_ranked", "test_gaps_report_carries_invest_and_flow_facts_and_changes_no_status", "test_a_dependency_cycle_is_not_independent", "test_split_children_name_a_kind_and_a_child_without_one_is_a_fact", "test_only_leaves_run_a_split_parent_is_measured_never_built", "test_a_parent_unmet_after_its_children_are_met_is_a_fact", "test_new_fields_are_optional_so_the_toy_stays_valid", "test_every_operation_against_real_beads", "test_admission_reconcile_and_filing_through_real_beads", "test_filing_findings_through_real_beads_links_and_dedupes_by_key", "test_the_create_only_claim_race_has_exactly_one_winner_per_round",
+        "test_a_stale_item_is_measured_at_head_and_only_an_unmet_one_gets_a_builder"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-16",
+      "risk": "The owner is asked again: an answered question comes back as a new blocking gap, and the owner answers the same kind of question over and over.",
+      "seen": "owner's direction; decision docs/decisions/0001-work-tracking.md",
+      "catalog": ["NO-22", "PN-10", "PR-10", "NO-20", "PR-09"],
+      "mechanism": [
+        {"kind": "structure", "where": "bh-answer (new), schema/decision.schema.json, .brick-harness/decisions/", "does": "an answered blocking question becomes a decision record D-n {id, gap, question, answer, source (file:line or tracker ref of the owner's answer), kinds, areas (paths or spec ids), date}, written by bh-answer and committed by bh-commit", "status": "implemented", "est_loc": 130},
+        {"kind": "structure", "where": "gaps and plan prompts", "does": "decision records join standards.decisions (SG-03) as settled inputs, by path, in id order, at most limits.decision_items with more and the paging command", "status": "implemented", "est_loc": 30},
+        {"kind": "structure", "where": "bh-gaps, gaps schema, gaps report", "does": "a gap of a kind and area a decision covers cites it (answered_by D-n); bh-gaps checks that D-n exists and that its kinds and areas cover the gap, and lists the gap under answered by D-n instead of blocking; a cite that is missing or does not cover is the fact bad-cite and the gap stays as it was; a covered gap that cites nothing is listed as re-asked with the covering ids and does not block; challenging a decision is a reopen (SG-03)", "status": "implemented", "est_loc": 120},
+        {"kind": "fact", "where": "gaps report, config learning.overlay_after, standards.overlay", "does": "an area with at least learning.overlay_after (default 3) decisions is listed as an overlay candidate (area, decision ids, answers); harness-plan hands each candidate to the project's overlay build (the rule overlay named in standards.overlay), which writes the rule; once the overlay holds the rule, bh-gaps treats its rule id as covering the area like a decision", "status": "implemented", "est_loc": 60},
+        {"kind": "fact", "where": "run report", "does": "per cycle: owner questions opened, answered, and re-asked after a covering decision existed (from gaps.json and the decision dates); never scored", "status": "implemented", "est_loc": 60}
+      ],
+      "tests": ["test_gaps_and_plan_get_the_decision_records_by_path_and_cite_them", "test_bh_answer_writes_a_numbered_record_once_and_bh_commit_commits_it", "test_bh_answer_without_write_writes_nothing_and_refuses_bad_input", "test_a_covered_question_that_cites_nothing_is_re_asked_and_blocks_nothing", "test_a_gap_citing_a_covering_decision_is_listed_answered_by_it_not_blocking", "test_a_cite_that_is_missing_or_does_not_cover_is_bad_cite_and_the_gap_stays", "test_a_decision_covers_a_directory_of_areas", "test_decision_records_join_the_state_in_id_order_capped_with_paging", "test_an_area_answered_often_is_an_overlay_candidate_until_the_overlay_holds_a_rule", "test_the_threshold_comes_from_config_learning_overlay_after", "test_decision_schema_and_config_accept_the_new_fields", "test_missing_context_is_a_finding_kind_that_bh_rank_records"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-17",
+      "risk": "Work is picked in an order that leaves nothing sellable if it stops: items of many features half-done, none usable end to end.",
+      "seen": "owner's direction 2026-11-19: if work is stopped today, the product completed so far must still have something to sell",
+      "catalog": ["PN-07", "PN-13", "PN-08"],
+      "mechanism": [
+        {"kind": "structure", "where": "schema/features.schema.json (new), .brick-harness/features.json", "does": "features carry id, title, slice (integer, 1 = the smallest sellable end-to-end product, each next slice the next most valuable increment), value (number), acceptance (the id of the system item that measures the feature end to end) and source (file:line or tracker ref of the owner's statement of slice and value); slice and value are the owner's data, never an agent's estimate; a feature without them ranks last and is listed as the fact unvalued", "status": "implemented", "est_loc": 60},
+        {"kind": "order", "where": "bhcore value_queue, bh-state decision and pending parts", "does": "value_queue orders the work: among features whose acceptance item is not met at HEAD, take the earliest slice; within it, the feature with the highest value divided by remaining cost, where remaining cost is the sum of est_loc (1 when absent) over the unmet items in the feature's dependency closure, ties by build order; emit that feature's unmet closure in dependency order, then the next feature; items no feature names follow in build order; the decision part's page is the head of this queue", "status": "implemented", "est_loc": 120},
+        {"kind": "limit", "where": "bh-state ready (harness-build reads it); horizon admission asks value_queue (SG-15)", "does": "finish before start: while a feature has items met or in progress and its acceptance item is not met, items of a later feature in the queue are not made ready unless the earlier feature has no ready item left (all blocked or waiting on dependencies)", "status": "implemented", "est_loc": 50},
+        {"kind": "fact", "where": "gaps report and decision part", "does": "sellable at HEAD (features whose acceptance item is measured met), if-stopped-today (those features with their slice), cost to the next sellable feature (the head feature's remaining cost) and unvalued features; never scored", "status": "implemented", "est_loc": 50}
+      ],
+      "tests": ["test_without_features_the_queue_is_the_build_order_and_nothing_changes", "test_earliest_slice_first_each_feature_closure_in_dependency_order", "test_within_a_slice_the_highest_value_per_remaining_cost_first_ties_by_build_order", "test_est_loc_absent_counts_one_and_shared_items_are_emitted_once", "test_unvalued_features_rank_last_are_listed_and_never_by_an_agent_estimate", "test_items_no_feature_names_follow_in_build_order", "test_finish_before_start_holds_later_features_while_the_earlier_has_ready_items", "test_nothing_is_held_before_a_feature_has_started_or_when_the_earlier_has_no_ready_item", "test_sellable_facts_follow_the_measured_acceptance_item", "test_the_decision_page_keeps_its_cap_and_paging_in_value_order", "test_features_schema_requires_acceptance_and_types_slice_and_value"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-18",
+      "risk": "Baggage: a builder must read large documents or earlier work to take on an item, and fails or drifts.",
+      "seen": "owner's direction 2026-11-19: each work item must explain itself without the rest of the work",
+      "catalog": ["PN-01", "PN-02", "PN-13", "NO-20"],
+      "mechanism": [
+        {"kind": "structure", "where": "bricks schema, harness-plan", "does": "an item carries context: a list of {path, lines (a-b)} citing the exact spec passages it needs, and rules: the catalog rule ids that apply; the plan writes citations, never copied text", "status": "implemented", "est_loc": 40},
+        {"kind": "structure", "where": "bin/bh-brief (new)", "does": "bh-brief ITEM prints the work packet assembled by the tool at the plan commit: job and purpose, the contract file, targets, test and bench commands, each context passage extracted by line range with its sha256, the contracts (never the code) of the items it depends on, its owned paths, the stack pins of its ecosystem and its rule ids", "status": "implemented", "est_loc": 150},
+        {"kind": "structure", "where": "harness-build builder prompt, skills/bh-build", "does": "the builder's first command is bh-brief ITEM and its brief says the packet and its owned paths are all it needs; anything missing is returned as a finding of kind missing-context (ranked by bh-rank, feeding SG-16), not looked up in other documents", "status": "implemented", "est_loc": 30},
+        {"kind": "fact", "where": "gaps report sizing notes", "does": "packet size in tokens (characters / 4) per item; a packet over config sizing.packet_tokens (default 1600) is a sizing note suggesting a split; a context passage whose lines changed since the plan commit is the fact stale-context; never scored", "status": "implemented", "est_loc": 50}
+      ],
+      "tests": ["test_bh_brief_assembles_the_packet_from_citations_with_digest_and_dependency_contracts", "test_packet_rules_is_the_one_function_that_chooses_the_rules", "test_a_passage_whose_lines_changed_since_the_plan_commit_is_stale_context", "test_a_cited_line_range_that_does_not_exist_is_reported_not_invented", "test_a_packet_over_the_configured_size_is_a_sizing_note_and_sizes_are_listed", "test_the_default_packet_limit_is_1600_tokens", "test_bricks_schema_context_and_rules_are_optional_and_typed", "test_the_builder_prompt_starts_with_bh_brief_and_returns_missing_context_as_a_finding", "test_the_plan_writes_citations_and_rules_never_copied_text", "test_gaps_and_plan_get_the_decision_records_by_path_and_cite_them"],
+      "status": "implemented"
+    },
+    {
+      "id": "SG-19",
+      "risk": "Standards overload: hundreds of rules in a builder's context cost tokens and are followed only partly; rules kept as prose are broken silently.",
+      "seen": "owner's question 2026-11-19; catalog rules such as RL-08 (no polling) and HO-01/02/06/16 (durable hand-offs) exist only as rule text, and their breaches were found by reading code",
+      "catalog": ["NO-21", "PR-05", "PR-07", "NO-02"],
+      "mechanism": [
+        {"kind": "structure", "where": "rule catalog checks, bh-measure", "does": "the catalog's checks run with every item's measurement by default: base-rule checks always, pack checks when the harness detects the pack's stack (pyproject.toml, package.json, SQL migrations and the like); the checkers are pinned by version and sha256 in the plugin and run from it, so a project needs no linters and no config; the project's own linters run in addition when configured; violations in the paths the item owns and the files its ref changed are the metric rules.violations, added to every item's targets as == 0, so standards are part of done like tests; check and checker configs are protected paths, overlaid from the plan (SG-01)", "status": "implemented", "est_loc": 140},
+        {"kind": "fact", "where": "scoreboard", "does": "suppressions (noqa, nosemgrep, type: ignore, eslint-disable and the project's configured markers) added in the files the ref changed, listed per item; never scored", "status": "implemented", "est_loc": 50},
+        {"kind": "structure", "where": "the rule catalog (enforced_by, embodied_by), the project's overlay (not-applicable)", "does": "a check that enforces a catalog rule ships with the catalog beside its rule, keyed by rule id and ecosystem, and the rule row names it (enforced_by); a project only opts a rule out, through the overlay's `- RULE-ID not-applicable: reason` line under `## Check opt-outs`, listed in the report as a fact; a project fact a check needs (e.g. the trust-boundary entry module) is inferred from the code (routes, ingress) and, when it cannot be, is an owner-decides gap, never a config field the project must know to fill; a rule a brick satisfies by use names it (embodied_by); every other rule in use is judgment", "status": "implemented", "est_loc": 30},
+        {"kind": "order", "where": "bh-brief packet (SG-18)", "does": "the packet carries judgment rules only, chosen by the item's tags (ecosystem, catalog domains, packs), ranked by how often findings broke each rule in that area, at most limits.packet_rules (default 8), each as its id and one line extracted from the catalog by the tool", "status": "implemented", "est_loc": 80},
+        {"kind": "structure", "where": "harness-build", "does": "when a feature becomes sellable (SG-17), one review of the feature's diff by a reviewer that did not build it, with the full catalog scoped to the diff's domains (compliance-review); its findings are ranked (SG-12) and become work only as failing tests or targets", "status": "implemented", "est_loc": 60},
+        {"kind": "fact", "where": "gaps report", "does": "the share of rules in use per class (enforced, embodied, judgment); judgment rules broken in two or more findings are listed as check candidates", "status": "implemented", "est_loc": 40}
+      ],
+      "tests": ["test_violations_in_the_items_files_are_the_metric_and_unmet_until_zero", "test_files_the_ref_changed_count_even_outside_the_items_paths", "test_the_target_is_part_of_the_packet_and_the_digest", "test_the_stack_decides_which_ecosystem_and_pack_checks_run", "test_the_pinned_checker_has_a_version_and_a_sha256", "test_a_download_whose_sha256_differs_is_not_run_and_leaves_nothing", "test_when_the_checker_cannot_run_the_metric_is_absent_and_the_report_says_why", "test_suppressions_a_ref_adds_are_listed_and_never_scored", "test_a_project_opts_a_rule_out_only_in_the_catalogs_form_with_a_reason", "test_entry_modules_are_inferred_from_routes_and_without_them_the_owner_decides", "test_the_packet_has_judgment_rules_only_chosen_by_tags", "test_findings_rank_the_rules_and_the_limit_caps_them", "test_a_sellable_feature_has_a_review_brief_and_the_workflow_files_findings", "test_class_shares_and_check_candidates_are_report_facts", "test_without_a_catalog_that_ships_checks_nothing_is_added"],
+      "status": "implemented"
+    }
+  ]
+}

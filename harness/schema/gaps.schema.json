@@ -1,0 +1,231 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "spec gap report",
+  "description": "Written by bh-gaps only. Gaps are reported, never decided: owner-decides needs the project owner or lead agent; fixable has one obvious correction.",
+  "type": "object",
+  "required": [
+    "gaps"
+  ],
+  "properties": {
+    "writer": {
+      "type": "string"
+    },
+    "counts": {
+      "type": "object"
+    },
+    "gaps": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/gap"
+      }
+    },
+    "sizing_notes": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Facts about item sizes against config sizing, for the owner; never a gap or a gate."
+    },
+    "reviewed_head": {
+      "type": [
+        "string",
+        "null"
+      ],
+      "description": "HEAD at the last review's write: a re-review is given the diff since it and the open findings."
+    },
+    "answered": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Owner questions settled by a cited decision or overlay rule ({gap, answered_by, date}); not blocking."
+    },
+    "re_asked": {
+      "type": "array",
+      "items": {
+        "type": "object"
+      },
+      "description": "Owner questions a decision or overlay rule already covered that cite nothing ({gap, covered_by}); not blocking."
+    },
+    "learning": {
+      "type": "object",
+      "description": "Per cycle counts: owner questions opened, answered, re-asked after a covering decision existed; overlay candidates. Facts, never scored."
+    },
+    "value": {
+      "type": "object",
+      "description": "Sellable at HEAD, if-stopped-today, cost to the next sellable feature, unvalued features. Facts, never scored."
+    },
+    "packets": {
+      "type": "object",
+      "description": "Work packet size in tokens per item (largest first, capped)."
+    },
+    "rollup": {
+      "type": "object",
+      "description": "Per feature named by an item that is not met: items met and total, derived at read time, never stored as status.",
+      "additionalProperties": {
+        "type": "object"
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "kind"
+        ]
+      },
+      "description": "Structure facts for the owner (split parent without a child dependency, shared path, tracker-closed item not met, never scored, tracker unreachable); they change no status."
+    }
+  },
+  "$defs": {
+    "gap": {
+      "type": "object",
+      "required": [
+        "kind",
+        "summary",
+        "tag",
+        "evidence"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "id": {
+          "type": "string"
+        },
+        "kind": {
+          "enum": [
+            "missing-document",
+            "dangling-reference",
+            "no-acceptance",
+            "no-numeric-target",
+            "target-without-source",
+            "target-without-command",
+            "target-on-unknown-item",
+            "duplicate-item",
+            "no-contract",
+            "missing-dependency",
+            "item-without-source",
+            "contradiction",
+            "untracked-open-item",
+            "helper-without-library",
+            "unsettled-area",
+            "unmet-after-rounds",
+            "not-derivable",
+            "missing-context",
+            "other"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tag": {
+          "enum": [
+            "owner-decides",
+            "fixable"
+          ]
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "file",
+              "line"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "file": {
+                "type": "string",
+                "description": "Relative to the project root."
+              },
+              "line": {
+                "type": "integer",
+                "minimum": 1
+              },
+              "quote": {
+                "type": "string",
+                "description": "Text on the cited line; a finding whose quote is not there is rejected."
+              }
+            }
+          }
+        },
+        "looked_in": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Documents searched, for a gap that is an absence."
+        },
+        "area": {
+          "type": "string",
+          "description": "Design checklist area id (unsettled-area)."
+        },
+        "source": {
+          "type": "string",
+          "description": "check (mechanical), review, plan."
+        },
+        "resolve_with": {
+          "type": "string",
+          "description": "Skill that settles it (e.g. the catalog's decision or vetting skill); reported, not run."
+        },
+        "blocks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Items this gap stops from ever being met; they are reported blocked, not built."
+        },
+        "unlocated": {
+          "type": "boolean",
+          "description": "A mechanical check found no line to cite."
+        },
+        "severity": {
+          "enum": [
+            "S1",
+            "S2",
+            "S3",
+            "S4"
+          ],
+          "description": "S1 worst. Missing ranks last."
+        },
+        "impact": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Ids of the targets or acceptance checks the finding touches; more first in bh-rank."
+        },
+        "rule": {
+          "type": "string",
+          "description": "Catalog rule id or document rule the finding cites."
+        },
+        "proof": {
+          "enum": [
+            "reproduced",
+            "trigger",
+            "theoretical"
+          ],
+          "description": "How the gap was shown (the finding schema's evidence): ranks, never filters."
+        },
+        "reopens": {
+          "type": "string",
+          "description": "Path or id of the recorded decision (config standards.decisions) this gap would reopen; listed in its own report section for the owner."
+        },
+        "state": {
+          "enum": [
+            "open",
+            "closed"
+          ],
+          "description": "Findings only (source finding): default open; a re-review is given the open ones."
+        },
+        "answered_by": {
+          "type": "string",
+          "description": "Id of the decision record (D-n) or overlay rule that settles this gap's kind and area; bh-gaps checks the cite and lists the gap as answered instead of blocking."
+        },
+        "filed": {
+          "type": "string",
+          "description": "The tracker ref this finding was filed under (bh-file); the record that keeps filing idempotent."
+        }
+      }
+    }
+  }
+}

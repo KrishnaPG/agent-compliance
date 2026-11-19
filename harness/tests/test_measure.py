@@ -1,0 +1,351 @@
+"""Measurer unit tests: every failure mode fails closed and records raw numbers."""
+
+import json
+import sys
+from pathlib import Path
+
+import bhcore
+import pytest
+
+PY = sys.executable
+JUNIT_OK = '<testsuites><testsuite tests="3" failures="0" errors="0" skipped="0"/></testsuites>'
+
+
+def project(
+    tmp_path: Path, test_run: str, targets: list, bench: dict | None = None, timeout: float = 30
+) -> bhcore.Config:
+    (tmp_path / "bricks.json").write_text(json.dumps({"bricks": [{"id": "a", "job": "x"}]}))
+    (tmp_path / "targets.json").write_text(json.dumps({"targets": targets}))
+    cmds = {"test": {"run": test_run, "junit": "{out}/junit.xml"}, "timeout_s": timeout}
+    if bench:
+        cmds["bench"] = bench
+    cfg = {
+        "paths": {
+            "targets": "targets.json",
+            "bricks": "bricks.json",
+            "catalogue": "cat.json",
+            "scoreboard": "sb.json",
+            "scoreboard_md": "sb.md",
+        },
+        "commands": cmds,
+        "ecosystems": ["python"],
+    }
+    (tmp_path / "c.json").write_text(json.dumps(cfg))
+    return bhcore.Config(tmp_path / "c.json")
+
+
+def write(text: str) -> str:
+    """A shell command that writes `text` to {out}/junit.xml (or a given file)."""
+    return f"{PY} -c \"import sys,pathlib; pathlib.Path(sys.argv[1]).write_text(sys.argv[2])\" {{out}}/junit.xml '{text}'"
+
+
+T_OK = [
+    {"item": "a", "metric": "tests.failed", "op": "==", "value": 0},
+    {"item": "a", "metric": "tests.passed", "op": ">=", "value": 3},
+]
+
+
+def run(cfg):
+    """In-place measuring: a pass is met-uncommitted, never met (it satisfies nothing)."""
+    return bhcore.measure(cfg, [("a", "HEAD")], in_place=True)["items"]["a"]
+
+
+MET = "met-uncommitted"
+
+
+def test_met_when_numbers_meet_targets(tmp_path):
+    r = run(project(tmp_path, write(JUNIT_OK), T_OK))
+    assert r["status"] == MET, r
+    assert r["metrics"]["tests.passed"] == 3
+
+
+def test_failed_tests_unmet(tmp_path):
+    r = run(
+        project(tmp_path, write('<testsuite tests="3" failures="1" errors="0" skipped="0"/>'), T_OK)
+    )
+    assert r["status"] == "unmet"
+    assert r["metrics"]["tests.failed"] == 1
+
+
+def test_zero_tests_collected_unmet(tmp_path):
+    r = run(
+        project(
+            tmp_path, write('<testsuite tests="0" failures="0" errors="0" skipped="0"/>'), [T_OK[0]]
+        )
+    )
+    assert r["status"] == "unmet"
+    assert "test: zero tests collected" in r["errors"]
+
+
+def test_nonzero_exit_unmet_even_with_good_junit(tmp_path):
+    r = run(project(tmp_path, write(JUNIT_OK) + " && exit 3", T_OK))
+    assert r["status"] == "unmet"
+    assert "test: exit 3" in r["errors"]
+
+
+def test_timeout_unmet(tmp_path):
+    r = run(project(tmp_path, f'{PY} -c "import time; time.sleep(5)"', T_OK, timeout=1))
+    assert r["status"] == "unmet"
+    assert "test: timeout" in r["errors"]
+
+
+def test_unparseable_junit_unmet(tmp_path):
+    r = run(project(tmp_path, write("<not-xml"), T_OK))
+    assert r["status"] == "unmet"
+    assert any("junit" in e for e in r["errors"])
+
+
+def test_no_targets_unmet(tmp_path):
+    r = run(project(tmp_path, write(JUNIT_OK), []))
+    assert r["status"] == "unmet"
+    assert "no targets for this item" in r["errors"]
+
+
+def bench(tmp_path, content, metrics, fmt="json"):
+    """A bench command that writes `content` as its result (the measurer unlinks old results)."""
+    src = tmp_path / ("src." + fmt)
+    src.write_text(content)
+    res = tmp_path / ("b." + fmt)
+    return {"run": f"cp {src} {res}", "results": str(res), "format": fmt, "metrics": metrics}
+
+
+def test_bench_json_and_csv_extractors(tmp_path):
+    b = bench(tmp_path, json.dumps({"r": [{"p50": 7.5}]}), {"p50_ms": "r.0.p50"})
+    t = T_OK + [{"item": "a", "metric": "bench.p50_ms", "op": "<=", "value": 10}]
+    assert run(project(tmp_path, write(JUNIT_OK), t, b))["metrics"]["bench.p50_ms"] == 7.5
+    csv_path = tmp_path / "b.csv"
+    csv_path.write_text("lat,rps\n3,10\n1,30\n2,20\n")
+    assert bhcore.extract(csv_path, "csv", "lat:median") == 2
+    assert bhcore.extract(csv_path, "csv", "rps:max") == 30
+    assert bhcore.extract(csv_path, "csv", "rps") == 10
+
+
+def test_missing_bench_metric_unmet(tmp_path):
+    b = bench(tmp_path, json.dumps({"other": 1}), {"p50_ms": "p50"})
+    t = T_OK + [{"item": "a", "metric": "bench.p50_ms", "op": "<=", "value": 10}]
+    r = run(project(tmp_path, write(JUNIT_OK), t, b))
+    assert r["status"] == "unmet"
+    assert "metric bench.p50_ms not measured" in r["errors"]
+
+
+def test_non_numeric_bench_metric_unmet(tmp_path):
+    b = bench(tmp_path, json.dumps({"p50": "fast"}), {"p50_ms": "p50"})
+    t = [{"item": "a", "metric": "bench.p50_ms", "op": "<=", "value": 10}]
+    r = run(project(tmp_path, write(JUNIT_OK), t, b))
+    assert r["status"] == "unmet"
+
+
+def test_bench_target_without_bench_command_unmet(tmp_path):
+    t = T_OK + [{"item": "a", "metric": "bench.p50_ms", "op": "<=", "value": 10}]
+    r = run(project(tmp_path, write(JUNIT_OK), t))
+    assert "bench targets but no bench command" in r["errors"]
+
+
+def test_scoreboard_written_with_digest_and_tamper_detected(tmp_path):
+    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
+    run(cfg)
+    sb = tmp_path / "sb.json"
+    board, problem = bhcore.read_board(sb)
+    assert problem is None and board["candidates"]["a"]["status"] == MET
+    assert "| a | candidate | met-uncommitted |" in (tmp_path / "sb.md").read_text()
+    doc = json.loads(sb.read_text())
+    doc["candidates"]["a"]["status"] = "met"
+    doc["candidates"]["a"]["errors"] = ["edited"]
+    sb.write_text(json.dumps(doc))
+    board, problem = bhcore.read_board(sb)
+    assert board["candidates"] == {} and "digest mismatch" in problem
+    st = bhcore.state(cfg)
+    assert st["bricks"][0]["status"] == "unmeasured"
+    # an edited board is never overwritten: the run is still printed, with the error
+    before = sb.read_text()
+    with pytest.raises(bhcore.HarnessError, match="digest mismatch"):
+        bhcore.measure(cfg, [("a", "HEAD")], in_place=True)
+    with pytest.raises(bhcore.HarnessError, match="digest mismatch"):
+        bhcore.write_scoreboard(cfg, {"a": {"status": "met"}})
+    assert sb.read_text() == before
+
+
+def test_changed_targets_make_item_stale(tmp_path):
+    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
+    run(cfg)
+    st = bhcore.state(cfg)
+    assert st["bricks"][0]["status"] == MET and st["all_met"] is False
+    (tmp_path / "targets.json").write_text(json.dumps({"targets": T_OK[:1]}))
+    assert bhcore.state(cfg)["bricks"][0]["status"] == "stale"
+
+
+def test_changed_commands_make_item_stale(tmp_path):
+    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
+    run(cfg)
+    cfg = project(tmp_path, write(JUNIT_OK) + " && true", T_OK)
+    assert bhcore.state(cfg)["bricks"][0]["status"] == "stale"
+
+
+def test_cli_exit_codes(tmp_path, capsys, load_bin):
+    m = load_bin("bh-measure")
+    project(tmp_path, write(JUNIT_OK), T_OK)
+    sys.argv = ["bh-measure", "--config", str(tmp_path / "c.json"), "--in-place"]
+    assert m.main() == 1  # in place never satisfies a target
+    run_ = json.loads(capsys.readouterr().out)
+    assert run_["ok"] is False and run_["items"]["a"]["status"] == MET
+    sys.argv = ["bh-measure", "--config", str(tmp_path / "c.json"), "--in-place", "--item", "nope"]
+    assert m.main() == 2
+
+
+def test_unknown_template_braces_left_alone():
+    assert bhcore._render("echo {item} {json}", {"item": "a"}) == "echo a {json}"
+
+
+def test_validator_rejects_bad_config():
+    errs = bhcore.validate(
+        {"paths": {}, "commands": {}, "ecosystems": [], "bogus": 1},
+        bhcore.load_schema("harness.config"),
+    )
+    assert any("bogus" in e for e in errs)
+    assert any("test" in e for e in errs)  # commands.test is required
+    assert any("fewer than 1" in e for e in errs)
+
+
+@pytest.mark.parametrize("op,a,b,ok", [(">=", 2, 2, True), ("<", 2, 2, False), ("!=", 1, 2, True)])
+def test_ops(op, a, b, ok):
+    assert bhcore.OPS[op](a, b) is ok
+
+
+def test_stale_results_from_an_earlier_run_are_not_reused(tmp_path):
+    t = T_OK + [{"item": "a", "metric": "bench.p50_ms", "op": "<=", "value": 10}]
+    cfg = project(
+        tmp_path, write(JUNIT_OK), t, bench(tmp_path, json.dumps({"p50": 1}), {"p50_ms": "p50"})
+    )
+    assert run(cfg)["status"] == MET
+    cfg = project(tmp_path, "true", t, {**bench(tmp_path, "{}", {"p50_ms": "p50"}), "run": "true"})
+    r = run(cfg)
+    assert r["status"] == "unmet"
+    assert "tests.passed" not in r["metrics"] and "bench.p50_ms" not in r["metrics"]
+
+
+def test_timeout_kills_child_processes(tmp_path):
+    import time
+
+    t0 = time.monotonic()
+    cmd = f'{PY} -c "import time; time.sleep(30)" & {PY} -c "import time; time.sleep(30)"; wait'
+    r = run(project(tmp_path, cmd, T_OK, timeout=1))
+    assert "test: timeout" in r["errors"]
+    assert time.monotonic() - t0 < 10
+
+
+def test_pending_command_fails_closed_without_running(tmp_path):
+    cfg = project(tmp_path, write(JUNIT_OK) + " && touch ran", T_OK)
+    cfg.commands["test"]["pending"] = "runner script not written yet"
+    r = run(cfg)
+    assert r["status"] == "unmet"
+    assert any("not yet present" in e for e in r["errors"])
+    assert not (tmp_path / "ran").exists() and r["runs"] == []
+
+
+# ---- scoring bypasses and crash paths
+
+
+@pytest.mark.parametrize(
+    "content,fmt", [('{"p50": NaN}', "json"), ('{"p50": Infinity}', "json"), ("p50\nnan\n", "csv")]
+)
+def test_non_finite_bench_metric_unmet(tmp_path, content, fmt):
+    b = bench(tmp_path, content, {"p50_ms": "p50"}, fmt)
+    t = T_OK + [{"item": "a", "metric": "bench.p50_ms", "op": "!=", "value": 1}]
+    r = run(project(tmp_path, write(JUNIT_OK), t, b))
+    assert r["status"] == "unmet" and "bench.p50_ms" not in r["metrics"]
+
+
+def test_non_finite_target_value_rejected(tmp_path):
+    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
+    (tmp_path / "targets.json").write_text(
+        '{"targets": [{"item": "a", "metric": "tests.failed", "op": "!=", "value": NaN}]}'
+    )
+    with pytest.raises(bhcore.HarnessError, match="non-finite"):
+        run(cfg)
+
+
+def test_nested_testsuites_are_not_double_counted(tmp_path):
+    xml = (
+        '<testsuites tests="3" failures="0"><testsuite tests="3" failures="0">'
+        '<testsuite tests="2" failures="0"/><testsuite tests="1" failures="0"/>'
+        "</testsuite></testsuites>"
+    )
+    p = tmp_path / "j.xml"
+    p.write_text(xml)
+    assert bhcore.parse_junit(p)["total"] == 3
+
+
+@pytest.mark.parametrize(
+    "xml",
+    [
+        '<testsuite tests="three"/>',
+        '<testsuite tests="2.5"/>',
+        '<testsuite tests="1" failures="2"/>',
+        "<report/>",
+    ],
+)
+def test_odd_junit_is_an_error_not_a_crash(tmp_path, xml):
+    p = tmp_path / "j.xml"
+    p.write_text(xml)
+    with pytest.raises(bhcore.HarnessError):
+        bhcore.parse_junit(p)
+    r = run(project(tmp_path, write(xml), T_OK))
+    assert r["status"] == "unmet" and any("junit" in e for e in r["errors"])
+
+
+@pytest.mark.parametrize("doc", ["[]", '{"items": []}', "not json"])
+def test_malformed_scoreboard_is_a_problem_not_a_crash(tmp_path, doc):
+    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
+    (tmp_path / "sb.json").write_text(doc)
+    assert bhcore.read_board(tmp_path / "sb.json")[1]
+    assert bhcore.state(cfg)["problems"]
+    with pytest.raises(bhcore.HarnessError):
+        run(cfg)
+
+
+# ---- status table: one record's facts, then current vs candidate
+
+R_MET = {"status": "met", "ref": "a" * 40, "measured_at": "2026-01-01T00:00:01"}
+R_UNMET = {"status": "unmet", "ref": "b" * 40, "measured_at": "2026-01-01T00:00:02"}
+
+
+@pytest.mark.parametrize(
+    "r,facts,want",
+    [
+        (None, {}, None),
+        (R_MET, {"digest_ok": False}, "stale"),
+        ({**R_MET, "ref": "working-tree"}, {}, "met-uncommitted"),
+        ({**R_MET, "ref": "working-tree", "status": "met-uncommitted"}, {}, "met-uncommitted"),
+        (R_MET, {"resolvable": False}, "stale"),
+        ({**R_MET, "status": "conflict"}, {}, "conflict"),
+        (R_UNMET, {}, "unmet"),
+        (R_MET, {"in_head": False}, "met-unmerged"),
+        (R_MET, {"same_tree": False}, "stale"),
+        (R_MET, {}, "met"),
+    ],
+)
+def test_record_status_table(r, facts, want):
+    assert bhcore.record_status(r, **{"digest_ok": True, **facts}) == want
+
+
+def test_failed_candidate_never_replaces_a_met_current():
+    assert bhcore.pick_status((R_MET, "met"), (R_UNMET, "unmet")) == ("met", R_MET)
+
+
+def test_newer_record_decides_when_current_is_not_met():
+    older_cur = {**R_UNMET, "measured_at": "2026-01-01T00:00:00"}
+    assert bhcore.pick_status((older_cur, "unmet"), (R_MET, "met-unmerged"))[0] == "met-unmerged"
+    newer_cur = {**R_UNMET, "measured_at": "2026-01-01T00:00:09"}
+    assert bhcore.pick_status((newer_cur, "unmet"), (R_MET, "met"))[0] == "unmet"
+    assert bhcore.pick_status((None, None), (None, None)) == ("unmeasured", None)
+
+
+def test_in_place_never_satisfies_a_dependency(tmp_path):
+    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
+    b = json.loads((tmp_path / "bricks.json").read_text())
+    b["bricks"].append({"id": "z", "job": "y", "depends_on": ["a"]})
+    (tmp_path / "bricks.json").write_text(json.dumps(b))
+    run(cfg)
+    st = bhcore.state(cfg)
+    assert {x["id"]: x["ready"] for x in st["bricks"]}["z"] is False
+    assert st["all_met"] is False

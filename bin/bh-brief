@@ -1,0 +1,49 @@
+#!/usr/bin/env python3
+"""Print the work packet of one item: all a builder needs, assembled by the tool.
+
+The packet holds the job and purpose, the contract, the targets, the test and bench commands,
+each passage the plan cited (path and lines, extracted, with its sha256), the contracts (never
+the code) of the items it depends on, the owned paths, the stack pins of its ecosystem and its
+rule ids. Read at the plan commit; the plan cites, nobody retypes spec text. --json prints
+{item, text, tokens, passages, stale}. Exit 0, or 2 with {"error": ...} on stdout.
+
+  bh-brief --config .brick-harness/config.json ITEM [--json]
+  bh-brief --config .brick-harness/config.json --feature FEATURE
+      what a reviewer of a feature that became sellable needs (JSON): its items and paths,
+      the plan commit its diff starts from, the diff command, and the catalog domains and
+      packs of its items (SG-19)
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhcore import Config, HarnessError, work_packet  # noqa: E402
+from bhrules import feature_review  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-brief", description=__doc__.splitlines()[0])
+    ap.add_argument("item", nargs="?")
+    ap.add_argument("--feature")
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument("--json", action="store_true")
+    a = ap.parse_args()
+    try:
+        if a.feature:
+            print(json.dumps(feature_review(Config(a.config), a.feature)))
+            return 0
+        if not a.item:
+            raise HarnessError("give an item or --feature")
+        pk = work_packet(Config(a.config), a.item)
+    except HarnessError as e:
+        print(json.dumps({"error": str(e)}))
+        return 2
+    print(json.dumps(pk) if a.json else pk["text"], end="" if not a.json else "\n")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

@@ -1,0 +1,354 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "tracker interface (config tracker, adapters, the entries its commands print)",
+  "description": "The tracker is the project's own system, reached through nine operations (ready, show, create, link, claim, close, reopen, defer, list). An adapter (adapters/<name>.json, or a path in the config) maps each operation to a shell command and says how its JSON output maps to the entry shape below. Placeholders in a command are shell-quoted by the runner; a part in [square brackets] that holds a placeholder is left out when that value is empty. Measure, build and merge never call the tracker.",
+  "$defs": {
+    "entry": {
+      "type": "object",
+      "required": [
+        "ref",
+        "title",
+        "state"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1,
+          "description": "The tracker's own id of the entry."
+        },
+        "title": {
+          "type": "string"
+        },
+        "body": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "state": {
+          "enum": [
+            "open",
+            "in_progress",
+            "closed",
+            "deferred"
+          ]
+        },
+        "type": {
+          "enum": [
+            "goal",
+            "feature",
+            "item",
+            "other"
+          ]
+        },
+        "assignee": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "description": "The claim holder, when the tracker keeps one."
+        },
+        "parent": {
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "deps": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "description": "Refs of the entries that block this one."
+        },
+        "labels": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "metadata": {
+          "type": "object"
+        },
+        "url": {
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "entries": {
+      "type": "array",
+      "items": {
+        "$ref": "#/$defs/entry"
+      }
+    },
+    "created": {
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "minLength": 1
+        }
+      }
+    },
+    "field": {
+      "description": "Where an entry field is in the tracker's JSON: a path (a.b, a[].b maps a list, a[k=v].b filters a list, a[0]), or {path, prefix, map}.",
+      "type": [
+        "string",
+        "object"
+      ],
+      "properties": {
+        "path": {
+          "type": "string"
+        },
+        "prefix": {
+          "type": "string",
+          "description": "Put before the value (a GitHub number becomes #123)."
+        },
+        "map": {
+          "type": "object",
+          "description": "Value to value, applied after the prefix."
+        }
+      }
+    },
+    "config": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The config's tracker object. Nothing is hard-coded: with no tracker the files adapter applies.",
+      "properties": {
+        "adapter": {
+          "type": "string",
+          "description": "An adapter name (adapters/<name>.json) or a path to an adapter file, relative to the project root. Default files."
+        },
+        "goal": {
+          "type": "string",
+          "description": "Ref of the goal admission takes items from (ready(parent=goal))."
+        },
+        "actor": {
+          "type": "string",
+          "description": "The name the harness acts as in the tracker. Default: a hash of host and clone path, never a person."
+        },
+        "timeout_s": {
+          "type": "number",
+          "minimum": 1,
+          "description": "Timeout of one command (default 60)."
+        },
+        "commands": {
+          "type": "object",
+          "description": "Overrides of the adapter's commands, by operation."
+        },
+        "capabilities": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "atomic_claim": {
+              "type": "boolean"
+            },
+            "hierarchy": {
+              "type": "boolean"
+            },
+            "defer": {
+              "type": "boolean"
+            },
+            "compaction": {
+              "type": "boolean"
+            },
+            "ready_filter": {
+              "type": "boolean"
+            }
+          }
+        },
+        "pin": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "sha256": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{64}$",
+              "description": "The tracker binary's sha256 for this platform when the adapter has none for it."
+            }
+          }
+        }
+      }
+    },
+    "adapter": {
+      "type": "object",
+      "required": [
+        "name",
+        "capabilities",
+        "commands"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "name": {
+          "type": "string"
+        },
+        "description": {
+          "type": "string"
+        },
+        "pin": {
+          "type": "object",
+          "required": [
+            "binary",
+            "sha256"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "binary": {
+              "type": "string",
+              "description": "Program on PATH whose sha256 is checked before any command runs."
+            },
+            "version": {
+              "type": "string"
+            },
+            "sha256": {
+              "type": "object",
+              "description": "Platform (linux_amd64, ...) to the binary's sha256.",
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^[0-9a-f]{64}$"
+              }
+            }
+          }
+        },
+        "capabilities": {
+          "type": "object",
+          "required": [
+            "atomic_claim",
+            "hierarchy",
+            "defer",
+            "compaction",
+            "ready_filter"
+          ],
+          "additionalProperties": false,
+          "properties": {
+            "atomic_claim": {
+              "type": "boolean"
+            },
+            "hierarchy": {
+              "type": "boolean"
+            },
+            "defer": {
+              "type": "boolean"
+            },
+            "compaction": {
+              "type": "boolean"
+            },
+            "ready_filter": {
+              "type": "boolean"
+            }
+          }
+        },
+        "types": {
+          "type": "object",
+          "description": "The tracker's names for goal, feature and item.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "commands": {
+          "type": "object",
+          "description": "Operation to command template (a string; link may be an object by dependency kind, with default).",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "object"
+            ]
+          }
+        },
+        "output": {
+          "type": "object",
+          "description": "Operation to how its output is read: json (default), none, url-ref (the last path segment of a printed URL, with ref_prefix).",
+          "additionalProperties": {
+            "enum": [
+              "json",
+              "none",
+              "url-ref"
+            ]
+          }
+        },
+        "ref_prefix": {
+          "type": "string"
+        },
+        "fields": {
+          "type": "object",
+          "description": "Entry field to where it is in the tracker's JSON; an operation's own table under by_op wins.",
+          "additionalProperties": {
+            "$ref": "#/$defs/field"
+          }
+        },
+        "by_op": {
+          "type": "object",
+          "additionalProperties": {
+            "type": "object",
+            "additionalProperties": {
+              "$ref": "#/$defs/field"
+            }
+          }
+        },
+        "created_ref": {
+          "$ref": "#/$defs/field"
+        },
+        "states": {
+          "type": "object",
+          "description": "The tracker's state names to open, in_progress, closed, deferred.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "list_states": {
+          "type": "object",
+          "description": "What {state} is for the wanted set: open, live (not closed), closed, all.",
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "labels": {
+          "type": "object",
+          "additionalProperties": false,
+          "description": "Label conventions that stand in for a missing capability.",
+          "properties": {
+            "deferred": {
+              "type": "string"
+            },
+            "parent": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string"
+            }
+          }
+        },
+        "metadata_in_body": {
+          "type": "boolean",
+          "description": "Metadata is kept as a marker comment at the end of the body (a tracker with no metadata field)."
+        },
+        "missing": {
+          "type": "string",
+          "description": "A regular expression that the error text of a show matches when the ref no longer exists."
+        },
+        "release": {
+          "type": "string",
+          "description": "Command text the owner runs to free a stale claim, {ref} filled in; a fact lists it."
+        },
+        "id_prefix": {
+          "type": "string",
+          "description": "Prefix of the item id derived from a ref (<prefix>-<slug of the ref>)."
+        },
+        "deps_format": {
+          "enum": [
+            "kinded",
+            "blocks"
+          ],
+          "description": "kinded: create takes kind:ref dependencies; blocks (default): create takes only blocking refs and the runner links the other kinds afterwards."
+        }
+      }
+    }
+  }
+}

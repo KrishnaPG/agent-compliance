@@ -1,0 +1,5 @@
+{
+  "brick": "csv-reader",
+  "input": {"type": "string", "description": "CSV text, UTF-8, first row is the header (RFC 4180)."},
+  "output": {"type": "array", "items": {"type": "object", "additionalProperties": {"type": "string"}}}
+}

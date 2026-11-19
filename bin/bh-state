@@ -1,0 +1,108 @@
+#!/usr/bin/env python3
+"""Print the harness state derived from project files as JSON.
+
+Validates the config, lists files (harness-owned ones are creatable), item status from the
+scoreboard (with the previous ref and unmet numbers of an item to rebuild), blocked items,
+dependency waves, ready items, builder branches (bh/<item>), the plan commit, rendered
+per-item commands, catalogue entries and duplicates, lockfile versions, design-checklist
+mentions, the mechanical spec gaps and counts. Exit 0 with no problems, 1 with problems,
+2 when the config cannot be read or a part is unknown.
+
+  bh-state --config .brick-harness/config.json [--parts | --part KEY ... | --value KEY | --affected REF]
+  bh-state --config .brick-harness/config.json --part pending --after ID
+
+The decision part lists only items not met, most valuable first (the value order of
+.brick-harness/features.json, else build order), at most limits.decision_items, with counts per
+status and ``more`` (the count left); --part pending --after ID prints the next page
+({"pending": {items, more, next}}). --part learning --after D-n pages the decision records.
+
+--value prints one part's bare JSON value (what a sliced re-read joins); --parts prints the part names with a checksum of each (lib/prelude.js recomputes them to
+detect a part shortened in transit); --part prints {KEY: value} for each KEY; --affected
+prints the items a ref touches and everything depending on them.
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhcore import (  # noqa: E402
+    Config,
+    HarnessError,
+    affected,
+    checksum,
+    learning_part,
+    load_decisions,
+    overlay_rules,
+    pending_page,
+    state,
+    value_queue,
+)
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-state", description=__doc__.splitlines()[0])
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument(
+        "--part",
+        action="append",
+        default=[],
+        help="print only these top-level keys (repeatable); keeps output small where a "
+        "caller's tool shortens long output",
+    )
+    ap.add_argument(
+        "--value",
+        metavar="KEY",
+        help="print only the bare JSON value of one part (no {KEY: ...} wrapper); same "
+        "serialisation as --part, so its checksum equals the one --parts lists",
+    )
+    ap.add_argument("--parts", action="store_true", help="list the parts and their checksums")
+    ap.add_argument("--after", metavar="ID", help="with --part pending: the page after item ID")
+    ap.add_argument("--affected", metavar="REF", help="items REF touches, with dependents")
+    a = ap.parse_args()
+    try:
+        cfg = Config(a.config)
+        if a.affected:
+            print(json.dumps({"affected": affected(cfg, a.affected)}))
+            return 0
+        s = state(cfg)
+    except HarnessError as e:
+        print(json.dumps({"problems": [str(e)], "config": None}))
+        return 2
+    if a.after is not None:
+        if a.part not in (["pending"], ["learning"]):
+            print(json.dumps({"problems": ["--after goes with --part pending or learning only"]}))
+            return 2
+        try:
+            if a.part == ["pending"]:
+                page = pending_page(
+                    s["bricks"], value_queue(cfg, s), cfg.limit("decision_items"), a.after
+                )
+            else:
+                page = learning_part(cfg, load_decisions(cfg), overlay_rules(cfg), a.after)
+        except HarnessError as e:
+            print(json.dumps({"problems": [str(e)]}))
+            return 2
+        print(json.dumps({a.part[0]: page}, sort_keys=True, separators=(",", ":")))
+        return 0
+    if a.parts:
+        print(json.dumps({"parts": sorted(s), "checksums": {k: checksum(v) for k, v in s.items()}}))
+        return 0
+    if a.value is not None:
+        if a.value not in s:
+            print(json.dumps({"problems": [f"unknown part {a.value}"], "parts": sorted(s)}))
+            return 2
+        print(json.dumps(s[a.value], sort_keys=True, separators=(",", ":")))
+        return 1 if s["problems"] else 0
+    unknown = [k for k in a.part if k not in s]
+    if unknown:
+        print(json.dumps({"problems": [f"unknown part {k}" for k in unknown], "parts": sorted(s)}))
+        return 2
+    out = {k: s[k] for k in a.part} if a.part else s
+    print(json.dumps(out, sort_keys=True, separators=(",", ":")))
+    return 1 if s["problems"] else 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

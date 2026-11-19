@@ -1,0 +1,22 @@
+#!/usr/bin/env python3
+"""Stands in for ast-grep in tests: `scan --rule FILE --json PATHS` prints ast-grep's JSON
+shape for each line holding the rule's literal pattern prefix; exits 1 on a hit, like an
+error-severity finding."""
+import json
+import sys
+
+a = sys.argv[1:]
+rule = a[a.index("--rule") + 1]
+paths = [x for x in a[a.index("--json") + 1 :]]
+text = open(rule).read()
+pat = next(ln.split("pattern:", 1)[1].strip() for ln in text.splitlines() if "pattern:" in ln)
+lit = pat.split("(")[0].split("$")[0].strip()
+rid = next(ln.split(":", 1)[1].strip() for ln in text.splitlines() if ln.startswith("id:"))
+hits = []
+for p in paths:
+    for n, line in enumerate(open(p, errors="ignore").read().splitlines()):
+        if lit in line:
+            hits.append({"text": line.strip(), "file": p, "ruleId": rid, "severity": "error",
+                         "range": {"start": {"line": n, "column": 0}, "end": {"line": n, "column": 1}}})
+print(json.dumps(hits))
+sys.exit(1 if hits else 0)

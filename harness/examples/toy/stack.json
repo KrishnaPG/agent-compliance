@@ -1,0 +1,5 @@
+{
+  "picks": [
+    {"area": "language", "pick": "Python 3.12+ standard library", "record": "decisions/0001-python-stdlib.md"}
+  ]
+}

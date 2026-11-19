@@ -1,0 +1,5 @@
+{"version": 1, "checks": [
+ {"rule": "RL-08", "pack": "base", "ecosystem": "python", "tool": "ast-grep", "file": "checks/base/RL-08.python.yml", "binds": []},
+ {"rule": "ID-01", "pack": "base", "ecosystem": "python", "tool": "ast-grep", "file": "checks/base/ID-01.python.yml", "binds": ["entry_modules"]},
+ {"rule": "DS-01", "pack": "postgresql", "ecosystem": "sql", "tool": "ast-grep", "file": "checks/postgresql/DS-01.sql.yml", "binds": []}
+]}

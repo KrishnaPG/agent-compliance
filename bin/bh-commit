@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+"""Commit the harness plan files (and only them) so builder worktrees forked from HEAD see them.
+
+Stages the harness-owned files that exist (config, targets, items, contracts, catalogue,
+scoreboard, gap report, .brick-harness/.gitignore) and commits when anything changed; never
+the project's own documents. Writes .brick-harness/.gitignore with out/ when the default
+output directory is not ignored. Refuses while a merge is in progress and when the targets
+file drops or changes a target HEAD has (the owner commits that by hand). Holds the
+harness lock, so it never interleaves with a scoreboard write or bh-merge. --dry-run lists
+what would be committed and writes nothing. Prints {"committed", "files", "head"} with
+paths relative to the project root. Exit 0, or 2 on error.
+
+  bh-commit --config .brick-harness/config.json --message "brick-harness: bricks"
+"""
+
+import argparse
+import json
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhcore import Config, HarnessError, commit_harness  # noqa: E402
+
+
+def main() -> int:
+    ap = argparse.ArgumentParser(prog="bh-commit", description=__doc__.splitlines()[0])
+    ap.add_argument("--config", default=".brick-harness/config.json")
+    ap.add_argument("--message", default="brick-harness: plan")
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args()
+    try:
+        print(json.dumps(commit_harness(Config(a.config), a.message, a.dry_run)))
+    except HarnessError as e:
+        print(json.dumps({"committed": False, "error": str(e)}))
+        return 2
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

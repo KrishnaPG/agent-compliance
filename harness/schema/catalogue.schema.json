@@ -1,0 +1,24 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "helper catalogue",
+  "description": "job -> library -> used-by. Versions come from lockfiles, never from here.",
+  "type": "object",
+  "required": ["entries"],
+  "properties": {
+    "entries": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["job", "ecosystem", "library", "used_by"],
+        "additionalProperties": false,
+        "properties": {
+          "job": {"type": "string", "description": "A cross-cutting job, optionally narrowed as job:detail (formats:csv)."},
+          "ecosystem": {"type": "string"},
+          "library": {"type": "string", "description": "Package name as in the lockfile, or stdlib:<module>, or custom:<path> for a verified gap."},
+          "used_by": {"type": "array", "items": {"type": "string"}},
+          "why": {"type": "string", "description": "One line: what was checked and why this one."}
+        }
+      }
+    }
+  }
+}

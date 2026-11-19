@@ -1,0 +1,5 @@
+id: ds-01
+language: sql
+rule:
+  pattern: DROP TABLE
+severity: error
