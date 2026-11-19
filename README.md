@@ -1,6 +1,6 @@
 # agent-compliance
 
-A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of industry-standard rules (321 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged the same way each time.
+A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of industry-standard rules (326 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged the same way each time.
 
 ## Why use it
 
@@ -12,7 +12,7 @@ A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, de
 
 ## Salient features
 
-- Ready-made base catalog: 321 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 63 generic scenarios that each name the rules that decide them.
+- Ready-made base catalog: 326 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 63 generic scenarios that each name the rules that decide them.
 - Opt-in technology packs: `gcp`, `opentofu`, `nats-jetstream`, `kubernetes-flux`, `react`, `postgresql`, `systemd`, `salt` (56 rules).
 - Project overlay: your own rules, and rows that tighten a base or pack rule.
 - Incremental re-review: only BROKEN rules, touched anchors and changed catalog ids are re-run.
@@ -118,7 +118,13 @@ catalog/
   packs/<pack>/<DOMAIN>.md  technology packs a project opts into
   scenarios.md     generic scenarios with the base and pack rules that decide each
   CHANGES.md       one line per added or changed rule id, per base version
+checks/
+  index.json       every static check: rule id, pack, ecosystem, tool, file, project binds
+  base/<RULE>.<ecosystem>.yml  ast-grep rules that find a base rule's breach in code
+  tests/           ast-grep rule tests (valid and invalid cases) and their snapshots
 ```
+
+**Checks** (`checks/README.md`) are static checks that give code evidence for some rules (no polling, publish only after commit, verify once at entry). The harness runs them by default; a project opts a rule out only in its overlay, with a reason.
 
 **A rule row** has four columns: `ID | Rule | Provenance | Test question`. The rule is a full testable statement (must or never, its numbers, its exceptions, the case it governs). Provenance names the project file or external standard it comes from; it is not something a reviewer needs to open. The test question tells the reviewer what to look for. Pack rule ids carry the pack prefix (for example `KF-04`, `TF-02`, `PG-01`).
 
@@ -126,7 +132,7 @@ catalog/
 
 **Readings.** HELD cites the location. BROKEN gives the rule id, location, failing input and fix; for DC, PN and PR the location that breaks the text is enough. NA gives one sentence. An absence is BROKEN only when the rule requires the artifact to state it. The artifact passes when no in-scope rule is BROKEN. A verdict is a review record and never gates a commit or release by itself.
 
-**Overlay.** The overlay is your project's rules, by default `docs/agents/design-compliance.md` (another path can be named in AGENTS.md or CLAUDE.md). Its header names the base version it was built against, the packs it uses, the date, the commit of the sources read, and where verdicts are recorded (`Verdicts:`). An overlay row that names a base or pack id under "Tightens" decides in place of that rule. Where the project's version of a rule is stricter, or adds a number, write a tightening row; do not copy rules the base already states.
+**Overlay.** The overlay is your project's rules, by default `docs/agents/design-compliance.md` (another path can be named in AGENTS.md or CLAUDE.md). Its header names the base version it was built against, the packs it uses, the date, the commit of the sources read, and where verdicts are recorded (`Verdicts:`). An overlay row that names a base or pack id under "Tightens" decides in place of that rule. Where the project's version of a rule is stricter, or adds a number, write a tightening row; do not copy rules the base already states. A check the project opts out of is one line under `## Check opt-outs`: `- <RULE-ID> not-applicable: <reason>`; a line without a reason opts nothing out.
 
 **Versioning and pinning.** The base catalog has a version in `catalog/index.md` (`Version:`) and in the plugin manifest. If an overlay was built against an older base version, a review still runs and lists the base rules added or changed since under "Catalog drift", using `catalog/CHANGES.md`. Pin the plugin to a release tag (see Install) to hold the catalog still, and move the tag when you are ready to take new rules.
 

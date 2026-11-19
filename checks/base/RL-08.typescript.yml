@@ -1,0 +1,55 @@
+# RL-08 (no timer or waiting loop of ours) and LC-17 (a wait is on the owner's
+# native primitive, without polling), TypeScript. Written for ast-grep 0.51.3.
+# A `while (true)` loop whose body sleeps is reported at its sleep or setTimeout call.
+id: RL-08.typescript
+language: typescript
+severity: error
+message: Polling or timed wait (catalog RL-08, LC-17). Block on the producer's event through its native mechanism instead.
+note: Flags setInterval, a sleep or setTimeout inside a loop, and a polling-interval setting named like poll*interval* or polling_interval*.
+metadata:
+  catalog: [RL-08, LC-17]
+  pack: base
+rule:
+  any:
+    - all:
+        - kind: call_expression
+        - any:
+            - pattern: setInterval($$$)
+            - pattern: $OBJ.setInterval($$$)
+    - all:
+        - kind: call_expression
+        - any:
+            - pattern: setTimeout($$$)
+            - pattern: $OBJ.setTimeout($$$)
+            - pattern: sleep($$$)
+            - pattern: $OBJ.sleep($$$)
+        - inside:
+            any:
+              - kind: for_statement
+              - kind: for_in_statement
+              - kind: while_statement
+              - kind: do_statement
+            stopBy:
+              any:
+                - kind: function_declaration
+                - kind: method_definition
+                - kind: for_statement
+                - kind: for_in_statement
+                - kind: while_statement
+                - kind: do_statement
+    - kind: pair
+      has:
+        field: key
+        regex: '(?i)^["'']?_*poll(ing)?_?[a-z0-9_]*interval'
+    - kind: variable_declarator
+      has:
+        field: name
+        regex: '(?i)^_*poll(ing)?_?[a-z0-9_]*interval'
+    - kind: public_field_definition
+      has:
+        field: name
+        regex: '(?i)^_*poll(ing)?_?[a-z0-9_]*interval'
+    - kind: assignment_expression
+      has:
+        field: left
+        regex: '(?i)(^|\.)_*poll(ing)?_?[a-z0-9_]*interval[a-z0-9_]*$'

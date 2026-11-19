@@ -1,0 +1,27 @@
+id: HO-02.typescript
+valid:
+  # an outbox row written in the change's transaction
+  - |
+    await db.transaction(async (tx) => {
+      await tx.insert(orders).values(order);
+      await tx.insert(outbox).values({ subject, payload });
+    });
+  # look-alikes on objects that are not brokers
+  - |
+    res.send(body);
+    socket.send(frame);
+    article.publish();
+    worker.postMessage(msg);
+invalid:
+  - |
+    nc.publish("orders.created", payload);
+  - |
+    const ack = await js.publish("orders.created", payload);
+  - |
+    await this.js.publish(subject, data);
+  - |
+    await producer.send({ topic: "orders", messages: [{ value }] });
+  - |
+    await this.kafkaProducer.sendBatch({ topicMessages });
+  - |
+    producer.produce("orders", null, Buffer.from(value));

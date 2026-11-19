@@ -1,0 +1,44 @@
+id: HO-02.python
+snapshots:
+  "ack = await js.publish(\"orders.created\", payload)\n":
+    labels:
+    - source: js.publish("orders.created", payload)
+      style: primary
+      start: 12
+      end: 49
+  "await jetstream.publish_async(subject, data)\n":
+    labels:
+    - source: jetstream.publish_async(subject, data)
+      style: primary
+      start: 6
+      end: 44
+  "await nc.publish(\"orders.created\", payload)\n":
+    labels:
+    - source: nc.publish("orders.created", payload)
+      style: primary
+      start: 6
+      end: 43
+  "await self.js.publish(subject, data, headers=h)\n":
+    labels:
+    - source: self.js.publish(subject, data, headers=h)
+      style: primary
+      start: 6
+      end: 47
+  "await self.kafka_producer.send_and_wait(\"orders\", payload)\n":
+    labels:
+    - source: self.kafka_producer.send_and_wait("orders", payload)
+      style: primary
+      start: 6
+      end: 58
+  "producer.produce(\"orders\", value=payload)\n":
+    labels:
+    - source: producer.produce("orders", value=payload)
+      style: primary
+      start: 0
+      end: 41
+  "producer.send(\"orders\", payload)\n":
+    labels:
+    - source: producer.send("orders", payload)
+      style: primary
+      start: 0
+      end: 32

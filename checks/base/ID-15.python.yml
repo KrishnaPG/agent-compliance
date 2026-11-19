@@ -1,0 +1,42 @@
+# ID-15 (authentication, signature and authorization checks run once, where
+# material enters the trust boundary), Python. Written for ast-grep 0.51.3.
+# The harness runs this rule on every module except the project's
+# `entry_modules` bind; a match there is the one check at the entry.
+id: ID-15.python
+language: python
+severity: error
+message: Token or signature verification outside the entry (catalog ID-15). Verify once where material enters the trust boundary and pass the verified principal and claims inward.
+note: Flags jwt.decode (PyJWT, python-jose), jws.verify and jwt.verify (python-jose), jwcrypto JWT(jwt=..., key=...) and JWS verify calls, and verify_signature calls.
+metadata:
+  catalog: [ID-15]
+  pack: base
+rule:
+  kind: call
+  any:
+    - pattern: jwt.decode($$$)
+    - pattern: $MOD.jwt.decode($$$)
+    - pattern: jws.verify($$$)
+    - pattern: $MOD.jws.verify($$$)
+    - pattern: jwt.verify($$$)
+    - pattern: verify_signature($$$)
+    - pattern: $OBJ.verify_signature($$$)
+    - all:
+        - any:
+            - pattern: JWT($$$)
+            - pattern: $MOD.JWT($$$)
+        - has:
+            field: arguments
+            all:
+              - has:
+                  kind: keyword_argument
+                  has: { field: name, regex: '^key$' }
+              - has:
+                  kind: keyword_argument
+                  has: { field: name, regex: '^jwt$' }
+    - all:
+        - pattern: $JWS.verify($$$)
+        - has:
+            field: function
+            has:
+              field: object
+              regex: '(?i)(^|\.)(jws|jwstoken|jws_token|signed_token)$'

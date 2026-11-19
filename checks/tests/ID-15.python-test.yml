@@ -1,0 +1,32 @@
+id: ID-15.python
+valid:
+  # handed the verified principal: no re-verification
+  - |
+    def place_order(principal: Principal, order: Order) -> None:
+        if principal.tenant_id != order.tenant_id:
+            raise Forbidden()
+        repo.save(order)
+  # look-alikes that verify nothing
+  - |
+    text = raw.decode("utf-8")
+    data = json.loads(text)
+    blob = base64.b64decode(token_part)
+    form.verify()
+    checksum.verify(expected)
+invalid:
+  - |
+    claims = jwt.decode(token, key, algorithms=["RS256"], audience="api")
+  - |
+    claims = jose.jwt.decode(token, jwks, algorithms=["RS256"])
+  - |
+    payload = jws.verify(token, key, algorithms=["ES256"])
+  - |
+    t = jwt.JWT(jwt=token, key=jwk_key)
+  - |
+    s = JWS()
+    s.deserialize(raw)
+    jws.verify(public_key)
+  - |
+    verify_signature(body, signature, secret)
+  - |
+    hooks.verify_signature(request.body, request.headers["X-Signature"])

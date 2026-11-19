@@ -1,0 +1,106 @@
+id: RL-08.typescript
+snapshots:
+  "class Watcher {\n  pollIntervalMs = 1000;\n}\n":
+    labels:
+    - source: pollIntervalMs = 1000
+      style: primary
+      start: 18
+      end: 39
+    - source: pollIntervalMs
+      style: secondary
+      start: 18
+      end: 32
+  "const POLL_INTERVAL = 5000;\n":
+    labels:
+    - source: POLL_INTERVAL = 5000
+      style: primary
+      start: 6
+      end: 26
+    - source: POLL_INTERVAL
+      style: secondary
+      start: 6
+      end: 19
+  "const client = new Client({ pollInterval: 2000 });\n":
+    labels:
+    - source: "pollInterval: 2000"
+      style: primary
+      start: 28
+      end: 46
+    - source: pollInterval
+      style: secondary
+      start: 28
+      end: 40
+  "const opts = { polling_interval_ms: 100 };\n":
+    labels:
+    - source: "polling_interval_ms: 100"
+      style: primary
+      start: 15
+      end: 39
+    - source: polling_interval_ms
+      style: secondary
+      start: 15
+      end: 34
+  "do {\n  status = await getStatus();\n  await timers.setTimeout(250);\n} while (status !== \"done\");\n":
+    labels:
+    - source: timers.setTimeout(250)
+      style: primary
+      start: 43
+      end: 65
+    - source: |-
+        do {
+          status = await getStatus();
+          await timers.setTimeout(250);
+        } while (status !== "done");
+      style: secondary
+      start: 0
+      end: 95
+  "for (let i = 0; i < 10; i++) {\n  if (await ready()) break;\n  await new Promise((resolve) => setTimeout(resolve, 200));\n}\n":
+    labels:
+    - source: setTimeout(resolve, 200)
+      style: primary
+      start: 92
+      end: 116
+    - source: |-
+        for (let i = 0; i < 10; i++) {
+          if (await ready()) break;
+          await new Promise((resolve) => setTimeout(resolve, 200));
+        }
+      style: secondary
+      start: 0
+      end: 120
+  "setInterval(() => refresh(), 1000);\n":
+    labels:
+    - source: setInterval(() => refresh(), 1000)
+      style: primary
+      start: 0
+      end: 34
+  "this.pollInterval = 3000;\n":
+    labels:
+    - source: this.pollInterval = 3000
+      style: primary
+      start: 0
+      end: 24
+    - source: this.pollInterval
+      style: secondary
+      start: 0
+      end: 17
+  "while (true) {\n  if (await isDone(id)) break;\n  await sleep(1000);\n}\n":
+    labels:
+    - source: sleep(1000)
+      style: primary
+      start: 54
+      end: 65
+    - source: |-
+        while (true) {
+          if (await isDone(id)) break;
+          await sleep(1000);
+        }
+      style: secondary
+      start: 0
+      end: 68
+  "window.setInterval(check, 500);\n":
+    labels:
+    - source: window.setInterval(check, 500)
+      style: primary
+      start: 0
+      end: 30

@@ -1,0 +1,22 @@
+# HO-02 (a hand-off is published only after the source committed), Python.
+# Written for ast-grep 0.51.3. The harness runs this rule on every module except
+# the project's `outbox_modules` bind; a match there is the outbox relay itself.
+id: HO-02.python
+language: python
+severity: error
+message: Direct broker publish outside the outbox (catalog HO-02). Write the event to the outbox in the same transaction as the change; only the outbox relay publishes.
+note: Flags publish or publish_async on a NATS or JetStream client, produce on a Kafka producer, and send or send_and_wait on a producer.
+metadata:
+  catalog: [HO-02]
+  pack: base
+rule:
+  kind: call
+  any:
+    - pattern: $CLIENT.publish($$$)
+    - pattern: $CLIENT.publish_async($$$)
+    - pattern: $CLIENT.produce($$$)
+    - pattern: $CLIENT.send($$$)
+    - pattern: $CLIENT.send_and_wait($$$)
+constraints:
+  CLIENT:
+    regex: '(?i)((^|\.)(nc|js|nats|jetstream|nats_client|js_client)$|producer$|publisher$|broker$|jet_?stream$)'

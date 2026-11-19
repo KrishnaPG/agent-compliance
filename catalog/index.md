@@ -1,6 +1,6 @@
 # Compliance catalog
 
-Version: 1.2.0
+Version: 1.3.0
 
 The fixed rule set a design, spec, decision record or implementation plan is reviewed against. A review records one reading per rule, so review rounds converge.
 
@@ -60,16 +60,16 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | Domain | File | Rules | Scope |
 |---|---|---|---|
 | LC Lifecycle and ownership | `base/LC.md` | 38 | levels, parent-first acquisition, child-first release, crash recovery, one owner per fact, lineage |
-| HO Hand-offs and remote calls | `base/HO.md` | 39 | messaging between owners, acknowledgement, idempotency, retries, deadlines, dead letters, sagas, reconciliation |
+| HO Hand-offs and remote calls | `base/HO.md` | 40 | messaging between owners, acknowledgement, idempotency, retries, deadlines, dead letters, sagas, reconciliation, non-durable wake-up hints |
 | HS Hand-off scenarios | `base/HS.md` | 24 | one row per kind of hand-off (event, command, webhook, bulk transfer, projection, repair, deletion, control plane) |
 | RL Reliability and recovery | `base/RL.md` | 29 | detect, remediate, verify, escalate; deadlines; no timers; idempotent re-runs; rollback; unattended runs |
-| ID Identity and secrets | `base/ID.md` | 14 | secret custody and transport, least privilege, rotation, revocation, tenant isolation of access |
+| ID Identity and secrets | `base/ID.md` | 15 | secret custody and transport, least privilege, rotation, revocation, tenant isolation of access, verification once at entry |
 | SC Supply chain | `base/SC.md` | 20 | build once, digests, signing, verification, admission, provenance, pinned dependencies |
 | OB Observability | `base/OB.md` | 18 | operator screens, alerts, telemetry bounds, audit records, unknown is not healthy |
 | PF Performance and footprint | `base/PF.md` | 15 | budgets with numbers, dirty-only work, parallelism, zero-copy, bounded settings |
-| CI Concurrency and isolation | `base/CI.md` | 13 | serializers, locks, single writer, bulkheads between installations and tenants |
+| CI Concurrency and isolation | `base/CI.md` | 14 | serializers, locks, single writer, bulkheads between installations and tenants, placement keys |
 | CF Configuration and portability | `base/CF.md` | 19 | no hardcoded setup, one record, class parity, zero remembrance, named boundaries |
-| NO Native owners and least code | `base/NO.md` | 27 | use the owner directly, OSS before code, lowest native rung, delete replaced wiring, no over-engineering |
+| NO Native owners and least code | `base/NO.md` | 29 | use the owner directly, OSS before code, lowest native rung, delete replaced wiring, no over-engineering, generic capability packages, one recorded stack |
 | PL Platform reconciliation and release | `base/PL.md` | 4 | declared and pulled desired state, immutable releases, manual actions |
 | DS Data safety and retention | `base/DS.md` | 17 | no deletion without backup or decision, recovery tiers, deletion eligibility, projections, erasure |
 | DC Documents | `base/DC.md` | 12 | current-rule documents, one home per rule, conflicts named, no assumed capability |
