@@ -163,10 +163,13 @@ def test_a_project_opts_a_rule_out_only_in_the_catalogs_form_with_a_reason(toy):
 
 def test_entry_modules_are_inferred_from_routes_and_without_them_the_owner_decides(toy):
     with_catalog(toy)
-    bad = "from fastapi import APIRouter\nr = APIRouter()\nx = request.args\n"
-    write(toy, "src/other.py", "x = request.args\n")
+    entry = "from fastapi import APIRouter\nr = APIRouter()\nx = request.args\n"
+    write(
+        toy, "src/csv_reader.py", (toy / "src/csv_reader.py").read_text() + "\nx = request.args\n"
+    )
     r = measure(toy)
     assert "ID-01" not in r["rules"]["by_rule"] and r["rules"]["skipped"][0]["rule"] == "ID-01"
+    # the entry module is the one allowed place: the check scans every other module
     _, g = cli("bh-gaps", toy)
     gap = next(x for x in g["gaps"] if x.get("area") == "entry_modules")
     assert (
@@ -174,10 +177,40 @@ def test_entry_modules_are_inferred_from_routes_and_without_them_the_owner_decid
         and gap["kind"] == "unsettled-area"
         and "ID-01" in gap["summary"]
     )
-    write(toy, "src/csv_reader.py", (toy / "src/csv_reader.py").read_text() + "\n" + bad)
-    assert bhrules.entry_modules(toy) == ["src/csv_reader.py"]
-    assert measure(toy)["rules"]["by_rule"] == {"ID-01": 1}
+    write(toy, "src/app.py", entry)  # the entry module has the same call and is not scanned
+    assert bhrules.entry_modules(toy) == ["src/app.py"]
+    r = measure(toy)
+    assert r["rules"]["by_rule"] == {"ID-01": 1}
+    assert r["rules"]["findings"][0]["file"] == "src/csv_reader.py"
     assert not [x for x in cli("bh-gaps", toy)[1]["gaps"] if x.get("area") == "entry_modules"]
+
+
+def test_the_real_id15_and_ho02_rules_scan_every_module_except_the_bound_ones(toy):
+    """The catalog's own ID-15 and HO-02 python rule files, run by the pinned ast-grep: the
+    entry module may verify and the outbox module may publish; the same calls elsewhere count."""
+    cfg_edit(toy, standards={"catalog": str(bhcore.PLUGIN_ROOT)})  # the catalog's own checks
+    cfg = bhcore.Config(toy / ".brick-harness" / "config.json")
+    cmd, label, why = bhrules.checker(cfg)
+    if cmd is None:
+        pytest.skip(f"pinned ast-grep not available: {why}")
+    files = {
+        "src/fx/app.py": "from fastapi import APIRouter\nrouter = APIRouter()\n"
+        "def entry(tok, key):\n    return jwt.decode(tok, key, algorithms=['RS256'])\n",
+        "src/fx/service.py": "def inner(tok, key):\n    return jwt.decode(tok, key, algorithms=['RS256'])\n",
+        "src/fx/relay.py": 'def store(conn):\n    conn.execute("insert into outbox (subject) values ($1)", s)\n'
+        "async def relay(js, row):\n    await js.publish(row.subject, row.payload)\n",
+        "src/fx/direct.py": "async def emit(js, subject, payload):\n    await js.publish(subject, payload)\n",
+    }
+    for rel, text in files.items():
+        write(toy, rel, text)
+    assert bhrules.entry_modules(toy) == ["src/fx/app.py"]
+    assert bhrules.outbox_modules(toy) == ["src/fx/relay.py"]
+    r = bhrules.run_checks(cfg, toy, {"paths": ["src/fx"]}, [])
+    assert r["error"] is None and r["checker"] == label
+    assert not [s for s in r["skipped"] if s["rule"] in ("ID-15", "HO-02")]
+    found = {(f["rule"], f["file"]) for f in r["findings"] if f["rule"] in ("ID-15", "HO-02")}
+    assert found == {("ID-15", "src/fx/service.py"), ("HO-02", "src/fx/direct.py")}
+    assert r["by_rule"]["ID-15"] == 1 and r["by_rule"]["HO-02"] == 1
 
 
 # ---------------------------------------------------------------- the checker is pinned and verified

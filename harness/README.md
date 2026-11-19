@@ -182,8 +182,8 @@ postgresql pack). `checkers.json` pins ast-grep by version and release sha256; t
 downloads it once to `~/.cache/brick-harness/bin/` and a sha mismatch means it is not run;
 without a checker the metric is absent and the target unmet, with the reason in `errors`. No
 project config is needed: a project opts a rule out only in its overlay, in the catalog's form
-(`- RULE-ID not-applicable: reason` under `## Check opt-outs`; no reason opts nothing out; listed as a fact); a bound project fact (`entry_modules`, inferred
-from `APIRouter`, `FastAPI(`, `Router(`) that the code does not show skips that check and is an
+(`- RULE-ID not-applicable: reason` under `## Check opt-outs`; no reason opts nothing out; listed as a fact); a bound project fact is the check's one allowed place and the check scans every module except those: `entry_modules` (inferred
+from `APIRouter`, `FastAPI(`, `Router(`) and `outbox_modules` (files with SQL `INTO`/`FROM`/`UPDATE`/`TABLE`/`EXISTS` followed by a table name holding `outbox`, a `class ...Outbox...`, `__tablename__ = "...outbox..."`, or `Table(`/`pgTable(`/`sqliteTable(`/`mysqlTable(` with such a name); a fact the code does not show skips that check and is an
 owner-decides gap. Suppression markers a ref adds are a fact per item. The packet's rules are
 the item's own `rules` then judgment rules (not enforced, not `embodies` of a brick it uses)
 chosen by its tags, ranked by findings, at most `limits.packet_rules` (8). A feature that

@@ -46,8 +46,21 @@ EXT = {
 SKIP_DIRS = {"node_modules", "__pycache__", "venv", "dist", "build"}
 RULE_ID = r"[A-Z]{2}-\d+"
 ROW = re.compile(rf"^\|\s*({RULE_ID})\s*\|\s*(.+?)\s*\|")
-# Facts a check may bind, each inferred from the code: files that define routes or an app.
+# Facts a check may bind, each inferred from the code: files that define routes or an app,
 ENTRY = re.compile(r"\b(?:APIRouter|FastAPI)\(|\bRouter\(")
+# ... and the files that own the outbox table: SQL naming a table whose name holds "outbox"
+# after INTO, FROM, UPDATE, TABLE or EXISTS (INSERT INTO / DELETE FROM / CREATE TABLE [IF NOT
+# EXISTS] / UPDATE, which is also how the relay marks rows sent); a Python ORM ``class
+# ...Outbox...`` or ``__tablename__ = "...outbox..."``; a ``Table(`` / ``pgTable(`` /
+# ``sqliteTable(`` / ``mysqlTable(`` declaration whose first argument holds "outbox".
+OUTBOX = re.compile(
+    r"""(?ix)
+      \b(?:INTO|FROM|UPDATE|TABLE|EXISTS)\s+["`\[]?[\w.]*outbox
+    | \bclass\s+\w*outbox\w*\s*[(:]
+    | __tablename__\s*=\s*["'][\w.]*outbox
+    | \b(?:Table|pgTable|sqliteTable|mysqlTable)\(\s*["'][\w.]*outbox
+    """
+)
 MARKERS = (
     r"noqa|nosemgrep|type:\s*ignore|eslint-disable|ast-grep-ignore|pylint:\s*disable"
     r"|@ts-ignore|@ts-expect-error|nosec"
@@ -115,18 +128,28 @@ def detect(root: Path) -> tuple[set[str], set[str]]:
     return eco, ({"postgresql"} if sql else set())
 
 
-def entry_modules(root: Path) -> list[str]:
-    """Files that define routes or an app (FastAPI/Starlette ``APIRouter``/``FastAPI(``,
-    Express ``Router(``): the trust-boundary entry modules, inferred from the code."""
+def _modules_matching(root: Path, pat: re.Pattern[str]) -> list[str]:
     out = []
     for p in _files(root):
         if p.suffix in EXT["python"] + EXT["typescript"] and p.stat().st_size < 1_000_000:
             try:
-                if ENTRY.search(p.read_text(errors="ignore")):
+                if pat.search(p.read_text(errors="ignore")):
                     out.append(p.relative_to(root).as_posix())
             except OSError:
                 pass
     return sorted(out)
+
+
+def entry_modules(root: Path) -> list[str]:
+    """Files that define routes or an app (FastAPI/Starlette ``APIRouter``/``FastAPI(``,
+    Express ``Router(``): the trust-boundary entry modules, inferred from the code."""
+    return _modules_matching(root, ENTRY)
+
+
+def outbox_modules(root: Path) -> list[str]:
+    """Python and TypeScript files that own the outbox table (``OUTBOX`` above): they define
+    it or write, update, delete from or read it, which is where the relay publishes."""
+    return _modules_matching(root, OUTBOX)
 
 
 OPT_OUT = re.compile(rf"^- ({RULE_ID}) not-applicable: (.*\S)\s*$")
@@ -157,7 +180,13 @@ def _selected(cfg: Any, root: Path) -> list[dict[str, Any]]:
 
 
 def _facts(root: Path) -> dict[str, list[str]]:
-    return {"entry_modules": entry_modules(root)}
+    return {"entry_modules": entry_modules(root), "outbox_modules": outbox_modules(root)}
+
+
+LOOKED_IN = {
+    "entry_modules": ["route or app definitions (APIRouter, FastAPI(, Router()"],
+    "outbox_modules": ["outbox table definitions or SQL on an outbox table (OUTBOX pattern)"],
+}
 
 
 def unbound_gaps(cfg: Any) -> list[dict[str, Any]]:
@@ -177,7 +206,7 @@ def unbound_gaps(cfg: Any) -> list[dict[str, Any]]:
             "tag": "owner-decides",
             "evidence": [],
             "source": "check",
-            "looked_in": ["route or app definitions (APIRouter, FastAPI(, Router()"],
+            "looked_in": LOOKED_IN[f],
             "area": f,
         }
         for f, r in sorted(need.items())
@@ -278,7 +307,8 @@ def run_checks(cfg: Any, root: Path, brick: dict[str, Any], changed: list[str]) 
     for c in _selected(cfg, root):
         files = sorted(f for f in scope if f.endswith(EXT[c["ecosystem"]]))
         for fact in c.get("binds", []):
-            files = [f for f in files if f in facts.get(fact, [])]
+            # a bound module is the rule's one allowed place: scan every module except those
+            files = [f for f in files if f not in facts.get(fact, [])]
             if not facts.get(fact):
                 out["skipped"].append({"rule": c["rule"], "why": f"project fact {fact} not found"})
                 files = []
