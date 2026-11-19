@@ -517,9 +517,9 @@ def test_init_on_an_empty_dir_never_overwrites(tmp_path):
     assert code == 0
     assert set(r["created"]) == {".brick-harness/config.json", ".brick-harness/.gitignore"}
     conf = json.loads((tmp_path / ".brick-harness" / "config.json").read_text())
-    assert "$schema" not in conf and conf["standards"]["overlay"].startswith("<")
-    code, r = init("--missing", "features", "overlay", "--overlay", "docs/overlay.md")
-    assert set(r["created"]) == {"docs/features.md", "docs/overlay.md"}
+    assert "$schema" not in conf and "overlay" not in conf["standards"]
+    code, r = init("--missing", "features")
+    assert set(r["created"]) == {"docs/features.md"}
     assert "numeric" in (tmp_path / "docs" / "features.md").read_text()
     (tmp_path / "docs" / "features.md").write_text("# mine\n")
     code, r = init("--missing", "features")

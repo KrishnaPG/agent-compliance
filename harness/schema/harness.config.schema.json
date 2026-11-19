@@ -236,10 +236,6 @@
             "type": "string"
           }
         },
-        "overlay": {
-          "type": "string",
-          "description": "Path to the project's overlay: the rule ids it holds itself to and its own rules."
-        },
         "note": {
           "type": "string"
         },

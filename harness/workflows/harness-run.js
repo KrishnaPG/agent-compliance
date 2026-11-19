@@ -263,15 +263,15 @@ for (let round = 1; round <= maxRounds; round++) {
 }
 if (!DRY) report.reconcile = await trackerTool('bh-reconcile', 'reconcile tracker') // after the scoreboard commit at HEAD
 // SG-19: a feature that became sellable in this run gets one review of its diff by a fresh agent that did not build it (compliance-review scoped to the
-// diff's domains); its findings are ranked by bh-rank and become work only as failing tests or targets.
+// diff itself); its findings are ranked by bh-rank and become work only as failing tests or targets.
 report.reviews = []
 for (const f of sellableOf(state).filter(x => sellable0.indexOf(x) < 0)) {
   if (DRY) { report.reviews.push({ feature: f, dry: true }); continue }
   const br = await agent(VERBATIM + cmdOf('brief', 'bh-brief --config ' + CONFIG) + ' --feature ' + f, { label: 'review brief ' + f, effort: 'low',
-    schema: { type: 'object', properties: { feature: STR, items: STRS, paths: STRS, base: STR, domains: STRS, packs: STRS, diff: STR, error: STR } } })
+    schema: { type: 'object', properties: { feature: STR, items: STRS, paths: STRS, base: STR, diff: STR, error: STR } } })
   if (!ok(br)) { report.reviews.push({ feature: f, error: br ? br.error : 'brief agent failed' }); continue }
   const rv = await agent('You did not build this feature. Review its diff, read only; write no file. Run `' + br.diff + '` for the diff. ' +
-    'Judge it by the method of the skill ' + catSkill('compliance-review') + ', scoped to the catalog domains ' + br.domains.join(', ') + (br.packs.length ? ' and the packs ' + br.packs.join(', ') : '') + ', and the project overlay (' + (state.overlay || 'none configured') + '). ' +
+    'Judge it by the method of the skill ' + catSkill('compliance-review') + ' on the diff (the skill scopes the review itself). ' +
     'Return every rule that does not hold as a finding {summary, rule (the catalog rule id), severity S1..S4, evidence reproduced|trigger|theoretical, where (file:line)}, with source "sellable-review". Report nothing else.',
     { label: 'review ' + f, ...tier('review'), schema: { type: 'object', required: ['findings'], properties: { findings: { type: 'array', items: { type: 'object' } } } } })
   const found = rv && rv.findings || []

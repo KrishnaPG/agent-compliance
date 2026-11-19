@@ -2231,16 +2231,35 @@ DEFAULT_TEST_TARGETS = {
 }
 
 
-def _standard_layers(cfg: Config) -> dict[str, Path]:
-    """The project overlay of the owner's rule catalog, when set (placeholders start with <)."""
-    st = cfg.data.get("standards", {})
-    v = st.get("overlay")
-    return {"overlay": (cfg.dir / v).resolve()} if v and not v.startswith("<") else {}
+def overlay_file(cfg: Config) -> Path | None:
+    """The project's overlay, found as the skills find it (``skills/compliance-review/SKILL.md``,
+    "Inputs"): the Overlay row of the bindings file that the project's AGENTS.md or CLAUDE.md
+    names, else of ``docs/agents/compliance-bindings.md``; failing that
+    ``docs/agents/design-compliance.md``. ``None`` when none of these exists."""
+    named = [
+        m
+        for doc in ("AGENTS.md", "CLAUDE.md")
+        if (cfg.dir / doc).is_file()
+        for m in re.findall(
+            r"[\w./-]*compliance-bindings[\w.-]*\.md",
+            (cfg.dir / doc).read_text(errors="ignore"),
+        )
+    ]
+    for b in [*named, "docs/agents/compliance-bindings.md"]:
+        if (cfg.dir / b).is_file():
+            row = re.search(
+                r"^\|\s*Overlay\s*\|\s*`?([^\s`|<][^\s`|]*)", (cfg.dir / b).read_text(), re.M
+            )
+            if row and (cfg.dir / row[1]).is_file():
+                return (cfg.dir / row[1]).resolve()
+            break
+    fallback = cfg.dir / "docs/agents/design-compliance.md"
+    return fallback.resolve() if fallback.is_file() else None
 
 
 def overlay_path(cfg: Config) -> str | None:
     """The overlay as a path relative to the project root, for the reviewer's prompt."""
-    p = _standard_layers(cfg).get("overlay")
+    p = overlay_file(cfg)
     return _rel(cfg, p) if p else None
 
 
@@ -2253,9 +2272,7 @@ def _docs(cfg: Config) -> list[Path]:
     """The project's own text documents (directories expand to their markdown files)."""
     out: list[Path] = []
     for key in DOC_KEYS:
-        for p in cfg.files(key) + (
-            [_standard_layers(cfg)[key]] if key in _standard_layers(cfg) else []
-        ):
+        for p in cfg.files(key) + ([ov] if key == "overlay" and (ov := overlay_file(cfg)) else []):
             if p.is_dir():
                 out += sorted(p.rglob("*.md"))
             elif p.is_file():
@@ -2526,7 +2543,7 @@ def check_gaps(
 
     gaps += bhrules.unbound_gaps(cfg)
     st = cfg.data.get("standards", {})
-    for key in ("base_version", "overlay"):  # an unset or placeholder catalog is this plugin's
+    for key in ("base_version",):  # an unset or placeholder catalog is this plugin's
         v = st.get(key)
         if isinstance(v, str) and v.startswith("<"):
             gaps.append(
@@ -2535,16 +2552,6 @@ def check_gaps(
                     f"standards.{key} is a placeholder: {v}",
                     "owner-decides",
                     _ev(cfg, conf, v),
-                )
-            )
-    for key, p in _standard_layers(cfg).items():
-        if not p.exists():
-            gaps.append(
-                _gap(
-                    "missing-document",
-                    f"standards.{key}: {st[key]} does not exist",
-                    "fixable",
-                    _ev(cfg, conf, st[key]),
                 )
             )
     for key, section in cfg.sections.items():
@@ -2750,7 +2757,7 @@ def check_gaps(
                 )
             )
     looked = [_rel(cfg, p) for k in DOC_KEYS for p in cfg.files(k) if p.exists()]
-    looked += [_rel(cfg, p) for p in _standard_layers(cfg).values() if p.exists()]
+    looked += [overlay_path(cfg)] if overlay_path(cfg) else []
     looked.append(_rel(cfg, cfg.path))
     for a in checklist_mentions(cfg):
         if not a["mentioned_at"] and "na" not in a:
@@ -3779,7 +3786,7 @@ def load_decisions(cfg: Config, problems: list[str] | None = None) -> list[dict[
 def overlay_rules(cfg: Config) -> list[dict[str, Any]]:
     """Rules the project overlay holds that name the areas they cover: a line with a rule id
     before ``covers:`` and the areas, comma separated, after it."""
-    p = _standard_layers(cfg).get("overlay")
+    p = overlay_file(cfg)
     out: list[dict[str, Any]] = []
     for line in _lines(p) if p is not None and p.is_file() else []:
         head, sep, tail = line.partition("covers:")
@@ -4058,7 +4065,7 @@ def packet_rules(cfg: Config, item: str, ctx: dict[str, Any] | None = None) -> l
     if cat and not cat.startswith("<") and "/" in cat:
         c = (cfg.dir / cat).resolve()
         docs += sorted(c.rglob("*.md")) if c.is_dir() else [c]
-    docs += list(_standard_layers(cfg).values())
+    docs += [ov] if (ov := overlay_file(cfg)) else []
     lines = [ln for d in docs if d.is_file() for ln in _lines(d)]
     out = bhrules.packet_rules(cfg, b, list(ctx["bricks"].values()))
     for r in out:

@@ -4,13 +4,12 @@
 Writes .brick-harness/config.json (paths to the project's own documents, a standards
 section for the rule catalog layers, with placeholders) and .brick-harness/.gitignore
 (out/). It writes no project document unless asked: --missing features writes a features
-template, --missing overlay an empty overlay file at --overlay. Unset values stay
+template. Unset values stay
 <placeholders>, which the gaps phase reports. It authors no rules and no decisions.
 Prints {"created", "kept"}. Exit 0, or 2 on error.
 
   bh-init [--root DIR] [--features PATH ...] [--standards PATH ...] [--build-order PATH]
-          [--status PATH] [--overlay PATH] [--test CMD] [--ecosystem NAME ...]
-          [--missing features overlay]
+          [--status PATH] [--test CMD] [--ecosystem NAME ...] [--missing features]
 """
 
 import argparse
@@ -40,15 +39,14 @@ def main() -> int:
     )
     ap.add_argument("--build-order", default=None)
     ap.add_argument("--status", default=None)
-    ap.add_argument("--overlay", default=None, help="the project's rule overlay, if it has one")
     ap.add_argument("--test", default="<test command writing JUnit XML to {out}/junit.xml>")
     ap.add_argument("--ecosystem", nargs="*", default=["<ecosystem>"])
     ap.add_argument(
         "--missing",
         nargs="*",
         default=[],
-        choices=["features", "overlay"],
-        help="project documents to start: a features template, an empty overlay (opt in)",
+        choices=["features"],
+        help="project documents to start: a features template (opt in)",
     )
     a = ap.parse_args()
     root = Path(a.root).resolve()
@@ -60,15 +58,11 @@ def main() -> int:
     ):
         if val:
             paths[key] = val
-    if "overlay" in a.missing and not a.overlay:
-        print(json.dumps({"error": "--missing overlay needs --overlay PATH"}))
-        return 2
     config = {
         "paths": paths,
         "standards": {
             "base_version": "<pinned catalog version>",
             "packs": [],
-            "overlay": a.overlay or "<path to the project's rule overlay>",
             "note": "Rules and checks come from this plugin's catalog (base, packs) and the "
             "project overlay; set catalog to a path to use another. Missing layers are gaps.",
         },
@@ -79,8 +73,6 @@ def main() -> int:
         root / ".brick-harness" / "config.json": json.dumps(config, indent=2) + "\n",
         root / ".brick-harness" / ".gitignore": "out/\n",
     }
-    if "overlay" in a.missing:
-        files[root / a.overlay] = ""
     if "features" in a.missing:
         for f in a.features:
             files[root / f] = FEATURES

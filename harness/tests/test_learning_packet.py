@@ -151,8 +151,11 @@ def test_decision_records_join_the_state_in_id_order_capped_with_paging(toy):
 
 
 def overlay(repo, line=None):
-    (repo / "overlay.md").write_text("# Overlay\n" + (line or "") + "\n")
-    cfg_edit(repo, standards={"catalog": str(EMPTY_CATALOG), "overlay": "overlay.md"})
+    (repo / "docs" / "agents").mkdir(parents=True, exist_ok=True)
+    (repo / "docs" / "agents" / "design-compliance.md").write_text(
+        "# Overlay\n" + (line or "") + "\n"
+    )
+    cfg_edit(repo, standards={"catalog": str(EMPTY_CATALOG)})
 
 
 def test_an_area_answered_often_is_an_overlay_candidate_until_the_overlay_holds_a_rule(toy):

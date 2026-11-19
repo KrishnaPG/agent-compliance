@@ -32,9 +32,9 @@ from bhcore import (
     HarnessError,
     _git,
     _own_paths,
-    _standard_layers,
     all_findings,
     load_features,
+    overlay_file,
     packet_context,
 )
 
@@ -65,17 +65,6 @@ MARKERS = (
     r"noqa|nosemgrep|type:\s*ignore|eslint-disable|ast-grep-ignore|pylint:\s*disable"
     r"|@ts-ignore|@ts-expect-error|nosec"
 )
-# Catalog domains a work item touches, by words in its id, paths and kind (simple on purpose).
-WORDS = {
-    r"queue|event|outbox|webhook|message|relay|consumer": ("HO", "RL"),
-    r"auth|token|secret|login|tenant|key": ("ID",),
-    r"db|sql|migrat|schema|store|repo": ("DS", "LC"),
-    r"worker|lock|concurr|thread|async": ("CI", "RL"),
-    r"log|metric|trace|alert": ("OB",),
-    r"bench|perf|cache": ("PF",),
-    r"deploy|release|image": ("SC", "PL"),
-}
-BASE_DOMAINS = ("NO", "CF")
 
 
 # ---------------------------------------------------------------- catalog and stack
@@ -160,7 +149,7 @@ def _opt_outs(cfg: Any) -> dict[str, str]:
     lines ``- <RULE-ID> not-applicable: <reason>`` under the heading ``## Check opt-outs``.
     ``{rule: reason}``; a line without a reason opts nothing out."""
     out: dict[str, str] = {}
-    ov = _standard_layers(cfg).get("overlay")
+    ov = overlay_file(cfg)
     inside = False
     for line in ov.read_text(errors="ignore").splitlines() if ov and ov.is_file() else []:
         if line.startswith("#"):
@@ -365,7 +354,7 @@ def rule_rows(cfg: Any, packs: set[str]) -> dict[str, str]:
     files = sorted((root / "catalog" / "base").glob("*.md"))
     for p in sorted(packs):
         files += sorted((root / "catalog" / "packs" / p).glob("*.md"))
-    files += [p for p in _standard_layers(cfg).values() if p.is_file()]
+    files += [ov] if (ov := overlay_file(cfg)) else []
     rows: dict[str, str] = {}
     for f in files:
         for line in f.read_text(errors="ignore").splitlines():
@@ -375,57 +364,29 @@ def rule_rows(cfg: Any, packs: set[str]) -> dict[str, str]:
     return rows
 
 
-def item_tags(cfg: Any, brick: dict[str, Any]) -> tuple[set[str], set[str]]:
-    """(catalog domains, packs) of an item: from its words (id, paths, kind), its ecosystem
-    and ``standards.packs``."""
-    text = " ".join([brick["id"], brick.get("kind", ""), *_own_paths(brick)]).lower()
-    dom = set(BASE_DOMAINS)
-    for pat, ds in WORDS.items():
-        if re.search(pat, text):
-            dom |= set(ds)
-    if brick.get("kind") == "system":
-        dom |= {"RL", "OB"}
-    packs = set(cfg.data.get("standards", {}).get("packs", []))
-    return dom, packs | ({"postgresql"} if brick.get("ecosystem") == "sql" else set())
-
-
 def classes(cfg: Any, bricks: list[dict[str, Any]], root: Path) -> dict[str, set[str]]:
-    """Rules in use split into enforced (a check exists), embodied (a brick names it in
-    ``embodies``) and judgment (the rest); overlay opt-outs are left out."""
-    _, packs = detect(root)
-    packs |= set(cfg.data.get("standards", {}).get("packs", []))
-    use = set(rule_rows(cfg, packs)) - set(_opt_outs(cfg))
-    enforced = {c["rule"] for c in load_index(cfg) if c["pack"] in {"base"} | packs} & use
+    """Rules in use (the union of the items' ``rules`` and the enforced check rules, overlay
+    opt-outs left out) split into enforced (a check exists), embodied (an item names it in
+    ``embodies``) and judgment (the rest)."""
+    enforced = {c["rule"] for c in _selected(cfg, root)}
+    use = ({r for b in bricks for r in b.get("rules", [])} | enforced) - set(_opt_outs(cfg))
     embodied = {r for b in bricks for r in b.get("embodies", [])} & use - enforced
-    return {"enforced": enforced, "embodied": embodied, "judgment": use - enforced - embodied}
+    return {"enforced": enforced & use, "embodied": embodied, "judgment": use - enforced - embodied}
 
 
 def packet_rules(
     cfg: Any, brick: dict[str, Any], bricks: list[dict[str, Any]]
 ) -> list[dict[str, str]]:
-    """The packet's rules: the item's own ``rules`` first, then judgment rules chosen by the
-    item's tags (domains, packs), most often broken in findings first, at most
-    ``limits.packet_rules`` in all, each ``{id, text}``."""
-    dom, packs = item_tags(cfg, brick)
-    rows = rule_rows(cfg, packs)
-    cls = classes(cfg, bricks, cfg.dir)
+    """The packet's rules: the item's own ``rules`` (the plan agent picks them), most often
+    broken in findings first, at most ``limits.packet_rules``, each ``{id, text}``."""
+    _, packs = detect(cfg.dir)
+    rows = rule_rows(cfg, packs | set(cfg.data.get("standards", {}).get("packs", [])))
     broken: dict[str, int] = {}
     for f in _findings(cfg):
         if f.get("rule"):
             broken[f["rule"]] = broken.get(f["rule"], 0) + 1
-    used = {
-        r
-        for d in brick.get("depends_on", [])
-        for b in bricks
-        if b["id"] == d
-        for r in b.get("embodies", [])
-    }
-    pick = sorted(
-        (r for r in cls["judgment"] if r[:2] in dom and r not in used),
-        key=lambda r: (-broken.get(r, 0), r),
-    )
-    ids = list(dict.fromkeys([*brick.get("rules", []), *pick]))[: cfg.limit("packet_rules")]
-    return [{"id": r, "text": rows.get(r, "")} for r in ids]
+    ids = sorted(dict.fromkeys(brick.get("rules", [])), key=lambda r: (-broken.get(r, 0), r))
+    return [{"id": r, "text": rows.get(r, "")} for r in ids[: cfg.limit("packet_rules")]]
 
 
 def _findings(cfg: Any) -> list[dict[str, Any]]:
@@ -470,8 +431,8 @@ def rule_facts(cfg: Any, bricks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 def feature_review(cfg: Any, feature: str) -> dict[str, Any]:
     """What a fresh reviewer needs for a feature that became sellable: the paths of its items
-    (the acceptance item's dependency closure), the plan commit the diff starts from, and the
-    catalog domains and packs of those items; the reviewer reads ``git diff BASE HEAD -- PATHS``."""
+    (the acceptance item's dependency closure) and the plan commit the diff starts from; the
+    reviewer (``compliance-review``, which scopes the review itself) reads ``git diff BASE HEAD -- PATHS``."""
     ctx = packet_context(cfg)
     by_id, top = ctx["bricks"], ctx["top"]
     feat = next((f for f in load_features(cfg) if f["id"] == feature), None)
@@ -484,19 +445,11 @@ def feature_review(cfg: Any, feature: str) -> dict[str, Any]:
             seen.add(i)
             todo += by_id[i].get("depends_on", [])
     paths = sorted({p for i in seen for p in _own_paths(by_id[i])})
-    dom: set[str] = set()
-    packs: set[str] = set()
-    for i in seen:
-        d, p = item_tags(cfg, by_id[i])
-        dom |= d
-        packs |= p
     base = ctx["plan_head"] or _git(top, "rev-list", "--max-parents=0", "HEAD").splitlines()[0]
     return {
         "feature": feature,
         "items": sorted(seen),
         "paths": paths,
         "base": base,
-        "domains": sorted(dom),
-        "packs": sorted(packs),
         "diff": f"git diff {base} HEAD -- " + " ".join(paths),
     }

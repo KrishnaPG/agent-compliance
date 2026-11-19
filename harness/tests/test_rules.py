@@ -135,7 +135,8 @@ def test_the_sql_pack_runs_only_when_sql_is_detected(toy):
 
 def test_a_project_opts_a_rule_out_only_in_the_catalogs_form_with_a_reason(toy):
     write(toy, "src/csv_reader.py", (toy / "src/csv_reader.py").read_text() + "\ntime.sleep(1)\n")
-    with_catalog(toy, overlay="overlay.md")
+    with_catalog(toy)
+    ov = "docs/agents/design-compliance.md"
     reason = "a batch tool whose schedule is the product"
     for text in (
         "## Check opt-outs\n\n- RL-08 not-applicable:\n",  # no reason: nothing is opted out
@@ -144,11 +145,9 @@ def test_a_project_opts_a_rule_out_only_in_the_catalogs_form_with_a_reason(toy):
         f"## Check opt-outs\n\n| RL-08 | not-applicable: {reason} |\n",  # not the line form
         f"## Check opt-outs\n\n## Rules\n\n- RL-08 not-applicable: {reason}\n",
     ):
-        write(toy, "overlay.md", text)
+        write(toy, ov, text)
         assert measure(toy)["rules"]["violations"] == 1, text
-    write(
-        toy, "overlay.md", f"# Overlay\n\n## Check opt-outs\n\n- RL-08 not-applicable: {reason}\n"
-    )
+    write(toy, ov, f"# Overlay\n\n## Check opt-outs\n\n- RL-08 not-applicable: {reason}\n")
     assert measure(toy)["rules"]["violations"] == 0
     facts = cli("bh-gaps", toy)[1]["facts"]
     na = [f for f in facts if f["kind"] == "rule-not-applicable"]
@@ -159,6 +158,20 @@ def test_a_project_opts_a_rule_out_only_in_the_catalogs_form_with_a_reason(toy):
             "reason": "a batch tool whose schedule is the product",
         }
     ]
+
+
+def test_the_overlay_is_found_as_the_skills_find_it(toy):
+    cfg = bhcore.Config(toy / ".brick-harness" / "config.json")
+    assert bhcore.overlay_file(cfg) is None
+    write(toy, "docs/agents/design-compliance.md", "# fallback\n")
+    assert bhcore.overlay_path(cfg) == "docs/agents/design-compliance.md"
+    write(toy, "docs/agents/compliance-bindings.md", "| Overlay | `rules/mine.md` |\n")
+    write(toy, "rules/mine.md", "# mine\n")
+    assert bhcore.overlay_path(cfg) == "rules/mine.md"
+    write(toy, "AGENTS.md", "Bindings: `ops/compliance-bindings.md`\n")
+    write(toy, "ops/compliance-bindings.md", "| Overlay | rules/other.md |\n")
+    write(toy, "rules/other.md", "# other\n")
+    assert bhcore.overlay_path(cfg) == "rules/other.md"
 
 
 def test_entry_modules_are_inferred_from_routes_and_without_them_the_owner_decides(toy):
@@ -278,7 +291,11 @@ def tagged(repo, **extra):
     plan_edit(
         repo,
         "bricks.json",
-        lambda d: d["bricks"][0].update(paths=["src/queue_worker.py"], rules=["NO-02"], **extra),
+        lambda d: d["bricks"][0].update(
+            paths=["src/queue_worker.py"],
+            rules=["NO-02", "HO-01", "HO-02", "RL-05", "RL-06"],
+            **extra,
+        ),
     )
     plan_edit(repo, "bricks.json", lambda d: d["bricks"][1].update(embodies=["HO-02"]))
 
@@ -288,16 +305,14 @@ def rules_of(repo, item="csv-reader"):
     return bhcore.packet_rules(cfg, item)
 
 
-def test_the_packet_has_judgment_rules_only_chosen_by_tags(toy):
+def test_the_packet_has_the_items_own_rules_with_one_line_each(toy):
     with_catalog(toy)
     tagged(toy)
     got = {r["id"]: r["text"] for r in rules_of(toy)}
-    assert got["NO-02"] == "OSS before code." and "HO-01" in got and "RL-05" in got
-    assert "RL-08" not in got and "ID-01" not in got  # enforced by a check
-    assert "DS-01" not in got  # a pack the stack does not use
+    assert set(got) == {"NO-02", "HO-01", "HO-02", "RL-05", "RL-06"}
+    assert got["NO-02"] == "OSS before code."
     assert got["RL-05"] == "A process waits on its dependency's native readiness."
-    plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(depends_on=["json-writer"]))
-    assert "HO-02" not in {r["id"] for r in rules_of(toy)}  # embodied by a brick it uses
+    assert rules_of(toy, "json-writer") == []  # no rules of its own
 
 
 def test_findings_rank_the_rules_and_the_limit_caps_them(toy):
@@ -307,9 +322,9 @@ def test_findings_rank_the_rules_and_the_limit_caps_them(toy):
     f.write_text(json.dumps([{"summary": f"s{i}", "rule": "RL-06"} for i in range(3)]))
     assert cli("bh-rank", toy, "--add", str(f), "--write")[0] == 0
     ids = [r["id"] for r in rules_of(toy)]
-    assert ids[0] == "NO-02" and ids[1] == "RL-06"  # the item's own first, then most broken
+    assert ids[0] == "RL-06" and len(ids) == 5  # most broken first, among the item's own
     cfg_edit(toy, limits={"packet_rules": 2})
-    assert [r["id"] for r in rules_of(toy)] == ["NO-02", "RL-06"]
+    assert [r["id"] for r in rules_of(toy)] == ["RL-06", "HO-01"]
     assert (
         len(
             bhcore.work_packet(bhcore.Config(toy / ".brick-harness" / "config.json"), "csv-reader")[
@@ -336,8 +351,8 @@ def test_class_shares_and_check_candidates_are_report_facts(toy):
     cli("bh-rank", toy, "--add", str(f), "--write")
     facts = {x["kind"]: x for x in cli("bh-gaps", toy)[1]["facts"]}
     c = facts["rule-classes"]
-    assert c["in_use"] == 8 and c["enforced"].startswith("2 ") and c["embodied"].startswith("1 ")
-    assert c["judgment"].startswith("5 ")
+    assert c["in_use"] == 7 and c["enforced"].startswith("2 ") and c["embodied"].startswith("1 ")
+    assert c["judgment"].startswith("4 ")
     assert facts["check-candidates"]["rules"] == "HO-01 x2"
 
 
@@ -354,10 +369,8 @@ def test_a_sellable_feature_has_a_review_brief_and_the_workflow_files_findings(t
     commit_all(toy, "features", ".brick-harness")
     code, b = cli("bh-brief", toy, "--feature", "F1")
     assert code == 0 and b["items"] == ["csv-reader", "csv2json"]
-    assert b["paths"] == ["src/csv2json.py", "src/csv_reader.py", "src/queue_worker.py"] and {
-        "HO",
-        "NO",
-    } <= set(b["domains"])
+    assert b["paths"] == ["src/csv2json.py", "src/csv_reader.py", "src/queue_worker.py"]
+    assert "domains" not in b and "packs" not in b  # compliance-review scopes the review itself
     assert b["diff"] == f"git diff {b['base']} HEAD -- " + " ".join(b["paths"])
     assert cli("bh-brief", toy, "--feature", "NOPE")[0] == 2
     body = (ROOT / "workflows" / "harness-run.js").read_text()

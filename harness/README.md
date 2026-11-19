@@ -108,7 +108,7 @@ agent runs each tool and returns its JSON.
   item is measured at HEAD first; stale, conflict and met-uncommitted items are redone), so a
   finding becomes work only as a failing test or target.
 - `bh-init`: writes `.brick-harness/config.json` with placeholders and never overwrites;
-  `--missing features overlay` opts in to starter documents.
+  `--missing features` opts in to starter documents.
 
 **Time limits.** One `bh-measure` call runs up to three commands, each bounded by
 `commands.timeout_s`, so keep 3 x `timeout_s` under an agent's shell limit (about 10
@@ -216,7 +216,7 @@ it. Config (`schema/harness.config.schema.json`):
 
 - `paths`: the project's documents (read only) and the harness files; `sections` names a
   heading inside one.
-- `standards`: `catalog` (optional: a path to another catalog; unset is this plugin's), `base_version`, `packs`, `overlay`; placeholders are gaps.
+- `standards`: `catalog` (optional: a path to another catalog; unset is this plugin's), `base_version`, `packs`; the overlay is found as the skills find it (bindings file, then `docs/agents/design-compliance.md`); placeholders are gaps.
 - `commands`: `test`, `bench`, `env_setup`, `timeout_s`, and how agents call the tools;
   placeholders `{item} {brick_path} {out} {slot} {port_base} {workdir} {root} {ref}`. An item
   can override `test`, `bench`, `env_setup`. The commands are part of what a result was

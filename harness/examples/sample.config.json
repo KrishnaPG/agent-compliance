@@ -21,8 +21,7 @@
   },
   "standards": {
     "base_version": "<pinned version>",
-    "packs": [],
-    "overlay": "docs/standards-overlay.md"
+    "packs": []
   },
   "commands": {
     "test": {

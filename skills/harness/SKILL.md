@@ -26,7 +26,7 @@ The sections below are for the workflow's phase agents. A phase agent follows on
 4. Contracts: one file per item whose input and output a document states; cite the source in the file.
 5. Never change or remove existing entries; never change a target of an item whose status is met.
 6. Everything you cannot derive (no numeric target, no interface, unclear dependency) goes in `not_derivable` as a gap with file:line evidence and a tag.
-7. Work packet: give each new item `context`, a list of `{path, lines: "a-b"}` citing the exact passages of the project documents a builder needs, and `rules`, the catalog rule ids that apply. Write citations, never copied text: `bh-brief ITEM` extracts the passages (with their sha256) and the builder gets only that packet.
+7. Work packet: give each new item `context`, a list of `{path, lines: "a-b"}` citing the exact passages of the project documents a builder needs, and `rules`, the catalog rule ids that apply (pick them by the scoping of `agent-compliance:compliance-review`, by reference; copy none of its steps). Write citations, never copied text: `bh-brief ITEM` extracts the passages (with their sha256) and the builder gets only that packet.
 8. Slice and value of a feature (`.brick-harness/features.json`) are the owner's data with a cited source: never estimate them. A feature without them is reported as unvalued and ranks last.
 
 ## Build
