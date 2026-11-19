@@ -33,7 +33,15 @@ A check file is `<pack>/<RULE-ID>.<ecosystem>.yml`, its ast-grep `id` is `<RULE-
 
 ## Running
 
-Checks run by default in the harness: every check whose ecosystem the project uses runs on every change. A project opts a rule out only in its overlay, by naming the rule id with a reason; an opt-out without a reason is not honoured.
+Checks run by default in the harness: every check whose ecosystem the project uses runs on every change. A project opts a rule out only in its overlay, under the heading `## Check opt-outs`, one line per rule in exactly this form:
+
+```
+- RL-08 not-applicable: <reason>
+```
+
+The line holds the rule id, the word `not-applicable` and a reason after the colon. A line without a reason opts nothing out. Opting out a rule skips every check whose `rule` is that id.
+
+Each rule file runs on its own as `ast-grep scan --rule <file> --json` (ast-grep 0.51.3). Every rule has severity `error`, so a scan with a finding exits 1; findings carry the ast-grep `id` as `ruleId`, and line numbers in the JSON are 0-based.
 
 Each check has its own test, in ast-grep's rule-test format: `tests/<id>-test.yml` with `valid` cases that must not match (near misses included) and `invalid` cases that must, plus their recorded snapshots in `tests/__snapshots__/`. From this directory:
 

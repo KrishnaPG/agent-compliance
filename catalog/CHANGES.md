@@ -14,3 +14,4 @@
 - 1.3.0: NO-29 added: stack-shaping choices are decided once, centrally, before dependent components; later choices prefer the chosen or compatible stack.
 - 1.3.0: scenarios 16, 28, 30, 31, 39, 46, 52, 60, 61 and 63 list the new rules that decide them.
 - 1.3.0: `checks/` added: static check packs (ast-grep 0.51.3) for RL-08 and LC-17, HO-02 and ID-15 in Python and TypeScript, indexed by `checks/index.json`.
+- 1.3.0: overlay check opt-outs: one line per rule under `## Check opt-outs`, exactly `- <RULE-ID> not-applicable: <reason>`; a line without a reason opts nothing out.
