@@ -1,0 +1,275 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "agent job outputs (--json-schema of each orchestrator job)",
+  "description": "One schema per agent job of bhorch: the job's output is $defs/<job>. The orchestrator inlines $ref before it hands a schema to the claude CLI and validates every job result against it (bhcore.validate). $defs/finding is the one of finding.schema.json, merged in by bhorch.job_schema.",
+  "$defs": {
+    "gap": {
+      "type": "object",
+      "required": [
+        "kind",
+        "summary",
+        "tag",
+        "evidence"
+      ],
+      "properties": {
+        "kind": {
+          "enum": [
+            "missing-document",
+            "dangling-reference",
+            "no-acceptance",
+            "no-numeric-target",
+            "target-without-source",
+            "target-without-command",
+            "target-on-unknown-item",
+            "duplicate-item",
+            "no-contract",
+            "missing-dependency",
+            "item-without-source",
+            "contradiction",
+            "untracked-open-item",
+            "helper-without-library",
+            "unsettled-area",
+            "unmet-after-rounds",
+            "not-derivable",
+            "missing-context",
+            "other"
+          ]
+        },
+        "summary": {
+          "type": "string"
+        },
+        "tag": {
+          "enum": [
+            "owner-decides",
+            "fixable"
+          ]
+        },
+        "area": {
+          "type": "string"
+        },
+        "resolve_with": {
+          "type": "string"
+        },
+        "severity": {
+          "enum": [
+            "S1",
+            "S2",
+            "S3",
+            "S4"
+          ]
+        },
+        "proof": {
+          "enum": [
+            "reproduced",
+            "trigger",
+            "theoretical"
+          ]
+        },
+        "impact": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rule": {
+          "type": "string"
+        },
+        "reopens": {
+          "type": "string"
+        },
+        "answered_by": {
+          "type": "string"
+        },
+        "evidence": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "file",
+              "line"
+            ],
+            "properties": {
+              "file": {
+                "type": "string"
+              },
+              "line": {
+                "type": "integer"
+              },
+              "quote": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "looked_in": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "gaps": {
+      "type": "object",
+      "required": [
+        "gaps"
+      ],
+      "properties": {
+        "gaps": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gap"
+          }
+        }
+      }
+    },
+    "plan": {
+      "type": "object",
+      "required": [
+        "added_items",
+        "added_targets",
+        "added_contracts",
+        "not_derivable"
+      ],
+      "properties": {
+        "added_items": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "added_targets": {
+          "type": "integer"
+        },
+        "added_contracts": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "not_derivable": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/gap"
+          }
+        }
+      }
+    },
+    "build": {
+      "type": "object",
+      "required": [
+        "item",
+        "ref",
+        "catalogue_added"
+      ],
+      "properties": {
+        "item": {
+          "type": "string"
+        },
+        "ref": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "catalogue_added": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "notes": {
+          "type": "string"
+        },
+        "missing_context": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "harvest_find": {
+      "type": "object",
+      "required": [
+        "candidates"
+      ],
+      "properties": {
+        "candidates": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "job",
+              "ecosystem",
+              "bricks",
+              "evidence"
+            ],
+            "properties": {
+              "job": {
+                "type": "string"
+              },
+              "ecosystem": {
+                "type": "string"
+              },
+              "bricks": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                }
+              },
+              "pick": {
+                "type": "string"
+              },
+              "evidence": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": [
+                    "file",
+                    "line"
+                  ],
+                  "properties": {
+                    "file": {
+                      "type": "string"
+                    },
+                    "line": {
+                      "type": "integer"
+                    },
+                    "quote": {
+                      "type": "string"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "harvest_apply": {
+      "type": "object",
+      "required": [
+        "ref"
+      ],
+      "properties": {
+        "ref": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        }
+      }
+    },
+    "review": {
+      "type": "object",
+      "required": [
+        "findings"
+      ],
+      "properties": {
+        "findings": {
+          "type": "array",
+          "items": {
+            "$ref": "#/$defs/finding"
+          }
+        }
+      }
+    }
+  }
+}

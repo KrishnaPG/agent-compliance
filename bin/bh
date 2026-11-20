@@ -1,0 +1,20 @@
+#!/usr/bin/env python3
+"""bh: the one entry of the build harness (orchestrator).
+
+  bh run [--skip gaps|plan|harvest ...]     gaps, plan, build+measure rounds, harvest+measure
+  bh gaps | plan | harvest                  one phase
+  bh build [--item ID ...]                  build the ready items (one round, no measuring)
+  bh measure [--item ID[@REF] ...]          measure, merge, re-measure (no item: ready items at HEAD)
+
+Global: --config .brick-harness/config.json, --dry-run (list the agent jobs, change nothing).
+Mechanical steps run as code; an agent job starts only for judgement work. See lib/bhorch.py.
+"""
+
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from bhorch import main  # noqa: E402
+
+if __name__ == "__main__":
+    sys.exit(main())

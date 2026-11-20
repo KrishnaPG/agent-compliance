@@ -3,6 +3,7 @@ import sys
 from pathlib import Path
 
 import pytest
+from test_toy import toy  # noqa: E402, F401  (the toy project fixture, shared)
 
 ROOT = Path(__file__).resolve().parent.parent
 sys.path.insert(0, str(ROOT / "lib"))

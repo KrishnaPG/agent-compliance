@@ -1,0 +1,86 @@
+#!/usr/bin/env python3
+"""A fake host CLI for the orchestrator tests: no model, no network, no cost.
+
+It stands in for ``claude -p --agent ... --output-format json`` and behaves from a spec file
+(``$FAKE_CLAUDE_SPEC``, JSON):
+
+  outputs        agent name -> the structured output to return (the schema is not applied here;
+                 the orchestrator validates it)
+  build_files    item id -> {path: text}: what a builder writes and commits in its worktree
+  auth_fail_bare true: a job in bare mode (``--bare``) fails with an authentication error
+  budget_overrun [agent, ...]: those agents end with the CLI's ``error_max_budget_usd`` result
+  fail           [agent, ...]: those agents exit 1 with an error result
+  cost, usage    cost (usd) and usage reported per job
+
+Every call is appended to ``$FAKE_CLAUDE_LOG`` as one JSON line: argv, mode, agent, cwd, stdin.
+"""
+
+import json
+import os
+import re
+import subprocess
+import sys
+from pathlib import Path
+
+argv = sys.argv[1:]
+prompt = sys.stdin.read()
+spec = json.loads(Path(os.environ["FAKE_CLAUDE_SPEC"]).read_text())
+agent = argv[argv.index("--agent") + 1].split(":")[-1] if "--agent" in argv else None
+mode = "bare" if "--bare" in argv else "login"
+with open(os.environ["FAKE_CLAUDE_LOG"], "a") as log:
+    log.write(
+        json.dumps(
+            {"argv": argv, "mode": mode, "agent": agent, "cwd": os.getcwd(), "stdin": prompt}
+        )
+        + "\n"
+    )
+
+
+def result(**kw):
+    base = {
+        "type": "result",
+        "subtype": "success",
+        "is_error": False,
+        "result": "",
+        "total_cost_usd": spec.get("cost", 0.01),
+        "usage": spec.get("usage", {"input_tokens": 10, "output_tokens": 5}),
+        "duration_ms": 3,
+        "num_turns": 1,
+    }
+    print(json.dumps({**base, **kw}))
+
+
+if spec.get("auth_fail_bare") and mode == "bare":
+    result(is_error=True, result="Invalid API key - Please run /login", total_cost_usd=0)
+    sys.exit(1)
+if agent in spec.get("budget_overrun", []):
+    result(subtype="error_max_budget_usd", is_error=True, total_cost_usd=2.01)
+    sys.exit(1)
+if agent in spec.get("fail", []):
+    result(is_error=True, result="the model gave up")
+    sys.exit(1)
+
+out = dict(spec.get("outputs", {}).get(agent, {}))
+if agent == "harness-builder":
+    m = re.search(r"Input file[^:]*: (\S+)", prompt)
+    inp = json.loads(Path(m.group(1)).read_text()) if m else {}
+    item = inp.get("item") or "harvest"
+    env = dict(
+        os.environ,
+        GIT_AUTHOR_NAME="f",
+        GIT_AUTHOR_EMAIL="f@example.invalid",
+        GIT_COMMITTER_NAME="f",
+        GIT_COMMITTER_EMAIL="f@example.invalid",
+    )
+    files = spec.get("build_files", {}).get(item, {})
+    for rel, text in files.items():
+        Path(rel).parent.mkdir(parents=True, exist_ok=True)
+        Path(rel).write_text(text)
+    if files:
+        subprocess.run(["git", "add", "-A"], check=True, env=env)
+        subprocess.run(["git", "commit", "-qm", f"build {item}"], check=True, env=env)
+    head = subprocess.run(
+        ["git", "rev-parse", "HEAD"], capture_output=True, text=True
+    ).stdout.strip()
+    out = {"item": item, "ref": head, "catalogue_added": [], **out}
+result(structured_output=out)
