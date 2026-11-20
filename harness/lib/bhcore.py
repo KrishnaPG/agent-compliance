@@ -121,9 +121,9 @@ class HarnessError(Exception):
     pass
 
 
-# Output limits (config ``limits``): they bound what is printed or filed per call, never
+# Output limits (config ``limits``): they bound what is printed per call, never
 # what is measured.
-LIMIT_DEFAULTS = {"decision_items": 25, "packet_rules": 8, "file_per_run": 10, "tracker_read": 200}
+LIMIT_DEFAULTS = {"decision_items": 25, "packet_rules": 8, "tracker_read": 200}
 
 
 # ---------------------------------------------------------------- schema validation
@@ -1158,7 +1158,6 @@ def _plan_paths(cfg: Config, top: Path, scoreboard: bool = True) -> list[str]:
     ps = [p for k in keys for p in cfg.files(k)] + [
         cfg.path,
         cfg.dir / HDIR / ".gitignore",
-        cfg.dir / HDIR / "work",  # the files tracker adapter: one committed file per entry
     ]
     return [_under(p, top) for p in ps if p.exists() and p.is_relative_to(top)]
 
