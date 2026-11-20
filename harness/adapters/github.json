@@ -1,76 +1,34 @@
 {
   "name": "github",
-  "description": "GitHub Issues through gh 2.94.0 or later (sub-issues, issue types, blocked-by). No atomic claim (the create-only claim ref is used), no defer (a label), no ready filter (computed from list), no compaction.",
-  "capabilities": {
-    "atomic_claim": false,
-    "hierarchy": true,
-    "defer": false,
-    "compaction": false,
-    "ready_filter": false
-  },
+  "description": "GitHub Issues through gh 2.94.0 or later (sub-issues, issue types, blocked-by). The ready filter is a search query (open, unassigned, not blocked, type Task: change the query through config tracker.commands.ready for other types); no atomic claim, an assignee is a soft claim.",
   "types": {
     "goal": "Goal",
     "feature": "Feature",
     "item": "Task"
   },
   "commands": {
-    "show": "gh issue view {ref} --json number,title,body,state,labels,assignees,issueType,parent,blockedBy,url",
-    "create": "gh issue create --title {title} --body {body} [--type {type}] [--parent {parent}] [--blocked-by {deps}] [--label {labels}]",
-    "link": {
-      "blocks": "gh issue edit {ref} --add-blocked-by {to}",
-      "parent-child": "gh issue edit {to} --add-sub-issue {ref}",
-      "default": "gh issue comment {ref} --body {comment}"
-    },
+    "ready": "gh issue list --state open --limit {limit} --search 'no:assignee -is:blocked type:Task' --json number,title,body,state,assignees,issueType,parent,blockedBy",
+    "show": "gh issue view {ref} --json number,title,body,state,assignees,issueType,parent,blockedBy",
+    "list": "gh issue list --state open --limit {limit} --json number,title,body,state,assignees,issueType,parent,blockedBy",
+    "claim": "gh issue edit {ref} --add-assignee @me",
     "close": "gh issue close {ref} --reason completed --comment {reason}",
-    "reopen": "gh issue reopen {ref} --comment {reason}",
-    "defer": "gh issue edit {ref} --add-label bh-deferred",
-    "list": "gh issue list --state {state} --limit {limit} [--search {key}] --json number,title,body,state,labels,assignees,issueType,parent,blockedBy,url"
+    "reopen": "gh issue reopen {ref} --comment {reason}"
   },
-  "output": {
-    "create": "url-ref",
-    "link": "none",
-    "close": "none",
-    "reopen": "none",
-    "defer": "none"
-  },
-  "ref_prefix": "#",
   "fields": {
-    "ref": {
-      "path": "number",
-      "prefix": "#"
-    },
+    "ref": "number",
     "title": "title",
     "body": "body",
     "state": "state",
     "type": "issueType.name",
     "assignee": "assignees[].login",
-    "parent": {
-      "path": "parent.number",
-      "prefix": "#"
-    },
-    "labels": "labels[].name",
-    "deps": {
-      "path": "blockedBy[].number",
-      "prefix": "#"
-    },
-    "url": "url"
+    "parent": "parent.number",
+    "deps": "blockedBy[].number"
   },
   "states": {
     "OPEN": "open",
     "CLOSED": "closed"
   },
-  "list_states": {
-    "open": "open",
-    "live": "open",
-    "closed": "closed",
-    "all": "all"
-  },
-  "labels": {
-    "deferred": "bh-deferred"
-  },
-  "metadata_in_body": true,
   "missing": "(?i)could not resolve|not found|no issue",
   "release": "gh issue edit {ref} --remove-assignee @me",
-  "id_prefix": "gh",
-  "deps_format": "blocks"
+  "id_prefix": "gh"
 }

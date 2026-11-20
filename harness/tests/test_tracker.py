@@ -1,16 +1,16 @@
-"""SG-15 tracker interface (mechanisms M5 to M12 of decision 0001).
+"""SG-15 tracker interface (mechanisms M5 to M9 of decision 0001).
 
 Adapters are tested with fixture commands: small scripts that stand in for `bd` and `gh`,
-log their arguments and print fixed JSON in the tracker's own shapes. The files adapter is a
-real, stateful tracker, so admission, reconciliation, filing and the git claim are tested
-against it. Nothing here calls a real tracker; tests/test_tracker_beads.py runs the real Beads
-binary when `bd` is on PATH.
+log their arguments and print fixed JSON in the tracker's own shapes. Admission and
+reconciliation run against tests/fake_tracker.py, a stateful stand-in with the six operations
+the harness calls. Nothing here calls a real tracker; tests/test_tracker_beads.py runs the real
+Beads binary when `bd` is on PATH.
 """
 
 import ast
+import hashlib
 import json
 import re
-import shutil
 import stat
 import subprocess
 import sys
@@ -62,6 +62,11 @@ def calls(d):
     return [json.loads(x) for x in p.read_text().splitlines()] if p.exists() else []
 
 
+def sha256(path):
+    with open(path, "rb") as f:
+        return hashlib.file_digest(f, "sha256").hexdigest()
+
+
 @pytest.fixture
 def toy(tmp_path):
     repo = tmp_path / "toy"
@@ -92,27 +97,73 @@ def cfg_of(repo):
     return bhcore.Config(conf(repo))
 
 
-def with_origin(repo, tmp_path, name="origin.git"):
-    o = tmp_path / name
-    subprocess.run(["git", "init", "-q", "--bare", str(o)], check=True, env=ENV)
-    git(repo, "remote", "add", "origin", str(o))
-    git(repo, "push", "-q", "origin", "main")
-    return o
-
-
-def clone(origin, dest):
-    subprocess.run(["git", "clone", "-q", str(origin), str(dest)], check=True, env=ENV)
-    return dest
-
-
 def tracker_of(repo, **conf_):
     if conf_:
         cfg_edit(repo, tracker=conf_)
     return bt.Tracker(cfg_of(repo))
 
 
-def seed(tr, n, parent=None):
-    return [tr.create(f"task {i}", f"body {i}", "item", parent) for i in range(n)]
+class Store:
+    """The fake tracker's store, an adapter for it, and seeding."""
+
+    def __init__(self, tmp_path):
+        self.path = tmp_path / "store.json"
+        self.adapter = tmp_path / "fake.json"
+        run = f"{sys.executable} {Path(__file__).parent / 'fake_tracker.py'} {self.path}"
+        self.adapter.write_text(
+            json.dumps(
+                {
+                    "name": "fake",
+                    "id_prefix": "fk",
+                    "types": {"goal": "goal", "feature": "feature", "item": "item"},
+                    "commands": {
+                        "ready": f"{run} ready {{limit}} [{{parent}}]",
+                        "show": f"{run} show {{ref}}",
+                        "list": f"{run} list {{limit}}",
+                        "claim": f"{run} claim {{ref}} {{actor}}",
+                        "close": f"{run} close {{ref}} {{reason}}",
+                        "reopen": f"{run} reopen {{ref}} {{reason}}",
+                    },
+                    "missing": "no entry",
+                    "release": f"{run} reopen {{ref}} released",
+                }
+            )
+        )
+
+    @property
+    def db(self):
+        return json.loads(self.path.read_text()) if self.path.exists() else {}
+
+    def add(self, title, type="item", parent=None, deps=(), **kw):
+        db = self.db
+        ref = f"t-{len(db) + 1}"
+        db[ref] = {
+            "ref": ref,
+            "title": title,
+            "body": f"body of {title}",
+            "state": "open",
+            "type": type,
+            "assignee": None,
+            "parent": parent,
+            "deps": list(deps),
+            **kw,
+        }
+        self.path.write_text(json.dumps(db))
+        return ref
+
+    def put(self, ref, **kw):
+        db = self.db
+        db[ref].update(kw)
+        self.path.write_text(json.dumps(db))
+
+
+def with_store(toy, tmp_path, goal=None, horizon=5, **extra):
+    st = Store(tmp_path)
+    t = {"adapter": str(st.adapter), "actor": "me", **extra}
+    if goal:
+        t["goal"] = goal
+    cfg_edit(toy, tracker=t, horizon={"items": horizon})
+    return st
 
 
 # ---------------------------------------------------------------- M5: the runner
@@ -120,46 +171,65 @@ def seed(tr, n, parent=None):
 
 def test_placeholders_are_shell_quoted_and_empty_parts_dropped():
     out = bt.render("x {a} [--p {p}] [--q {q}]", {"a": "it's; x", "p": "", "q": ["a", "b"]})
-    assert out == "x 'it'\"'\"'s; x'  --q a,b"
+    assert out == "x 'it'\"'\"'s; x'  --q 'a b'".replace(
+        "'a b'", "'['\"'\"'a'\"'\"', '\"'\"'b'\"'\"']'"
+    )
     with pytest.raises(bhcore.HarnessError):
         bt.render("x {missing}", {})
 
 
-def test_an_unconfigured_tracker_is_the_files_adapter(toy):
-    tr = bt.Tracker(cfg_of(toy))
-    assert tr.name == "files" and tr.caps["atomic_claim"] is False and tr.caps["hierarchy"]
-    assert bt.actor_of(cfg_of(toy)).startswith("bh-") and "@" not in tr.actor
+def test_no_tracker_configured_means_bricks_json_is_the_work_list(toy):
+    cfg = cfg_of(toy)
+    assert not bt.configured(cfg)
+    with pytest.raises(bhcore.HarnessError, match="no tracker configured"):
+        bt.Tracker(cfg)
+    out = cli("bh-admit", toy, "--write")[1]
+    assert out["tracker"] is None and out["admitted"] == [] and out["unreachable"] is None
+    out = cli("bh-reconcile", toy, "--write")[1]
+    assert out["tracker"] is None and out["mismatches"] == [] and out["facts"] == []
+    _, st = cli("bh-state", toy, "--part", "decision")
+    assert st["decision"]["ready"]  # the work list: bricks.json in build order
 
 
 def test_every_operation_runs_its_command_and_reads_the_entry_shape(toy, tmp_path):
-    tr = tracker_of(toy)
-    goal = tr.create("goal", "", "goal")
-    a, b = (
-        tr.create("a", "bodya", "item", goal),
-        tr.create("b", "", "item", goal, [("blocks", "x")]),
-    )
-    assert tr.show(a)["parent"] == goal and tr.show(a)["type"] == "item"
-    assert tr.show(b)["deps"] == ["x"]
-    got = tr.list(type="item")
-    assert [e["ref"] for e in got["entries"]] == [a, b] and got["more"] is False
-    tr.link(a, b, "blocks")
-    assert tr.show(a)["deps"] == [b]
-    tr.defer_entry(b, "later")
-    assert tr.show(b)["state"] == "deferred"
-    tr.close_entry(a, "done")
+    s = with_store(toy, tmp_path)
+    goal = s.add("goal", "goal")
+    a = s.add("a", parent=goal)
+    s.add("b", parent=goal, deps=[a])
+    tr = bt.Tracker(cfg_of(toy))
+    assert tr.name == "fake" and tr.show(a)["title"] == "a" and tr.show(a)["parent"] == goal
+    assert [e["ref"] for e in tr.ready(parent=goal)["entries"]] == [a]  # b is blocked
+    assert tr.claim(a) == {"claimed": True, "holder": "me", "by": "tracker"}
+    assert tr.show(a)["assignee"] == "me" and tr.show(a)["state"] == "in_progress"
+    assert tr.ready(parent=goal)["entries"] == []
+    tr.close_entry(a, "why")
     assert tr.show(a)["state"] == "closed"
-    tr.reopen_entry(a, "no")
+    tr.reopen_entry(a, "again")
     assert tr.show(a)["state"] == "open"
-    assert tr.claim(a)["claimed"] is True
-    assert tr.ready(parent=goal)["entries"] == []  # a blocks on b which is open and a has no deps
+    with pytest.raises(bt.TrackerError) as err:
+        tr.show("t-99")
+    assert tr.missing(err.value)
 
 
-def test_list_asks_one_more_and_reports_more(toy):
-    tr = tracker_of(toy)
-    seed(tr, 5)
+def test_list_asks_one_more_and_reports_more(toy, tmp_path):
+    s = with_store(toy, tmp_path)
+    for i in range(5):
+        s.add(f"t{i}")
+    tr = bt.Tracker(cfg_of(toy))
     got = tr.list(limit=3)
     assert len(got["entries"]) == 3 and got["more"] is True
     assert tr.list(limit=5)["more"] is False
+
+
+def test_without_a_claim_command_the_entry_is_taken_and_branches_keep_builders_apart(toy, tmp_path):
+    s = with_store(toy, tmp_path)
+    ref = s.add("a")
+    ad = json.loads(s.adapter.read_text())
+    del ad["commands"]["claim"]
+    s.adapter.write_text(json.dumps(ad))
+    tr = bt.Tracker(cfg_of(toy))
+    assert tr.claim(ref) == {"claimed": True, "holder": "me", "by": "branch"}
+    assert s.db[ref]["assignee"] is None
 
 
 def test_output_that_fails_the_schema_is_a_reported_error(toy, tmp_path, monkeypatch):
@@ -168,25 +238,30 @@ def test_output_that_fails_the_schema_is_a_reported_error(toy, tmp_path, monkeyp
     )
     tr = tracker_of(toy, adapter="github")
     with pytest.raises(bt.TrackerError, match="entry schema"):
-        tr.show("#1")
+        tr.show("1")
 
 
 def test_a_failed_command_is_an_error_with_its_exit_and_text(toy, tmp_path, monkeypatch):
     fake_cli(tmp_path, monkeypatch, "gh", {}, {"issue_view": "boom"})
     tr = tracker_of(toy, adapter="github")
     with pytest.raises(bt.TrackerError, match="exited 1: boom"):
-        tr.show("#1")
+        tr.show("1")
 
 
-def test_a_command_that_outlives_its_timeout_is_a_timeout_error(toy):
-    tr = tracker_of(toy, commands={"show": "python3 -c 'import time; time.sleep(5)'"}, timeout_s=1)
+def test_a_command_that_outlives_its_timeout_is_a_timeout_error(toy, tmp_path):
+    s = with_store(
+        toy, tmp_path, timeout_s=1, commands={"show": "python3 -c 'import time; time.sleep(5)'"}
+    )
+    tr = bt.Tracker(cfg_of(toy))
     with pytest.raises(bt.TrackerTimeout):
-        tr.show("w-x")
+        tr.show("t-1")
+    assert s.db == {}
 
 
-def test_target_source_is_resolved_through_show_by_bh_gaps_and_never_by_state(toy):
-    tr = tracker_of(toy)
-    ref = tr.create("p99 under 40 ms", "the budget is 40 ms", "item")
+def test_target_source_is_resolved_through_show_by_bh_gaps_and_never_by_state(toy, tmp_path):
+    s = with_store(toy, tmp_path)
+    ref = s.add("p99 under 40 ms")
+    s.put(ref, body="the budget is 40 ms")
     plan_edit(
         toy,
         "targets.json",
@@ -212,9 +287,7 @@ def test_measure_build_and_merge_never_call_the_tracker():
         assert "bhtracker" not in (BIN / n).read_text(), n
     assert "bhtracker" not in (ROOT / "lib" / "bhcore.py").read_text()
     for w in ("harness-build.js", "harness-measure.js"):
-        assert not re.search(
-            r"bh-(admit|file|reconcile|work)", (ROOT / "workflows" / w).read_text()
-        ), w
+        assert not re.search(r"bh-(admit|reconcile)", (ROOT / "workflows" / w).read_text()), w
 
 
 def test_close_and_reopen_are_called_only_from_reconcile():
@@ -224,10 +297,8 @@ def test_close_and_reopen_are_called_only_from_reconcile():
         *(ROOT / "lib").glob("*.py"),
         *(ROOT / "workflows").glob("*.js"),
     ]:
-        text = p.read_text()
-        if not names & set(re.findall(r"\w+", text)):
-            continue
-        assert p.name in ("bhtracker.py", "bh-reconcile") or p.name == "bh-reconcile", p.name
+        if names & set(re.findall(r"\w+", p.read_text())):
+            assert p.name in ("bhtracker.py", "bh-reconcile"), p.name
     tree = ast.parse((ROOT / "lib" / "bhtracker.py").read_text())
     for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
         called = {
@@ -241,27 +312,21 @@ def test_close_and_reopen_are_called_only_from_reconcile():
 
 # ---------------------------------------------------------------- M6: adapters are data
 
+OPS = {"ready", "show", "list", "claim", "close", "reopen"}
 
-def test_adapters_are_valid_data_with_the_nine_operations_and_five_capabilities():
+
+def test_adapters_are_valid_data_with_only_the_operations_the_harness_calls():
     schema = bhcore.load_schema("tracker")
-    for n in ("beads", "github", "files"):
+    for n in ("beads", "github"):
         ad = json.loads((ROOT / "adapters" / f"{n}.json").read_text())
         assert bhcore.validate(ad, schema["$defs"]["adapter"], schema) == []
-        assert set(ad["capabilities"]) == {
-            "atomic_claim",
-            "hierarchy",
-            "defer",
-            "compaction",
-            "ready_filter",
-        }
-        have = set(ad["commands"]) | (
-            {"claim"} if not ad["capabilities"]["atomic_claim"] else set()
-        )
-        have |= {"ready"} if not ad["capabilities"]["ready_filter"] else set()
-        assert have == set(bt.OPS), n
+        assert set(ad["commands"]) == OPS, n
+        assert "capabilities" not in ad
     beads = json.loads((ROOT / "adapters" / "beads.json").read_text())
     assert beads["types"] == {"goal": "epic", "feature": "feature", "item": "task"}
     assert re.fullmatch(r"[0-9a-f]{64}", beads["pin"]["sha256"]["linux_amd64"])
+    bad = {"name": "x", "commands": {"ready": "r", "show": "s", "create": "c"}}
+    assert bhcore.validate(bad, schema["$defs"]["adapter"], schema)  # no operation nothing calls
 
 
 BD_TASK = {
@@ -271,8 +336,6 @@ BD_TASK = {
     "status": "in_progress",
     "issue_type": "task",
     "assignee": "bh-x",
-    "labels": ["l"],
-    "metadata": {"bh_key": "k"},
     "parent": "p-1",
     "dependencies": [
         {"id": "p-1.0", "dependency_type": "blocks"},
@@ -283,8 +346,7 @@ BD_TASK = {
 
 def beads_env(tmp_path, monkeypatch, outs, fails=None):
     exe, d = fake_cli(tmp_path, monkeypatch, "bd", outs, fails)
-    sha = bt.file_sha256(str(exe))
-    return d, {"adapter": "beads", "pin": {"sha256": sha}, "actor": "bh-test"}
+    return d, {"adapter": "beads", "pin": {"sha256": sha256(exe)}, "actor": "bh-test"}
 
 
 def test_beads_adapter_maps_every_command_and_reads_its_json(toy, tmp_path, monkeypatch):
@@ -295,16 +357,13 @@ def test_beads_adapter_maps_every_command_and_reads_its_json(toy, tmp_path, monk
             "show": [BD_TASK],
             "list": [{**BD_TASK, "dependencies": [{"depends_on_id": "p-1.0", "type": "blocks"}]}],
             "ready": [BD_TASK],
-            "create": {"id": "p-9"},
             "update": [BD_TASK],
             "close": [BD_TASK],
             "reopen": [BD_TASK],
-            "defer": [BD_TASK],
-            "link": {"ok": 1},
         },
     )
     tr = tracker_of(toy, **conf_)
-    assert tr.pinned_binary and not tr.facts
+    assert not tr.facts
     e = tr.show("p-1.1")
     assert (e["ref"], e["state"], e["type"], e["assignee"], e["parent"], e["deps"]) == (
         "p-1.1",
@@ -314,17 +373,9 @@ def test_beads_adapter_maps_every_command_and_reads_its_json(toy, tmp_path, monk
         "p-1",
         ["p-1.0"],
     )
-    assert tr.list(state="live", type="item", parent="p-1", key="k")["entries"][0]["deps"] == [
-        "p-1.0"
-    ]
+    assert tr.list(type="item")["entries"][0]["deps"] == ["p-1.0"]
     assert tr.ready(limit=4, parent="p-1")["entries"][0]["ref"] == "p-1.1"
-    assert (
-        tr.create("T", "B", "item", "p-1", [("discovered-from", "p-0")], ["x"], {"bh_key": "k"})
-        == "p-9"
-    )
-    tr.link("p-1.1", "p-0", "related")
     assert tr.claim("p-1.1") == {"claimed": True, "holder": "bh-test", "by": "tracker"}
-    tr.defer_entry("p-1.1", "r")
     tr.close_entry("p-1.1", "why", "bh-x")
     tr.reopen_entry("p-1.1", "why", "bh-x")
     by = {c[0]: c for c in calls(d)}
@@ -333,12 +384,8 @@ def test_beads_adapter_maps_every_command_and_reads_its_json(toy, tmp_path, monk
         and "5" in by["ready"]
         and "--parent" in by["ready"]
     )
-    assert "open,in_progress,blocked,deferred" in by["list"] and "bh_key=k" in by["list"]
-    cr = by["create"]
-    assert cr[cr.index("--deps") + 1] == "discovered-from:p-0" and cr[cr.index("-t") + 1] == "task"
-    assert json.loads(cr[cr.index("--metadata") + 1]) == {"bh_key": "k"}
+    assert "open,in_progress,blocked,deferred" in by["list"]
     assert by["update"][:3] == ["update", "p-1.1", "--claim"]
-    assert by["link"][1:5] == ["p-1.1", "p-0", "--type", "related"]
     for op in ("close", "reopen"):  # acting as the claim holder
         assert by[op][by[op].index("--actor") + 1] == "bh-x"
     assert all("--actor" in c for c in calls(d))
@@ -358,18 +405,19 @@ def test_beads_claim_refused_for_another_holder_is_claimed_elsewhere(toy, tmp_pa
         tracker_of(toy, **conf2).claim("p-1.1")
 
 
-def test_pin_mismatch_is_not_run_and_the_files_adapter_serves_that_run(toy, tmp_path, monkeypatch):
+def test_pin_mismatch_is_not_run_and_the_tracker_is_unreachable_with_the_fact(
+    toy, tmp_path, monkeypatch
+):
     d, _ = beads_env(tmp_path, monkeypatch, {"show": [BD_TASK]})
-    tr = tracker_of(toy, adapter="beads")  # no sha256 for the fake: a mismatch
-    assert tr.name == "files" and tr.fallback and tr.pinned_binary is None
-    assert (
-        tr.facts[0]["kind"] == "pin-mismatch" and tr.facts[0]["actual"] != tr.facts[0]["expected"]
-    )
-    ref = tr.create("served by files", "", "item")
-    assert tr.show(ref)["title"] == "served by files"
+    cfg_edit(toy, tracker={"adapter": "beads"})  # no sha256 for the fake: a mismatch
+    with pytest.raises(bt.TrackerError, match="not run"):
+        bt.Tracker(cfg_of(toy))
+    out = bt.admit(cfg_of(toy), write=True)
+    assert out["admitted"] == [] and "not run" in out["unreachable"]
+    cfg_edit(toy, tracker={"adapter": "beads", "pin": {"sha256": "0" * 64}})
+    with pytest.raises(bt.TrackerError, match="is not the pin"):
+        bt.Tracker(cfg_of(toy))
     assert calls(d) == []  # the binary was never executed, not even for a version check
-    bad = tracker_of(toy, adapter="beads", pin={"sha256": "0" * 64})
-    assert bad.facts[0]["kind"] == "pin-mismatch" and calls(d) == []
 
 
 def test_config_overrides_any_adapter_command_and_adapters_load_from_a_path(
@@ -381,8 +429,8 @@ def test_config_overrides_any_adapter_command_and_adapters_load_from_a_path(
     tr = tracker_of(
         toy, adapter="github", commands={"show": "gh issue view {ref} --json number,title,state"}
     )
-    assert tr.show("#7")["ref"] == "#7"
-    ad = json.loads((ROOT / "adapters" / "files.json").read_text())
+    assert tr.show("7")["ref"] == "7"
+    ad = json.loads((ROOT / "adapters" / "github.json").read_text())
     ad["name"] = "mine"
     (toy / "mine.json").write_text(json.dumps(ad))
     assert tracker_of(toy, adapter="mine.json").name == "mine"
@@ -392,195 +440,66 @@ def test_github_adapter_renders_every_command_and_reads_its_json(toy, tmp_path, 
     issue = {
         "number": 12,
         "title": "T",
-        "body": 'text\n\n<!-- bh-meta: {"bh_key":"k"} -->',
+        "body": "text",
         "state": "OPEN",
-        "labels": [{"name": "bh-deferred"}],
         "assignees": [{"login": "u"}],
         "issueType": {"name": "Task"},
         "parent": {"number": 3},
         "blockedBy": [{"number": 5}],
-        "url": "https://x/12",
     }
-    _, d = fake_cli(
-        tmp_path,
-        monkeypatch,
-        "gh",
-        {
-            "issue_view": issue,
-            "issue_list": [issue],
-            "issue_create": "https://github.com/o/r/issues/44",
-        },
-    )
+    _, d = fake_cli(tmp_path, monkeypatch, "gh", {"issue_view": issue, "issue_list": [issue]})
     tr = tracker_of(toy, adapter="github")
-    e = tr.show("#12")
+    e = tr.show("12")
     assert (e["ref"], e["state"], e["type"], e["assignee"], e["parent"], e["deps"], e["body"]) == (
-        "#12",
-        "deferred",
+        "12",
+        "open",
         "item",
         "u",
-        "#3",
-        ["#5"],
+        "3",
+        ["5"],
         "text",
     )
-    assert e["metadata"] == {"bh_key": "k"}
-    assert tr.list(key="k")["entries"][0]["ref"] == "#12" and tr.list(key="zz")["entries"] == []
-    ref = tr.create(
-        "T",
-        "B",
-        "item",
-        "#3",
-        [("blocks", "#5"), ("discovered-from", "#9")],
-        ["a"],
-        {"bh_key": "k"},
-    )
-    assert ref == "#44"
+    assert tr.ready(limit=2)["entries"][0]["ref"] == "12"
+    assert tr.list()["entries"][0]["ref"] == "12"
+    assert tr.claim("12") == {"claimed": True, "holder": tr.actor, "by": "tracker"}
+    tr.close_entry("12", "met")
+    tr.reopen_entry("12", "unmet")
     log = calls(d)
-    create = next(c for c in log if c[:2] == ["issue", "create"])
-    assert (
-        create[create.index("--type") + 1] == "Task"
-        and create[create.index("--blocked-by") + 1] == "#5"
-    )
-    assert "<!-- bh-meta:" in create[create.index("--body") + 1]
-    assert any(
-        c[:2] == ["issue", "comment"] and "discovered-from #9" in c[-1] for c in log
-    )  # linked afterwards
-    tr.link("#44", "#6", "blocks")
-    tr.link("#44", "#6", "parent-child")
-    tr.defer_entry("#44", "r")
-    tr.close_entry("#44", "met")
-    tr.reopen_entry("#44", "unmet")
-    edits = [" ".join(c) for c in calls(d) if c[:2] == ["issue", "edit"]]
-    assert any("--add-blocked-by #6" in x for x in edits) and any(
-        "#6 --add-sub-issue #44" in x for x in edits
-    )
-    assert any("--add-label bh-deferred" in x for x in edits)
-    assert any(c[:2] == ["issue", "close"] and "completed" in c for c in calls(d))
-    assert tr.caps == {
-        "atomic_claim": False,
-        "hierarchy": True,
-        "defer": False,
-        "compaction": False,
-        "ready_filter": False,
-    }
+    ready = next(c for c in log if c[:2] == ["issue", "list"])
+    assert ready[ready.index("--search") + 1] == "no:assignee -is:blocked type:Task"
+    assert ready[ready.index("--limit") + 1] == "3"  # one more than asked: a cut is reported
+    assert any(c[:2] == ["issue", "edit"] and "--add-assignee" in c for c in log)
+    assert any(c[:2] == ["issue", "close"] and "completed" in c for c in log)
+    assert any(c[:2] == ["issue", "reopen"] for c in log)
 
 
 def test_every_shipped_command_renders_to_valid_shell():
-    vals = {
-        "actor": "a",
-        "ref": "r",
-        "to": "t",
-        "kind": "blocks",
-        "title": "T",
-        "body": "B",
-        "type": "task",
-        "parent": "p",
-        "deps": ["d"],
-        "labels": ["l"],
-        "metadata": {"k": 1},
-        "limit": 3,
-        "state": "open",
-        "key": "k",
-        "metadata_field": "bh_key=k",
-        "reason": "why",
-        "comment": "c",
-    }
-    for n in ("beads", "github", "files"):
+    vals = {"actor": "a", "ref": "r", "type": "task", "parent": "p", "limit": 3, "reason": "why"}
+    for n in ("beads", "github"):
         ad = json.loads((ROOT / "adapters" / f"{n}.json").read_text())
         for op, tpl in ad["commands"].items():
-            for t in tpl.values() if isinstance(tpl, dict) else [tpl]:
-                cmd = bt.render(t, vals)
-                assert subprocess.run(["sh", "-n", "-c", cmd]).returncode == 0, (n, op, cmd)
-
-
-def test_missing_hierarchy_defer_and_ready_filter_are_labels_and_the_list(toy):
-    tr = tracker_of(toy, capabilities={"hierarchy": False})
-    tr.ad["labels"] = {"parent": "bh-parent:", "deferred": "bh-deferred"}
-    goal = tr.create("g", "", "goal")
-    a = tr.create("a", "", "item", goal)
-    assert "bh-parent:" + goal in tr.show(a)["labels"] and tr.show(a)["parent"] == goal
-    assert tr.caps["ready_filter"] is False  # ready is computed: open, leaf, no open dep
-    b = tr.create("b", "", "item", goal, [("blocks", a)])
-    d = tr.create("d", "", "item", goal)
-    tr.defer_entry(d, "r")
-    assert [e["ref"] for e in tr.ready(parent=goal)["entries"]] == [a]
-    assert goal not in [e["ref"] for e in tr.ready()["entries"]]  # a goal is not an item
-    tr.close_entry(a, "x")
-    assert [e["ref"] for e in tr.ready(parent=goal)["entries"]] == [b]
-
-
-# ---------------------------------------------------------------- M7: claim without an atomic claim
-
-
-def test_claim_race_between_two_clones_has_exactly_one_winner(toy, tmp_path):
-    origin = with_origin(toy, tmp_path)
-    other = clone(origin, tmp_path / "other")
-    shutil.copytree(toy / ".brick-harness", other / ".brick-harness", dirs_exist_ok=True)
-    a, b = cfg_of(toy), bhcore.Config(other / ".brick-harness" / "config.json")
-    wins = 0
-    for i in range(6):
-        ra = bt.git_claim(a, f"item-{i}", "w-1", "actor-a")
-        rb = bt.git_claim(b, f"item-{i}", "w-1", "actor-b")
-        wins += ra["claimed"] + rb["claimed"]
-        assert ra["claimed"] != rb["claimed"] and rb["holder"] == "actor-a"
-    assert wins == 6
-    # the claim ref is a commit of its own, a child of the remote's main, naming item and actor
-    msg = git(origin, "log", "-1", "--format=%B", "refs/heads/bh/item-0")
-    assert bt.parse_claim(msg + "\n") == {"item": "item-0", "ref": "w-1", "actor": "actor-a"}
-    assert git(origin, "rev-parse", "refs/heads/bh/item-0^") == git(origin, "rev-parse", "main")
-
-
-def test_a_reclaim_by_the_holder_is_a_noop_and_a_ref_survives_a_reopen(toy, tmp_path):
-    with_origin(toy, tmp_path)
-    cfg = cfg_of(toy)
-    first = bt.git_claim(cfg, "i1", "w-1", "me")
-    again = bt.git_claim(cfg, "i1", "w-1", "me")
-    assert first["claimed"] and again == {"claimed": True, "holder": "me", "by": "git"}
-    assert bt.claim_refs(cfg)["i1"]["sha"] == first["sha"]
-
-
-def test_a_claim_without_an_origin_is_local_under_the_lock(toy):
-    assert bt.git_claim(cfg_of(toy), "i1", "w-1", "me") == {
-        "claimed": True,
-        "holder": "me",
-        "by": "local",
-    }
-    assert bt.claim_refs(cfg_of(toy)) == {}
-
-
-def test_released_claims_are_only_ours_and_only_when_the_item_left_the_plan(toy, tmp_path):
-    origin = with_origin(toy, tmp_path)
-    cfg = cfg_of(toy)
-    bt.git_claim(cfg, "gone", "w-1", "me")
-    bt.git_claim(cfg, "kept", "w-2", "me")
-    bt.git_claim(cfg, "theirs", "w-3", "them")
-    out = bt.release_claims(cfg, "me", {"kept"}, set(), 30)
-    assert out == [{"item": "gone", "ref": "w-1"}]
-    assert git(origin, "for-each-ref", "--format=%(refname)", "refs/heads/bh/").split() == [
-        "refs/heads/bh/kept",
-        "refs/heads/bh/theirs",
-    ]
+            cmd = bt.render(tpl, vals)
+            assert subprocess.run(["sh", "-n", "-c", cmd]).returncode == 0, (n, op, cmd)
 
 
 # ---------------------------------------------------------------- M9: admission
 
 
 def admit_setup(toy, tmp_path, n=3, horizon=None):
-    origin = with_origin(toy, tmp_path)
-    cfg_edit(toy, horizon={"items": horizon} if horizon else {"items": 5}, tracker={"actor": "me"})
-    tr = bt.Tracker(cfg_of(toy))
-    goal = tr.create("goal", "", "goal")
-    cfg_edit(toy, tracker={"actor": "me", "goal": goal})
-    return origin, goal, seed(bt.Tracker(cfg_of(toy)), n, goal)
+    s = with_store(toy, tmp_path, horizon=horizon or 5)
+    goal = s.add("goal", "goal")
+    cfg_edit(toy, tracker={"adapter": str(s.adapter), "actor": "me", "goal": goal})
+    return s, goal, [s.add(f"task {i}", parent=goal) for i in range(n)]
 
 
 def test_admission_takes_ready_leaves_in_order_up_to_the_room_and_claims_first(toy, tmp_path):
-    origin, goal, refs = admit_setup(toy, tmp_path, n=4)  # toy has 3 items not met: room is 2
+    s, goal, refs = admit_setup(toy, tmp_path, n=4)  # toy has 3 items not met: room is 2
     dry = cli("bh-admit", toy)[1]
     assert (
         dry["room"] == 2 and [a["ref"] for a in dry["admit"]] == refs[:2] and dry["admitted"] == []
     )
-    assert dry["not_admitted"] == 2 and dry["tracker"] == "files"
-    assert git(origin, "for-each-ref", "refs/heads/bh/") == ""  # nothing claimed without --write
+    assert dry["not_admitted"] == 2 and dry["tracker"] == "fake"
+    assert not any(e["assignee"] for e in s.db.values())  # nothing claimed without --write
     out = cli("bh-admit", toy, "--write")[1]
     assert out["admitted"] == [a["id"] for a in dry["admit"]]
     items = json.loads((toy / ".brick-harness/bricks.json").read_text())["bricks"]
@@ -589,7 +508,7 @@ def test_admission_takes_ready_leaves_in_order_up_to_the_room_and_claims_first(t
         b["kind"] == "change" for b in new
     )
     assert new[0]["id"] == bt.item_id(bt.load_adapter(cfg_of(toy)), refs[0])
-    assert len(git(origin, "for-each-ref", "refs/heads/bh/").splitlines()) == 2
+    assert [r for r in refs if s.db[r]["assignee"] == "me"] == refs[:2]
     # a repeat takes nothing more: the room is used and the ids exist
     again = cli("bh-admit", toy, "--write")[1]
     assert again["admitted"] == [] and again["room"] == 0 and again["stalled"]["horizon"] == 5
@@ -598,26 +517,36 @@ def test_admission_takes_ready_leaves_in_order_up_to_the_room_and_claims_first(t
 def test_a_readmission_after_a_crash_between_claim_and_write_adopts_the_claimed_entry(
     toy, tmp_path
 ):
-    origin, goal, refs = admit_setup(toy, tmp_path, n=2, horizon=10)
-    cfg = cfg_of(toy)
-    assert bt.git_claim(cfg, bt.item_id(bt.load_adapter(cfg), refs[0]), refs[0], "me")["claimed"]
+    s, goal, refs = admit_setup(toy, tmp_path, n=2, horizon=10)
+    bt.Tracker(cfg_of(toy)).claim(refs[0])  # claimed, never written to bricks.json
     out = cli("bh-admit", toy, "--write")[1]
-    assert set(out["admitted"]) == {bt.item_id(bt.load_adapter(cfg), r) for r in refs}
-    assert out["released"] == []
+    ad = bt.load_adapter(cfg_of(toy))
+    assert set(out["admitted"]) == {bt.item_id(ad, r) for r in refs}
+    assert out["claim_held"] == []
 
 
-def test_a_claim_held_elsewhere_is_a_fact_and_the_entry_is_not_admitted(toy, tmp_path):
-    origin, goal, refs = admit_setup(toy, tmp_path, n=2, horizon=10)
-    cfg = cfg_of(toy)
-    bt.git_claim(cfg, bt.item_id(bt.load_adapter(cfg), refs[0]), refs[0], "someone-else")
+def test_a_claim_held_elsewhere_is_a_fact_with_its_release_command_and_the_entry_is_not_admitted(
+    toy, tmp_path
+):
+    s, goal, refs = admit_setup(toy, tmp_path, n=2, horizon=10)
+    s.put(refs[0], assignee="someone-else", state="in_progress")
     out = cli("bh-admit", toy, "--write")[1]
-    assert [bt.item_id(bt.load_adapter(cfg), refs[1])] == out["admitted"]
-    assert out["not_admitted"] == 0  # a claimed entry is not ready, so it is not even a candidate
+    assert [bt.item_id(bt.load_adapter(cfg_of(toy)), refs[1])] == out["admitted"]
+    assert out["not_admitted"] == 0  # a claimed entry is not ready, so it is not a candidate
+    assert [(c["ref"], c["holder"]) for c in out["claim_held"]] == [(refs[0], "someone-else")]
+    assert refs[0] in out["claim_held"][0]["release"]
+
+
+def test_a_claim_refused_at_write_time_is_claimed_elsewhere(toy, tmp_path):
+    s, goal, refs = admit_setup(toy, tmp_path, n=1, horizon=10)
+    tr = bt.Tracker(cfg_of(toy))
+    s.put(refs[0], assignee="someone-else")  # taken between the ready read and the claim
+    assert tr.claim(refs[0]) == {"claimed": False, "holder": "someone-else", "by": "tracker"}
 
 
 def test_admission_order_is_one_call_ranking_queued_items_first_then_the_trackers_order(toy):
     cfg = cfg_of(toy)
-    ad = bt.load_adapter(cfg)
+    ad = {"name": "fake", "id_prefix": "fk"}
     st = bhcore.state(cfg)
     queue = bhcore.value_queue(cfg, st)
     ref_b = "w-b"
@@ -631,8 +560,8 @@ def test_admission_order_is_one_call_ranking_queued_items_first_then_the_tracker
     assert src.count("admission_order(") == 2  # the definition and the one call in admit
 
 
-def test_an_unreachable_tracker_admits_nothing_and_says_so(toy):
-    cfg_edit(toy, tracker={"adapter": "files", "commands": {"list": "false"}})
+def test_an_unreachable_tracker_admits_nothing_and_says_so(toy, tmp_path):
+    with_store(toy, tmp_path, commands={"ready": "false"})
     out = cli("bh-admit", toy, "--write")[1]
     assert out["admitted"] == [] and "exited" in out["unreachable"]
 
@@ -647,7 +576,7 @@ def test_a_stalled_horizon_lists_the_gaps_that_block_items(toy, tmp_path):
 
 
 def admitted(toy, tmp_path):
-    origin, goal, refs = admit_setup(toy, tmp_path, n=2, horizon=10)
+    s, goal, refs = admit_setup(toy, tmp_path, n=2, horizon=10)
     cli("bh-admit", toy, "--write")
     plan_edit(
         toy,
@@ -657,65 +586,58 @@ def admitted(toy, tmp_path):
         ),
     )
     commit_all(toy, "admitted", ".brick-harness")
-    return refs
+    return s, refs
 
 
-def test_reconcile_lists_and_fixes_mismatches_and_touches_only_admitted_entries(
-    toy, tmp_path, monkeypatch
-):
-    refs = admitted(toy, tmp_path)
-    tr = bt.Tracker(cfg_of(toy))
-    stray = tr.create("not ours", "", "item")
-    tr.close_entry(refs[1], "a person closed it")  # item not met: a mismatch
+def test_reconcile_lists_and_fixes_mismatches_and_touches_only_admitted_entries(toy, tmp_path):
+    s, refs = admitted(toy, tmp_path)
+    stray = s.add("not ours")
+    s.put(refs[1], state="closed")  # a person closed it; item not met: a mismatch
     out = cli("bh-reconcile", toy)[1]
+    ad = bt.load_adapter(cfg_of(toy))
     assert out["mismatches"] == [
-        {"kind": "tracker-closed-unmet", "item": bt.item_id(tr.ad, refs[1]), "ref": refs[1]}
+        {"kind": "tracker-closed-unmet", "item": bt.item_id(ad, refs[1]), "ref": refs[1]}
     ]
-    assert (
-        out["reopened"] == [] and tr.show(refs[1])["state"] == "closed"
-    )  # listing changes nothing
+    assert out["reopened"] == [] and s.db[refs[1]]["state"] == "closed"  # listing changes nothing
     out = cli("bh-reconcile", toy, "--write")[1]
-    assert out["reopened"] == [refs[1]] and out["closed"] == []
-    assert tr.show(refs[1])["state"] == "open" and tr.show(stray)["state"] == "open"
+    assert out["reopened"] == [refs[1]] and out["closed"] == [] and out["checked"] == 2
+    assert s.db[refs[1]]["state"] == "open" and s.db[stray]["state"] == "open"
     again = cli("bh-reconcile", toy, "--write")[1]
     assert again["mismatches"] == [] and again["reopened"] == [] and again["closed"] == []
-    assert out["checked"] == 2
 
 
-def test_reconcile_closes_an_entry_only_when_its_item_is_measured_met(toy):
+def test_reconcile_closes_an_entry_only_when_its_item_is_measured_met(toy, tmp_path):
     from test_work_tracking import measure_and_commit
 
-    tr = bt.Tracker(cfg_of(toy))
-    ref = tr.create("read csv", "", "item")
+    s = with_store(toy, tmp_path)
+    ref = s.add("read csv")
     plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(refs=[ref]))
     out = cli("bh-reconcile", toy, "--write")[1]
-    assert out["closed"] == [] and tr.show(ref)["state"] == "open"  # not measured: nothing closes
+    assert out["closed"] == [] and s.db[ref]["state"] == "open"  # not measured: nothing closes
     measure_and_commit(toy, "csv-reader")  # the measurer, at HEAD, says met
     assert cli("bh-reconcile", toy)[1]["mismatches"][0]["kind"] == "tracker-open-met"
-    assert tr.show(ref)["state"] == "open"
+    assert s.db[ref]["state"] == "open"
     out = cli("bh-reconcile", toy, "--write")[1]
-    assert out["closed"] == [ref] and tr.show(ref)["state"] == "closed"
-    note = json.loads((toy / ".brick-harness/work" / f"{ref}.json").read_text())["notes"][0]
-    assert re.fullmatch(r"measured met at [0-9a-f]{12}, targets [0-9a-f]{12}", note)
+    assert out["closed"] == [ref] and s.db[ref]["state"] == "closed"
+    assert re.fullmatch(r"measured met at [0-9a-f]{12}", s.db[ref]["note"])
     again = cli("bh-reconcile", toy, "--write")[1]
     assert again["closed"] == [] and again["mismatches"] == []
 
 
 def test_a_missing_ref_is_a_fact_and_nothing_is_deleted(toy, tmp_path):
-    refs = admitted(toy, tmp_path)
-    (toy / ".brick-harness/work" / f"{refs[1]}.json").unlink()
+    s, refs = admitted(toy, tmp_path)
+    db = s.db
+    del db[refs[1]]
+    s.path.write_text(json.dumps(db))
     out = cli("bh-reconcile", toy, "--write")[1]
-    assert {
-        "kind": "ref-missing",
-        "item": bt.item_id(bt.load_adapter(cfg_of(toy)), refs[1]),
-        "ref": refs[1],
-    } in out["facts"]
-    assert (toy / ".brick-harness/work" / f"{refs[0]}.json").exists()
+    ad = bt.load_adapter(cfg_of(toy))
+    assert {"kind": "ref-missing", "item": bt.item_id(ad, refs[1]), "ref": refs[1]} in out["facts"]
+    assert refs[0] in s.db
 
 
 def test_the_gaps_report_lists_tracker_mismatches_as_facts_and_changes_no_status(toy, tmp_path):
-    refs = admitted(toy, tmp_path)
-    bt.Tracker(cfg_of(toy)).close_entry(refs[1], "closed by hand")
+    s, refs = admitted(toy, tmp_path)
+    s.put(refs[1], state="closed")
     _, before = cli("bh-state", toy, "--part", "decision")
     _, rep = cli("bh-gaps", toy)
     assert any(f["kind"] == "tracker-closed-unmet" and f["ref"] == refs[1] for f in rep["facts"])
@@ -723,92 +645,7 @@ def test_the_gaps_report_lists_tracker_mismatches_as_facts_and_changes_no_status
     assert before["decision"]["counts"] == after["decision"]["counts"]
 
 
-# ---------------------------------------------------------------- M10: filing findings
-
-
-def findings(toy, n):
-    fs = [
-        {
-            "id": f"f{i}",
-            "summary": f"finding {i}",
-            "severity": "S3",
-            "evidence": "theoretical",
-            "impact": [],
-            "where": "features.md:1",
-        }
-        for i in range(n)
-    ]
-    fs[1]["severity"] = "S1"
-    cli("bh-rank", toy, "--add", "-", "--write") if False else None
-    p = toy / "f.json"
-    p.write_text(json.dumps(fs))
-    code, out = cli("bh-rank", toy, "--add", str(p), "--write")
-    assert code == 0, out
-    commit_all(toy, "findings", ".brick-harness")
-
-
-def test_bh_file_files_by_rank_looks_the_key_up_first_and_records_the_ref(toy):
-    findings(toy, 3)
-    dry = cli("bh-file", toy)[1]
-    assert [f["id"] for f in dry["filed"]][0] == "f1" and all(
-        f["ref"] is None for f in dry["filed"]
-    )
-    out = cli("bh-file", toy, "--write")[1]
-    assert out["unfiled"] == 0 and len(out["filed"]) == 3 and out["filed"][0]["id"] == "f1"
-    gaps = json.loads((toy / ".brick-harness/gaps.json").read_text())["gaps"]
-    assert all(g["filed"].startswith("w-") for g in gaps if g.get("source") == "finding")
-    tr = bt.Tracker(cfg_of(toy))
-    e = tr.show(out["filed"][0]["ref"])
-    assert e["metadata"]["bh_key"] == out["filed"][0]["key"] and e["title"].startswith("[S1]")
-    commit_all(toy, "filed", ".brick-harness")
-    again = cli("bh-file", toy, "--write")[1]
-    assert again["filed"] == [] and len(tr.list(state="all")["entries"]) == 3
-
-
-def test_a_finding_whose_key_is_already_in_the_tracker_is_adopted_not_created(toy):
-    findings(toy, 2)
-    g = json.loads((toy / ".brick-harness/gaps.json").read_text())["gaps"][0]
-    tr = bt.Tracker(cfg_of(toy))
-    ref = tr.create("earlier", "", "item", None, [], [], {"bh_key": bt.finding_key(g)})
-    out = cli("bh-file", toy, "--write")[1]
-    assert (
-        any(f["adopted"] and f["ref"] == ref for f in out["filed"])
-        and len(tr.list(state="all")["entries"]) == 2
-    )
-
-
-def test_bh_file_files_at_most_file_per_run_and_leaves_the_rest_ranked(toy):
-    findings(toy, 3)
-    cfg_edit(toy, limits={"file_per_run": 2})
-    out = cli("bh-file", toy, "--write")[1]
-    assert len(out["filed"]) == 2 and out["unfiled"] == 1
-    rest = [
-        g
-        for g in json.loads((toy / ".brick-harness/gaps.json").read_text())["gaps"]
-        if not g.get("filed")
-    ]
-    assert len(rest) == 1
-
-
-def test_a_key_found_twice_is_duplicate_filed_and_a_tracker_error_stops_the_run(toy):
-    findings(toy, 2)
-    g = json.loads((toy / ".brick-harness/gaps.json").read_text())["gaps"][0]
-    tr = bt.Tracker(cfg_of(toy))
-    meta = {"bh_key": bt.finding_key(g)}
-    tr.create("one", "", "item", None, [], [], meta)
-    tr.create("two", "", "item", None, [], [], meta)
-    out = cli("bh-file", toy, "--write")[1]
-    assert out["duplicate_filed"] and out["duplicate_filed"][0]["key"] == meta["bh_key"]
-
-
-def test_a_tracker_error_stops_filing_and_leaves_the_findings_ranked(toy):
-    findings(toy, 2)
-    cfg_edit(toy, tracker={"commands": {"create": "false"}})
-    out = cli("bh-file", toy, "--write")[1]
-    assert out["stopped"] and out["unfiled"] == 2 and out["filed"] == []
-
-
-# ---------------------------------------------------------------- M11 and M12
+# ---------------------------------------------------------------- M11, M12: INVEST, flow, split
 
 
 def test_gaps_report_carries_invest_and_flow_facts_and_changes_no_status(toy):

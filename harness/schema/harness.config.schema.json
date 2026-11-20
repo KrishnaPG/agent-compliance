@@ -396,7 +396,7 @@
     },
     "tracker": {
       "type": "object",
-      "description": "The project's tracker (schema/tracker.schema.json $defs/config); absent means the files adapter."
+      "description": "The project's tracker (schema/tracker.schema.json $defs/config); absent means no tracker: bricks.json in build and value order is the work list."
     },
     "horizon": {
       "type": "object",

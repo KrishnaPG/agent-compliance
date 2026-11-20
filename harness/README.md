@@ -98,8 +98,8 @@ agent runs each tool and returns its JSON.
   first), severity S1 to S4, evidence `reproduced`, `trigger`, `theoretical`, then id; a
   missing field ranks last (`schema/finding.schema.json`). `--add FILE|-` records findings by
   id in `.brick-harness/gaps.json` as entries with `source: "finding"` (only with `--write`;
-  gaps.json is the one place findings live, and a later `bh-file` files them to the project's
-  tracker from there); the gaps report lists them in their own section, and they are not
+  gaps.json is the one place findings live; the owner or an agent files them with the tracker's
+  own CLI, `bd create` or `gh issue create`, when wanted); the gaps report lists them in their own section, and they are not
   counted as spec gaps. Bare `bh-rank` ranks them; `--open` lists the open ones with the
   review gaps; `--review-input` prints what a re-review gets (document diff since
   `reviewed_head`, capped at 20000 characters, plus open findings). `bh-gaps --source review
@@ -133,27 +133,24 @@ without a child dependency, shared path, never scored). `bh-gaps --source cycle`
 item not met as stuck (the run passes only what it attempted; an oscillating target is named),
 capped in its printed report with `stuck_more`; the full list is in `gaps.json`.
 
-Tracker (SG-15 M5 to M12, `lib/bhtracker.py`): the project's tracker is configured (`tracker`
-in the config), never hard-coded. Nine operations (ready, show, create, link, claim, close,
-reopen, defer, list), each a shell command of an adapter (`adapters/beads.json`,
-`github.json`, `files.json`, or a file the config names; any command can be overridden in the
-config) that prints JSON; the adapter's `fields` say where each entry field is in it, and the
-output is checked against `schema/tracker.schema.json`. Capabilities (`atomic_claim`,
-`hierarchy`, `defer`, `compaction`, `ready_filter`) are declared; a missing one has a
-fallback: the claim is a commit of the harness's own pushed create-only to `bh/<item>` on
-origin (one winner; no origin: the harness lock), ready is computed from list, labels stand in
-for hierarchy and defer. With no `tracker` the files adapter (`bh-work`, one committed file per
-entry under `.brick-harness/work/`) applies. Beads 1.3.4 is pinned by sha256: a `bd` that does
-not match is not run, the fact `pin-mismatch` says so and that run uses the files adapter.
-Measure, build and merge never call the tracker.
+Tracker (SG-15 M5 to M12, `lib/bhtracker.py`, decision 0001): the project's tracker is
+configured (`tracker.adapter` in the config), never hard-coded. Six operations (ready, show,
+list, claim, close, reopen), each a shell command of an adapter (`adapters/beads.json`,
+`github.json`, or a file the config names; any command can be overridden in the config) that
+prints JSON; the adapter's `fields` say where each entry field is in it, and the output is
+checked against `schema/tracker.schema.json`. `ready` is the tracker's own filter (`bd ready`,
+a `gh issue list --search` query). Beads 1.3.4 is pinned by sha256: a `bd` that does not match
+is not run and the tracker is unreachable for that run. With no `tracker.adapter` there is no
+tracker: `bricks.json` in build and value order is the work list and `bh-admit` and
+`bh-reconcile` do nothing. A claim is the adapter's own (`bd update --claim` is atomic; a gh
+assignee is soft); builders work on isolated branches `bh/<item>`, which git will not check out
+twice. Measure, build and merge never call the tracker.
 `bh-admit [--write]` takes ready entries of `tracker.goal` into `bricks.json` as items of kind
 `change` (id derived from the ref) within `horizon.items` minus the items not met, claiming
 each first, in `value_queue` order for entries that are items already and the tracker's order
 for the rest. `bh-reconcile [--write]` is the only caller of close and reopen: after the
 scoreboard commit, an open entry of an item measured met at HEAD is closed (acting as its
-claim holder) and a closed entry of an item not met is reopened; it never deletes. `bh-file
-[--write]` files the ranked findings of `gaps.json` (looked up by key first, at most
-`limits.file_per_run`). The gaps report adds facts: tracker mismatches, INVEST booleans and
+claim holder) and a closed entry of an item not met is reopened; it never deletes. The gaps report adds facts: tracker mismatches, INVEST booleans and
 flow (WIP, throughput, cycle time) per item, `split-without-kind` (`split_kind`), and
 `parent-unmet-after-children`; a split parent is measured but never built.
 Claim leases of Beads (`lease_expires_at`) are Beads' own; the harness never reclaims.
@@ -276,7 +273,7 @@ published) runs one rule file with `scan --rule FILE --json PATHS` and needs no 
 its linux x86_64 asset is pinned by sha256 in `checkers.json`. A per-language linter set
 (ruff, eslint, sqlfluff) needs project config; Semgrep needs a rules registry or login.
 
-Tracker interface (pinned): Beads 1.3.4 (tracker, by sha256), gh 2.94.0 or later (GitHub Issues; lacks atomic claim, defer, ready filter), git 2.53.0 (create-only ref claim); jq and JSONPath libraries and tracker SDKs not used (one path syntax in stdlib, no tracker bound) (see `lib/bhtracker.py`).
+Tracker interface (pinned): Beads 1.3.4 (tracker, by sha256; `bd ready`, `bd update --claim`), gh 2.94.0 or later (GitHub Issues; no atomic claim; ready is a search query), git 2.53.0 (worktree branches `bh/<item>`); jq and JSONPath libraries and tracker SDKs not used (one path syntax in stdlib, no tracker bound) (see `lib/bhtracker.py`).
 
 Adopted: Claude Code workflows, worktree isolation, skills, plugin `bin/`; JUnit XML and the
 JSON/CSV output of existing bench tools. Rejected for this loop, because each decides "done"

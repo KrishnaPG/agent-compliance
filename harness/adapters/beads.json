@@ -1,19 +1,12 @@
 {
   "name": "beads",
-  "description": "Beads (bd) 1.3.4: one Dolt store with atomic claim, hierarchy, typed dependencies, defer and its own history compaction. Goal, feature and item are epic, feature and task.",
+  "description": "Beads (bd) 1.3.4: one Dolt store with atomic claim (bd update --claim), hierarchy, typed dependencies and a native ready filter (bd ready). Goal, feature and item are epic, feature and task.",
   "pin": {
     "binary": "bd",
     "version": "1.3.4",
     "sha256": {
       "linux_amd64": "9185e9798ba044b288e781f7d57f28a48f558654e94572473e49991826e69930"
     }
-  },
-  "capabilities": {
-    "atomic_claim": true,
-    "hierarchy": true,
-    "defer": true,
-    "compaction": true,
-    "ready_filter": true
   },
   "types": {
     "goal": "epic",
@@ -23,22 +16,11 @@
   "commands": {
     "ready": "bd ready --json --brief -t {type} -n {limit} [--parent {parent}] --actor {actor}",
     "show": "bd show {ref} --json --brief-deps --actor {actor}",
-    "create": "bd create {title} [-d {body}] [-t {type}] [--parent {parent}] [--deps {deps}] [-l {labels}] [--metadata {metadata}] --json --actor {actor}",
-    "link": "bd link {ref} {to} --type {kind} --json --actor {actor}",
+    "list": "bd list --json --brief -n {limit} --status open,in_progress,blocked,deferred --actor {actor}",
     "claim": "bd update {ref} --claim --json --actor {actor}",
     "close": "bd close {ref} --reason {reason} --json --actor {actor}",
-    "reopen": "bd reopen {ref} --reason {reason} --json --actor {actor}",
-    "defer": "bd defer {ref} --reason {reason} --json --actor {actor}",
-    "list": "bd list --json --brief -n {limit} [--status {state}] [--parent {parent}] [-t {type}] [--metadata-field {metadata_field}] --actor {actor}"
+    "reopen": "bd reopen {ref} --reason {reason} --json --actor {actor}"
   },
-  "output": {
-    "claim": "none",
-    "close": "none",
-    "reopen": "none",
-    "defer": "none",
-    "link": "none"
-  },
-  "created_ref": "id",
   "fields": {
     "ref": "id",
     "title": "title",
@@ -47,8 +29,6 @@
     "type": "issue_type",
     "assignee": "assignee",
     "parent": "parent",
-    "labels": "labels",
-    "metadata": "metadata",
     "deps": "dependencies[type=blocks].depends_on_id"
   },
   "by_op": {
@@ -63,14 +43,7 @@
     "closed": "closed",
     "deferred": "deferred"
   },
-  "list_states": {
-    "open": "open",
-    "live": "open,in_progress,blocked,deferred",
-    "closed": "closed",
-    "all": "open,in_progress,blocked,deferred,closed"
-  },
   "missing": "(?i)no issue found|not found|does not exist",
   "release": "bd update {ref} --assignee \"\" --force",
-  "id_prefix": "bd",
-  "deps_format": "kinded"
+  "id_prefix": "bd"
 }

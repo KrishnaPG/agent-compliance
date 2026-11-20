@@ -3,11 +3,12 @@
 
 room = horizon.items minus the items not met (blocked ones count). Takes ready entries of the
 goal (config tracker.goal) of type item, in the order of lib's admission_order, claims each
-before writing it to bricks.json (id derived from its ref; a repeat is a no-op) as an item of
-kind change with its ref. Without --write nothing is claimed or written. Prints the entries
-admitted, not_admitted (count), stalled (with the blocking gap ids), claimed_elsewhere,
-claim_held (stale claims with their release command), released claim refs, unreachable and
-facts (pin-mismatch, ...). Exit 0, or 2 on error. Facts only; no status changes.
+(the adapter's claim command, when it has one) before writing it to bricks.json (id derived
+from its ref; a repeat is a no-op) as an item of kind change with its ref. Without --write
+nothing is claimed or written. With no tracker configured it does nothing: bricks.json is the
+work list. Prints the entries admitted, not_admitted (count), stalled (with the blocking gap
+ids), claimed_elsewhere, claim_held (stale claims with their release command), unreachable
+and facts (pin-mismatch, ...). Exit 0, or 2 on error. Facts only; no status changes.
 
   bh-admit --config .brick-harness/config.json [--write]
 """

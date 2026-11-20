@@ -253,31 +253,6 @@ def test_gaps_report_carries_the_rollup_and_structure_facts_and_changes_no_statu
     assert "## Facts" in md and "## Features in the horizon" in md
 
 
-# ---------------------------------------------------------------- M5: horizon admission
-
-
-# ---------------------------------------------------------------- M6: the tracker binding
-
-
-# ---------------------------------------------------------------- M7: bh-file
-
-
-FINDINGS = [
-    {"id": "f-low", "summary": "naming", "severity": "S4", "evidence": "theoretical"},
-    {
-        "id": "f-high",
-        "summary": "data loss",
-        "severity": "S1",
-        "evidence": "reproduced",
-        "rule": "R-1",
-    },
-    {"id": "f-mid", "summary": "slow path", "severity": "S2", "evidence": "trigger"},
-]
-
-
-# ---------------------------------------------------------------- M8: the closing line
-
-
 # ---------------------------------------------------------------- workflows read capped data
 
 
