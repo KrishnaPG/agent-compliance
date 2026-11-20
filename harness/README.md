@@ -16,31 +16,83 @@ decides architecture and standards in the project's own documents; the harness r
   it missed. Harvest reports duplicated helpers. State lives in `.brick-harness/`,
   committed with the code.
 
-## Workflows
+## The orchestrator (`bh`)
 
-| Workflow | Does |
-|---|---|
-| `harness-gaps` | mechanical checks (`bh-gaps`) plus one read-only reviewer; findings whose file:line or quote does not resolve are rejected. A re-review is given only the project documents' diff since the last review and the open findings (`bh-rank --review-input`); recorded decisions (`standards.decisions`) are handed over as settled inputs |
-| `harness-plan` | turns the build order and status into items, targets (each citing the line that states its number) and contracts; adds only what is missing |
-| `harness-build` | first measures every unmeasured ready item at HEAD (code may already exist) and builds only those that come back unmet; ready items build in parallel, one worktree, slot and `bh/<item>` branch each; protected paths are off limits. A builder that returns HEAD (no change) is measured at HEAD, not failed. Ignore `.claude/worktrees/` in the project's `.gitignore` (worktree-isolated builders create it) |
-| `harness-measure` | `bh-measure` per item; `bh-merge` merges what the scoreboard lists as met; merged items and their dependents are re-measured at HEAD |
-| `harness-harvest` | reports duplicated helpers as gaps; applies a replacement only when the catalogue already names one library |
-| `harness-run` | gaps, plan, build+measure rounds until nothing advances (`max_rounds`), then harvest+measure; every item not met at the end is listed in `stuck` (reason: `build-failed`, `no-change`, `unmet`, `not-attempted`, `budget`, `oscillating`; last errors) and becomes an `unmet-after-rounds` gap |
+`bin/bh` is the one entry: `bh run`, or one phase (`bh gaps`, `bh plan`, `bh build`, `bh measure`,
+`bh harvest`); `--config` and `--dry-run` (list the agent jobs, write nothing, spend nothing)
+come before or after the subcommand. `lib/bhorch.py` is a Python program, not a script for a
+host tool: it runs **every mechanical step itself** (git worktrees and branches, state,
+`bh-measure` per item as a process, merging, committing, tracker reconcile and admission, gap
+merging, ordering, stopping) through `bhcore`/`bhtracker` or the CLIs, and starts an **agent
+job only for judgement work**.
 
-They are invoked as `agent-compliance:<name>`; the `harness` skill starts them. Every writing
-workflow accepts `{"dryRun": true}`.
+| Phase | Mechanical (code) | Agent job (agent file) |
+|---|---|---|
+| gaps | mechanical checks, `bh-gaps` merge (a finding whose file:line or quote does not resolve is rejected), commit | `gaps`: `harness-gaps-reader`, read only. A re-review is given only the documents' diff since the last review and the open findings (`bhcore.review_input`); decisions and the owner's answers are settled inputs |
+| plan | tracker reconcile and admit, gap merge, commit | `plan`: `harness-planner` derives items, targets (each citing the line that states its number), contracts and work packets; adds only what is missing |
+| build | commit plan, measure unmeasured ready items at HEAD (code may already exist), worktree per item from HEAD, work packet written from `bhcore.work_packet`, retry merge of the previous commit, `bh/<item>` branch set from the worktree's HEAD, measure, merge what the scoreboard lists as met, re-measure merged items and dependents at HEAD | `build`: `harness-builder`, one per item still unmet, in its own worktree and environment slot |
+| harvest | settled-pick check against the catalogue, gap merge, commit, measure the applied refs | `harvest_find`: `harness-harvester` (duplicated helpers); `harvest_apply`: `harness-builder` applies a pick the catalogue already settles |
+| review | the brief of a feature that became sellable (`bhrules.feature_review`), finding recorded by `bh-rank` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
 
-**Start each run fresh.** The work list is derived from the project files, so a new run
-picks up where the last stopped. Resuming a workflow replays agent results recorded
-earlier, which is stale state.
+`run` = gaps, plan, rounds of build+measure (stop at `max_rounds`, at a budget, or when a round
+moved no measured number: the scoreboard's numbers are compared before and after), the review of
+each feature that became sellable, `bh-gaps --source cycle` (every item not met is `stuck` with
+its reason: `build-failed`, `no-change`, `unmet`, `not-attempted`, `budget`, `oscillating`),
+harvest, measure.
 
-**Headless runs** (`claude -p`): set `CLAUDE_CODE_PRINT_BG_WAIT_CEILING_MS=0`, or background
-workflows are stopped after 10 minutes.
+**The run result** (`<measure_out>/run-result.json`, and a short text print) leads with the
+product view: `product` (sellable at HEAD with slices, what became sellable this run, the
+current slice, the next feature and why: earliest slice, then value per remaining cost),
+then `status` (met, stuck, gap counts), `owner_questions` (the owner-decides gaps no decision
+answers: the main session asks them and records each with `bh-answer`), `auth` (mode at start
+and end, fallbacks), `jobs` (agent, mode, ok, skipped, cost, tokens, duration, error per job)
+and `totals`.
 
-**Skills reused, not copied.** The harness refers to this plugin's skills by name: `compliance-review` is the method the gaps reviewer follows, read only (it
-returns findings and writes no verdict record; the overlay path is passed to it);
-`vet-oss` is the OSS rule builders follow; `vetted-decision` is named on `owner-decides`
-gaps and `bug-analysis` on `unmet-after-rounds` gaps, reported, never run.
+**Agent jobs.** Each job is the host's CLI, headless, one process:
+
+    claude -p --agent agent-compliance:<agent> --json-schema <schema> --output-format json \
+      --max-budget-usd <budgets.job_usd> --no-session-persistence --permission-mode dontAsk \
+      --allowedTools <the agent file's tools> --add-dir <jobs dir> <plugin root> <auth flags>
+
+with `cwd` the item's worktree for builders. The prompt (stdin) is a short instruction plus
+file paths; the job's input is a JSON file under `<measure_out>/jobs/` it reads itself, and big
+state never passes through a prompt. The agent files (`agents/harness-*.md`: model, effort,
+tools in the frontmatter; the rules, stable text first so jobs of one kind share a prefix) hold
+each job's rules; `models` and `efforts` in the config override the model and effort per phase
+(`gaps`, `plan`, `build`, `harvest`, `review`). Outputs are checked against `schema/jobs.schema.json`
+(one schema per job, `$ref`s inlined for the CLI) with `bhcore.validate`. At most
+`concurrency` jobs and measurements run at once (an `asyncio.Semaphore`; the slot number of
+a builder is its environment slot); a job has a deadline (`budgets.job_timeout_s`, default
+1800 s: terminate, then kill) and a spend cap; every wait is on a process exit, there is no
+sleep, poll or retry loop.
+
+**Auth modes**, chosen mechanically and never asked: `ANTHROPIC_API_KEY` set, or an
+`apiKeyHelper` in `~/.claude/settings.json` (or `CLAUDE_CONFIG_DIR`), the project's
+`.claude/settings.json` or `settings.local.json` -> **bare**: `--bare --plugin-dir <plugin>`
+(with `--settings <that file>` for a helper): no hooks, memory, CLAUDE.md, other plugins or
+MCP servers. Otherwise **login**: `--setting-sources "" --strict-mcp-config
+--disable-slash-commands --plugin-dir <plugin>` (CLAUDE.md and memory still load). A bare job
+that fails with an authentication error is re-run once in login mode and every later job runs
+in login mode; the result records the switch, the mode and the cost and tokens of every job
+(from the CLI's JSON result), so the cost of login mode is visible.
+
+**Restarts.** A job's result is saved as `<measure_out>/jobs/<key>.json`, key = digest of the
+job, its agent file, its schema and its input core (for a builder the HEAD tree and the
+feedback of the previous attempt; for gaps and plan the content of the project documents, the
+owner's answers and the overlay, so unchanged documents are not read again). A restart finds
+the file and skips the job; a failed job leaves `<key>.error.json` and runs again.
+
+**Tests without a model.** `tests/fake_bin/claude` is a small executable put first on `PATH`
+by `tests/test_bhorch.py`: it reads its arguments and stdin, answers per agent name from a
+spec file, commits a builder's files in its worktree, and can fail authentication in bare
+mode, overrun the budget or fail. A paid toy run still has to prove what it cannot: that plugin
+agents load under `--bare` and `--disable-slash-commands`, the real result JSON
+(`structured_output`, `total_cost_usd`, `usage`) and the budget-overrun result.
+
+**Skills reused, not copied.** Jobs get this plugin's skills by file path in their input (a headless
+job may have skills disabled): `compliance-review` is the method of the gaps and review jobs (read only; it
+returns findings and writes no verdict record), `vet-oss` is the OSS rule builders follow; `vetted-decision`
+is named on `owner-decides` gaps and `bug-analysis` on `unmet-after-rounds` gaps, reported, never run.
 
 ## The measurer and its tools
 
@@ -81,21 +133,13 @@ agent runs each tool and returns its JSON.
 - `bh-state [--affected REF]`: the whole state, derived from files, written atomically to
   `<measure_out>/state.json` (git-ignored); the CLI prints a small summary (`file`, `head`,
   `plan_head`, `all_met`, `counts` per status, `ready`, `ready_system`, `unmet`, each id list
-  capped at `limits.decision_items` with a `*_more` count, `gaps`, `problems`) and agents read
-  the file themselves. Until the workflows read the file, `--part KEY`, `--parts`, `--value KEY`
-  and `--part pending --after ID` remain their read path (checksums per part, below).
+  capped at 25 with a `*_more` count, `gaps`, `problems`) and agents read
+  the file themselves (the orchestrator calls `bhcore.state` directly).
   Item status is `met` only when the result's ref is in HEAD and the item's paths (with its
   dependencies' and the protected paths) are unchanged since; otherwise `stale`,
   `met-unmerged`, `conflict`, `unmet`, `unmeasured`, or `blocked` (with the gap ids that
-  stop it: no targets, a pending command, a failing env_setup). `--parts` gives a checksum
-  per part, which the workflows recompute; `--value KEY` prints one part's bare value (what the
-  sliced re-reads join). The `decision` part is small by design and
-  bounded by `limits.decision_items` (default 25) however many items there are: the first
-  page of items not met, most valuable first (`pending`; build order without `features.json`), counts per status, `more` (the count
-  left), and branches, commands and last results of the listed items only; met items are
-  counts. `bh-state --part pending --after ID` prints the next page (`--part learning --after D-n` pages decision records). Round loops reload only
-  it; no workflow loads every item (`features` and `merged` are capped parts for plan and
-  harvest). A part that fails its checksum is re-read up to 3 times, in slices.
+  stop it: no targets, a pending command, a failing env_setup). `features` and `merged`
+  are the parts plan and harvest read.
 - `bh-commit`: commits only harness files, under a lock; refuses during a merge and when
   a target in HEAD was dropped or changed (the owner commits that).
 - `bh-gaps`: recomputes the mechanical gaps and merges findings; an empty list clears a
@@ -166,7 +210,7 @@ state) -> list[str]` orders the items not met: earliest slice, then value per re
 (`est_loc`, 1 when absent) over the acceptance item's dependency closure; features without
 slice, value or a resolving source rank last and are listed as unvalued. While a started
 feature has a ready item, later features' items are not ready (`held_by`). The gaps report and
-decision part carry sellable at HEAD, if-stopped-today, cost to the next sellable feature.
+run result carry sellable at HEAD, if-stopped-today, cost to the next sellable feature.
 
 Work packet (SG-18): items carry `context` (`{path, lines: "a-b"}` citations) and `rules`;
 `bh-brief ITEM` assembles the packet from the plan commit (passages with sha256, dependency
@@ -233,10 +277,11 @@ it. Config (`schema/harness.config.schema.json`):
 - `standards.decisions`: paths of recorded decisions, settled inputs for the gaps and plan
   agents; a gap that would reopen one sets `reopens`, and the gaps report lists it in its own
   section for the owner (nothing is accepted or rejected).
-- `budgets`: `run_tokens` (tokens the run may spend) and `round_reserve_tokens`; before each
-  round `harness-run` ends the run when what is left, also bounded by the workflow budget's
-  `remaining()`, is below one round (the larger of the reserve and the biggest round so far);
-  what is left is listed in `stuck` with reason `budget`. `max_rounds` stays the round limit.
+- `budgets`: `run_tokens` and `run_usd` (what the run may spend, summed from each job's result; the
+  run ends before a round when one is reached and what is left is listed in `stuck` with
+  reason `budget`), `job_usd` (each job's `--max-budget-usd`: a number, or an object keyed by
+  phase with a `default`; 2 when absent) and `job_timeout_s` (a job's deadline, 1800 s when
+  absent). `max_rounds` stays the round limit.
 - `sizing`: `min_loc` (default 150) and `max_loc` (2000), against an item's `est_loc` or
   measured lines (min only for a met item). Items may also carry `purpose`, `hides`,
   `interface`, `consumers`, `oss_checked`; the gaps report lists sizing notes (a size outside
@@ -256,20 +301,18 @@ claude plugin install agent-compliance@agent-compliance
 
 For one session, `claude --plugin-dir <plugin root>` works too. `examples/toy` is a CSV-to-JSON CLI whose
 `json-writer` has a contract, targets and tests but no code, so a run must build it. Run `/agent-compliance:harness` from the toy
-and ask for the gaps, then a full run (try `{"dryRun": true}` first).
+and run `bh gaps`, then `bh run` (`bh --dry-run run` first lists the agent jobs).
 
 ## Develop
 
 Layout: `bin/` sits at the plugin root, the one place a plugin's executables are put on `PATH`;
-everything else of the harness is under `harness/`, and `plugin.json` points `workflows` at
-`harness/workflows/`. `python3 -m pytest` in `harness/` (stdlib plus pytest and jsonschema; node for the parse and
-checksum checks) covers the measurer and its fail-closed cases, every scoring bypass, the
+everything else of the harness is under `harness/`; the agents are at the plugin root (`agents/`).
+`python3 -m pytest` in `harness/` (stdlib plus pytest and jsonschema) covers the measurer and its fail-closed cases, every scoring bypass, the
 status table, the toy end to end through the bin tools (build on `bh/json-writer`, measure,
 merge, re-measure, commit, `all_met`), a project in a repo subdirectory, the gap checks,
-schemas, the workflows statically, a grep that bans sleep/poll loops, and project-term
+schemas, the orchestrator against a fake `claude`, a grep that bans sleep/poll loops, and project-term
 neutrality. Project terms are read from `BH_DENY_TERMS` (a file of regexes) or
 `~/.config/brick-harness/deny-terms.txt`; that check is skipped when neither exists. The
-workflows share `lib/prelude.js`, copied verbatim into each.
 
 ## OSS checked
 
@@ -280,7 +323,7 @@ its linux x86_64 asset is pinned by sha256 in `checkers.json`. A per-language li
 
 Tracker interface (pinned): Beads 1.3.4 (tracker, by sha256; `bd ready`, `bd update --claim`), gh 2.94.0 or later (GitHub Issues; no atomic claim; ready is a search query), git 2.53.0 (worktree branches `bh/<item>`); jq and JSONPath libraries and tracker SDKs not used (one path syntax in stdlib, no tracker bound) (see `lib/bhtracker.py`).
 
-Adopted: Claude Code workflows, worktree isolation, skills, plugin `bin/`; JUnit XML and the
+Adopted: the host's `claude -p` CLI driven by stdlib asyncio (vetting in `docs/lean-plan.md`), `git worktree`, plugin agents, skills, plugin `bin/`; JUnit XML and the
 JSON/CSV output of existing bench tools. Rejected for this loop, because each decides "done"
 by a checklist, the agent's report or an LLM verdict, with no gap report with resolvable
 evidence, numeric targets or harvest: Spec Kit v1.4.2, OpenSpec v2.1.0, cc-sdd v3.1.0,

@@ -361,7 +361,7 @@ def test_class_shares_and_check_candidates_are_report_facts(toy):
 # ---------------------------------------------------------------- the review of a sellable feature
 
 
-def test_a_sellable_feature_has_a_review_brief_and_the_workflow_files_findings(toy):
+def test_a_sellable_feature_has_a_review_brief(toy):
     with_catalog(toy)
     tagged(toy)
     plan_edit(toy, "bricks.json", lambda d: d["bricks"][2].update(depends_on=["csv-reader"]))
@@ -375,7 +375,3 @@ def test_a_sellable_feature_has_a_review_brief_and_the_workflow_files_findings(t
     assert "domains" not in b and "packs" not in b  # compliance-review scopes the review itself
     assert b["diff"] == f"git diff {b['base']} HEAD -- " + " ".join(b["paths"])
     assert cli("bh-brief", toy, "--feature", "NOPE")[0] == 2
-    body = (ROOT / "workflows" / "harness-run.js").read_text()
-    review = body.split("SG-19")[1]
-    for part in ("compliance-review", "--feature", "sellable0", "bh-rank", "did not build"):
-        assert part in review, part

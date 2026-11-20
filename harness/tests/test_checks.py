@@ -85,15 +85,6 @@ def test_union_catalogue_validates():
 
 def test_gap_kinds_agree_everywhere():
     schema = bhcore.load_schema("gaps")["$defs"]["gap"]["properties"]["kind"]["enum"]
-    prelude = (ROOT / "lib" / "prelude.js").read_text()
-    js = json.loads(
-        prelude[
-            prelude.index("const GAP_KINDS = ") + len("const GAP_KINDS = ") : prelude.index(
-                "]\n", prelude.index("const GAP_KINDS")
-            )
-            + 1
-        ]
-        .replace("'", '"')
-        .replace("\n", "")
-    )
-    assert list(bhcore.GAP_KINDS) == schema == js
+    jobs = json.loads((ROOT / "schema" / "jobs.schema.json").read_text())
+    job = jobs["$defs"]["gap"]["properties"]["kind"]["enum"]
+    assert list(bhcore.GAP_KINDS) == schema == job

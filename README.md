@@ -114,7 +114,7 @@ Records the bug in the turn it is found and before the first edit of a fix. A ca
 
 ### harness
 
-Reports spec gaps in the project's own documents (never decides them) and executes its build order: each item is built in its own git worktree, and a deterministic measurer alone decides what met its targets. The catalog's checks (`checks/`) run with every measurement by default, from this plugin, with nothing to configure; a project opts a rule out only in its overlay. Its tools (`bh-*`) are on `PATH` while the plugin is enabled; its workflows are `agent-compliance:harness-gaps`, `-plan`, `-build`, `-measure`, `-harvest` and `harness-run` (all of them). Reference: [`harness/README.md`](harness/README.md).
+Reports spec gaps in the project's own documents (never decides them) and executes its build order: each item is built in its own git worktree, and a deterministic measurer alone decides what met its targets. The catalog's checks (`checks/`) run with every measurement by default, from this plugin, with nothing to configure; a project opts a rule out only in its overlay. Its tools (`bh-*`) are on `PATH` while the plugin is enabled; its entry is `bh` (`bh run`, or `bh gaps`, `plan`, `build`, `measure`, `harvest`), a program that runs every mechanical step itself and starts a headless agent job (`agents/harness-*.md`) only for judgement work. Reference: [`harness/README.md`](harness/README.md).
 
 > Run the harness on this repo, dry run first.
 

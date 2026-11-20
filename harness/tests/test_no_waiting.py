@@ -1,5 +1,5 @@
 """No timer or waiting loop of the plugin's own: a wait blocks on the producer's event or a
-task's completion (a process exit, a flock, an agent or workflow result), never on sleep,
+task's completion (a process exit, a flock, an agent job's result), never on sleep,
 polling or a retry loop. Any exception must be named here with its reason."""
 
 import re
@@ -8,7 +8,7 @@ from pathlib import Path
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
-DIRS = ("bin", "harness/lib", "harness/workflows", "skills/harness")  # from the plugin root
+DIRS = ("bin", "harness/lib", "skills/harness", "agents")  # from the plugin root
 BANNED = [
     r"\bsleep\b",
     r"\buntil ",

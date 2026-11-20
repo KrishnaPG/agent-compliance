@@ -44,10 +44,15 @@ def hits(patterns: list[str]) -> list[str]:
         *ROOT.rglob("*"),
         *(plugin / "bin").rglob("*"),
         *(plugin / "skills" / "harness").rglob("*"),
+        *(plugin / "agents").rglob("*"),
     ]:
         if p.is_dir() or p.resolve() == me or SKIP_DIRS & set(p.parts):
             continue
         text = p.read_text(errors="ignore")
+        if (
+            "agents" in p.relative_to(plugin).parts[:1]
+        ):  # the model alias is the frontmatter's job (W4)
+            text = re.sub(r"^model:.*$", "", text, flags=re.M)
         for pat in patterns:
             for m in re.finditer(pat, text, re.IGNORECASE):
                 out.append(f"{p.relative_to(plugin)}: {m.group(0)!r}")

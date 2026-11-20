@@ -12,6 +12,5 @@
     "design",
     "plan",
     "harness"
-  ],
-  "workflows": "./harness/workflows/"
+  ]
 }
