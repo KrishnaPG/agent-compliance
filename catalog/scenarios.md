@@ -1,6 +1,6 @@
 # Scenarios
 
-Base catalog 1.1.0. Each scenario lists the base rules that decide it, and the pack rules that add to them when the pack is in use. A scenario the artifact touches puts every listed rule in scope; the project overlay adds its own rules and scenarios.
+Base catalog 1.4.0. Each scenario lists the base rules that decide it, and the pack rules that add to them when the pack is in use. A scenario the artifact touches puts every listed rule in scope; the project overlay adds its own rules and scenarios.
 
 | # | Scenario | Base rules | Pack rules |
 |---|---|---|---|
@@ -67,3 +67,5 @@ Base catalog 1.1.0. Each scenario lists the base rules that decide it, and the p
 | 61 | Interactive user command and synchronous read | HS-03, HS-04, HO-19, HO-20, ID-15 |  |
 | 62 | Notification to a person | HS-08, HO-16 |  |
 | 63 | New integration edge designed | HO-01, HO-23, HO-24, HO-25, HO-36, HO-37, NO-15, RL-23, HO-40, ID-15 |  |
+| 64 | A program starts AI agent jobs (a build harness, a review fan-out) | NO-05, NO-06, NO-03, CF-07, PF-02, PF-03, PF-05, PF-14, RL-06, RL-16, RL-17, ID-11, PF-06, PR-10, PR-14 | AJ-01, AJ-02, AJ-03, AJ-04, AJ-05, AJ-06, AJ-07 |
+| 65 | A loop of agent rounds repeats (build then measure, review then fix) | PF-02, PF-06, RL-06, RL-17, PR-11 | AJ-05, AJ-06, AJ-07 |

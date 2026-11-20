@@ -1,6 +1,6 @@
 # agent-compliance
 
-A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of industry-standard rules (326 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged the same way each time.
+A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of industry-standard rules (327 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged the same way each time.
 
 ## Why use it
 
@@ -12,8 +12,8 @@ A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, de
 
 ## Salient features
 
-- Ready-made base catalog: 326 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 63 generic scenarios that each name the rules that decide them.
-- Opt-in technology packs: `gcp`, `opentofu`, `nats-jetstream`, `kubernetes-flux`, `react`, `postgresql`, `systemd`, `salt` (56 rules).
+- Ready-made base catalog: 327 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 65 generic scenarios that each name the rules that decide them.
+- Opt-in technology packs: `gcp`, `opentofu`, `nats-jetstream`, `kubernetes-flux`, `react`, `postgresql`, `systemd`, `salt`, `agent-jobs` (63 rules).
 - Project overlay: your own rules, and rows that tighten a base or pack rule.
 - Incremental re-review: only BROKEN rules, touched anchors and changed catalog ids are re-run.
 - Preview and actual cost lines (`Plan:` and `Actual:`) on every review, and inline review when under about 100 rules are in scope; larger scopes are split across at most five reviewers.
