@@ -372,11 +372,6 @@
           "minimum": 1,
           "description": "Judgment rules in one work packet (default 8)."
         },
-        "file_per_run": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Findings bh-file files in one run (default 10)."
-        },
         "tracker_read": {
           "type": "integer",
           "minimum": 1,
