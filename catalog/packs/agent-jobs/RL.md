@@ -1,6 +1,6 @@
 # Agent jobs pack, RL rules
 
-Pack `agent-jobs` for base catalog 1.4.0. Scope: designs in which a program or harness starts AI agent jobs (an LLM with tools, run by the program without a person in the conversation): no agent in a mechanical path, minimal context, agent definitions, stable prompt prefix, caps and convergence, structured results, owner questions. Loaded only when the project overlay names this pack. Each row is the whole rule.
+Pack `agent-jobs` for base catalog 1.4.0. Scope: designs in which a program or harness starts AI agent jobs (an LLM with tools, run by the program without a person in the conversation): no agent in a mechanical path, minimal context, agent definitions, stable prompt prefix, caps and convergence, structured results. Loaded only when the project overlay names this pack. Each row is the whole rule.
 
 | ID | Rule | Provenance | Test question |
 |---|---|---|---|

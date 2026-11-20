@@ -17,10 +17,11 @@
 - 1.3.0: overlay check opt-outs: one line per rule under `## Check opt-outs`, exactly `- <RULE-ID> not-applicable: <reason>`; a line without a reason opts nothing out.
 - 1.4.0: pack `agent-jobs` (AJ) added for designs that start AI agent jobs.
 - 1.4.0: AJ-01 added: work a program or adopted tool can do runs as code; an agent job is started only for judgement and returns its result to the program.
-- 1.4.0: AJ-02 added: an agent job loads only the instructions, tools and files it uses; large inputs by path; judged from its start record.
-- 1.4.0: AJ-03 added: a job kind's model, effort, tools, turn limit and instructions live in the host's agent definition, never in program code.
+- 1.4.0: AJ-02 added: an agent job loads only the instructions, tools and files it uses; judged from its start record.
+- 1.4.0: AJ-03 added: a job kind's model, effort, tools, turn limit and instructions live in the host's agent definition, never in program code; the program sets only the spend cap.
 - 1.4.0: AJ-04 added: jobs of one kind share a byte-identical prompt prefix with job-specific data last; cache reads are measured.
-- 1.4.0: AJ-05 added: every agent job has a host-enforced turn or spend cap; a loop of rounds stops when a round moved no measured number.
+- 1.4.0: AJ-05 added: every agent job has a host-enforced turn limit and a spend cap besides its deadline; the CLI's spend cap is a backstop, PF-14 governs metered budgets.
 - 1.4.0: AJ-06 added: an agent result a program consumes is schema-checked structured data; free text is never parsed.
-- 1.4.0: AJ-07 added: owner questions from agent jobs are batched per run, recorded, and never asked again while their inputs hold.
+- 1.4.0: AJ-07 added: a loop of agent rounds has a round bound and stops, reported as not converged, when a round moved no measured number.
+- 1.4.0: PR-14 added: owner questions from unattended runs, agent jobs included, are batched per run, recorded with their answers and never asked again while their inputs hold.
 - 1.4.0: scenarios 64 (a program starts AI agent jobs) and 65 (a loop of agent rounds repeats) added; index term "Agent job".

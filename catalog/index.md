@@ -75,7 +75,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | DS Data safety and retention | `base/DS.md` | 17 | no deletion without backup or decision, recovery tiers, deletion eligibility, projections, erasure |
 | DC Documents | `base/DC.md` | 12 | current-rule documents, one home per rule, conflicts named, no assumed capability |
 | PN Plans | `base/PN.md` | 19 | step format a junior can follow, gates, traceability, real-flow evidence, rollback order |
-| PR Process | `base/PR.md` | 13 | defect records, independent review, forward-only history, tests kept strict |
+| PR Process | `base/PR.md` | 14 | defect records, independent review, forward-only history, tests kept strict |
 | UI Web frontend | (packs only) | 0 | browser clients; rules live in the frontend pack the overlay names |
 
 ## Packs
@@ -90,7 +90,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | `postgresql` (PG) | `packs/postgresql/CI.md` (authentication includes, shared cluster); `packs/postgresql/HO.md` (replication slots) | 3 | shared cluster, per-tenant configuration, replication slots |
 | `systemd` (SD) | `packs/systemd/RL.md` (timeouts, ordering, timers); `packs/systemd/CI.md` (drop-ins, one instance) | 5 | unit timeouts and results, ordering, drop-ins, timers |
 | `salt` (SALT) | `packs/salt/RL.md` (requisites); `packs/salt/CI.md` (concurrent runs); `packs/salt/DS.md` (cleaned directories); `packs/salt/ID.md` (secrets) | 4 | requisites, concurrent runs, managed directories, secrets at render |
-| `agent-jobs` (AJ) | `packs/agent-jobs/NO.md` (no agent in a mechanical path, agent definitions); `packs/agent-jobs/PF.md` (minimal context, stable prompt prefix, caps and convergence); `packs/agent-jobs/RL.md` (structured results); `packs/agent-jobs/PR.md` (owner questions) | 7 | designs that start AI agent jobs: mechanical work as code, minimal context, agent definitions in the host, cacheable prompt prefix, turn or spend caps, loops that stop when nothing moved, schema-checked results, owner questions asked once |
+| `agent-jobs` (AJ) | `packs/agent-jobs/NO.md` (no agent in a mechanical path, agent definitions); `packs/agent-jobs/PF.md` (minimal context, stable prompt prefix, caps and convergence); `packs/agent-jobs/RL.md` (structured results) | 7 | designs that start AI agent jobs: mechanical work as code, minimal context, agent definitions in the host, cacheable prompt prefix, turn or spend caps, loops that stop when nothing moved, schema-checked results |
 
 ## Scenario index
 
