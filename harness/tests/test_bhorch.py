@@ -2,7 +2,7 @@
 
 The fake (tests/fake_bin/claude) answers each agent job from a spec file, writes and commits
 what a builder would, and can fail authentication or overrun its budget. Nothing here calls a
-model. What the fake cannot show (plugin agents loading under ``--bare``, the real result JSON,
+model. What the fake cannot show (the host accepting ``--agents`` under ``--bare``, the real result JSON,
 real cost) is listed in the README and proven by a paid toy run.
 """
 
@@ -87,11 +87,14 @@ def test_auth_mode_is_chosen_from_the_key_or_a_helper_never_asked(tmp_path, monk
 
 
 def test_mode_flags_bare_and_login():
-    bare = bhorch.mode_flags("bare", None)
-    assert bare[0] == "--bare" and "--plugin-dir" in bare and "--setting-sources" not in bare
-    login = bhorch.mode_flags("login", None)
+    bare = bhorch.mode_flags("bare", None, "harness-harvester")
+    assert bare[0] == "--bare" and "--plugin-dir" not in bare and "--setting-sources" not in bare
+    assert bare[bare.index("--agent") + 1] == "harness-harvester"  # unprefixed under --bare
+    login = bhorch.mode_flags("login", None, "harness-harvester")
     assert login[:2] == ["--setting-sources", ""] and "--bare" not in login
     assert {"--strict-mcp-config", "--disable-slash-commands", "--plugin-dir"} <= set(login)
+    assert login[login.index("--agent") + 1] == "agent-compliance:harness-harvester"
+    assert "--agents" not in login
     helper = bhorch.mode_flags("bare", "get-key")  # only that one key reaches a bare job
     assert json.loads(helper[helper.index("--settings") + 1]) == {"apiKeyHelper": "get-key"}
 
@@ -110,11 +113,20 @@ def test_a_job_is_the_host_cli_with_schema_agent_tools_and_budget(toy, fake, mon
     (c,) = fake.calls()
     assert c["mode"] == "bare" and c["agent"] == "harness-gaps-reader"
     a = c["argv"]
-    assert a[0] == "-p" and arg(c, "--agent") == "agent-compliance:harness-gaps-reader"
+    assert a[0] == "-p" and arg(c, "--agent") == "harness-gaps-reader"
     assert arg(c, "--output-format") == "json" and "--no-session-persistence" in a
     assert arg(c, "--permission-mode") == "dontAsk" and arg(c, "--max-budget-usd") == "2.0"
-    assert arg(c, "--allowedTools") == "Read,Grep,Glob"  # the agent file's tools, nothing more
-    assert "--bare" in a and str(bhorch.PLUGIN_ROOT) == arg(c, "--plugin-dir")
+    assert (
+        arg(c, "--allowedTools") == "Read,Grep,Glob,StructuredOutput"
+    )  # the agent file's tools, nothing more
+    assert "--bare" in a and "--plugin-dir" not in a
+    defs = json.loads(arg(c, "--agents"))
+    assert list(defs) == ["harness-gaps-reader"]
+    d = defs["harness-gaps-reader"]
+    ad = bhorch.agent_def("harness-gaps-reader")
+    assert d["tools"] == ["Read", "Grep", "Glob", "StructuredOutput"]
+    assert d["prompt"] == ad["prompt"] and d["prompt"].startswith("You are a job")
+    assert d["description"] and d["model"] == ad["model"] and d["effort"] == ad["effort"]
     schema = json.loads(arg(c, "--json-schema"))
     assert "$ref" not in json.dumps(schema) and schema["required"] == ["gaps"]
     # the prompt is on stdin and holds a short instruction plus the path of the input file
@@ -126,6 +138,78 @@ def test_a_job_is_the_host_cli_with_schema_agent_tools_and_budget(toy, fake, mon
     assert inp.is_file() and len(c["stdin"]) < 600
     doc = json.loads(inp.read_text())
     assert doc["task"] == "gaps" and "documents" in doc and "review_input" in doc
+
+
+def test_every_agent_file_allows_the_structured_output_tool():
+    # a tools allowlist without it hides the tool: --json-schema is then silently ignored
+    files = sorted(bhorch.AGENTS_DIR.glob("harness-*.md"))
+    assert len(files) == 5
+    for f in files:
+        assert "StructuredOutput" in bhorch.agent_def(f.stem)["tools"], f.name
+
+
+def test_login_mode_uses_the_prefixed_plugin_agent_and_no_agents_json(toy, fake):
+    gaps_job(orch(toy))
+    (c,) = fake.calls()
+    assert arg(c, "--agent") == "agent-compliance:harness-gaps-reader"
+    assert "--agents" not in c["argv"] and arg(c, "--plugin-dir") == str(bhorch.PLUGIN_ROOT)
+
+
+def test_fake_claude_rejects_a_prefixed_agent_under_bare(toy, fake):
+    p = subprocess.run(
+        ["claude", "-p", "--bare", "--agent", "agent-compliance:harness-gaps-reader"],
+        input="x",
+        capture_output=True,
+        text=True,
+    )
+    assert p.returncode == 1 and "not found. Available agents" in p.stderr
+
+
+def test_bare_agent_not_found_reruns_once_in_login_mode(toy, fake, monkeypatch):
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    fake.spec(hide_agents_bare=True)  # a host change: bare no longer takes --agents
+    o = orch(toy)
+    gaps_job(o)
+    assert [c["mode"] for c in fake.calls()] == ["bare", "login"]
+    rec = o.records[0]
+    assert rec["ok"] and rec["mode"] == "login" and rec["fallback_reason"] == "agent_not_found"
+    assert "not found" in rec["first_attempt_error"] and o.mode == "login" and o.fallbacks == 1
+
+
+def test_judge_appends_the_result_errors_to_the_error(toy, fake):
+    o = orch(toy)
+    r = {
+        "subtype": "error_max_budget_usd",
+        "is_error": True,
+        "errors": ["Reached maximum budget ($0.0001)"],
+    }
+    ok, err, _ = o._judge(1, "", "", r, {})
+    assert not ok and "error_max_budget_usd" in err and "Reached maximum budget ($0.0001)" in err
+
+
+def test_a_skipped_job_shows_zero_cost_with_the_cached_one_noted(toy, fake):
+    gaps_job(orch(toy))
+    o2 = orch(toy)
+    gaps_job(o2)
+    (row,) = o2.job_table()
+    assert row["skipped"] and row["cost_usd"] == 0 and row["cached_cost_usd"] == 0.01
+    r = {
+        "product": {
+            "sellable_at_head": [],
+            "became_sellable_this_run": [],
+            "current_slice": 0,
+            "next": None,
+            "unvalued_features": [],
+        },
+        "status": {"items": 0, "all_met": True, "stuck": [], "gaps": 0},
+        "owner_questions": [],
+        "auth": {"mode_at_start": "login", "mode_at_end": "login", "fallbacks_to_login": 0},
+        "totals": {"jobs": 1, "skipped": 1, "cost_usd": 0.0, "tokens": 0},
+        "jobs": [row],
+        "errors": [],
+    }
+    text = bhorch.summary_text(r, None)
+    assert "$0.0000" in text and "earlier $0.0100" in text and "$0.0100 15" not in text
 
 
 def test_login_mode_flags_and_review_job_is_read_only(toy, fake):
@@ -351,7 +435,13 @@ def test_every_job_has_an_agent_file_with_model_tools_and_a_section():
         body = (bhorch.AGENTS_DIR / f"{agent}.md").read_text()
         assert f"## Job: {job.replace('_', ' ')}" in body, (agent, job)
         assert phase in ("gaps", "plan", "build", "harvest", "review")
-    assert bhorch.agent_def("harness-reviewer")["tools"] == ["Read", "Grep", "Glob", "Bash"]
+    assert bhorch.agent_def("harness-reviewer")["tools"] == [
+        "Read",
+        "Grep",
+        "Glob",
+        "Bash",
+        "StructuredOutput",
+    ]
     # stable text first: the rules every job shares come before the job's own section
     for agent in {a for a, _ in bhorch.JOBS.values()}:
         body = (bhorch.AGENTS_DIR / f"{agent}.md").read_text()

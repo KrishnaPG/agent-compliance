@@ -11,9 +11,11 @@ worktree), ``harvest_find`` (duplicate helpers), ``harvest_apply`` (apply a sett
 
 A job is the host's own CLI, headless::
 
-    claude -p --agent agent-compliance:<agent> --json-schema <schema> --output-format json
+    claude -p --json-schema <schema> --output-format json
         --max-budget-usd <usd> --no-session-persistence --permission-mode dontAsk
         --allowedTools <the agent file's tools> --add-dir <jobs dir> <plugin root> <auth flags>
+        (login: --plugin-dir <plugin> --agent agent-compliance:<agent>;
+         bare: --agents <the agent file as JSON> --agent <agent>)
 
 The prompt is a short instruction plus file PATHS, written to the CLI's stdin (``--allowedTools``
 and ``--add-dir`` take lists, so a positional prompt would be swallowed); the state a job needs
@@ -23,10 +25,10 @@ effort per phase); the job's rules live in the agent file, stable text first, so
 kind share a prefix.
 
 Auth mode is chosen mechanically, never asked: ``ANTHROPIC_API_KEY`` set or an ``apiKeyHelper``
-in a settings file -> ``--bare --plugin-dir <plugin>`` (no hooks, memory, CLAUDE.md, other
-plugins); otherwise login mode, ``--setting-sources "" --strict-mcp-config
+in a settings file -> ``--bare`` (no hooks, memory, CLAUDE.md, other plugins, and no plugin
+agents: the agent file is passed with ``--agents``); otherwise login mode, ``--setting-sources "" --strict-mcp-config
 --disable-slash-commands --plugin-dir <plugin>``. A bare job that fails with an authentication
-error is re-run once in login mode and the run switches to login mode; the run result names the
+error, or whose agent the CLI does not find, is re-run once in login mode and the run switches to login mode; the run result names the
 mode, each job's cost and tokens (from the CLI's JSON result).
 
 Concurrency is ``asyncio.Semaphore(config.concurrency)``; each job has a deadline
@@ -89,6 +91,7 @@ AUTH_RE = re.compile(
     r"invalid api key|authentication|unauthori[sz]ed|not logged in|please run /login|oauth token",
     re.I,
 )
+AGENT_MISSING_RE = re.compile(r"--agent .* not found\. Available agents", re.I)
 SHA_RE = re.compile(r"^[0-9a-f]{40}$")
 
 
@@ -127,6 +130,8 @@ def agent_def(agent: str) -> dict[str, Any]:
     )
     return {
         "name": fm.get("name", agent),
+        "description": fm.get("description", ""),
+        "prompt": text[m.end() :].strip(),
         "model": fm.get("model"),
         "effort": fm.get("effort"),
         "tools": [t.strip() for t in fm.get("tools", "").split(",") if t.strip()],
@@ -176,12 +181,40 @@ def auth_mode(root: Path) -> tuple[str, str | None]:
     return "login", None
 
 
-def mode_flags(mode: str, helper: str | None) -> list[str]:
-    plugin = ["--plugin-dir", str(PLUGIN_ROOT)]
+def agents_json(agent: str) -> str:
+    """``--agents`` value defining one agent from ``agents/<agent>.md``: ``{name: {description,
+    prompt (the body), tools, model, effort}}`` (the shape of the Claude Code subagent
+    definition; ``claude --help`` says ``--agents <json-or-file>``, and a run of 2.1.329 accepted
+    it with ``--agent <name>``). Bare mode loads no plugin agents, so the definition travels in
+    argv; the model and effort frontmatter lines are passed when set."""
+    ad = agent_def(agent)
+    d: dict[str, Any] = {"description": ad["description"], "prompt": ad["prompt"]}
+    d["tools"] = ad["tools"]
+    for k in ("model", "effort"):
+        if ad[k]:
+            d[k] = ad[k]
+    return json.dumps({agent: d}, separators=(",", ":"))
+
+
+def mode_flags(mode: str, helper: str | None, agent: str | None = None) -> list[str]:
+    """Auth-mode flags and the flags that select the agent. Login mode loads the plugin and names
+    the agent ``agent-compliance:<agent>``; bare mode loads no plugin agents (the CLI answers
+    ``--agent ... not found. Available agents: ...``), so it passes the definition with
+    ``--agents`` and names the agent unprefixed."""
     if mode == "bare":
         settings = ["--settings", json.dumps({"apiKeyHelper": helper})] if helper else []
-        return ["--bare", *plugin, *settings]
-    return ["--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands", *plugin]
+        sel = ["--agents", agents_json(agent), "--agent", agent] if agent else []
+        return ["--bare", *sel, *settings]
+    sel = ["--agent", AGENT_PREFIX + agent] if agent else []
+    return [
+        "--setting-sources",
+        "",
+        "--strict-mcp-config",
+        "--disable-slash-commands",
+        "--plugin-dir",
+        str(PLUGIN_ROOT),
+        *sel,
+    ]
 
 
 def parse_cli_result(stdout: str) -> dict[str, Any] | None:
@@ -322,8 +355,6 @@ class Orchestrator:
         args = [
             self.claude or "claude",
             "-p",
-            "--agent",
-            AGENT_PREFIX + agent,
             "--json-schema",
             json.dumps(schema, separators=(",", ":")),
             "--output-format",
@@ -341,7 +372,7 @@ class Orchestrator:
         model = self.cfg.data.get("models", {}).get(phase)
         effort = self.cfg.data.get("efforts", {}).get(phase)
         args += (["--model", model] if model else []) + (["--effort", effort] if effort else [])
-        return args + mode_flags(mode, self.helper)
+        return args + mode_flags(mode, self.helper, agent)
 
     async def _exec(
         self, argv: list[str], prompt: str, cwd: Path, deadline: float
@@ -444,25 +475,34 @@ class Orchestrator:
             "ok": ok,
             "output": output,
             "record": rec,
-            # an authentication failure costs nothing: a job that spent money failed on its work
-            "auth_failed": bool(
-                not ok and rec["cost_usd"] == 0 and AUTH_RE.search(f"{error}\n{err}")
+            # an authentication failure or a missing agent costs nothing: a job that spent money
+            # failed on its work
+            "fallback_reason": (
+                None
+                if ok or rec["cost_usd"]
+                else "auth"
+                if AUTH_RE.search(f"{error}\n{err}")
+                else "agent_not_found"
+                if AGENT_MISSING_RE.search(f"{error}\n{err}")
+                else None
             ),
         }
 
     async def _run_cli(
         self, job: str, schema: dict[str, Any], prompt: str, cwd: Path, timeout: float
     ) -> dict[str, Any]:
-        """One attempt in the run's auth mode; a bare attempt that fails to authenticate is re-run
-        once in login mode, and every later job goes straight to login mode."""
+        """One attempt in the run's auth mode; a bare attempt that fails to authenticate, or whose
+        agent the host does not find (``not found. Available agents``), is re-run once in login
+        mode, and every later job goes straight to login mode."""
         res = await self._attempt(job, schema, prompt, cwd, timeout, self.mode)
-        if res["auth_failed"] and self.mode == "bare":
+        if res["fallback_reason"] and self.mode == "bare":
             self.mode, self.fallbacks = "login", self.fallbacks + 1
-            first = res["record"]
+            first, why = res["record"], res["fallback_reason"]
             res = await self._attempt(job, schema, prompt, cwd, timeout, "login")
             res["record"] = {
                 **res["record"],
                 "auth_fallback": True,
+                "fallback_reason": why,
                 "first_attempt_error": first.get("error"),
                 "cost_usd": res["record"]["cost_usd"] + first["cost_usd"],
             }
@@ -476,6 +516,9 @@ class Orchestrator:
         sub = r.get("subtype")
         if r.get("is_error") or code != 0 or (sub and sub != "success"):
             text = str(r.get("result") or err or sub or f"exit {code}")
+            more = "; ".join(str(e) for e in (r.get("errors") or []) if e)
+            if more and more not in text:
+                text = f"{text} ({more})" if r.get("result") else more
             return False, f"{sub or 'error'}: {text}"[:500], None
         output = r.get("structured_output")
         if output is None and isinstance(r.get("result"), str):
@@ -1118,10 +1161,15 @@ class Orchestrator:
             "turns",
             "subtype",
             "auth_fallback",
+            "fallback_reason",
             "error",
             "dry_run",
         )
-        return [{k: r[k] for k in keep if k in r} for r in self.records]
+        rows = [{k: r[k] for k in keep if k in r} for r in self.records]
+        for row in rows:  # a skipped job spent nothing in this run (as the totals say)
+            if row.get("skipped"):
+                row["cached_cost_usd"], row["cost_usd"] = row.get("cost_usd", 0), 0.0
+        return rows
 
     def finish(
         self, res: dict[str, Any], cyc: dict[str, Any], sellable0: set[str]
@@ -1267,9 +1315,11 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
         f"JOBS {t['jobs']} ({t['skipped']} skipped), cost ${t['cost_usd']:.4f}, tokens {t['tokens']}"
     )
     for j in r["jobs"]:
-        c = j.get("cost_usd", 0) or 0
+        c = 0.0 if j.get("skipped") else j.get("cost_usd", 0) or 0  # skipped: nothing spent now
+        earlier = j.get("cached_cost_usd") or 0
+        note = f" (skipped, cached; earlier ${earlier:.4f})" if j.get("skipped") else ""
         lines.append(
-            f"  {j['label']}: {'ok' if j.get('ok') else 'FAILED'}{' (skipped)' if j.get('skipped') else ''} ${c:.4f} {sum((j.get('tokens') or {}).values())} tok [{j.get('mode')}]"
+            f"  {j['label']}: {'ok' if j.get('ok') else 'FAILED'}{note} ${c:.4f} {sum((j.get('tokens') or {}).values())} tok [{j.get('mode')}]"
         )
     for e in r["errors"][:10]:
         lines.append(f"ERROR {e}")

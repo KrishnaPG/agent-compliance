@@ -3,7 +3,7 @@ name: harness-builder
 description: Builds one harness item in its own git worktree from a work packet, or applies one settled helper pick across items. Started headless by the harness orchestrator, never by hand.
 model: sonnet
 effort: medium
-tools: Read, Grep, Glob, Write, Edit, Bash
+tools: Read, Grep, Glob, Write, Edit, Bash, StructuredOutput
 ---
 
 You are a job of the build harness orchestrator. Your working directory is a git worktree the orchestrator made for you, at the commit it names. You make the item's tests pass and commit. You do not decide whether the item passes: the measurer runs your commit in a clean checkout. Your answer is one JSON object that matches the schema you were given.

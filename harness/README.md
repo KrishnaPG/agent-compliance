@@ -52,9 +52,12 @@ each, one rule line with `covers: <area>`).
 
 **Agent jobs.** Each job is the host's CLI, headless, one process:
 
-    claude -p --agent agent-compliance:<agent> --json-schema <schema> --output-format json \
+    claude -p --json-schema <schema> --output-format json \
       --max-budget-usd <budgets.job_usd> --no-session-persistence --permission-mode dontAsk \
       --allowedTools <the agent file's tools> --add-dir <jobs dir> <plugin root> <auth flags>
+
+plus, in login mode, `--plugin-dir <plugin> --agent agent-compliance:<agent>`; in bare mode
+`--agents <json> --agent <agent>` (below).
 
 with `cwd` the item's worktree for builders. The prompt (stdin) is a short instruction plus
 file paths; the job's input is a JSON file under `<measure_out>/jobs/` it reads itself, and big
@@ -70,11 +73,14 @@ sleep, poll or retry loop.
 
 **Auth modes**, chosen mechanically and never asked: `ANTHROPIC_API_KEY` set, or an
 `apiKeyHelper` in `~/.claude/settings.json` (or `CLAUDE_CONFIG_DIR`), the project's
-`.claude/settings.json` or `settings.local.json` -> **bare**: `--bare --plugin-dir <plugin>`
+`.claude/settings.json` or `settings.local.json` -> **bare**: `--bare`
 (with `--settings '{"apiKeyHelper": ...}'` for a helper: that key only): no hooks, memory, CLAUDE.md, other plugins or
-MCP servers. Otherwise **login**: `--setting-sources "" --strict-mcp-config
+MCP servers. `--bare` loads no plugin agents (`--plugin-dir` does not help: the CLI answers
+`--agent ... not found. Available agents: ...`), so the orchestrator builds the agent's definition
+from `agents/<agent>.md` (description, body as prompt, tools, model, effort) and passes it as
+`--agents <json> --agent <agent>`, unprefixed. Otherwise **login**: `--setting-sources "" --strict-mcp-config
 --disable-slash-commands --plugin-dir <plugin>` (CLAUDE.md and memory still load). A bare job
-that fails with an authentication error is re-run once in login mode and every later job runs
+that fails with an authentication error or with `not found. Available agents` is re-run once in login mode and every later job runs
 in login mode; the result records the switch, the mode and the cost and tokens of every job
 (from the CLI's JSON result), so the cost of login mode is visible.
 
@@ -87,8 +93,8 @@ the file and skips the job; a failed job leaves `<key>.error.json` and runs agai
 **Tests without a model.** `tests/fake_bin/claude` is a small executable put first on `PATH`
 by `tests/test_bhorch.py`: it reads its arguments and stdin, answers per agent name from a
 spec file, commits a builder's files in its worktree, and can fail authentication in bare
-mode, overrun the budget or fail. A paid toy run still has to prove what it cannot: that plugin
-agents load under `--bare` and `--disable-slash-commands`, the real result JSON
+mode, overrun the budget or fail. A paid toy run still has to prove what it cannot: that
+`--agents` definitions are accepted under `--bare`, the real result JSON
 (`structured_output`, `total_cost_usd`, `usage`) and the budget-overrun result.
 
 **Skills reused, not copied.** Jobs get this plugin's skills by file path in their input (a headless

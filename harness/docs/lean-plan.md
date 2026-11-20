@@ -45,7 +45,7 @@ Branch `harness-lean`. Baseline before any change: `cd harness && python3 -m pyt
 
 Tokens:
 
-- **W1 Minimal agent context.** Every agent job starts `claude -p --bare` with only `--plugin-dir`, its agent, its allowed tools and `--json-schema`; no user CLAUDE.md, memory, other plugins, MCP servers or hooks.
+- **W1 Minimal agent context.** Every agent job starts `claude -p --bare` with only its agent (passed with `--agents`; bare loads no plugin agents), its allowed tools and `--json-schema`; no user CLAUDE.md, memory, other plugins, MCP servers or hooks.
 - **W2 Plan once.** The confirmed plan is stored; re-planning starts only when a cited document's content changed (git digests of the cited files), never per run.
 - **W3 Incremental gaps.** Only documents changed since the last gaps commit (`git diff`) are reviewed; earlier verdicts are reused by key, as the catalog's review cache does.
 - **W4 Model per job by the host, not by code.** The plugin ships agent definitions (`agents/*.md`: planner, gaps reader, builder, harvester, each with model, effort and tools in frontmatter); a job is `claude -p --agent <name>`; host built-ins (Explore) are used where they fit. Each job carries `--max-budget-usd`.

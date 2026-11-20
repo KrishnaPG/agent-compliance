@@ -8,6 +8,7 @@ It stands in for ``claude -p --agent ... --output-format json`` and behaves from
                  the orchestrator validates it)
   build_files    item id -> {path: text}: what a builder writes and commits in its worktree
   auth_fail_bare true: a job in bare mode (``--bare``) fails with an authentication error
+  hide_agents_bare true: bare mode ignores ``--agents`` (a host change): agent not found
   budget_overrun [agent, ...]: those agents end with the CLI's ``error_max_budget_usd`` result
   fail           [agent, ...]: those agents exit 1 with an error result
   cost, usage    cost (usd) and usage reported per job
@@ -25,7 +26,8 @@ from pathlib import Path
 argv = sys.argv[1:]
 prompt = sys.stdin.read()
 spec = json.loads(Path(os.environ["FAKE_CLAUDE_SPEC"]).read_text())
-agent = argv[argv.index("--agent") + 1].split(":")[-1] if "--agent" in argv else None
+raw_agent = argv[argv.index("--agent") + 1] if "--agent" in argv else None
+agent = raw_agent.split(":")[-1] if raw_agent else None
 mode = "bare" if "--bare" in argv else "login"
 with open(os.environ["FAKE_CLAUDE_LOG"], "a") as log:
     log.write(
@@ -34,6 +36,25 @@ with open(os.environ["FAKE_CLAUDE_LOG"], "a") as log:
         )
         + "\n"
     )
+
+
+def agent_not_found():
+    """The real CLI under ``--bare``: no plugin agents, only built-ins and ``--agents``."""
+    defined = {}
+    if "--agents" in argv and not spec.get("hide_agents_bare"):
+        raw = argv[argv.index("--agents") + 1]
+        defined = json.loads(Path(raw).read_text() if Path(raw).is_file() else raw)
+    if raw_agent is not None and raw_agent not in defined:
+        print(
+            f"Error: --agent '{raw_agent}' not found. Available agents: "
+            + ", ".join(["claude", "Explore", *defined]),
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+
+if mode == "bare":
+    agent_not_found()
 
 
 def result(**kw):
