@@ -53,14 +53,11 @@
   "concurrency": 4,
   "max_rounds": 3,
   "models": {
-    "loader": "MODEL-FOR-MECHANICAL-WORK",
     "build": "MODEL-FOR-BUILDING",
     "gaps": "MODEL-FOR-REVIEW",
     "plan": "MODEL-FOR-REVIEW"
   },
   "efforts": {
-    "loader": "low",
-    "measure": "low",
     "gaps": "high"
   },
   "ecosystems": [

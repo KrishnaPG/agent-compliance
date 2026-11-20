@@ -6,12 +6,10 @@ an agent decided; a packet is assembled from the plan's citations, never retyped
 
 import hashlib
 import json
-import re
-from pathlib import Path
 
 import bhcore
 import pytest
-from test_toy import EMPTY_CATALOG, ROOT, cli, commit_all, copy_toy, full_state, git
+from test_toy import EMPTY_CATALOG, cli, commit_all, copy_toy, full_state, git
 from test_work_tracking import cfg_edit, plan_edit
 
 KIND = "no-numeric-target"
@@ -131,23 +129,18 @@ def test_a_decision_covers_a_directory_of_areas(toy):
     assert [r["covered_by"] for r in cli("bh-gaps", toy)[1]["re_asked"]] == [["D-1"]]
 
 
-def test_decision_records_join_the_state_in_id_order_capped_with_paging(toy):
+def test_state_learning_carries_every_overlay_candidate_and_the_overlay_path(toy):
     gap = question(toy)
-    cfg_edit(toy, limits={"decision_items": 2})
     for n in range(3):
         answer(toy, gap, f"answer {n}")
-    _, p = cli("bh-state", toy, "--part", "learning")
-    lp = p["learning"]
-    assert [d["id"] for d in lp["decisions"]] == ["D-1", "D-2"] and lp["more"] == 1
-    assert (
-        lp["decisions"][0]["path"] == ".brick-harness/decisions/D-1.json"
-        and "--after" in lp["paging"]
+    s = full_state(toy)[1]
+    assert set(s["learning"]) == {"overlay_candidates", "overlay"}
+    (cand,) = s["learning"]["overlay_candidates"]
+    assert cand["decisions"] == ["D-1", "D-2", "D-3"]
+    assert s["learning"]["overlay"] == bhcore.overlay_path(
+        bhcore.Config(toy / ".brick-harness" / "config.json")
     )
-    _, nxt = cli("bh-state", toy, "--part", "learning", "--after", "D-2")
-    assert [d["id"] for d in nxt["learning"]["decisions"]] == ["D-3"] and nxt["learning"][
-        "more"
-    ] == 0
-    assert cli("bh-state", toy, "--part", "learning", "--after", "D-77")[0] == 2
+    assert len(sorted((toy / ".brick-harness" / "decisions").glob("D-*.json"))) == 3
 
 
 def overlay(repo, line=None):
@@ -167,7 +160,7 @@ def test_an_area_answered_often_is_an_overlay_candidate_until_the_overlay_holds_
     answer(toy, gap, "answer 2")
     cand = cli("bh-gaps", toy)[1]["learning"]["overlay_candidates"]
     assert cand[0]["area"] == AREA and cand[0]["decisions"] == ["D-1", "D-2", "D-3"]
-    assert cli("bh-state", toy, "--part", "learning")[1]["learning"]["overlay_candidates"] == cand
+    assert full_state(toy)[1]["learning"]["overlay_candidates"] == cand
     assert "## Learning from answers" in (
         cli("bh-gaps", toy, "--write") and (toy / ".brick-harness" / "gaps.md").read_text()
     )
@@ -317,30 +310,3 @@ def test_bricks_schema_context_and_rules_are_optional_and_typed():
     assert bhcore.validate(
         {"bricks": [{**one, "context": [{"path": "p.md", "lines": "1-2", "text": "x"}]}]}, schema
     )
-
-
-# ---------------------------------------------------------------- the workflows and skills carry it
-
-WF = ROOT / "workflows"
-
-
-def test_the_builder_prompt_starts_with_bh_brief_and_returns_missing_context_as_a_finding():
-    body = (WF / "harness-build.js").read_text()
-    assert "bh-brief" in body and "missing_context" in body
-    assert "missing-context" in (WF / "harness-run.js").read_text()
-    skill = (ROOT.parent / "skills" / "harness" / "SKILL.md").read_text()
-    assert "bh-brief" in skill and "missing-context" in skill
-
-
-def test_the_plan_writes_citations_and_rules_never_copied_text():
-    body = (WF / "harness-plan.js").read_text()
-    assert "context" in body and "never copied text" in body and "rules" in body
-    assert "overlay_candidates" in body
-
-
-def test_gaps_and_plan_get_the_decision_records_by_path_and_cite_them():
-    gaps = (WF / "harness-gaps.js").read_text()
-    assert "learning" in gaps and "answered_by" in gaps
-    assert re.search(r"NEED = \[[^\]]*'learning'", gaps)
-    assert re.search(r"NEED = \[[^\]]*'learning'", (WF / "harness-plan.js").read_text())
-    assert Path(WF / "harness-run.js").read_text().count("report.learning") == 1

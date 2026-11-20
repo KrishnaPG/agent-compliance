@@ -20,7 +20,7 @@ import bhcore
 import bhtracker as bt
 import pytest
 from test_rank import edit_json
-from test_toy import BIN, ENV, cli, copy_toy, git
+from test_toy import BIN, ENV, cli, copy_toy, full_state, git
 from test_toy import commit_all as _commit_all
 from test_work_tracking import change, conf, default_targets
 
@@ -187,8 +187,8 @@ def test_no_tracker_configured_means_bricks_json_is_the_work_list(toy):
     assert out["tracker"] is None and out["admitted"] == [] and out["unreachable"] is None
     out = cli("bh-reconcile", toy, "--write")[1]
     assert out["tracker"] is None and out["mismatches"] == [] and out["facts"] == []
-    _, st = cli("bh-state", toy, "--part", "decision")
-    assert st["decision"]["ready"]  # the work list: bricks.json in build order
+    _, st = full_state(toy)
+    assert st["ready"]  # the work list: bricks.json in build order
 
 
 def test_every_operation_runs_its_command_and_reads_the_entry_shape(toy, tmp_path):
@@ -278,7 +278,7 @@ def test_target_source_is_resolved_through_show_by_bh_gaps_and_never_by_state(to
     plan_edit(toy, "targets.json", lambda d: d["targets"][2].update(source='w-nope: "x 40"'))
     _, rep = cli("bh-gaps", toy)
     assert any("cannot be read from the tracker" in g["summary"] for g in rep["gaps"])
-    _, st = cli("bh-state", toy, "--part", "gaps")  # state never reaches the tracker
+    _, st = full_state(toy)  # state never reaches the tracker
     assert not any("tracker" in g["summary"] for g in st["gaps"])
 
 
@@ -286,8 +286,6 @@ def test_measure_build_and_merge_never_call_the_tracker():
     for n in ("bh-measure", "bh-merge", "bh-branch", "bh-state", "bh-commit", "bh-init", "bh-rank"):
         assert "bhtracker" not in (BIN / n).read_text(), n
     assert "bhtracker" not in (ROOT / "lib" / "bhcore.py").read_text()
-    for w in ("harness-build.js", "harness-measure.js"):
-        assert not re.search(r"bh-(admit|reconcile)", (ROOT / "workflows" / w).read_text()), w
 
 
 def test_close_and_reopen_are_called_only_from_reconcile():
@@ -295,7 +293,6 @@ def test_close_and_reopen_are_called_only_from_reconcile():
     for p in [
         *(ROOT.parent / "bin").glob("bh-*"),
         *(ROOT / "lib").glob("*.py"),
-        *(ROOT / "workflows").glob("*.js"),
     ]:
         if names & set(re.findall(r"\w+", p.read_text())):
             assert p.name in ("bhtracker.py", "bh-reconcile"), p.name
@@ -638,11 +635,12 @@ def test_a_missing_ref_is_a_fact_and_nothing_is_deleted(toy, tmp_path):
 def test_the_gaps_report_lists_tracker_mismatches_as_facts_and_changes_no_status(toy, tmp_path):
     s, refs = admitted(toy, tmp_path)
     s.put(refs[1], state="closed")
-    _, before = cli("bh-state", toy, "--part", "decision")
+    _, before = full_state(toy)
     _, rep = cli("bh-gaps", toy)
     assert any(f["kind"] == "tracker-closed-unmet" and f["ref"] == refs[1] for f in rep["facts"])
-    _, after = cli("bh-state", toy, "--part", "decision")
-    assert before["decision"]["counts"] == after["decision"]["counts"]
+    _, after = full_state(toy)
+    assert before["counts"] == after["counts"]
+    assert [b["status"] for b in before["bricks"]] == [b["status"] for b in after["bricks"]]
 
 
 # ---------------------------------------------------------------- M11, M12: INVEST, flow, split
@@ -669,11 +667,9 @@ def with_split(toy):
 
 def test_only_leaves_run_a_split_parent_is_measured_never_built(toy):
     with_split(toy)
-    _, st = cli("bh-state", toy, "--part", "decision")
-    d = st["decision"]
-    assert "parent-x" not in d["ready"] + d["ready_system"]
-    assert {"kid-a", "kid-b"} <= set(d["ready"])
-    _, full = cli("bh-state", toy, "--part", "bricks")
+    _, full = full_state(toy)
+    assert "parent-x" not in full["ready"] + full["ready_system"]
+    assert {"kid-a", "kid-b"} <= set(full["ready"])
     parent = next(b for b in full["bricks"] if b["id"] == "parent-x")
     assert parent["split_parent"] is True and parent["ready"] is False  # waits for its children
     for k in ("kid-a", "kid-b"):
@@ -681,5 +677,5 @@ def test_only_leaves_run_a_split_parent_is_measured_never_built(toy):
 
 
 def test_new_fields_are_optional_so_the_toy_stays_valid(toy):
-    code, st = cli("bh-state", toy, "--part", "problems")
+    code, st = full_state(toy)
     assert code == 0 and st["problems"] == []

@@ -15,7 +15,7 @@ from pathlib import Path
 import bhcore
 import bhtracker as bt
 import pytest
-from test_toy import ENV, cli, commit_all, copy_toy, git
+from test_toy import ENV, cli, commit_all, copy_toy, full_state, git
 
 ROOT = Path(__file__).resolve().parent.parent
 BD = shutil.which("bd")
@@ -144,7 +144,7 @@ def test_admission_and_reconcile_through_real_beads(proj):
     measure_and_commit(proj, d["bricks"][0]["id"])
     assert tr.claim(ref)["claimed"]
     item = d["bricks"][0]["id"]
-    got = cli("bh-state", proj, "--part", "bricks")[1]["bricks"]
+    got = full_state(proj)[1]["bricks"]
     assert {b["id"]: b["status"] for b in got}[item] == "met", got
     r = cli("bh-reconcile", proj, "--write")[1]
     assert r["closed"] == [ref] and tr.show(ref)["state"] == "closed", r

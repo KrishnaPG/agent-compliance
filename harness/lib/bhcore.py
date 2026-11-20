@@ -37,9 +37,6 @@ OSS checked before writing this module:
   write prose records, not records a gap check can match by kind and area; repo packers
   (repomix, gitingest) pack code, not cited line ranges with a digest. Used: stdlib
   ``fractions`` (exact value / cost ratios), ``hashlib`` (passage digests), ``git show``.
-- State checksums: sha256 would be the pick, but workflow scripts have no crypto API, so
-  both sides use 32-bit FNV-1a over a canonical form defined below (detects a part
-  shortened in transit; not a security check).
 """
 
 from __future__ import annotations
@@ -123,7 +120,8 @@ class HarnessError(Exception):
 
 # Output limits (config ``limits``): they bound what is printed or filed per call, never
 # what is measured.
-LIMIT_DEFAULTS = {"decision_items": 25, "packet_rules": 8, "file_per_run": 10, "tracker_read": 200}
+SUMMARY_CAP = 25  # rows a printed summary or a report lists; the full data is in the state dict
+LIMIT_DEFAULTS = {"packet_rules": 8, "file_per_run": 10, "tracker_read": 200}
 
 
 # ---------------------------------------------------------------- schema validation
@@ -1758,61 +1756,29 @@ def state(cfg: Config) -> dict[str, Any]:
             ],
             "versions": {e["library"]: versions.get(norm(e["library"])) for e in catalogue},
         },
-        "checklist": [],  # the gaps agent reads the documents; the key stays for the workflows (wave 1b)
         "overlay": overlay_path(cfg),
         "gaps": gaps,
     }
-    s_out["pending"] = pending_page(out_bricks, plan["queue"], cfg.limit("decision_items"))
+    rank = {i: n for n, i in enumerate(plan["queue"])}
+    s_out["queue"] = [
+        b["id"]
+        for b in sorted(
+            (b for b in out_bricks if b["status"] != "met"),
+            key=lambda b: (rank.get(b["id"], len(rank)), b["id"]),
+        )
+    ]
     s_out["value"] = plan["value"]
-    s_out["learning"] = learning_part(cfg, decs, rules)
+    s_out["learning"] = {
+        "overlay_candidates": overlay_candidates(cfg, decs, rules),
+        "overlay": overlay_path(cfg),
+    }
+    s_out["oscillating"] = oscillating(read_history(cfg))
     s_out["features"] = _features_part(cfg, bricks, status)
     s_out["merged"] = _merged_part(cfg, top, bricks, board, status)
     s_out["counts"] = {
         k: len(v) for k, v in s_out.items() if isinstance(v, list | dict) and k != "config"
     }
-    s_out["decision"] = _decision(cfg, s_out, out_bricks)
-    s_out["decision"]["oscillating"] = oscillating(read_history(cfg))[: cfg.limit("decision_items")]
     return s_out
-
-
-def pending_page(
-    bricks: list[dict[str, Any]], order: list[str], limit: int, after: str | None = None
-) -> dict[str, Any]:
-    """Items not met in ``order`` (the value queue; the build order, dependency waves then id,
-    without features.json), at most ``limit`` after the item ``after``: ``{items, more, next}``, ``more`` the count left, ``next`` the id to
-    page on with (``bh-state --part pending --after ID``). Met items appear as counts only."""
-    rank = {i: n for n, i in enumerate(order)}
-
-    def key(b: dict[str, Any]) -> tuple[int, str]:
-        return (rank.get(b["id"], len(rank)), b["id"])
-
-    rows = sorted((b for b in bricks if b["status"] != "met"), key=key)
-    if after is not None:
-        ref = next((b for b in bricks if b["id"] == after), None)
-        if ref is None:
-            raise HarnessError(f"unknown item {after} to page after")
-        rows = [b for b in rows if key(b) > key(ref)]
-    page = rows[:limit]
-    more = len(rows) - len(page)
-    return {
-        "items": [
-            {
-                k: b[k]
-                for k in (
-                    "id",
-                    "kind",
-                    "status",
-                    "ready",
-                    "depends_on",
-                    "blocked_by",
-                )
-            }
-            | ({"split_parent": True} if b.get("split_parent") else {})
-            for b in page
-        ],
-        "more": more,
-        "next": page[-1]["id"] if more and page else None,
-    }
 
 
 def _features_part(
@@ -1820,7 +1786,7 @@ def _features_part(
 ) -> dict[str, Any]:
     """Per feature named by an item not met (the horizon's features): items met and total
     (derived here, never stored) and the ids of the items naming it, capped."""
-    cap = cfg.limit("decision_items")
+    cap = SUMMARY_CAP
     named: dict[str, list[str]] = {}
     for b in bricks:
         for f in b.get("features", []):
@@ -1866,74 +1832,13 @@ def _merged_part(
         if since is None or (at and datetime.fromisoformat(at).replace(microsecond=0) > since):
             rows.append((at, b))
     rows.sort(key=lambda x: (x[0], x[1]["id"]), reverse=True)
-    cap = cfg.limit("decision_items")
+    cap = SUMMARY_CAP
     keep = [b for _, b in rows[:cap]]
     return {
         "since": since.isoformat() if since else None,
         "items": [{"id": b["id"], "status": "met"} for b in keep],
         "commands": {b["id"]: rendered_commands(cfg, b) for b in keep},
         "more": max(0, len(rows) - cap),
-    }
-
-
-def _decision(cfg: Config, s: dict[str, Any], bricks: list[dict[str, Any]]) -> dict[str, Any]:
-    """The compact part a round loop reloads: what to do next, small enough that an agent
-    can copy it back exactly, and bounded by ``limits.decision_items`` however many items
-    there are: the first page of items not met in build order (``pending``), counts per
-    status, ``more`` (the count left) and the paging command. Branches, commands and last
-    results are for the listed items only; met items are counts."""
-    cap = cfg.limit("decision_items")
-    page = s["pending"]["items"]
-    listed = {p["id"] for p in page}
-    ready = [
-        p["id"] for p in page if p["ready"] and p["kind"] != "system" and not p.get("split_parent")
-    ]
-    ready_sys = [
-        p["id"] for p in page if p["ready"] and p["kind"] == "system" and not p.get("split_parent")
-    ]
-    ready_all = set(ready) | set(ready_sys)
-    by_id = {b["id"]: b for b in bricks}
-    counts: dict[str, int] = {}
-    for b in bricks:
-        counts[b["status"]] = counts.get(b["status"], 0) + 1
-    return {
-        "head": s["head"],
-        "plan_head": s["plan_head"],
-        "all_met": s["all_met"],
-        "ready": ready,
-        "ready_system": ready_sys,
-        "pending": page,
-        "more": s["pending"]["more"],
-        "after": s["pending"]["next"],
-        "paging": "bh-state --part pending --after ID",
-        "blocked": {p["id"]: p["blocked_by"] for p in page if p["blocked_by"]},
-        "held": {p["id"]: by_id[p["id"]]["held_by"] for p in page if by_id[p["id"]].get("held_by")},
-        "value": {
-            "sellable_at_head": s["value"]["sellable_at_head"][:cap],
-            "if_stopped_today": s["value"]["if_stopped_today"][:cap],
-            "next": s["value"]["next"],
-            "unvalued": s["value"]["unvalued"][:cap],
-            "unvalued_more": max(0, len(s["value"]["unvalued"]) - cap),
-        },
-        "unmerged": s["unmerged"][:cap],
-        "conflicts": [p["id"] for p in page if p["status"] == "conflict"],
-        "stale": [p["id"] for p in page if p["status"] == "stale"],
-        "uncommitted": s["uncommitted"],
-        "branches": {i: c for i, c in s["branches"].items() if i in listed},
-        "commands": {i: c for i, c in s["commands"].items() if i in ready_all},
-        "last": {
-            i: {**by_id[i]["last"], "errors": [e[:200] for e in by_id[i]["last"]["errors"][:3]]}
-            for i in sorted(ready_all)
-            if by_id[i]["last"]
-        },
-        "counts": {
-            "bricks": len(bricks),
-            "ready": sum(1 for b in bricks if b["ready"]),
-            "unmerged": len(s["unmerged"]),
-            "problems": len(s["problems"]),
-            "gaps": len(s["gaps"]),
-            "status": counts,
-        },
     }
 
 
@@ -2043,41 +1948,6 @@ def _uncommitted(cfg: Config, top: Path | None, scoreboard: bool = False) -> lis
     cmd = ["git", "-C", str(top), "status", "--porcelain", "--untracked-files=all", "--", *paths]
     out = subprocess.run(cmd, capture_output=True, text=True).stdout  # unstripped: XY<space>path
     return [_rel(cfg, top / line[3:]) for line in out.splitlines()]
-
-
-# ---------------------------------------------------------------- checksums (bh-state parts)
-
-
-def canon(v: Any) -> str:
-    """Canonical text of a JSON value that lib/prelude.js reproduces exactly: strings with
-    their UTF-16 length, numbers floored (exponent forms differ between languages), keys
-    in UTF-16 order, null-valued keys left out."""
-    if v is None:
-        return "n"
-    if v is True:
-        return "t"
-    if v is False:
-        return "f"
-    if isinstance(v, int | float):
-        return "d" + (str(math.floor(v)) if abs(v) < 1e15 else "big")
-    if isinstance(v, str):
-        return f"s{len(v.encode('utf-16-le')) // 2}:{v}"
-    if isinstance(v, list):
-        return "[" + "".join(canon(x) for x in v) + "]"
-    if isinstance(v, dict):
-        keys = sorted((k for k in v if v[k] is not None), key=lambda k: k.encode("utf-16-be"))
-        return "{" + "".join(canon(k) + canon(v[k]) for k in keys) + "}"
-    raise HarnessError(f"not a JSON value: {type(v).__name__}")
-
-
-def checksum(v: Any) -> str:
-    """32-bit FNV-1a over the UTF-16 code units of canon(v), as lib/prelude.js computes it."""
-    h = 0x811C9DC5
-    data = canon(v).encode("utf-16-le")
-    for i in range(0, len(data), 2):
-        h ^= data[i] | (data[i + 1] << 8)
-        h = (h * 0x01000193) & 0xFFFFFFFF
-    return f"{h:08x}"
 
 
 # ---------------------------------------------------------------- gaps (report, never decide)
@@ -2747,7 +2617,7 @@ def merge_gaps(
     on that line) are rejected, so a reviewer cannot report what it did not read. Writes
     nothing unless ``write``. An empty ``added`` clears ``source``'s earlier findings. For
     source ``cycle`` every item not met gets a gap (the ``unmet`` ones with their reason, the
-    rest ``not-attempted``) and ``stuck`` lists them capped at ``limits.decision_items`` with
+    rest ``not-attempted``) and ``stuck`` lists them capped at ``SUMMARY_CAP`` with
     ``stuck_more``; the full list is in the report. ``parent_feature`` is accepted for the
     callers that still pass it and is unused.
     """
@@ -2825,7 +2695,7 @@ def merge_gaps(
         if md:
             md.write_text(render_gaps_md(report))
             written.append(_rel(cfg, md))
-    cap = cfg.limit("decision_items")
+    cap = SUMMARY_CAP
     return {
         **report,
         "received": len(added),
@@ -3418,7 +3288,7 @@ def value_queue(cfg: Config, state: dict[str, Any]) -> list[str]:
     in dependency order, then the next feature; features without slice, value or a resolving
     source follow; items no feature names follow in build order. Without ``features.json`` it
     is the build order. Uses ``state["bricks"]`` (id, status, depends_on, est_loc) and
-    ``state["waves"]``; page it with ``pending_page``."""
+    ``state["waves"]``."""
     order = [i for w in state["waves"] for i in w]
     return list(_value_plan(cfg, state["bricks"], order)["queue"])
 
@@ -3532,37 +3402,6 @@ def overlay_candidates(
         for a, ds in sorted(by.items())
         if len(ds) >= need and a.rstrip("/") not in held
     ]
-
-
-def learning_part(
-    cfg: Config,
-    decs: list[dict[str, Any]],
-    rules: list[dict[str, Any]],
-    after: str | None = None,
-) -> dict[str, Any]:
-    """What gaps and plan agents read: decision record paths in id order (at most
-    ``limits.decision_items``, with ``more`` and the paging command) and the overlay
-    candidates (capped the same way)."""
-    cap = cfg.limit("decision_items")
-    if after is not None and after not in {d["id"] for d in decs}:
-        raise HarnessError(f"unknown decision {after} to page after")
-    rows = decs[[d["id"] for d in decs].index(after) + 1 :] if after is not None else decs
-    page = rows[:cap]
-    base = cfg.file("answers")
-    cands = overlay_candidates(cfg, decs, rules)
-    return {
-        "decisions": [
-            {"id": d["id"], "path": _rel(cfg, base / f"{d['id']}.json")}
-            for d in page
-            if base is not None
-        ],
-        "more": len(rows) - len(page),
-        "next": page[-1]["id"] if len(rows) > len(page) else None,
-        "paging": "bh-state --part learning --after D-n",
-        "overlay_candidates": cands[:cap],
-        "overlay_candidates_more": max(0, len(cands) - cap),
-        "overlay": overlay_path(cfg),
-    }
 
 
 def learning_counts(
@@ -3837,7 +3676,7 @@ def packet_report(cfg: Config, items: list[str]) -> dict[str, Any]:
             )
         facts += [{"kind": "stale-context", "item": i, **s} for s in pk["stale"]]
     sizes.sort(key=lambda x: (-x[0], x[1]))
-    cap = cfg.limit("decision_items")
+    cap = SUMMARY_CAP
     return {
         "notes": notes,
         "facts": facts,

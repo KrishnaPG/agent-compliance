@@ -7,7 +7,7 @@ Decided 2026-11-19. The vetting of trackers, the survey of planning methods and 
 - **Hierarchy:** goal → feature → item. Only items are measured; feature and goal progress is a roll-up computed when read. Item kinds: `brick`, `system`, `change`.
 - **Split:** child items own disjoint paths. The parent keeps its targets and depends on every child, so it is measured after them; a child that misses part of the parent shows up as an unmet parent. The harness never splits a package on its own; it reports that for the owner.
 - **Idempotent pick-up:** the key is (item id, targets digest, tree of its paths at HEAD) plus the measured scoreboard. An item's id is derived from its tracker ref, so taking an item twice does nothing.
-- **Bounded tokens:** agents get a capped decision part (not-met items in build order, counts, a `more` count and paging), never every item.
+- **Bounded tokens:** the full state goes to a file (`bh-state` writes `state.json` and prints a small summary); the orchestrator reads `bhcore.state(cfg)` directly and no agent receives every item.
 - **What git keeps:** what to build and how it is measured: `bricks.json`, `targets.json`, the scoreboard. Status comes only from the scoreboard at the git sha.
 - **What the tracker keeps:** intent, order, claims and history. The tracker is configured, never hard-coded.
 - **Tracker interface:** six operations, the ones the harness calls, each mapped in config to a command that prints JSON in the shapes of `schema/tracker.schema.json`:
@@ -64,7 +64,7 @@ Decided 2026-11-19. The vetting of trackers, the survey of planning methods and 
 
 ## Built
 
-- SG-15: the capped decision part, trimmed NEED lists, `change`/`refs`/`split_from`, roll-up and facts, the tracker interface with its two adapters (`lib/bhtracker.py`), reconcile, admission, INVEST and flow facts, split kinds.
+- SG-15: the state file with a small printed summary, `change`/`refs`/`split_from`, roll-up and facts, the tracker interface with its two adapters (`lib/bhtracker.py`), reconcile, admission, INVEST and flow facts, split kinds.
 - SG-16 (decision records, `bh-answer`, answered-by, overlay candidates, per-cycle counts), SG-17 and SG-18 (see `safeguards.json`).
 - Tests prove it against a stateful stand-in tracker (`tests/fake_tracker.py`), fixture `bd` and `gh` commands, and real Beads when the pinned `bd` is on PATH.
 
@@ -77,4 +77,4 @@ Decided 2026-11-19. The vetting of trackers, the survey of planning methods and 
   - whether `blockedBy` carries its state in `list`;
   - issue types on repositories owned by a user;
   - the goal (`tracker.goal`) is not applied to the stock gh ready query; set `tracker.commands.ready` to add a parent qualifier.
-- **Token and CPU bound** of `bh-state --part decision` at 10, 100 and 1,000 items.
+- **Token and CPU bound** of `bh-state` at 10, 100 and 1,000 items.

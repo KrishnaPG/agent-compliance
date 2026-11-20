@@ -309,17 +309,34 @@
     "budgets": {
       "type": "object",
       "additionalProperties": false,
-      "description": "Cost limits; what is left when one ends the run is listed in stuck with reason budget. Limits only, never a verdict on an item.",
+      "description": "Cost limits; what is left when one ends the run is listed in stuck with reason budget. Limits only, never a verdict on an item. Tokens and dollars are summed from the result of each agent job.",
       "properties": {
         "run_tokens": {
           "type": "integer",
           "minimum": 1,
-          "description": "Tokens the run may spend (workflow budget spent() since the run started). Before each round the run ends when what is left (also bounded by the workflow budget's remaining()) is below one round's reserve."
+          "description": "Tokens the run may spend, summed over its agent jobs. Before each round the run ends when this is reached."
         },
-        "round_reserve_tokens": {
+        "run_usd": {
+          "type": "number",
+          "minimum": 0.01,
+          "description": "Dollars the run may spend over its agent jobs (from the CLI's cost per job); checked before each round."
+        },
+        "job_usd": {
+          "type": [
+            "number",
+            "object"
+          ],
+          "minimum": 0.01,
+          "additionalProperties": {
+            "type": "number",
+            "minimum": 0.01
+          },
+          "description": "--max-budget-usd of one agent job: a number, or an object keyed by phase (gaps, plan, build, harvest, review) with an optional default. Default 2."
+        },
+        "job_timeout_s": {
           "type": "integer",
-          "minimum": 0,
-          "description": "Reserve for one round before any round has run; afterwards the largest round so far is used when higher."
+          "minimum": 1,
+          "description": "Deadline of one agent job in seconds (default 1800); then the process is terminated, then killed."
         }
       }
     },
@@ -362,11 +379,6 @@
       "additionalProperties": false,
       "description": "Output limits; they bound what is printed or done per call, never what is measured.",
       "properties": {
-        "decision_items": {
-          "type": "integer",
-          "minimum": 1,
-          "description": "Items not met listed in one page of the decision part (default 25); bh-state --part pending --after ID pages on."
-        },
         "packet_rules": {
           "type": "integer",
           "minimum": 1,
@@ -423,13 +435,11 @@
     },
     "phase": {
       "enum": [
-        "loader",
         "gaps",
         "plan",
         "build",
-        "measure",
-        "integrate",
-        "harvest"
+        "harvest",
+        "review"
       ]
     },
     "test": {

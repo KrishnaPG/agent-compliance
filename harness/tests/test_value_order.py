@@ -60,9 +60,12 @@ def queue(repo):
     return bhcore.value_queue(cfg, bhcore.state(cfg))
 
 
+def held(s):
+    return {b["id"]: b["held_by"] for b in s["bricks"] if b.get("held_by")}
+
+
 def pending_ids(repo):
-    _, p = cli("bh-state", repo, "--part", "decision")
-    return [x["id"] for x in p["decision"]["pending"]]
+    return full_state(repo)[1]["queue"]
 
 
 def test_without_features_the_queue_is_the_build_order_and_nothing_changes(toy):
@@ -146,14 +149,14 @@ def test_finish_before_start_holds_later_features_while_the_earlier_has_ready_it
     rows = {b["id"]: b for b in s["bricks"]}
     assert rows["json-writer"]["ready"] and not rows["later"]["ready"]
     assert rows["later"]["held_by"] == "F1" and rows["later"]["status"] == "unmeasured"
-    assert s["decision"]["held"] == {"later": "F1"} and "later" not in s["ready_system"]
+    assert held(s) == {"later": "F1"} and "later" not in s["ready_system"]
 
 
 def test_nothing_is_held_before_a_feature_has_started_or_when_the_earlier_has_no_ready_item(toy):
     add_items(toy, sys_item("later"))
     write_features(toy, feat("F1", "csv2json", 1, 5), feat("F2", "later", 2, 5))
     _, s = full_state(toy)  # nothing started
-    assert s["decision"]["held"] == {} and "later" in s["ready_system"]
+    assert held(s) == {} and "later" in s["ready_system"]
     # started, but no F1 item is ready (json-writer is blocked, csv2json waits): F2 is not held
     measure_and_commit(toy, "csv-reader")
 
@@ -189,15 +192,13 @@ def test_the_report_markdown_lists_the_value_facts(toy):
     assert "## Value order" in md and "Sellable at HEAD: SELL" in md and "remaining cost 2" in md
 
 
-def test_the_decision_page_keeps_its_cap_and_paging_in_value_order(toy):
+def test_state_queue_is_the_whole_value_order_of_items_not_met(toy):
     add_items(toy, sys_item("extra", ["json-writer"]))
     write_features(toy, feat("F1", "csv2json", 2, 100), feat("F2", "extra", 1, 1))
-    plan_edit(toy, "config.json", lambda c: c.update(limits={"decision_items": 2}))
-    _, p = cli("bh-state", toy, "--part", "decision")
-    d = p["decision"]
-    assert [x["id"] for x in d["pending"]] == ["json-writer", "extra"] and d["more"] == 2
-    _, nxt = cli("bh-state", toy, "--part", "pending", "--after", d["after"])
-    assert [x["id"] for x in nxt["pending"]["items"]] == ["csv-reader", "csv2json"]
+    s = full_state(toy)[1]
+    assert s["queue"] == ["json-writer", "extra", "csv-reader", "csv2json"]
+    cfg = cfg_of(toy)
+    assert s["queue"] == bhcore.value_queue(cfg, s)
 
 
 def test_features_file_fails_closed_as_a_problem_and_value_queue_is_pure(toy):

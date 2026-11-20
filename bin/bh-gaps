@@ -11,7 +11,7 @@ the merged report with `received` and `accepted` counts. Writes the report
           [--unmet ITEM[:REASON] ...] [--brief]
 
 With --source cycle every item not met gets a gap: the --unmet ones with their reason, the
-rest "not-attempted"; "stuck" lists them capped at limits.decision_items ("stuck_more").
+rest "not-attempted"; "stuck" lists them capped at SUMMARY_CAP ("stuck_more").
 A target source '<ref>: "<quote>"' is resolved through tracker.show here (never in
 bh-state); unresolved is reported like a missing source. --brief leaves the full gap list
 out of the printed report (it is in the written file).

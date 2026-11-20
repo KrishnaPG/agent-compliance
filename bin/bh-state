@@ -9,18 +9,14 @@ gaps and counts. Exit 0 with no problems, 1 with problems, 2 when the config can
 or a part is unknown.
 
   bh-state --config .brick-harness/config.json
-  bh-state --config .brick-harness/config.json [--part KEY ... | --parts | --value KEY | --affected REF]
+  bh-state --config .brick-harness/config.json [--affected REF]
 
 Big output never crosses an agent: the full state is written (atomically) to
 ``<measure_out>/state.json`` (the out directory is git-ignored) and the CLI prints
 {"file", "head", "plan_head", "all_met", "counts": {status: n}, "ready", "ready_system",
-"unmet", "unmet_more", "problems", ...}, each id list capped at limits.decision_items. Agents
-read the file themselves (a path, a ``jq`` filter); nothing is re-read in slices or checked
-against a checksum.
+"unmet", "unmet_more", "problems", ...}, each id list capped at SUMMARY_CAP. A reader opens
+the file itself (a path, a ``jq`` filter); Python callers use ``bhcore.state(cfg)``.
 
---part prints {KEY: value} for each KEY, --value the bare value of one KEY, --parts the part
-names with a checksum of each, and --part pending --after ID / --part learning --after D-n
-page their part: the workflows' read path while they do not yet read the state file.
 --affected prints the items a ref touches and everything depending on them.
 """
 
@@ -32,16 +28,11 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
 from bhcore import (  # noqa: E402
+    SUMMARY_CAP,
     Config,
     HarnessError,
     affected,
-    checksum,
-    learning_part,
-    load_decisions,
-    overlay_rules,
-    pending_page,
     state,
-    value_queue,
 )
 
 
@@ -58,7 +49,7 @@ def summary(cfg: Config, s: dict) -> dict:
     tmp = path.with_name(f".state.{os.getpid()}.tmp")
     tmp.write_text(json.dumps(s, sort_keys=True, separators=(",", ":")))
     os.replace(tmp, path)
-    cap = cfg.limit("decision_items")
+    cap = SUMMARY_CAP
     unmet = [b["id"] for b in s["bricks"] if b["status"] != "met"]
     counts: dict[str, int] = {}
     for b in s["bricks"]:
@@ -84,21 +75,6 @@ def summary(cfg: Config, s: dict) -> dict:
 def main() -> int:
     ap = argparse.ArgumentParser(prog="bh-state", description=__doc__.splitlines()[0])
     ap.add_argument("--config", default=".brick-harness/config.json")
-    ap.add_argument(
-        "--part",
-        action="append",
-        default=[],
-        help="print only these top-level keys (repeatable); keeps output small where a "
-        "caller's tool shortens long output",
-    )
-    ap.add_argument(
-        "--value",
-        metavar="KEY",
-        help="print only the bare JSON value of one part (no {KEY: ...} wrapper); same "
-        "serialisation as --part, so its checksum equals the one --parts lists",
-    )
-    ap.add_argument("--parts", action="store_true", help="list the parts and their checksums")
-    ap.add_argument("--after", metavar="ID", help="with --part pending: the page after item ID")
     ap.add_argument("--affected", metavar="REF", help="items REF touches, with dependents")
     a = ap.parse_args()
     try:
@@ -110,36 +86,7 @@ def main() -> int:
     except HarnessError as e:
         print(json.dumps({"problems": [str(e)], "config": None}))
         return 2
-    if a.after is not None:
-        if a.part not in (["pending"], ["learning"]):
-            print(json.dumps({"problems": ["--after goes with --part pending or learning only"]}))
-            return 2
-        try:
-            if a.part == ["pending"]:
-                page = pending_page(
-                    s["bricks"], value_queue(cfg, s), cfg.limit("decision_items"), a.after
-                )
-            else:
-                page = learning_part(cfg, load_decisions(cfg), overlay_rules(cfg), a.after)
-        except HarnessError as e:
-            print(json.dumps({"problems": [str(e)]}))
-            return 2
-        print(json.dumps({a.part[0]: page}, sort_keys=True, separators=(",", ":")))
-        return 0
-    if a.parts:
-        print(json.dumps({"parts": sorted(s), "checksums": {k: checksum(v) for k, v in s.items()}}))
-        return 0
-    if a.value is not None:
-        if a.value not in s:
-            print(json.dumps({"problems": [f"unknown part {a.value}"], "parts": sorted(s)}))
-            return 2
-        print(json.dumps(s[a.value], sort_keys=True, separators=(",", ":")))
-        return 1 if s["problems"] else 0
-    unknown = [k for k in a.part if k not in s]
-    if unknown:
-        print(json.dumps({"problems": [f"unknown part {k}" for k in unknown], "parts": sorted(s)}))
-        return 2
-    out = {k: s[k] for k in a.part} if a.part else summary(cfg, s)
+    out = summary(cfg, s)
     print(json.dumps(out, sort_keys=True, separators=(",", ":")))
     return 1 if s["problems"] else 0
 

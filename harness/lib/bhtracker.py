@@ -49,6 +49,7 @@ from typing import Any
 import bhcore
 from bhcore import (
     HARNESS_DIR,
+    SUMMARY_CAP,
     Config,
     HarnessError,
     harness_lock,
@@ -469,7 +470,7 @@ def admit(cfg: Config, write: bool = False, tr: Tracker | None = None) -> dict[s
                 }
                 for e in held
                 if e["assignee"] != tr.actor
-            ][: cfg.limit("decision_items")]
+            ][:SUMMARY_CAP]
         ready = (
             tr.ready(limit=cfg.limit("tracker_read"), parent=goal, type="item")
             if room
@@ -495,7 +496,7 @@ def admit(cfg: Config, write: bool = False, tr: Tracker | None = None) -> dict[s
         blocked = {b["id"]: b["blocked_by"] for b in not_met if b["blocked_by"]}
         out["stalled"] = {
             "horizon": horizon,
-            "blocked": dict(list(blocked.items())[: cfg.limit("decision_items")]),
+            "blocked": dict(list(blocked.items())[:SUMMARY_CAP]),
         }
     if not write:
         return out

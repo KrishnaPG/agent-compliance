@@ -480,27 +480,17 @@ def test_project_in_a_subdirectory_of_the_repo(tmp_path):
     assert run["items"]["csv-reader"]["status"] == "met"
 
 
-def test_state_parts_checksums_and_unknown_part(toy):
-    import bhcore
-
-    code, p = cli("bh-state", toy, "--parts")
-    assert code == 0 and "counts" in p["parts"] and set(p["checksums"]) == set(p["parts"])
-    _, part = cli("bh-state", toy, "--part", "bricks")
-    assert bhcore.checksum(part["bricks"]) == p["checksums"]["bricks"]
-    code, bad = cli("bh-state", toy, "--part", "nope")
-    assert code == 2 and "unknown part nope" in bad["problems"][0]
-
-
-def test_state_value_prints_the_bare_value_with_the_parts_checksum(toy):
-    import bhcore
-
-    _, p = cli("bh-state", toy, "--parts")
-    for key in ("counts", "bricks"):
-        _, v = cli("bh-state", toy, "--value", key)
-        assert not (isinstance(v, dict) and set(v) == {key})
-        assert bhcore.checksum(v) == p["checksums"][key]
-    code, bad = cli("bh-state", toy, "--value", "nope")
-    assert code == 2 and "unknown part nope" in bad["problems"][0]
+def test_state_summary_is_small_and_the_file_holds_the_full_state(toy):
+    code, p = cli("bh-state", toy)
+    assert code == 0 and len(json.dumps(p)) < 1500
+    on_disk = json.loads(Path(p["file"]).read_text())
+    assert [b["id"] for b in on_disk["bricks"]] == ["csv-reader", "json-writer", "csv2json"]
+    assert on_disk["head"] == p["head"] and on_disk["counts"]["bricks"] == 3
+    for gone in ("pending", "decision", "checklist"):
+        assert gone not in on_disk
+    for key in ("queue", "oscillating", "learning", "value", "features", "merged"):
+        assert key in on_disk
+    assert on_disk["learning"]["overlay_candidates"] == []
 
 
 def test_init_on_an_empty_dir_never_overwrites(tmp_path):
@@ -581,35 +571,25 @@ def test_merge_takes_refs_from_the_scoreboard_only(toy):
     assert git(toy, "rev-parse", "HEAD") == head
 
 
-def test_decision_part_is_small_and_complete(toy):
-    import bhcore
-
-    code, p = cli("bh-state", toy, "--part", "decision")
-    d = p["decision"]
-    assert len(json.dumps(d, separators=(",", ":"))) < 1500  # copied back by an agent: stays small
-    assert d["ready"] == ["csv-reader", "json-writer"] and d["ready_system"] == []
-    assert set(d["commands"]) == {"csv-reader", "json-writer"}  # only the ready items
-    ids = [x["id"] for x in d["pending"]]
-    assert ids == ["csv-reader", "json-writer", "csv2json"] and d["more"] == 0 and "status" not in d
-    assert {x["id"]: x["status"] for x in d["pending"]}["csv2json"] == "unmeasured"
-    assert d["blocked"] == {} and d["counts"]["status"] == {"unmeasured": 3}
-    assert d["head"] == git(toy, "rev-parse", "HEAD") and d["plan_head"]
-    assert d["conflicts"] == [] and d["stale"] == [] and d["unmerged"] == []
-    assert d["counts"]["ready"] == 2
-    _, parts = cli("bh-state", toy, "--parts")
-    assert bhcore.checksum(d) == parts["checksums"]["decision"]
+def test_state_is_complete_for_the_orchestrator(toy):
+    s = full_state(toy)[1]
+    assert s["ready"] == ["csv-reader", "json-writer"] and s["ready_system"] == []
+    assert set(s["commands"]) >= {"csv-reader", "json-writer"}
+    assert s["queue"] == ["csv-reader", "json-writer", "csv2json"]
+    assert {b["id"]: b["status"] for b in s["bricks"]}["csv2json"] == "unmeasured"
+    assert s["head"] == git(toy, "rev-parse", "HEAD") and s["plan_head"]
+    assert s["unmerged"] == [] and s["oscillating"] == [] and s["problems"] == []
 
 
-def test_decision_carries_unmerged_and_stale(toy):
+def test_state_carries_unmerged_and_branches(toy):
     cli("bh-measure", toy, "--item", "csv-reader")
     sha = build(toy)
     cli("bh-measure", toy, "--item", f"json-writer@{sha}")
-    _, p = cli("bh-state", toy, "--part", "decision")
-    d = p["decision"]
-    assert d["unmerged"] == [{"item": "json-writer", "ref": sha}]
-    assert {x["id"]: x["status"] for x in d["pending"]}["json-writer"] == "met-unmerged"
-    assert "json-writer" not in d["ready"]
-    assert d["branches"] == {"json-writer": sha}
+    s = full_state(toy)[1]
+    assert s["unmerged"] == [{"item": "json-writer", "ref": sha}]
+    assert {b["id"]: b["status"] for b in s["bricks"]}["json-writer"] == "met-unmerged"
+    assert "json-writer" not in s["ready"]
+    assert s["branches"] == {"json-writer": sha}
 
 
 def builder_commit(toy, edit=None, touched=()):
@@ -628,7 +608,7 @@ def test_branch_sets_bh_ref_to_a_builders_commit(toy):
     code, r = cli("bh-branch", toy, "--item", "json-writer", "--ref", sha)
     assert code == 0 and r["ok"] and r["ref"] == sha and r["previous"] is None, r
     assert git(toy, "rev-parse", "refs/heads/bh/json-writer") == sha
-    assert cli("bh-state", toy, "--part", "branches")[1]["branches"] == {"json-writer": sha}
+    assert full_state(toy)[1]["branches"] == {"json-writer": sha}
     # a retry that builds on the previous commit fast-forwards; the same sha is idempotent
     assert cli("bh-branch", toy, "--item", "json-writer", "--ref", sha)[0] == 0
     git(toy, "checkout", "-q", "worktree-run-1")
