@@ -67,7 +67,6 @@
     "python",
     "node"
   ],
-  "checklist": "docs/design-areas.json",
   "na": {
     "api-style": "batch jobs only; no network API"
   },

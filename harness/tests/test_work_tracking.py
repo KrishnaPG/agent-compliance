@@ -13,7 +13,7 @@ import bhcore
 import pytest
 from scale_fixture import make_project
 from test_rank import edit_json
-from test_toy import BIN, ENV, cli, commit_all, copy_toy, git
+from test_toy import BIN, ENV, cli, commit_all, copy_toy, full_state, git
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -116,6 +116,21 @@ def test_decision_size_does_not_grow_with_the_items_met(tmp_path):
     assert sizes[0] == sizes[1]
 
 
+def test_a_thousand_item_state_is_written_to_the_file_intact_and_the_summary_stays_small(tmp_path):
+    """Rule 5: big output never crosses an agent; the CLI prints ids and counts and a path."""
+    cfg = make_project(tmp_path / "p", 1000, ready=500)
+    code, summary = cli("bh-state", cfg.parent.parent, config=cfg)
+    assert code == 0 and len(json.dumps(summary)) < 3000
+    assert summary["counts"] == {"met": 500, "unmeasured": 500}
+    cap = bhcore.Config(cfg).limit("decision_items")
+    assert len(summary["ready"]) == cap and summary["ready_more"] == 500 - cap
+    assert len(summary["unmet"]) == cap and summary["unmet_more"] == 500 - cap
+    on_disk = json.loads(Path(summary["file"]).read_text())
+    assert [b["id"] for b in on_disk["bricks"]] == [f"i{k:04d}" for k in range(1000)]
+    assert on_disk == json.loads(json.dumps(bhcore.state(bhcore.Config(cfg))))  # nothing cut
+    assert not list(Path(summary["file"]).parent.glob(".state.*.tmp"))  # atomic write left none
+
+
 # ---------------------------------------------------------------- M2: stuck from the files
 
 
@@ -204,7 +219,7 @@ def test_a_split_parent_waits_for_its_children_and_is_measured_after_them(toy):
 
     plan_edit(toy, "bricks.json", add)
     plan_edit(toy, "targets.json", lambda d: d["targets"].extend(default_targets("cr-a")))
-    s = cli("bh-state", toy)[1]
+    s = full_state(toy)[1]
     by = {b["id"]: b for b in s["bricks"]}
     assert by["csv-reader"]["depends_on"] == ["cr-a"]  # structure: the parent depends on its child
     assert not by["csv-reader"]["ready"] and by["cr-a"]["ready"]
@@ -218,7 +233,7 @@ def test_a_split_parent_waits_for_its_children_and_is_measured_after_them(toy):
 def test_a_split_from_an_unknown_item_is_a_blocking_gap(toy):
     plan_edit(toy, "bricks.json", lambda d: d["bricks"].append(change("x", split_from="nope")))
     plan_edit(toy, "targets.json", lambda d: d["targets"].extend(default_targets("x")))
-    s = cli("bh-state", toy)[1]
+    s = full_state(toy)[1]
     g = [g for g in s["gaps"] if "split from unknown nope" in g["summary"]]
     assert g and g[0]["blocks"] == ["x"] and g[0]["kind"] == "missing-dependency"
     assert {b["id"]: b["status"] for b in s["bricks"]}["x"] == "blocked"
@@ -227,30 +242,22 @@ def test_a_split_from_an_unknown_item_is_a_blocking_gap(toy):
 # ---------------------------------------------------------------- M4: roll-up and facts
 
 
-def test_gaps_report_carries_the_rollup_and_structure_facts_and_changes_no_status(toy):
+def test_gaps_report_carries_the_shared_path_fact_and_changes_no_status(toy):
 
     def add(d):
         d["bricks"].append(change("cr-a", path="src/csv_reader.py", split_from="csv-reader"))
 
     plan_edit(toy, "bricks.json", add)
     plan_edit(toy, "targets.json", lambda d: d["targets"].extend(default_targets("cr-a")))
-    before = {b["id"]: b["status"] for b in cli("bh-state", toy)[1]["bricks"]}
+    before = {b["id"]: b["status"] for b in full_state(toy)[1]["bricks"]}
     out = run("bh-gaps", toy)[1]
-    assert out["rollup"]["F1"] == {"met": 0, "total": 4}
-    kinds = {f["kind"] for f in out["facts"]}
-    assert kinds >= {
-        "split-parent-without-child-dependency",
-        "shared-path",
-        "never-scored",
-    }
-    sp = [f for f in out["facts"] if f["kind"] == "split-parent-without-child-dependency"][0]
-    assert sp["item"] == "csv-reader" and sp["children"] == ["cr-a"]
+    assert "rollup" not in out
     sh = [f for f in out["facts"] if f["kind"] == "shared-path"][0]
     assert sh["path"] == "src/csv_reader.py" and sh["items"] == ["cr-a", "csv-reader"]
-    assert {b["id"]: b["status"] for b in cli("bh-state", toy)[1]["bricks"]} == before
+    assert {b["id"]: b["status"] for b in full_state(toy)[1]["bricks"]} == before
     run("bh-gaps", toy, "--write")
     md = (toy / ".brick-harness" / "gaps.md").read_text()
-    assert "## Facts" in md and "## Features in the horizon" in md
+    assert "## Facts" in md and "## Features in the horizon" not in md
 
 
 # ---------------------------------------------------------------- workflows read capped data

@@ -1,6 +1,8 @@
 """Measurer unit tests: every failure mode fails closed and records raw numbers."""
 
 import json
+import os
+import subprocess
 import sys
 from pathlib import Path
 
@@ -31,7 +33,29 @@ def project(
         "ecosystems": ["python"],
     }
     (tmp_path / "c.json").write_text(json.dumps(cfg))
+    commit(tmp_path)
     return bhcore.Config(tmp_path / "c.json")
+
+
+GIT_ENV = dict(
+    os.environ,
+    GIT_AUTHOR_NAME="t",
+    GIT_AUTHOR_EMAIL="t@example.invalid",
+    GIT_COMMITTER_NAME="t",
+    GIT_COMMITTER_EMAIL="t@example.invalid",
+)
+
+
+def commit(path: Path) -> None:
+    """Measuring is at a commit (HEAD): the project's files are committed before each call."""
+    for args in (
+        ["init", "-q", "-b", "main"],
+        ["add", "-A", "--", "."],
+        ["commit", "-qm", "p", "--allow-empty"],
+    ):
+        subprocess.run(
+            ["git", "-C", str(path), *args], check=True, capture_output=True, env=GIT_ENV
+        )
 
 
 def write(text: str) -> str:
@@ -46,11 +70,11 @@ T_OK = [
 
 
 def run(cfg):
-    """In-place measuring: a pass is met-uncommitted, never met (it satisfies nothing)."""
-    return bhcore.measure(cfg, [("a", "HEAD")], in_place=True)["items"]["a"]
+    """Measure item a at HEAD."""
+    return bhcore.measure(cfg, [("a", "HEAD")])["items"]["a"]
 
 
-MET = "met-uncommitted"
+MET = "met"
 
 
 def test_met_when_numbers_meet_targets(tmp_path):
@@ -141,35 +165,28 @@ def test_bench_target_without_bench_command_unmet(tmp_path):
     assert "bench targets but no bench command" in r["errors"]
 
 
-def test_scoreboard_written_with_digest_and_tamper_detected(tmp_path):
+def test_scoreboard_written_and_an_unreadable_board_is_never_overwritten(tmp_path):
     cfg = project(tmp_path, write(JUNIT_OK), T_OK)
     run(cfg)
     sb = tmp_path / "sb.json"
     board, problem = bhcore.read_board(sb)
-    assert problem is None and board["candidates"]["a"]["status"] == MET
-    assert "| a | candidate | met-uncommitted |" in (tmp_path / "sb.md").read_text()
-    doc = json.loads(sb.read_text())
-    doc["candidates"]["a"]["status"] = "met"
-    doc["candidates"]["a"]["errors"] = ["edited"]
-    sb.write_text(json.dumps(doc))
+    assert problem is None and board["items"]["a"]["status"] == MET
+    sb.write_text("{not json")
     board, problem = bhcore.read_board(sb)
-    assert board["candidates"] == {} and "digest mismatch" in problem
-    st = bhcore.state(cfg)
-    assert st["bricks"][0]["status"] == "unmeasured"
-    # an edited board is never overwritten: the run is still printed, with the error
-    before = sb.read_text()
-    with pytest.raises(bhcore.HarnessError, match="digest mismatch"):
-        bhcore.measure(cfg, [("a", "HEAD")], in_place=True)
-    with pytest.raises(bhcore.HarnessError, match="digest mismatch"):
+    assert board["items"] == {} and "unreadable" in problem
+    assert bhcore.state(cfg)["bricks"][0]["status"] == "unmeasured"
+    with pytest.raises(bhcore.HarnessError, match="unreadable"):
+        bhcore.measure(cfg, [("a", "HEAD")])
+    with pytest.raises(bhcore.HarnessError, match="unreadable"):
         bhcore.write_scoreboard(cfg, {"a": {"status": "met"}})
-    assert sb.read_text() == before
+    assert sb.read_text() == "{not json"
 
 
 def test_changed_targets_make_item_stale(tmp_path):
     cfg = project(tmp_path, write(JUNIT_OK), T_OK)
     run(cfg)
     st = bhcore.state(cfg)
-    assert st["bricks"][0]["status"] == MET and st["all_met"] is False
+    assert st["bricks"][0]["status"] == MET and st["all_met"] is True
     (tmp_path / "targets.json").write_text(json.dumps({"targets": T_OK[:1]}))
     assert bhcore.state(cfg)["bricks"][0]["status"] == "stale"
 
@@ -184,11 +201,11 @@ def test_changed_commands_make_item_stale(tmp_path):
 def test_cli_exit_codes(tmp_path, capsys, load_bin):
     m = load_bin("bh-measure")
     project(tmp_path, write(JUNIT_OK), T_OK)
-    sys.argv = ["bh-measure", "--config", str(tmp_path / "c.json"), "--in-place"]
-    assert m.main() == 1  # in place never satisfies a target
+    sys.argv = ["bh-measure", "--config", str(tmp_path / "c.json")]
+    assert m.main() == 0
     run_ = json.loads(capsys.readouterr().out)
-    assert run_["ok"] is False and run_["items"]["a"]["status"] == MET
-    sys.argv = ["bh-measure", "--config", str(tmp_path / "c.json"), "--in-place", "--item", "nope"]
+    assert run_["ok"] is True and run_["items"]["a"]["status"] == MET
+    sys.argv = ["bh-measure", "--config", str(tmp_path / "c.json"), "--item", "nope"]
     assert m.main() == 2
 
 
@@ -314,8 +331,6 @@ R_UNMET = {"status": "unmet", "ref": "b" * 40, "measured_at": "2026-01-01T00:00:
     [
         (None, {}, None),
         (R_MET, {"digest_ok": False}, "stale"),
-        ({**R_MET, "ref": "working-tree"}, {}, "met-uncommitted"),
-        ({**R_MET, "ref": "working-tree", "status": "met-uncommitted"}, {}, "met-uncommitted"),
         (R_MET, {"resolvable": False}, "stale"),
         ({**R_MET, "status": "conflict"}, {}, "conflict"),
         (R_UNMET, {}, "unmet"),
@@ -338,14 +353,3 @@ def test_newer_record_decides_when_current_is_not_met():
     newer_cur = {**R_UNMET, "measured_at": "2026-01-01T00:00:09"}
     assert bhcore.pick_status((newer_cur, "unmet"), (R_MET, "met"))[0] == "unmet"
     assert bhcore.pick_status((None, None), (None, None)) == ("unmeasured", None)
-
-
-def test_in_place_never_satisfies_a_dependency(tmp_path):
-    cfg = project(tmp_path, write(JUNIT_OK), T_OK)
-    b = json.loads((tmp_path / "bricks.json").read_text())
-    b["bricks"].append({"id": "z", "job": "y", "depends_on": ["a"]})
-    (tmp_path / "bricks.json").write_text(json.dumps(b))
-    run(cfg)
-    st = bhcore.state(cfg)
-    assert {x["id"]: x["ready"] for x in st["bricks"]}["z"] is False
-    assert st["all_met"] is False

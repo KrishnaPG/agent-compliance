@@ -648,30 +648,6 @@ def test_the_gaps_report_lists_tracker_mismatches_as_facts_and_changes_no_status
 # ---------------------------------------------------------------- M11, M12: INVEST, flow, split
 
 
-def test_gaps_report_carries_invest_and_flow_facts_and_changes_no_status(toy):
-    plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(est_loc=300))
-    _, rep = cli("bh-gaps", toy)
-    inv = {f["item"]: f for f in rep["facts"] if f["kind"] == "invest"}
-    first = json.loads((toy / ".brick-harness/bricks.json").read_text())["bricks"][0]["id"]
-    assert (
-        inv[first]["estimable"] is True and inv[first]["independent"] and "testable" in inv[first]
-    )
-    flow = [f for f in rep["facts"] if f["kind"] == "flow"][0]
-    assert flow["wip"] == 3 and flow["horizon"] == 20 and flow["throughput"] == 0
-
-
-def test_a_dependency_cycle_is_not_independent(toy):
-    def cyc(d):
-        d["bricks"][0]["depends_on"] = [d["bricks"][1]["id"]]
-        d["bricks"][1]["depends_on"] = [d["bricks"][0]["id"]]
-
-    plan_edit(toy, "bricks.json", cyc)
-    _, rep = cli("bh-gaps", toy)
-    inv = {f["item"]: f for f in rep["facts"] if f["kind"] == "invest"}
-    ids = json.loads((toy / ".brick-harness/bricks.json").read_text())["bricks"]
-    assert inv[ids[0]["id"]]["independent"] is False and inv[ids[2]["id"]]["independent"] is True
-
-
 def split_plan(d):
     d["bricks"] += [
         change("parent-x", features=["F1"]),
@@ -691,15 +667,6 @@ def with_split(toy):
     )
 
 
-def test_split_children_name_a_kind_and_a_child_without_one_is_a_fact(toy):
-    plan_edit(toy, "bricks.json", split_plan)
-    _, rep = cli("bh-gaps", toy)
-    assert {"kind": "split-without-kind", "item": "kid-b", "parent": "parent-x"} in rep["facts"]
-    assert not any(
-        f.get("item") == "kid-a" and f["kind"] == "split-without-kind" for f in rep["facts"]
-    )
-
-
 def test_only_leaves_run_a_split_parent_is_measured_never_built(toy):
     with_split(toy)
     _, st = cli("bh-state", toy, "--part", "decision")
@@ -711,21 +678,6 @@ def test_only_leaves_run_a_split_parent_is_measured_never_built(toy):
     assert parent["split_parent"] is True and parent["ready"] is False  # waits for its children
     for k in ("kid-a", "kid-b"):
         assert next(b for b in full["bricks"] if b["id"] == k)["split_parent"] is False
-
-
-def test_a_parent_unmet_after_its_children_are_met_is_a_fact(toy):
-    sp = bhcore.split_facts(
-        [{"id": "p"}, {"id": "k", "split_from": "p", "split_kind": "path"}],
-        {"p": "unmet", "k": "met"},
-    )
-    assert sp == [{"kind": "parent-unmet-after-children", "item": "p", "children": ["k"]}]
-    assert (
-        bhcore.split_facts(
-            [{"id": "p"}, {"id": "k", "split_from": "p", "split_kind": "path"}],
-            {"p": "met", "k": "met"},
-        )
-        == []
-    )
 
 
 def test_new_fields_are_optional_so_the_toy_stays_valid(toy):

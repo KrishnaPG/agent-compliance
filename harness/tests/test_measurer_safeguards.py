@@ -250,8 +250,6 @@ def test_same_tree_passing_and_failing_is_recorded_as_flaky_without_changing_sta
     assert code == 1 and second["status"] == "unmet"  # the status is the measurement's alone
     assert [x["status"] for x in second["flaky"]["runs"]] == ["met", "unmet"]
     assert second["flaky"]["runs"][1]["errors"]
-    md = (toy / ".brick-harness" / "scoreboard.md").read_text()
-    assert "FLAKY" in md
 
 
 def test_different_trees_with_different_results_are_not_flaky(toy):
@@ -290,9 +288,9 @@ def bench_toy(toy, runs):
 
 def test_bench_runs_repeat_and_the_median_is_the_value(toy):
     bench_toy(toy, 3)
-    code, run = cli("bh-measure", toy, "--item", "csv-reader", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv-reader")
     r = run["items"]["csv-reader"]
-    assert r["status"] == "met-uncommitted" and r["metrics"]["bench.rows_per_s"] == 40, (
+    assert r["status"] == "met" and r["metrics"]["bench.rows_per_s"] == 40, (
         r
     )  # median of 10, 100, 40
     assert [x["name"] for x in r["runs"]].count("bench") == 3
@@ -303,7 +301,7 @@ def test_bench_runs_repeat_and_the_median_is_the_value(toy):
 
 def test_a_single_bench_run_records_no_noise(toy):
     bench_toy(toy, None)
-    code, run = cli("bh-measure", toy, "--item", "csv-reader", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv-reader")
     r = run["items"]["csv-reader"]
     assert [x["name"] for x in r["runs"]].count("bench") == 1 and "noise" not in r
     assert r["metrics"]["bench.rows_per_s"] == 10
@@ -352,27 +350,28 @@ def with_environment(toy, env):
         cfg["commands"]["test"]["environment"] = env
     cfgp.write_text(json.dumps(cfg))
     (toy / "src" / "json_writer.py").write_text(JSON_WRITER)
+    commit_all(toy, "json writer")
     return marker
 
 
 def test_system_item_runs_in_its_named_environment_and_records_it(toy):
     marker = with_environment(toy, "staging")
-    code, run = cli("bh-measure", toy, "--item", "csv2json", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv2json")
     r = run["items"]["csv2json"]
-    assert r["status"] == "met-uncommitted", r["errors"]
+    assert r["status"] == "met", r["errors"]
     assert r["environment"] == "staging" and marker.read_text() == "staged\n"
-    code, run = cli("bh-measure", toy, "--item", "json-writer", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "json-writer")
     assert "environment" not in run["items"]["json-writer"]  # a plain brick records none
 
 
 def test_system_item_without_an_environment_records_local(toy):
     with_environment(toy, None)
-    code, run = cli("bh-measure", toy, "--item", "csv2json", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv2json")
     assert run["items"]["csv2json"]["environment"] == "local"
 
 
 def test_an_undefined_environment_cannot_run_and_says_so(toy):
     with_environment(toy, "nowhere")
-    code, run = cli("bh-measure", toy, "--item", "csv2json", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv2json")
     r = run["items"]["csv2json"]
     assert code == 1 and any("'nowhere' is not defined" in e for e in r["errors"])

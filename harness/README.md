@@ -6,7 +6,8 @@ decides architecture and standards in the project's own documents; the harness r
 - **A. Report spec gaps, never decide them.** Features without acceptance checks or numeric
   targets, targets without a cited source line or a measuring command, items without a
   contract, duplicate items, contradictions, dangling references, untracked open items,
-  helper jobs with no library, and design areas no document settles. Output:
+  helper jobs with no library, and design areas no document settles (the gaps agent reads the
+  documents and cites file:line; the CLI verifies the citations). Output:
   `.brick-harness/gaps.json` and `gaps.md`, each gap with file:line evidence, tagged
   `owner-decides` or `fixable`.
 - **B. Execute the project's own build order.** Each builder works in its own git worktree
@@ -54,7 +55,7 @@ agent runs each tool and returns its JSON.
   measuring, the plan commit's (HEAD's) plan and `protected` paths and the held-out ref
   `refs/brick-harness/holdout` are laid over the ref's checkout (a guarded file the ref added
   is deleted), so edits there have no effect; they are listed under the item as
-  `ignored_edits`. Facts recorded on each result and in `scoreboard.md`, never changing a
+  `ignored_edits`. Facts recorded on each result in `scoreboard.json`, never changing a
   status: `scope` (paths outside the item's `path`/`paths`; public Python names the
   contract's optional `exports` list lacks), `dependencies` (lockfile packages added or
   changed since the ref's fork, not named in `standards.stack`, or with a new major
@@ -66,8 +67,8 @@ agent runs each tool and returns its JSON.
   `environments.<name>.run`, `{cmd}` being the quoted command, when `commands.test.environment`
   names it; else `local`). `notes` say when a ref lacks the plan commit. Each result is
   written as it lands: at HEAD it is *current*; at any other ref it is a *candidate*, which
-  never replaces a met current result. A scoreboard that fails its digest is never
-  overwritten. `--in-place` results are `met-uncommitted` at best and satisfy nothing.
+  never replaces a met current result. An unreadable scoreboard is never
+  overwritten.
 - `bh-merge`: merges every met candidate not yet in HEAD, in build order, with
   `git merge --no-ff`. A catalogue-only conflict is resolved by a schema-checked JSON union;
   any other conflict is aborted and recorded, so the item is rebuilt with "conflicts with
@@ -77,7 +78,12 @@ agent runs each tool and returns its JSON.
   branches, so they return their commit and this sets `bh/<ID>` to it from the main checkout:
   the commit must exist and be new; created or fast-forwarded, otherwise refused. What it
   holds under plan or protected paths is not judged here.
-- `bh-state [--parts | --part KEY | --value KEY | --affected REF]`: the whole state, derived from files.
+- `bh-state [--affected REF]`: the whole state, derived from files, written atomically to
+  `<measure_out>/state.json` (git-ignored); the CLI prints a small summary (`file`, `head`,
+  `plan_head`, `all_met`, `counts` per status, `ready`, `ready_system`, `unmet`, each id list
+  capped at `limits.decision_items` with a `*_more` count, `gaps`, `problems`) and agents read
+  the file themselves. Until the workflows read the file, `--part KEY`, `--parts`, `--value KEY`
+  and `--part pending --after ID` remain their read path (checksums per part, below).
   Item status is `met` only when the result's ref is in HEAD and the item's paths (with its
   dependencies' and the protected paths) are unchanged since; otherwise `stale`,
   `met-unmerged`, `conflict`, `unmet`, `unmeasured`, or `blocked` (with the gap ids that
@@ -128,8 +134,7 @@ Work hierarchy (decision `docs/decisions/0001-work-tracking.md`): goal, feature,
 items are measured. Item `kind` is `brick`, `system` or `change`; `refs` names tracker refs
 an item resolves; `split_from` marks a child of a split, and the parent depends on each child
 (added when read) so it is measured after them. The gaps report carries, derived when read,
-`rollup` (items met/total per feature that has an item not met) and `facts` (split parent
-without a child dependency, shared path, never scored). `bh-gaps --source cycle` lists every
+`facts` (shared path; the per-feature met/total is the state's `features` part). `bh-gaps --source cycle` lists every
 item not met as stuck (the run passes only what it attempted; an oscillating target is named),
 capped in its printed report with `stuck_more`; the full list is in `gaps.json`.
 
@@ -150,9 +155,9 @@ twice. Measure, build and merge never call the tracker.
 each first, in `value_queue` order for entries that are items already and the tracker's order
 for the rest. `bh-reconcile [--write]` is the only caller of close and reopen: after the
 scoreboard commit, an open entry of an item measured met at HEAD is closed (acting as its
-claim holder) and a closed entry of an item not met is reopened; it never deletes. The gaps report adds facts: tracker mismatches, INVEST booleans and
-flow (WIP, throughput, cycle time) per item, `split-without-kind` (`split_kind`), and
-`parent-unmet-after-children`; a split parent is measured but never built.
+claim holder) and a closed entry of an item not met is reopened; it never deletes. The gaps report adds facts: tracker mismatches; the plan agent judges
+INVEST and size against `config.sizing` (no heuristic code); a split parent is measured but
+never built.
 Claim leases of Beads (`lease_expires_at`) are Beads' own; the harness never reclaims.
 
 Value order (SG-17): `.brick-harness/features.json` holds the owner's slice and value per
@@ -202,7 +207,7 @@ report counts questions opened, answered and re-asked per cycle.
 .brick-harness/
   config.json  .gitignore (out/)
   targets.json  bricks.json  contracts/  catalogue.json   # plan, committed
-  scoreboard.json  scoreboard.md                          # measurer only, committed
+  scoreboard.json                                        # measurer only, committed
   gaps.json  gaps.md                                      # bh-gaps and bh-rank, committed
   out/  (history.json: per measurement, each target met or not)  # raw output, ignored
 ```
@@ -222,7 +227,7 @@ it. Config (`schema/harness.config.schema.json`):
   (acceptance tests, bench, runner scripts).
 - `environments`: name -> `{run}` template for `commands.test.environment`; `standards.stack`:
   the stack record (package names, optionally `==version`).
-- `checklist` (file or inline list of areas; default: a tiny generic one), `catalogue_jobs`
+- `catalogue_jobs`
   (default `["testing"]`) and `na` (area or job id -> why it does not apply). Rule content
   belongs to the project, not to the plugin.
 - `standards.decisions`: paths of recorded decisions, settled inputs for the gaps and plan

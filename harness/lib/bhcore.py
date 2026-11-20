@@ -865,17 +865,14 @@ def set_branch(cfg: Config, item: str, sha: str) -> dict[str, Any]:
     return {"ok": True, "item": item, "branch": f"bh/{item}", "ref": full, "previous": old or None}
 
 
-def measure(
-    cfg: Config, items: list[tuple[str, str]], in_place: bool = False, slot: int = 0
-) -> dict[str, Any]:
+def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[str, Any]:
     """Measure ``(item, ref)`` pairs; record each result in the scoreboard as it lands.
 
     Config, items and targets are read from the invoking checkout, never from the measured
     ref. A ref is measured on its checkout with the plan commit's plan and protected paths and
     the held-out cases laid over it (``overlay_plan``); its edits there have no effect and
     are listed as ``ignored_edits``. A result at HEAD is current; any other ref is a candidate,
-    which never replaces a met current result. ``in_place`` results are ``met-uncommitted``
-    at best and never satisfy a target.
+    which never replaces a met current result.
     """
     import bhrules
 
@@ -903,57 +900,46 @@ def measure(
         except HarnessError as e:
             errors.append(f"{item}: not recorded: {e}")
 
-    if in_place:
-        for item, _ in items:
-            r = measure_item(
-                cfg, bricks[item], targets, cfg.dir, cfg.dir, out_root / item, slot, "working-tree"
-            )
-            if r["status"] == "met":
-                r["status"] = "met-uncommitted"
-            record(item, r, current=False)
-    else:
-        top = git_top(cfg.dir)
-        if top is None:
-            raise HarnessError("not a git repository; use --in-place")
-        _git(top, "worktree", "prune")
-        head = _git(top, "rev-parse", "HEAD")
-        root_rel = _under(cfg.dir, top)
-        by_ref: dict[str, list[str]] = {}
-        for item, ref in items:
-            by_ref.setdefault(_git(top, "rev-parse", "--verify", ref + "^{commit}"), []).append(
-                item
-            )
-        for sha, its in by_ref.items():
-            facts = ref_facts(cfg, top, sha) | _dependency_facts(cfg, top, sha)
-            try:
-                chg = [
-                    c.removeprefix(root_rel + "/")
-                    for c in changed_paths(top, sha)
-                    if root_rel == "." or c.startswith(root_rel + "/")
-                ]
-            except HarnessError:
-                chg = []
-            sup = bhrules.suppressions(cfg, top, sha)
-            if sup:
-                facts["suppressions"] = sup
-            with clean_checkout(top, sha) as co:
-                overlay_plan(cfg, top, co, head)
-                for item in its:
-                    b = bricks[item]
-                    r = measure_item(
-                        cfg,
-                        b,
-                        targets,
-                        co,
-                        co / root_rel,
-                        out_root / item,
-                        slot,
-                        sha,
-                        facts | _scope_facts(cfg, top, co, b, sha),
-                        chg,
-                    )
-                    key = tree_key(cfg, top, bricks, item, sha, head, r["targets_digest"])
-                    record(item, r, current=sha == head, tree=key)
+    top = git_top(cfg.dir)
+    if top is None:
+        raise HarnessError("not a git repository")
+    _git(top, "worktree", "prune")
+    head = _git(top, "rev-parse", "HEAD")
+    root_rel = _under(cfg.dir, top)
+    by_ref: dict[str, list[str]] = {}
+    for item, ref in items:
+        by_ref.setdefault(_git(top, "rev-parse", "--verify", ref + "^{commit}"), []).append(item)
+    for sha, its in by_ref.items():
+        facts = ref_facts(cfg, top, sha) | _dependency_facts(cfg, top, sha)
+        try:
+            chg = [
+                c.removeprefix(root_rel + "/")
+                for c in changed_paths(top, sha)
+                if root_rel == "." or c.startswith(root_rel + "/")
+            ]
+        except HarnessError:
+            chg = []
+        sup = bhrules.suppressions(cfg, top, sha)
+        if sup:
+            facts["suppressions"] = sup
+        with clean_checkout(top, sha) as co:
+            overlay_plan(cfg, top, co, head)
+            for item in its:
+                b = bricks[item]
+                r = measure_item(
+                    cfg,
+                    b,
+                    targets,
+                    co,
+                    co / root_rel,
+                    out_root / item,
+                    slot,
+                    sha,
+                    facts | _scope_facts(cfg, top, co, b, sha),
+                    chg,
+                )
+                key = tree_key(cfg, top, bricks, item, sha, head, r["targets_digest"])
+                record(item, r, current=sha == head, tree=key)
     run: dict[str, Any] = {
         "ok": not errors and all(r["status"] == "met" for r in results.values()),
         "scoreboard": str(cfg.file("scoreboard")),
@@ -1166,17 +1152,6 @@ def out_ignored(cfg: Config, top: Path) -> bool:
     return subprocess.run(cmd, capture_output=True).returncode == 0
 
 
-def ensure_out_ignored(cfg: Config, top: Path) -> None:
-    """Write .brick-harness/.gitignore with out/ when the default measure_out is not ignored."""
-    out = cfg.file("measure_out")
-    if out_ignored(cfg, top) or out != cfg.dir / HDIR / "out":
-        return
-    gi = cfg.dir / HDIR / ".gitignore"
-    gi.parent.mkdir(parents=True, exist_ok=True)
-    old = gi.read_text() if gi.exists() else ""
-    gi.write_text(old + ("" if not old or old.endswith("\n") else "\n") + "out/\n")
-
-
 def _plan_paths(cfg: Config, top: Path, scoreboard: bool = True) -> list[str]:
     """Harness-owned files that exist under the repo: config, plan, scoreboard, gaps report."""
     keys = [k for k in HARNESS_KEYS if scoreboard or not k.startswith("scoreboard")]
@@ -1212,7 +1187,6 @@ def commit_harness(cfg: Config, message: str, dry_run: bool = False) -> dict[str
             raise HarnessError(
                 f"targets dropped or changed vs HEAD (the owner commits that): {moved}"
             )
-        ensure_out_ignored(cfg, top)
         paths = _not_ignored(top, _plan_paths(cfg, top))
         if paths:
             _git(top, "add", "-A", "--", *paths)
@@ -1246,13 +1220,6 @@ def _not_ignored(top: Path, paths: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------- scoreboard
-
-
-def _board_digest(board: dict[str, Any]) -> str:
-    d = {"items": board["items"], "candidates": board["candidates"]}
-    if board.get("trees"):
-        d["trees"] = board["trees"]
-    return digest(d)
 
 
 TREE_RUNS, TREE_KEYS = 6, 300  # limits: runs kept per tree key, tree keys kept on the board
@@ -1291,8 +1258,8 @@ def write_scoreboard(
     """Merge results into the scoreboard: ``current`` (measured at HEAD) or candidates.
     ``trees`` (item -> tree key) feeds the flaky-result fact.
 
-    Refuses (HarnessError) when the scoreboard on disk fails its digest: an edited board is
-    never overwritten, so the edit stays visible.
+    Refuses (HarnessError) when the scoreboard on disk cannot be read: it is never
+    overwritten (git history protects the committed board).
     """
     path = cfg.file("scoreboard")
     assert path is not None
@@ -1304,18 +1271,15 @@ def write_scoreboard(
         if trees:
             _note_trees(board, results, trees)
         board["items" if current else "candidates"].update(results)
-        doc = {"writer": "brick-harness measure", **board, "digest": _board_digest(board)}
+        doc = {"writer": "brick-harness measure", **board}
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
         tmp.replace(path)
-        md = cfg.file("scoreboard_md")
-        if md:
-            md.write_text(render_md(board))
         record_history(cfg, results, current)
 
 
 def read_board(path: Path) -> tuple[dict[str, Any], str | None]:
-    """Return ({items, candidates}, problem). A board whose digest fails was edited by hand."""
+    """Return ({items, candidates}, problem)."""
     empty: dict[str, Any] = {"items": {}, "candidates": {}, "trees": {}}
     if not path.exists():
         return empty, None
@@ -1332,72 +1296,7 @@ def read_board(path: Path) -> tuple[dict[str, Any], str | None]:
         "candidates": doc.get("candidates", {}),
         "trees": doc.get("trees", {}),
     }
-    legacy = "candidates" not in doc and doc.get("digest") == digest(board["items"])
-    if doc.get("digest") != _board_digest(board) and not legacy:
-        return (
-            empty,
-            "scoreboard digest mismatch: edited outside the measurer; all items treated as unmeasured",
-        )
     return board, None
-
-
-def read_scoreboard(path: Path) -> tuple[dict[str, Any], str | None]:
-    """Current (HEAD) results only, with the board's problem."""
-    board, bad = read_board(path)
-    return board["items"], bad
-
-
-def _fact_lines(r: dict[str, Any]) -> list[str]:
-    """One short line per fact a result carries (never part of its status)."""
-    out = []
-    if r.get("ignored_edits"):
-        out.append(f"ignored-edits {len(r['ignored_edits'])}: {', '.join(r['ignored_edits'][:5])}")
-    if r.get("flaky"):
-        out.append(f"FLAKY: same tree {len(r['flaky']['runs'])} runs, passed and failed")
-    for m, n in sorted(r.get("noise", {}).items()):
-        if n["within_noise"]:
-            out.append(f"within-noise {m} [{n['min']:.4g}..{n['max']:.4g}]")
-    sc = r.get("scope", {})
-    if sc.get("outside_paths"):
-        out.append(f"outside-paths {len(sc['outside_paths'])}")
-    if sc.get("unlisted_names"):
-        out.append(f"unlisted-names {', '.join(sc['unlisted_names'][:5])}")
-    d = r.get("dependencies", {})
-    if d:
-        out.append(
-            f"deps +{len(d['added'])} ~{len(d['changed'])}"
-            + (f" not-in-stack {', '.join(d['not_in_stack'])}" if d.get("not_in_stack") else "")
-            + (f" second-major {', '.join(d['second_major'])}" if d.get("second_major") else "")
-        )
-    if r.get("suppressions"):
-        out.append(
-            f"suppressions {len(r['suppressions'])}: "
-            + ", ".join(f"{x['file']}:{x['line']}" for x in r["suppressions"][:5])
-        )
-    if r.get("rules", {}).get("skipped"):
-        out.append("rules-skipped " + ", ".join(x["rule"] for x in r["rules"]["skipped"][:5]))
-    if r.get("environment"):
-        out.append(f"env {r['environment']}")
-    out += r.get("notes", [])
-    return [x.replace("|", "/") for x in out]
-
-
-def render_md(board: dict[str, Any]) -> str:
-    rows = ["| item | result | status | ref | unmet | facts |", "|---|---|---|---|---|---|"]
-    for kind in ("items", "candidates"):
-        for item, r in sorted(board[kind].items()):
-            bad = [
-                f"{c['metric']} {c['actual']} (want {c['op']} {c['value']})"
-                for c in r.get("targets", [])
-                if not c["met"]
-            ]
-            bad += r.get("errors", [])
-            label = "current" if kind == "items" else "candidate"
-            rows.append(
-                f"| {item} | {label} | {r['status']} | {str(r['ref'])[:10]} | {'; '.join(bad)} "
-                f"| {'; '.join(_fact_lines(r))} |"
-            )
-    return "# Scoreboard\n\nWritten by the measurer only.\n\n" + "\n".join(rows) + "\n"
 
 
 # ---------------------------------------------------------------- merging (bh-merge)
@@ -1663,8 +1562,6 @@ def record_status(
         return None
     if not digest_ok:
         return "stale"
-    if r.get("ref") == "working-tree":
-        return "met-uncommitted" if r["status"] in ("met", "met-uncommitted") else "unmet"
     if not resolvable:
         return "stale"
     if r["status"] == "conflict":
@@ -1742,7 +1639,7 @@ def state(cfg: Config) -> dict[str, Any]:
     if top is not None and not out_ignored(cfg, top):
         problems.append(
             f"measure_out {cfg.paths['measure_out']} is not git-ignored: add it to .gitignore "
-            f"(bh-commit writes {HDIR}/.gitignore with out/ for the default location)"
+            f"(bh-init writes {HDIR}/.gitignore with out/ for the default location)"
         )
     bricks, targets, catalogue = _load_plan(cfg, problems)
     board, bad = read_board(cfg.file("scoreboard"))  # type: ignore[arg-type]
@@ -1861,7 +1758,7 @@ def state(cfg: Config) -> dict[str, Any]:
             ],
             "versions": {e["library"]: versions.get(norm(e["library"])) for e in catalogue},
         },
-        "checklist": checklist_mentions(cfg),
+        "checklist": [],  # the gaps agent reads the documents; the key stays for the workflows (wave 1b)
         "overlay": overlay_path(cfg),
         "gaps": gaps,
     }
@@ -2052,7 +1949,7 @@ def _facts(
     if r is None:
         return None
     ok = r.get("targets_digest") == dg
-    if not ok or r.get("ref") == "working-tree" or top is None:
+    if not ok or top is None:
         return record_status(r, ok, resolvable=top is not None)
     sha = str(r.get("ref", ""))
     res = bool(re.fullmatch(r"[0-9a-f]{40}", sha)) and _git_ok(
@@ -2134,10 +2031,6 @@ def _missing_jobs(
     jobs = [j for j in cfg.data.get("catalogue_jobs", DEFAULT_JOBS) if j not in cfg.na]
     covered = {(e["job"].split(":", 1)[0], e["ecosystem"]) for e in catalogue}  # formats:csv
     return {eco: [j for j in jobs if (j, eco) not in covered] for eco in ecos}
-
-
-def _in_head(top: Path, ref: str) -> bool:
-    return _git_ok(top, "merge-base", "--is-ancestor", ref, "HEAD")
 
 
 def _uncommitted(cfg: Config, top: Path | None, scoreboard: bool = False) -> list[str]:
@@ -2348,77 +2241,6 @@ def _gap(
             True  # the check found no line to cite; it says so instead of inventing one
         )
     return g
-
-
-def load_checklist(cfg: Config | None = None) -> list[dict[str, Any]]:
-    """Design areas: the config's ``checklist`` (inline list or a JSON file under the root),
-    else the plugin's tiny generic default."""
-    spec = cfg.data.get("checklist") if cfg else None
-    if isinstance(spec, list):
-        return spec
-    path = (
-        (cfg.dir / spec)
-        if (cfg and isinstance(spec, str))
-        else SCHEMA_DIR / "design-checklist.json"
-    )
-    doc = load_json(path)
-    areas = doc["areas"] if isinstance(doc, dict) else doc
-    return areas  # type: ignore[no-any-return]
-
-
-def _config_value(data: dict[str, Any], dotted: str) -> Any:
-    cur: Any = data
-    for part in dotted.split("."):
-        if not isinstance(cur, dict) or part not in cur:
-            return None
-        cur = cur[part]
-    return cur
-
-
-def _settled_value(v: Any) -> bool:
-    """A configured value that settles an area: present, not pending, not a <placeholder>."""
-    if isinstance(v, dict):
-        return not v.get("pending") and _settled_value(v.get("run", "x"))
-    if isinstance(v, str):
-        return bool(v.strip()) and not v.startswith("<")
-    return v is not None
-
-
-def checklist_mentions(cfg: Config) -> list[dict[str, Any]]:
-    """Where each design area is mentioned (a place to look, never proof it is settled).
-
-    The config itself settles an area through the dotted keys in the area's ``config`` (e.g.
-    the test and bench commands); an area the config marks ``na`` carries its reason.
-    """
-    try:
-        areas = load_checklist(cfg)
-    except HarnessError:
-        areas = []
-    docs = [(d, _lines(d)) for d in _docs(cfg)]
-    out = []
-    for a in areas:
-        entry: dict[str, Any] = {"id": a["id"], "area": a["area"], "mentioned_at": []}
-        if a["id"] in cfg.na:
-            entry["na"] = cfg.na[a["id"]]
-            out.append(entry)
-            continue
-        hits = []
-        for key in a.get("config", []):
-            if _settled_value(_config_value(cfg.data, key)):
-                n = _line_of(cfg.path, f'"{key.rsplit(".", 1)[-1]}"')
-                hits.append(f"{_rel(cfg, cfg.path)}:{n or 1}" if n else _rel(cfg, cfg.path))
-        kws = a.get("keywords", [])
-        if kws:
-            pat = re.compile("|".join(_bounded(k).pattern for k in kws), re.I)
-            hits += [
-                f"{_rel(cfg, d)}:{n}"
-                for d, ls in docs
-                for n, line in enumerate(ls, 1)
-                if pat.search(line)
-            ]
-        entry["mentioned_at"] = hits[:3]
-        out.append(entry)
-    return out
 
 
 def _numbers(line: str) -> list[float]:
@@ -2756,15 +2578,6 @@ def check_gaps(
                     resolve_with=catalog_skill("vet-oss"),
                 )
             )
-    looked = [_rel(cfg, p) for k in DOC_KEYS for p in cfg.files(k) if p.exists()]
-    looked += [overlay_path(cfg)] if overlay_path(cfg) else []
-    looked.append(_rel(cfg, cfg.path))
-    for a in checklist_mentions(cfg):
-        if not a["mentioned_at"] and "na" not in a:
-            msg = f"design area not settled in any project document: {a['area']}"
-            gaps.append(
-                _gap("unsettled-area", msg, "owner-decides", [], looked_in=looked, area=a["id"])
-            )
     return _with_resolver(cfg, gaps)
 
 
@@ -2896,39 +2709,16 @@ def unmet_gaps(
     return out
 
 
-def structure_facts(
-    cfg: Config,
-    bricks: list[dict[str, Any]],
-    st: dict[str, Any],
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """(rollup, facts) for the gaps report (M4, M12), derived at read time and never stored:
-    per feature named by an item not met, items met and total; split parents that do not list
-    a child in depends_on; paths owned by two items; items never scored. Changes no status."""
-    status = {b["id"]: b["status"] for b in st["bricks"]}
-    named: dict[str, list[str]] = {}
-    for b in bricks:
-        for f in b.get("features", []):
-            named.setdefault(f, []).append(b["id"])
-    rollup = {
-        f: {"met": sum(status[i] == "met" for i in ids), "total": len(ids)}
-        for f, ids in sorted(named.items())
-        if any(status[i] != "met" for i in ids)
-    }
-    facts: list[dict[str, Any]] = []
-    for b in bricks:
-        if b.get("_undeclared_children"):
-            facts.append(
-                {
-                    "kind": "split-parent-without-child-dependency",
-                    "item": b["id"],
-                    "children": b["_undeclared_children"],
-                    "note": "depends_on does not list them; the harness measures the parent after them anyway",
-                }
-            )
+def shared_path_facts(bricks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fact ``shared-path``: a path owned by two items (or an item's path under another's).
+
+    Pure path arithmetic over the items file; git and ast-grep have no notion of an item's
+    owned paths, so there is no tool to adopt. Changes no status."""
     owners: dict[str, set[str]] = {}
     for b in bricks:
         for p in _own_paths(b):
             owners.setdefault(p.rstrip("/"), set()).add(b["id"])
+    facts: list[dict[str, Any]] = []
     seen: set[tuple[str, tuple[str, ...]]] = set()
     for p, ids in sorted(owners.items()):
         sharing = set(ids)
@@ -2937,129 +2727,6 @@ def structure_facts(
         if len(sharing) > 1 and (p, tuple(sorted(sharing))) not in seen:
             seen.add((p, tuple(sorted(sharing))))
             facts.append({"kind": "shared-path", "path": p, "items": sorted(sharing)})
-    for b in bricks:
-        if status[b["id"]] == "unmeasured":
-            facts.append({"kind": "never-scored", "item": b["id"]})
-    facts += split_facts(bricks, status)
-    return rollup, facts
-
-
-def split_facts(bricks: list[dict[str, Any]], status: dict[str, str]) -> list[dict[str, Any]]:
-    """M12 facts: a split child with no ``split_kind`` (split-without-kind), and a split
-    parent not met although all its children are (parent-unmet-after-children)."""
-    facts: list[dict[str, Any]] = []
-    children: dict[str, list[str]] = {}
-    for b in bricks:
-        if b.get("split_from"):
-            children.setdefault(b["split_from"], []).append(b["id"])
-            if not b.get("split_kind"):
-                facts.append(
-                    {"kind": "split-without-kind", "item": b["id"], "parent": b["split_from"]}
-                )
-    for p, kids in sorted(children.items()):
-        if (
-            p in status
-            and all(status.get(k) == "met" for k in kids)
-            and status[p] in ("unmet", "stale", "conflict")
-        ):
-            facts.append(
-                {"kind": "parent-unmet-after-children", "item": p, "children": sorted(kids)}
-            )
-    return facts
-
-
-def _dependency_cycle_members(bricks: list[dict[str, Any]]) -> set[str]:
-    """Items that can reach themselves through depends_on (an item merely behind a cycle is not)."""
-    deps = {b["id"]: [d for d in b.get("depends_on", [])] for b in bricks}
-    out = set()
-    for start in deps:
-        seen: set[str] = set()
-        todo = list(deps[start])
-        while todo:  # walk the finite graph
-            i = todo.pop()
-            if i == start:
-                out.add(start)
-                break
-            if i not in seen:
-                seen.add(i)
-                todo += deps.get(i, [])
-    return out
-
-
-def _first_seen(top: Path | None, rel: str, item: str) -> str | None:
-    """Commit time of the first commit whose items file names ``item``."""
-    if top is None or not _git_ok(top, "rev-parse", "--verify", "-q", "HEAD"):
-        return None
-    try:
-        out = _git(top, "log", "--reverse", "--format=%cI", f'-S"id": "{item}"', "--", rel)
-    except HarnessError:
-        return None
-    return out.splitlines()[0] if out else None
-
-
-def invest_flow(
-    cfg: Config,
-    bricks: list[dict[str, Any]],
-    st: dict[str, Any],
-    board: dict[str, Any] | None,
-    tracker_parent_feature: Callable[[dict[str, Any]], bool] | None = None,
-) -> list[dict[str, Any]]:
-    """M11 facts, never scored. Per item not met (capped at limits.decision_items): the INVEST
-    questions as booleans (independent: not in a dependency cycle; valuable: names a feature or
-    its tracker parent is a feature; estimable: est_loc present; small: no sizing note;
-    testable: not blocked by a gap). Flow (Kanban): WIP against horizon.items, and the cycle
-    time of items met since the last harvest, from the commit that introduced the item to its
-    scoreboard ``measured_at``; throughput is their count."""
-    cap = cfg.limit("decision_items")
-    status = {b["id"]: b["status"] for b in st["bricks"]}
-    blocked = {b["id"]: b["blocked_by"] for b in st["bricks"]}
-    cyc = _dependency_cycle_members(bricks)
-    notes: dict[str, int] = {}
-    for n in sizing_notes(cfg, bricks, board):
-        notes[n["item"]] = notes.get(n["item"], 0) + 1
-    facts: list[dict[str, Any]] = []
-    for b in [x for x in bricks if status[x["id"]] != "met"][:cap]:
-        i = b["id"]
-        facts.append(
-            {
-                "kind": "invest",
-                "item": i,
-                "independent": i not in cyc,
-                "valuable": bool(b.get("features"))
-                or bool(tracker_parent_feature and tracker_parent_feature(b)),
-                "estimable": "est_loc" in b,
-                "small": i not in notes,
-                "testable": not blocked.get(i),
-            }
-        )
-    top = git_top(cfg.dir)
-    bf = cfg.file("bricks")
-    since = _last_harvest(top)
-    rows = []
-    for b in bricks:
-        r = ((board or {}).get("items") or {}).get(b["id"])
-        if status[b["id"]] != "met" or not r or not r.get("measured_at"):
-            continue
-        at = datetime.fromisoformat(r["measured_at"])
-        if since is not None and at.replace(microsecond=0) <= since:
-            continue
-        born = (
-            _first_seen(top, _under(bf, top), b["id"])
-            if top and bf and bf.is_relative_to(top)
-            else None
-        )
-        if born:
-            rows.append((b["id"], round((at - datetime.fromisoformat(born)).total_seconds())))
-    horizon = int(cfg.data.get("horizon", {}).get("items", 20))
-    facts.append(
-        {
-            "kind": "flow",
-            "wip": sum(1 for v in status.values() if v != "met"),
-            "horizon": horizon,
-            "throughput": len(rows),
-            "cycle_time_s": dict(sorted(rows)[:cap]),
-        }
-    )
     return facts
 
 
@@ -3081,7 +2748,8 @@ def merge_gaps(
     nothing unless ``write``. An empty ``added`` clears ``source``'s earlier findings. For
     source ``cycle`` every item not met gets a gap (the ``unmet`` ones with their reason, the
     rest ``not-attempted``) and ``stuck`` lists them capped at ``limits.decision_items`` with
-    ``stuck_more``; the full list is in the report.
+    ``stuck_more``; the full list is in the report. ``parent_feature`` is accepted for the
+    callers that still pass it and is unused.
     """
     if source == "check":
         raise HarnessError("source 'check' is reserved for the mechanical checks")
@@ -3122,13 +2790,12 @@ def merge_gaps(
         rules,
     )
     st = st or state(cfg)
-    rollup, facts = structure_facts(cfg, bricks, st)
     unmet_items = [b["id"] for b in st["bricks"] if b["status"] != "met"]
     pk = packet_report(cfg, unmet_items)
     import bhrules
 
-    facts = facts + learn["bad_cites"] + pk["facts"] + bhrules.rule_facts(cfg, bricks)
-    facts += invest_flow(cfg, bricks, st, board, parent_feature)
+    facts = shared_path_facts(bricks) + learn["bad_cites"] + pk["facts"]
+    facts += bhrules.rule_facts(cfg, bricks)
     if tracker_facts is not None:
         facts += tracker_facts(st, bricks)
     finds = [g for g in gaps if g.get("source") == "finding"]
@@ -3139,10 +2806,9 @@ def merge_gaps(
             for t in ("owner-decides", "fixable")
         },
         "gaps": gaps,
-        "rollup": rollup,
         "facts": facts,
         "reviewed_head": _head(cfg) if write and source == "review" else prev_head,
-        "sizing_notes": sizing_notes(cfg, bricks, board) + pk["notes"],
+        "sizing_notes": pk["notes"],
         "answered": learn["answered"],
         "re_asked": learn["re_asked"],
         "learning": learning_counts(cfg, gaps, learn, decs, rules, finds),
@@ -3286,13 +2952,6 @@ def render_gaps_md(report: dict[str, Any]) -> str:
                 )
                 for g in finds
             ]
-        )
-        out += "\n"
-    if report.get("rollup"):
-        out += "\n## Features in the horizon\n\nItems met of total, derived when read; never stored.\n\n"
-        out += "\n".join(
-            ["| feature | met | total |", "|---|---|---|"]
-            + [f"| {f} | {r['met']} | {r['total']} |" for f, r in report["rollup"].items()]
         )
         out += "\n"
     if report.get("facts"):
@@ -4192,63 +3851,3 @@ def packet_report(cfg: Config, items: list[str]) -> dict[str, Any]:
 # ---------------------------------------------------------------- sizing notes (SG-14)
 
 SIZING_DEFAULT = {"min_loc": 150, "max_loc": 2000, "packet_tokens": 1600}
-
-
-def _measured_loc(cfg: Config, top: Path | None, b: dict[str, Any]) -> int | None:
-    """Lines in the tracked files under the item's own paths, or None without any."""
-    own = _own_paths(b)
-    if top is None or not own:
-        return None
-    spec = [_under(cfg.dir / p, top) for p in own]
-    n = 0
-    for f in _git(top, "ls-files", "--", *spec).splitlines():
-        try:
-            n += len((top / f).read_text().splitlines())
-        except (OSError, UnicodeDecodeError):
-            continue
-    return n or None
-
-
-def sizing_notes(
-    cfg: Config, bricks: list[dict[str, Any]], board: dict[str, Any] | None = None
-) -> list[dict[str, Any]]:
-    """Facts about how items are sized, for the owner: est_loc or measured lines outside
-    config ``sizing`` (min_loc 150, max_loc 2000; measured lines count against min_loc only for
-    an item the scoreboard has met), a purpose that may join two jobs, one
-    declared consumer, an OSS tool that already fits. Never a gap, never a status."""
-    s = {**SIZING_DEFAULT, **cfg.data.get("sizing", {})}
-    top = git_top(cfg.dir)
-    notes = []
-    for b in bricks:
-        i = b["id"]
-        est = b.get("est_loc")
-        got = _measured_loc(cfg, top, b)
-        built = ((board or {}).get("items", {}).get(i) or {}).get("status") == "met"
-        for label, n in (("est_loc", est), ("measured lines", got)):
-            if n is None:
-                continue
-            if n > s["max_loc"]:
-                notes.append(
-                    (
-                        i,
-                        f"{label} {n} above sizing.max_loc {s['max_loc']}: may be too large for one agent session",
-                    )
-                )
-            elif n < s["min_loc"] and (label == "est_loc" or built):
-                notes.append(
-                    (
-                        i,
-                        f"{label} {n} below sizing.min_loc {s['min_loc']}: may be too small to justify a package",
-                    )
-                )
-        purpose = b.get("purpose", "")
-        if re.search(r"\band\b|;", purpose):
-            notes.append((i, f"purpose may join two jobs: {purpose[:120]}"))
-        if len(b.get("consumers", [])) == 1:
-            notes.append((i, f"a single consumer ({b['consumers'][0]}): is a package justified?"))
-        for o in b.get("oss_checked", []):
-            if o.get("fits"):
-                notes.append(
-                    (i, f"OSS tool {o['tool']} {o['version']} fits the job: is code needed?")
-                )
-    return [{"item": i, "note": n} for i, n in notes]

@@ -88,8 +88,16 @@ def cli(name, repo, *a, config=None):
     return p.returncode, json.loads(p.stdout)
 
 
+def full_state(repo, config=None):
+    """Run bh-state bare: the full state is the file its summary names (rule 5)."""
+    code, summary = cli("bh-state", repo, config=config)
+    if "file" not in summary:
+        return code, summary
+    return code, json.loads(Path(summary["file"]).read_text())
+
+
 def status(repo, **kw):
-    _, s = cli("bh-state", repo, **kw)
+    _, s = full_state(repo, **kw)
     return {b["id"]: b["status"] for b in s["bricks"]}, s
 
 
@@ -105,7 +113,7 @@ def build(repo, item="json-writer", edit=None, touched=(), base="main"):
 
 
 def test_state_before_measuring(toy):
-    code, s = cli("bh-state", toy)
+    code, s = full_state(toy)
     assert code == 0, s["problems"]
     assert s["ready"] == ["csv-reader", "json-writer"]
     assert s["ready_system"] == []
@@ -237,7 +245,7 @@ def test_broken_ref_feeds_its_numbers_back_for_a_rebuild(toy):
     sha = commit_all(toy, "break")
     git(toy, "checkout", "-q", "main")
     cli("bh-measure", toy, "--item", "csv-reader@broken")
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     last = {b["id"]: b["last"] for b in s["bricks"]}["csv-reader"]
     assert last["ref"] == sha and last["status"] == "unmet"
     failed = [u for u in last["unmet"] if u["metric"] == "tests.failed"][0]
@@ -264,14 +272,14 @@ def remote_config(toy, copy=True):
 
 def test_remote_test_command_leaves_results_in_out(toy):
     remote_config(toy)
-    code, run = cli("bh-measure", toy, "--item", "csv-reader", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv-reader")
     assert run["items"]["csv-reader"]["metrics"]["tests.passed"] >= 2
-    assert run["items"]["csv-reader"]["status"] == "met-uncommitted"
+    assert run["items"]["csv-reader"]["status"] == "met"
 
 
 def test_remote_test_command_without_results_is_unmet(toy):
     remote_config(toy, copy=False)
-    code, run = cli("bh-measure", toy, "--item", "csv-reader", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv-reader")
     r = run["items"]["csv-reader"]
     assert code == 1 and r["status"] == "unmet"
     assert any("junit" in e for e in r["errors"])
@@ -281,13 +289,6 @@ def test_toy_has_no_gaps_na_areas_and_config_commands_settle(toy):
     code, r = cli("bh-gaps", toy)
     assert code == 0, r
     assert r["gaps"] == []
-    _, s = cli("bh-state", toy)
-    areas = {a["id"]: a for a in s["checklist"]}
-    assert areas["database"]["na"] and areas["licensing"]["na"]
-    assert any(
-        m.startswith(".brick-harness/config.json:")
-        for m in areas["test-bench-commands"]["mentioned_at"]
-    )
     assert r["written"] == [] and not (toy / ".brick-harness" / "gaps.json").exists()
 
 
@@ -346,7 +347,7 @@ def test_gaps_find_faults_with_file_line_evidence(toy):
     src = {g["summary"] for g in kinds["target-without-source"]}
     assert any("bench.size_kb" in x and "no source" in x for x in src)
     assert any("bench.p50_ms" in x and "does not state 5" in x for x in src)
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert s["ready"] == [] and s["ready_system"] == []  # every item is blocked now
     blocked = {b["id"]: b["blocked_by"] for b in s["bricks"]}
     pending = [g["id"] for g in s["gaps"] if "not yet present" in g["summary"]][0]
@@ -406,20 +407,19 @@ def test_gaps_add_rejects_unresolvable_evidence_and_writes_only_on_request(toy):
     assert any(g["source"] == "review" for g in r["gaps"])  # other sources' findings are kept
     _, r = cli("bh-gaps", toy, "--source", "review", "--add", str(src), "--write")
     assert not any(g["source"] == "review" for g in r["gaps"])  # an empty list clears them
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert ".brick-harness/gaps.json" in s["uncommitted"]
 
 
-def test_commit_writes_out_ignore_when_missing(toy):
+def test_state_reports_an_out_dir_that_is_not_git_ignored(toy):
     gi = toy / ".brick-harness" / ".gitignore"
     gi.rename(toy / "moved-gitignore")
     commit_all(toy, "drop ignore")
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert any("not git-ignored" in p for p in s["problems"])
-    code, c = cli("bh-commit", toy, "--message", "ignore out")
-    assert code == 0 and ".brick-harness/.gitignore" in c["files"]
-    assert gi.read_text() == "out/\n"
-    _, s = cli("bh-state", toy)
+    gi.write_text("out/\n")
+    commit_all(toy, "restore ignore")
+    _, s = full_state(toy)
     assert s["problems"] == []
 
 
@@ -451,7 +451,7 @@ def test_project_in_a_subdirectory_of_the_repo(tmp_path):
     commit_all(repo, "mono")
     proj = repo / "apps" / "toy"
     conf = proj / ".brick-harness" / "config.json"
-    _, s = cli("bh-state", proj, config=conf)
+    _, s = full_state(proj, config=conf)
     assert s["problems"] == [] and s["files"]["targets"]["rel"] == ".brick-harness/targets.json"
     git(repo, "checkout", "-qb", "bh/json-writer")
     (proj / "src" / "json_writer.py").write_text(JSON_WRITER)
@@ -466,7 +466,7 @@ def test_project_in_a_subdirectory_of_the_repo(tmp_path):
     for item in ["csv-reader"] + m["remeasure"]:
         assert cli("bh-measure", proj, "--item", item, config=conf)[0] == 0
     cli("bh-commit", proj, "--message", "sb", config=conf)
-    assert cli("bh-state", proj, config=conf)[1]["all_met"] is True
+    assert full_state(proj, config=conf)[1]["all_met"] is True
     # protected paths are relative to the project root, not the repository; edits are ignored
     git(repo, "checkout", "-qb", "bh/csv-reader")
     p = proj / "tests" / "csv-reader" / "test_reader.py"
@@ -531,7 +531,7 @@ def test_init_on_an_empty_dir_never_overwrites(tmp_path):
     st = bhcore.state(cfg)
     assert st["problems"] == []
     kinds = {g["kind"] for g in st["gaps"]}
-    assert "unsettled-area" in kinds and "target-without-command" in kinds  # the design agenda
+    assert "target-without-command" in kinds and "unsettled-area" not in kinds  # agent-found
     assert not any("standards.catalog" in g["summary"] for g in st["gaps"])  # its own catalog
 
 
@@ -544,8 +544,7 @@ def test_catalog_skill_named_on_owner_gaps(toy):
     cfgp.write_text(json.dumps(cfg))
     _, r = cli("bh-gaps", toy)
     owner = [g for g in r["gaps"] if g["tag"] == "owner-decides"]
-    assert [g["area"] for g in owner] == ["database"]
-    assert all(g["resolve_with"] == "agent-compliance:vetted-decision" for g in owner)
+    assert owner == []  # design areas are the gaps agent's to find, not a keyword search's
     lib = [g for g in r["gaps"] if g["kind"] == "helper-without-library"][0]
     assert lib["tag"] == "fixable" and lib["resolve_with"] == "agent-compliance:vet-oss"
     cfg["na"]["units"] = "no physical quantities"
