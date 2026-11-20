@@ -20,7 +20,7 @@ against a checksum.
 
 --part prints {KEY: value} for each KEY, --value the bare value of one KEY, --parts the part
 names with a checksum of each, and --part pending --after ID / --part learning --after D-n
-page their part: the read path of the workflows until they read the state file (wave 1b).
+page their part: the workflows' read path while they do not yet read the state file.
 --affected prints the items a ref touches and everything depending on them.
 """
 

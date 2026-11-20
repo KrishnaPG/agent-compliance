@@ -908,9 +908,7 @@ def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[st
     root_rel = _under(cfg.dir, top)
     by_ref: dict[str, list[str]] = {}
     for item, ref in items:
-        by_ref.setdefault(_git(top, "rev-parse", "--verify", ref + "^{commit}"), []).append(
-            item
-        )
+        by_ref.setdefault(_git(top, "rev-parse", "--verify", ref + "^{commit}"), []).append(item)
     for sha, its in by_ref.items():
         facts = ref_facts(cfg, top, sha) | _dependency_facts(cfg, top, sha)
         try:
