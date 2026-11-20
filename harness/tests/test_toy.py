@@ -289,13 +289,6 @@ def test_toy_has_no_gaps_na_areas_and_config_commands_settle(toy):
     code, r = cli("bh-gaps", toy)
     assert code == 0, r
     assert r["gaps"] == []
-    _, s = full_state(toy)
-    areas = {a["id"]: a for a in s["checklist"]}
-    assert areas["database"]["na"] and areas["licensing"]["na"]
-    assert any(
-        m.startswith(".brick-harness/config.json:")
-        for m in areas["test-bench-commands"]["mentioned_at"]
-    )
     assert r["written"] == [] and not (toy / ".brick-harness" / "gaps.json").exists()
 
 
@@ -538,7 +531,7 @@ def test_init_on_an_empty_dir_never_overwrites(tmp_path):
     st = bhcore.state(cfg)
     assert st["problems"] == []
     kinds = {g["kind"] for g in st["gaps"]}
-    assert "unsettled-area" in kinds and "target-without-command" in kinds  # the design agenda
+    assert "target-without-command" in kinds and "unsettled-area" not in kinds  # agent-found
     assert not any("standards.catalog" in g["summary"] for g in st["gaps"])  # its own catalog
 
 
@@ -551,8 +544,7 @@ def test_catalog_skill_named_on_owner_gaps(toy):
     cfgp.write_text(json.dumps(cfg))
     _, r = cli("bh-gaps", toy)
     owner = [g for g in r["gaps"] if g["tag"] == "owner-decides"]
-    assert [g["area"] for g in owner] == ["database"]
-    assert all(g["resolve_with"] == "agent-compliance:vetted-decision" for g in owner)
+    assert owner == []  # design areas are the gaps agent's to find, not a keyword search's
     lib = [g for g in r["gaps"] if g["kind"] == "helper-without-library"][0]
     assert lib["tag"] == "fixable" and lib["resolve_with"] == "agent-compliance:vet-oss"
     cfg["na"]["units"] = "no physical quantities"

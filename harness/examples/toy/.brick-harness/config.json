@@ -42,7 +42,6 @@
     "testing",
     "benchmarking"
   ],
-  "checklist": "design-checklist.json",
   "na": {
     "database": "a file converter; it stores nothing",
     "api-style": "a command-line tool; no network API",

@@ -1774,7 +1774,7 @@ def state(cfg: Config) -> dict[str, Any]:
             ],
             "versions": {e["library"]: versions.get(norm(e["library"])) for e in catalogue},
         },
-        "checklist": checklist_mentions(cfg),
+        "checklist": [],  # the gaps agent reads the documents; the key stays for the workflows (wave 1b)
         "overlay": overlay_path(cfg),
         "gaps": gaps,
     }
@@ -2259,77 +2259,6 @@ def _gap(
     return g
 
 
-def load_checklist(cfg: Config | None = None) -> list[dict[str, Any]]:
-    """Design areas: the config's ``checklist`` (inline list or a JSON file under the root),
-    else the plugin's tiny generic default."""
-    spec = cfg.data.get("checklist") if cfg else None
-    if isinstance(spec, list):
-        return spec
-    path = (
-        (cfg.dir / spec)
-        if (cfg and isinstance(spec, str))
-        else SCHEMA_DIR / "design-checklist.json"
-    )
-    doc = load_json(path)
-    areas = doc["areas"] if isinstance(doc, dict) else doc
-    return areas  # type: ignore[no-any-return]
-
-
-def _config_value(data: dict[str, Any], dotted: str) -> Any:
-    cur: Any = data
-    for part in dotted.split("."):
-        if not isinstance(cur, dict) or part not in cur:
-            return None
-        cur = cur[part]
-    return cur
-
-
-def _settled_value(v: Any) -> bool:
-    """A configured value that settles an area: present, not pending, not a <placeholder>."""
-    if isinstance(v, dict):
-        return not v.get("pending") and _settled_value(v.get("run", "x"))
-    if isinstance(v, str):
-        return bool(v.strip()) and not v.startswith("<")
-    return v is not None
-
-
-def checklist_mentions(cfg: Config) -> list[dict[str, Any]]:
-    """Where each design area is mentioned (a place to look, never proof it is settled).
-
-    The config itself settles an area through the dotted keys in the area's ``config`` (e.g.
-    the test and bench commands); an area the config marks ``na`` carries its reason.
-    """
-    try:
-        areas = load_checklist(cfg)
-    except HarnessError:
-        areas = []
-    docs = [(d, _lines(d)) for d in _docs(cfg)]
-    out = []
-    for a in areas:
-        entry: dict[str, Any] = {"id": a["id"], "area": a["area"], "mentioned_at": []}
-        if a["id"] in cfg.na:
-            entry["na"] = cfg.na[a["id"]]
-            out.append(entry)
-            continue
-        hits = []
-        for key in a.get("config", []):
-            if _settled_value(_config_value(cfg.data, key)):
-                n = _line_of(cfg.path, f'"{key.rsplit(".", 1)[-1]}"')
-                hits.append(f"{_rel(cfg, cfg.path)}:{n or 1}" if n else _rel(cfg, cfg.path))
-        kws = a.get("keywords", [])
-        if kws:
-            pat = re.compile("|".join(_bounded(k).pattern for k in kws), re.I)
-            hits += [
-                f"{_rel(cfg, d)}:{n}"
-                for d, ls in docs
-                for n, line in enumerate(ls, 1)
-                if pat.search(line)
-            ]
-        entry["mentioned_at"] = hits[:3]
-        out.append(entry)
-    return out
-
-
 def _numbers(line: str) -> list[float]:
     line = re.sub(r"(?<=\d)[,_   ](?=\d{3}(?!\d))", "", line)
     return [float(x) for x in re.findall(r"-?\d+(?:\.\d+)?(?:[eE][-+]?\d+)?", line)]
@@ -2664,15 +2593,6 @@ def check_gaps(
                     _ev(cfg, conf, '"ecosystems"'),
                     resolve_with=catalog_skill("vet-oss"),
                 )
-            )
-    looked = [_rel(cfg, p) for k in DOC_KEYS for p in cfg.files(k) if p.exists()]
-    looked += [overlay_path(cfg)] if overlay_path(cfg) else []
-    looked.append(_rel(cfg, cfg.path))
-    for a in checklist_mentions(cfg):
-        if not a["mentioned_at"] and "na" not in a:
-            msg = f"design area not settled in any project document: {a['area']}"
-            gaps.append(
-                _gap("unsettled-area", msg, "owner-decides", [], looked_in=looked, area=a["id"])
             )
     return _with_resolver(cfg, gaps)
 

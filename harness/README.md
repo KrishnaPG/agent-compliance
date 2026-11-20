@@ -6,7 +6,8 @@ decides architecture and standards in the project's own documents; the harness r
 - **A. Report spec gaps, never decide them.** Features without acceptance checks or numeric
   targets, targets without a cited source line or a measuring command, items without a
   contract, duplicate items, contradictions, dangling references, untracked open items,
-  helper jobs with no library, and design areas no document settles. Output:
+  helper jobs with no library, and design areas no document settles (the gaps agent reads the
+  documents and cites file:line; the CLI verifies the citations). Output:
   `.brick-harness/gaps.json` and `gaps.md`, each gap with file:line evidence, tagged
   `owner-decides` or `fixable`.
 - **B. Execute the project's own build order.** Each builder works in its own git worktree
@@ -230,7 +231,7 @@ it. Config (`schema/harness.config.schema.json`):
   (acceptance tests, bench, runner scripts).
 - `environments`: name -> `{run}` template for `commands.test.environment`; `standards.stack`:
   the stack record (package names, optionally `==version`).
-- `checklist` (file or inline list of areas; default: a tiny generic one), `catalogue_jobs`
+- `catalogue_jobs`
   (default `["testing"]`) and `na` (area or job id -> why it does not apply). Rule content
   belongs to the project, not to the plugin.
 - `standards.decisions`: paths of recorded decisions, settled inputs for the gaps and plan

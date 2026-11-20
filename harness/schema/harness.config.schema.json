@@ -284,7 +284,7 @@
       "items": {
         "$ref": "#/$defs/area"
       },
-      "description": "Design areas the project must settle: a JSON file under the root ({\"areas\": [...]}) or an inline list. Default: the plugin's small generic list (schema/design-checklist.json)."
+      "description": "Ignored: the gaps agent reads the project documents for undecided design areas. Kept so existing configs stay valid."
     },
     "environments": {
       "type": "object",

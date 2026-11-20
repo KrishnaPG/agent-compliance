@@ -33,9 +33,10 @@
       "catalog": ["NO-22", "PN-10", "PN-07"],
       "mechanism": [
         {"kind": "structure", "where": "gaps and plan prompts", "does": "agents receive the list of recorded decisions (config standards.decisions) as settled inputs, by path, and look for gaps in what is not settled", "status": "implemented"},
-        {"kind": "fact", "where": "gaps report", "does": "a gap that names a recorded decision is listed in its own section, reopens, with its evidence, for the owner; no tool accepts or rejects it", "status": "implemented"}
+        {"kind": "fact", "where": "gaps report", "does": "a gap that names a recorded decision is listed in its own section, reopens, with its evidence, for the owner; no tool accepts or rejects it", "status": "implemented"},
+        {"kind": "structure", "where": "gaps agent (host), bh-gaps", "does": "design areas no document settles are found by the gaps agent reading the documents, never by keyword search; every gap it reports must cite file:line with the quoted text, and bh-gaps rejects a citation whose file, line or quote does not exist", "status": "implemented"}
       ],
-      "tests": ["test_reopens_are_listed_in_their_own_section_and_nothing_is_decided", "test_config_standards_decisions_validate", "test_gaps_and_plan_prompts_hand_over_the_recorded_decisions_as_settled_inputs"],
+      "tests": ["test_reopens_are_listed_in_their_own_section_and_nothing_is_decided", "test_config_standards_decisions_validate", "test_gaps_and_plan_prompts_hand_over_the_recorded_decisions_as_settled_inputs", "test_gaps_add_rejects_unresolvable_evidence_and_writes_only_on_request"],
       "status": "implemented"
     },
     {

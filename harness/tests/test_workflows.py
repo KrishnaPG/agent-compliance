@@ -297,11 +297,9 @@ def test_harvest_verifies_settled_and_always_writes_gaps():
     assert "const report = await writeGaps(open, 'harvest')" in b and "ok(report)" in b
 
 
-def test_default_checklist_is_small_and_generic():
+def test_default_catalogue_jobs_are_small():
     import bhcore
 
-    ids = {a["id"] for a in bhcore.load_checklist()}
-    assert ids == {"language-runtime", "build-order", "test-bench-commands"}
     assert bhcore.DEFAULT_JOBS == ["testing"]
 
 
