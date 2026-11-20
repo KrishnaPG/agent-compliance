@@ -57,7 +57,7 @@ if agent in spec.get("budget_overrun", []):
     result(subtype="error_max_budget_usd", is_error=True, total_cost_usd=2.01)
     sys.exit(1)
 if agent in spec.get("fail", []):
-    result(is_error=True, result="the model gave up")
+    result(is_error=True, result=spec.get("fail_text", "the model gave up"))
     sys.exit(1)
 
 out = dict(spec.get("outputs", {}).get(agent, {}))

@@ -83,7 +83,7 @@ def test_auth_mode_is_chosen_from_the_key_or_a_helper_never_asked(tmp_path, monk
     monkeypatch.delenv("ANTHROPIC_API_KEY")
     (tmp_path / ".claude").mkdir()
     (tmp_path / ".claude" / "settings.json").write_text('{"apiKeyHelper": "get-key"}')
-    assert bhorch.auth_mode(tmp_path) == ("bare", tmp_path / ".claude" / "settings.json")
+    assert bhorch.auth_mode(tmp_path) == ("bare", "get-key")
 
 
 def test_mode_flags_bare_and_login():
@@ -92,7 +92,8 @@ def test_mode_flags_bare_and_login():
     login = bhorch.mode_flags("login", None)
     assert login[:2] == ["--setting-sources", ""] and "--bare" not in login
     assert {"--strict-mcp-config", "--disable-slash-commands", "--plugin-dir"} <= set(login)
-    assert "--settings" in bhorch.mode_flags("bare", Path("/x/settings.json"))
+    helper = bhorch.mode_flags("bare", "get-key")  # only that one key reaches a bare job
+    assert json.loads(helper[helper.index("--settings") + 1]) == {"apiKeyHelper": "get-key"}
 
 
 # ---------------------------------------------------------------- one job
@@ -488,3 +489,50 @@ def test_a_feature_that_became_sellable_gets_one_review_by_a_job_that_did_not_bu
     assert len(rv) == 1 and "Bash(git diff:*)" in arg(rv[0], "--allowedTools")
     doc = json.loads((toy / ".brick-harness" / "gaps.json").read_text())
     assert [g["summary"] for g in doc["gaps"] if g.get("source") == "finding"] == ["no error path"]
+
+
+def test_a_restart_of_a_run_does_not_pay_a_builder_again(toy, fake):
+    """The build key is the item's own tree, targets and feedback: the gaps report and the
+    scoreboard commits of a second process do not move it."""
+    o1 = orch(toy)
+    run(o1.phase_gaps())
+    run(o1.phase_plan())
+    b1 = run(o1.phase_build())  # the process stops here, before measuring
+    builders = lambda: [c for c in fake.calls() if c["agent"] == "harness-builder"]  # noqa: E731
+    assert len(builders()) == 1
+    o2 = orch(toy)
+    run(o2.phase_gaps())
+    run(o2.phase_plan())
+    b2 = run(o2.phase_build())
+    assert len(builders()) == 1 and b2["built"][0]["job"]["skipped"] is True
+    assert (
+        b2["refs"] == b1["refs"] and git(toy, "rev-parse", "bh/json-writer") == b1["refs"][0]["ref"]
+    )
+
+
+def test_a_spent_budget_starts_no_review_and_no_harvest_job(toy, fake):
+    cfg = toy / ".brick-harness" / "config.json"
+    d = json.loads(cfg.read_text())
+    d["budgets"] = {"run_tokens": 10}  # a job in the fake costs 15 tokens
+    cfg.write_text(json.dumps(d))
+    commit_all(toy, "budget")
+    res = run(orch(toy).run(skip=["gaps", "plan"]))
+    assert [j["job"] for j in res["jobs"]] == ["build"]  # round 1 ran; the budget is then spent
+    assert res["status"]["all_met"] and res["phases"]["stopped"] == "budget"
+    assert res["phases"]["not_run_for_budget"] == ["reviews", "harvest"]
+    assert [c["agent"] for c in fake.calls()] == ["harness-builder"]
+
+
+def test_a_job_that_spent_money_and_failed_is_not_an_authentication_failure(toy, fake, monkeypatch):
+    """A builder whose own tests mention authentication must not switch the run to login mode."""
+    monkeypatch.setenv("ANTHROPIC_API_KEY", "k")
+    fake.spec(fail=["harness-gaps-reader"], fail_text="authentication test failed", cost=0.5)
+    o = orch(toy)
+    gaps_job(o)
+    assert [c["mode"] for c in fake.calls()] == ["bare"] and o.mode == "bare" and o.fallbacks == 0
+
+
+def test_the_owner_is_told_about_overlay_candidates(toy, fake):
+    res = run(orch(toy).run(skip=["gaps", "plan", "harvest"]))
+    assert res["overlay_candidates"] == []
+    assert list(res)[:4] == ["product", "status", "owner_questions", "overlay_candidates"]

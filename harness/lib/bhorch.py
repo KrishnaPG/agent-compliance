@@ -32,7 +32,7 @@ mode, each job's cost and tokens (from the CLI's JSON result).
 Concurrency is ``asyncio.Semaphore(config.concurrency)``; each job has a deadline
 (``asyncio.wait_for``; then terminate, then kill). Every wait is on a process exit; there is no
 timer, poll or retry loop. A job result is saved as ``<measure_out>/jobs/<key>.json`` with
-key = digest of (job, agent file, schema, input incl. the HEAD tree sha); a restart finds the
+key = digest of (job, agent file, schema, input incl. the item's own tree key); a restart finds the
 file and skips the job (the same way a measured result is keyed by tree sha).
 
 OSS and stdlib checked before writing any helper (orchestrator vetting is in
@@ -156,10 +156,10 @@ def claude_config_dir() -> Path:
     return Path(os.environ.get("CLAUDE_CONFIG_DIR") or Path.home() / ".claude")
 
 
-def auth_mode(root: Path) -> tuple[str, Path | None]:
-    """``("bare", settings file or None)`` when ``ANTHROPIC_API_KEY`` is set or a settings file
+def auth_mode(root: Path) -> tuple[str, str | None]:
+    """``("bare", helper command or None)`` when ``ANTHROPIC_API_KEY`` is set or a settings file
     configures an ``apiKeyHelper``; else ``("login", None)``. Bare mode reads no settings, so a
-    helper's file is handed to the CLI with ``--settings``."""
+    helper is handed to the CLI as ``--settings '{"apiKeyHelper": ...}'``: that one key only."""
     if os.environ.get("ANTHROPIC_API_KEY"):
         return "bare", None
     for f in (
@@ -168,17 +168,19 @@ def auth_mode(root: Path) -> tuple[str, Path | None]:
         root / ".claude" / "settings.local.json",
     ):
         try:
-            if json.loads(f.read_text()).get("apiKeyHelper"):
-                return "bare", f
+            helper = json.loads(f.read_text()).get("apiKeyHelper")
+            if helper:
+                return "bare", str(helper)
         except (OSError, ValueError, AttributeError):
             continue
     return "login", None
 
 
-def mode_flags(mode: str, settings: Path | None) -> list[str]:
+def mode_flags(mode: str, helper: str | None) -> list[str]:
     plugin = ["--plugin-dir", str(PLUGIN_ROOT)]
     if mode == "bare":
-        return ["--bare", *plugin, *(["--settings", str(settings)] if settings else [])]
+        settings = ["--settings", json.dumps({"apiKeyHelper": helper})] if helper else []
+        return ["--bare", *plugin, *settings]
     return ["--setting-sources", "", "--strict-mcp-config", "--disable-slash-commands", *plugin]
 
 
@@ -244,7 +246,7 @@ class Orchestrator:
         self.n = int(cfg.data.get("concurrency", 2))
         self.sem = asyncio.Semaphore(self.n)
         self.free_slots = list(range(self.n))
-        self.mode, self.settings = auth_mode(cfg.dir)
+        self.mode, self.helper = auth_mode(cfg.dir)
         self.mode_start = self.mode
         self.fallbacks = 0
         self.records: list[dict[str, Any]] = []
@@ -339,7 +341,7 @@ class Orchestrator:
         model = self.cfg.data.get("models", {}).get(phase)
         effort = self.cfg.data.get("efforts", {}).get(phase)
         args += (["--model", model] if model else []) + (["--effort", effort] if effort else [])
-        return args + mode_flags(mode, self.settings)
+        return args + mode_flags(mode, self.helper)
 
     async def _exec(
         self, argv: list[str], prompt: str, cwd: Path, deadline: float
@@ -442,7 +444,10 @@ class Orchestrator:
             "ok": ok,
             "output": output,
             "record": rec,
-            "auth_failed": bool(not ok and AUTH_RE.search(f"{error}\n{err}")),
+            # an authentication failure costs nothing: a job that spent money failed on its work
+            "auth_failed": bool(
+                not ok and rec["cost_usd"] == 0 and AUTH_RE.search(f"{error}\n{err}")
+            ),
         }
 
     async def _run_cli(
@@ -705,9 +710,29 @@ class Orchestrator:
             )
         return out
 
-    async def build_one(
-        self, s: dict[str, Any], b: dict[str, Any], head_tree: str
-    ) -> dict[str, Any]:
+    def item_key(self, item: str) -> str:
+        """What a build of ``item`` depends on: its own and its dependencies' files and the
+        protected paths at HEAD (blob shas, from ``git ls-tree``), and its targets. Other items
+        and the harness's own reports (scoreboard, gaps) do not move it, so a second process
+        over the same code finds the first one's builder result. Same file set as
+        ``bhcore.tree_key`` less the result files, which change on every run."""
+        top, cfg = self.top, self.cfg
+        bricks, targets, _ = bhcore._load_plan(cfg, [])
+        by_id = {b["id"]: b for b in bricks}
+        spec = bhcore._item_pathspec(cfg, top, by_id, item)
+        pats = [p for p in spec if not p.startswith(":(")]
+        excl = [p[len(":(exclude)") :] for p in spec if p.startswith(":(exclude)")]
+        excl += bhcore._keyed(cfg, bhcore.RESULT_KEYS, top)
+        mine = {
+            n: b
+            for n, b in bhcore._tree_files(top, "HEAD").items()
+            if bhcore._matches(n, pats) and not bhcore._matches(n, excl)
+        }
+        return bhcore.digest(
+            [sorted(mine.items()), bhcore.target_digest(cfg, by_id[item], targets)]
+        )
+
+    async def build_one(self, s: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
         item, head = b["id"], s["head"]
         fb = self.feedback(b)
         packet = bhcore.work_packet(self.cfg, item)
@@ -715,7 +740,7 @@ class Orchestrator:
         core = {
             "task": "build",
             "item": item,
-            "tree": head_tree,
+            "tree": self.item_key(item),
             "feedback": fb,
             "packet_sha": sha(packet["text"]),
             "protected": self.cfg.data.get("protected", []),
@@ -832,8 +857,7 @@ class Orchestrator:
         to_build = [i for i in todo if i not in met and i in now_ready]
         if not to_build:
             return res
-        head_tree = git(self.top, "rev-parse", "HEAD^{tree}").stdout.strip()
-        built = await asyncio.gather(*(self.build_one(s, by_id[i], head_tree) for i in to_build))
+        built = await asyncio.gather(*(self.build_one(s, by_id[i]) for i in to_build))
         res["built"], res["missing_context"] = built, []
         for r in built:
             if r.get("dry_run"):
@@ -1047,8 +1071,12 @@ class Orchestrator:
         if not self.dry:
             self.tracker("reconcile")
         s = self.state()
+        halted = self.over_budget(budgets)  # a spent budget starts no further job
+        if halted:
+            res["stopped"] = "budget" if res["stopped"] in (None, "budget") else res["stopped"]
+            res["not_run_for_budget"] = ["reviews", "harvest"]
         became = [f for f in s["value"]["sellable_at_head"] if f not in sellable0]
-        res["reviews"] = await self.phase_review(became) if not self.dry else []
+        res["reviews"] = await self.phase_review(became) if not (self.dry or halted) else []
         left = [b["id"] for b in s["bricks"] if b["status"] != "met"]
         reasons = {i: why[i] for i in left if i in why}
         if res["stopped"] == "budget":
@@ -1059,7 +1087,7 @@ class Orchestrator:
         s = self.state()
         if (
             "harvest" not in skip
-            and not self.dry
+            and not (self.dry or halted)
             and any(b["status"] == "met" for b in s["bricks"])
         ):
             h = await self.phase_harvest()
@@ -1171,6 +1199,7 @@ class Orchestrator:
                 "problems": s["problems"],
             },
             "owner_questions": questions,
+            "overlay_candidates": s["learning"]["overlay_candidates"],
             "auth": {
                 "mode_at_start": self.mode_start,
                 "mode_at_end": self.mode,
@@ -1223,6 +1252,13 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
     if r["owner_questions"]:
         lines.append(f"OWNER QUESTIONS ({len(r['owner_questions'])})")
         lines += [f"  {q['id']}: {q['summary']}" for q in r["owner_questions"][:20]]
+    if r.get("overlay_candidates"):
+        lines.append(
+            f"OVERLAY RULES TO BUILD ({len(r['overlay_candidates'])}): areas the owner answered often"
+        )
+        lines += [
+            f"  {c['area']}: {', '.join(c['decisions'])}" for c in r["overlay_candidates"][:20]
+        ]
     a, t = r["auth"], r["totals"]
     lines.append(
         f"AUTH {a['mode_at_start']} -> {a['mode_at_end']} (fallbacks {a['fallbacks_to_login']})"

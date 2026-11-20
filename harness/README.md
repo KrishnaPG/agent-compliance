@@ -46,7 +46,9 @@ current slice, the next feature and why: earliest slice, then value per remainin
 then `status` (met, stuck, gap counts), `owner_questions` (the owner-decides gaps no decision
 answers: the main session asks them and records each with `bh-answer`), `auth` (mode at start
 and end, fallbacks), `jobs` (agent, mode, ok, skipped, cost, tokens, duration, error per job)
-and `totals`.
+and `totals`; `overlay_candidates` lists areas the owner answered often enough to become an overlay rule
+(the plan phase no longer builds the rule itself: the owner's session runs the `compliance-catalog` skill for
+each, one rule line with `covers: <area>`).
 
 **Agent jobs.** Each job is the host's CLI, headless, one process:
 
@@ -69,7 +71,7 @@ sleep, poll or retry loop.
 **Auth modes**, chosen mechanically and never asked: `ANTHROPIC_API_KEY` set, or an
 `apiKeyHelper` in `~/.claude/settings.json` (or `CLAUDE_CONFIG_DIR`), the project's
 `.claude/settings.json` or `settings.local.json` -> **bare**: `--bare --plugin-dir <plugin>`
-(with `--settings <that file>` for a helper): no hooks, memory, CLAUDE.md, other plugins or
+(with `--settings '{"apiKeyHelper": ...}'` for a helper: that key only): no hooks, memory, CLAUDE.md, other plugins or
 MCP servers. Otherwise **login**: `--setting-sources "" --strict-mcp-config
 --disable-slash-commands --plugin-dir <plugin>` (CLAUDE.md and memory still load). A bare job
 that fails with an authentication error is re-run once in login mode and every later job runs
@@ -77,7 +79,7 @@ in login mode; the result records the switch, the mode and the cost and tokens o
 (from the CLI's JSON result), so the cost of login mode is visible.
 
 **Restarts.** A job's result is saved as `<measure_out>/jobs/<key>.json`, key = digest of the
-job, its agent file, its schema and its input core (for a builder the HEAD tree and the
+job, its agent file, its schema and its input core (for a builder the item's own files, targets and the
 feedback of the previous attempt; for gaps and plan the content of the project documents, the
 owner's answers and the overlay, so unchanged documents are not read again). A restart finds
 the file and skips the job; a failed job leaves `<key>.error.json` and runs again.
