@@ -1,0 +1,7 @@
+# Agent jobs pack, RL rules
+
+Pack `agent-jobs` for base catalog 1.4.0. Scope: designs in which a program or harness starts AI agent jobs (an LLM with tools, run by the program without a person in the conversation): no agent in a mechanical path, minimal context, agent definitions, stable prompt prefix, caps and convergence, structured results, owner questions. Loaded only when the project overlay names this pack. Each row is the whole rule.
+
+| ID | Rule | Provenance | Test question |
+|---|---|---|---|
+| AJ-06 | An agent job whose result a program consumes returns it as structured data, checked against a schema kept in the repository (by the host's schema option or the program's own validator) before anything acts on it; a missing or invalid result fails the job (RL-17) and is never repaired by guessing. The program never extracts a verdict, number, id or list from the job's free text (no pattern or keyword search over prose); free text is only for a person to read. NA where no program consumes an agent job's result. | Claude Code docs, "Run Claude Code programmatically", https://code.claude.com/docs/en/headless: `--output-format json` with `--json-schema`; a run without valid structured output has no `structured_output` field, so check it is present before use. JSON Schema, https://json-schema.org/ | For each agent result a program reads: which schema checks it, what happens when it is missing or invalid, and where does code search the job's text for a value? |
