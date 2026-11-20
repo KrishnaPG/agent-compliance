@@ -4,7 +4,7 @@ Branch `harness-lean`. Baseline before any change: `cd harness && python3 -m pyt
 
 ## Rules for every change
 
-1. **The harness runs no shell itself.** Workflow scripts only orchestrate; every command is run by a host agent (cheapest model) and every reading or judging job is done by a host agent (Explore to locate, general-purpose to judge), using the user's plugins where present (codegraph, context-mode). Deterministic code stays only where determinism is the point: the measurer, merge, the scoreboard, status derivation and citation checks (a cited file:line exists and holds the quoted text).
+1. **No agent in the mechanical path.** Everything mechanical (git, tests, measuring, merging, ordering, citation checks, searches for a known pattern, file moves) runs as code: existing OSS CLIs and libraries first, installed at pinned versions by the harness's own setup; our own code only for a verified gap. An agent is started only for work no mechanical means can do (reading documents for meaning, deriving the plan and slices, judging gaps, building an item, finding duplicate helpers, review), or to hand the run's result back to the owner. Consequence: the orchestrator is a program, not a Workflow-tool script (a Workflow script cannot run a command without spawning an agent). It runs every mechanical step itself and starts each agent job headless with the host's own CLI (`claude -p --json-schema --model --max-budget-usd --plugin-dir`, Claude Code 2.1.329; or claude-agent-sdk 0.2.186, chosen by vet-oss), each with only the tools that job needs and a schema for its output. The main session's part in "run the harness" is one command and the report of its result, plus asking the owner the questions the result lists.
 2. **No delete-and-forget.** Every capability removed from harness code names the host feature or OSS tool (pinned version, vetted with `vet-oss`) that now provides it, and the safeguard entry (`safeguards.json`) is rewritten in place to name that mechanism and the test that proves it. Only dead code (no caller, no capability) is deleted without a replacement.
 3. **No gates.** Facts are reported, never turned into refusals. Existing refusals stay as they are until the owner rules (findings H-2, H-3).
 4. **Owner-requested capabilities are thinned, never removed:** the configurable any-tracker interface (Beads and GitHub first; decision 0001), learning from answers (SG-16), value order and finish-before-start (SG-17), the work packet (SG-18), the safeguard register (SG-01 to SG-19).
@@ -16,7 +16,7 @@ Branch `harness-lean`. Baseline before any change: `cd harness && python3 -m pyt
 
 | Capability (where) | SG | Owner after the change | Wave |
 |---|---|---|---|
-| Copy-pasted workflow prelude, ~170 lines × 6 (`workflows/*.js`) | 07 | One ~25-line helper per workflow: `run(cmd, schema)` = a host agent (haiku) runs one CLI and returns its schema-validated summary | 1b |
+| Copy-pasted workflow prelude, ~170 lines × 6 (`workflows/*.js`) | 07 | Gone with the workflows: the orchestrator program runs commands itself (rule 1) | 1b |
 | State checksums, FNV-1a `canon`/`checksum`, sliced re-reads, `--part/--value`, `pending_page`, `_decision`, `limits.decision_items` paging (`bhcore`, `bh-state`, `prelude.js`) | 07, 15 | Rule 5: state file + small summary; Workflow tool's schema-validated agent output | 1a/1b |
 | Prompts pasting `JSON.stringify(state…)` and restating `RULES` | 07, 03 | Paths in prompts; rules live once in `skills/harness/SKILL.md` sections the agents load | 1b |
 | Own worker `pool` and slot bookkeeping | 08 | Workflow `parallel()`/`pipeline()` (host queues concurrency); slot = index | 1b |
@@ -44,6 +44,7 @@ Branch `harness-lean`. Baseline before any change: `cd harness && python3 -m pyt
 ## Waves
 
 - **1a** (parallel, separate git worktrees): core (`bhcore.py` and every `bin/` wrapper except the tracker ones, one agent); tracker (`bhtracker.py`, adapters, tracker CLIs, decision 0001, one agent). Stable boundary: `bhtracker` keeps `gap_facts`, `parent_is_feature`, `show_resolver`; `bhcore` keeps the Python `state(cfg)` dict, `value_queue` and the names `bhtracker` imports.
-- **1b**: workflows and `SKILL.md`, on top of 1a's CLI summaries.
+- **1b**: the orchestrator program replaces `harness/workflows/*.js` and `lib/prelude.js` (vet-oss first: existing OSS orchestrators for headless coding agents, the `claude -p` CLI vs claude-agent-sdk); one command per phase plus `run`; agent jobs only per rule 1; `SKILL.md` shrinks to "run the command, report the result, ask the listed questions".
+- **Setup**: one harness setup step installs every pinned tool it uses (Python deps via uv lock; ast-grep, lychee, jq and the tracker CLIs via their package managers or release checksums), run inside onboarding, never by a human.
 - **2**: OSS replacements, each vetted with `vet-oss` at a pinned version, one small agent each.
 - **Then**: toy full run from the branch; the approved steps 1–9 are planned on the lean base.
