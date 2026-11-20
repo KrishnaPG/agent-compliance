@@ -1293,7 +1293,7 @@ def write_scoreboard(
 
 
 def read_board(path: Path) -> tuple[dict[str, Any], str | None]:
-    """Return ({items, candidates}, problem). """
+    """Return ({items, candidates}, problem)."""
     empty: dict[str, Any] = {"items": {}, "candidates": {}, "trees": {}}
     if not path.exists():
         return empty, None
