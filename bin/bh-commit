@@ -3,8 +3,7 @@
 
 Stages the harness-owned files that exist (config, targets, items, contracts, catalogue,
 scoreboard, gap report, .brick-harness/.gitignore) and commits when anything changed; never
-the project's own documents. Writes .brick-harness/.gitignore with out/ when the default
-output directory is not ignored. Refuses while a merge is in progress and when the targets
+the project's own documents (bh-init writes .brick-harness/.gitignore with out/). Refuses while a merge is in progress and when the targets
 file drops or changes a target HEAD has (the owner commits that by hand). Holds the
 harness lock, so it never interleaves with a scoreboard write or bh-merge. --dry-run lists
 what would be committed and writes nothing. Prints {"committed", "files", "head"} with

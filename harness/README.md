@@ -66,7 +66,7 @@ agent runs each tool and returns its JSON.
   `environments.<name>.run`, `{cmd}` being the quoted command, when `commands.test.environment`
   names it; else `local`). `notes` say when a ref lacks the plan commit. Each result is
   written as it lands: at HEAD it is *current*; at any other ref it is a *candidate*, which
-  never replaces a met current result. A scoreboard that fails its digest is never
+  never replaces a met current result. An unreadable scoreboard is never
   overwritten. `--in-place` results are `met-uncommitted` at best and satisfy nothing.
 - `bh-merge`: merges every met candidate not yet in HEAD, in build order, with
   `git merge --no-ff`. A catalogue-only conflict is resolved by a schema-checked JSON union;

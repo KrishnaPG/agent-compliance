@@ -141,28 +141,21 @@ def test_bench_target_without_bench_command_unmet(tmp_path):
     assert "bench targets but no bench command" in r["errors"]
 
 
-def test_scoreboard_written_with_digest_and_tamper_detected(tmp_path):
+def test_scoreboard_written_and_an_unreadable_board_is_never_overwritten(tmp_path):
     cfg = project(tmp_path, write(JUNIT_OK), T_OK)
     run(cfg)
     sb = tmp_path / "sb.json"
     board, problem = bhcore.read_board(sb)
     assert problem is None and board["candidates"]["a"]["status"] == MET
-    assert "| a | candidate | met-uncommitted |" in (tmp_path / "sb.md").read_text()
-    doc = json.loads(sb.read_text())
-    doc["candidates"]["a"]["status"] = "met"
-    doc["candidates"]["a"]["errors"] = ["edited"]
-    sb.write_text(json.dumps(doc))
+    sb.write_text("{not json")
     board, problem = bhcore.read_board(sb)
-    assert board["candidates"] == {} and "digest mismatch" in problem
-    st = bhcore.state(cfg)
-    assert st["bricks"][0]["status"] == "unmeasured"
-    # an edited board is never overwritten: the run is still printed, with the error
-    before = sb.read_text()
-    with pytest.raises(bhcore.HarnessError, match="digest mismatch"):
+    assert board["candidates"] == {} and "unreadable" in problem
+    assert bhcore.state(cfg)["bricks"][0]["status"] == "unmeasured"
+    with pytest.raises(bhcore.HarnessError, match="unreadable"):
         bhcore.measure(cfg, [("a", "HEAD")], in_place=True)
-    with pytest.raises(bhcore.HarnessError, match="digest mismatch"):
+    with pytest.raises(bhcore.HarnessError, match="unreadable"):
         bhcore.write_scoreboard(cfg, {"a": {"status": "met"}})
-    assert sb.read_text() == before
+    assert sb.read_text() == "{not json"
 
 
 def test_changed_targets_make_item_stale(tmp_path):

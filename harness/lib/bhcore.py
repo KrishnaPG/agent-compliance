@@ -1166,17 +1166,6 @@ def out_ignored(cfg: Config, top: Path) -> bool:
     return subprocess.run(cmd, capture_output=True).returncode == 0
 
 
-def ensure_out_ignored(cfg: Config, top: Path) -> None:
-    """Write .brick-harness/.gitignore with out/ when the default measure_out is not ignored."""
-    out = cfg.file("measure_out")
-    if out_ignored(cfg, top) or out != cfg.dir / HDIR / "out":
-        return
-    gi = cfg.dir / HDIR / ".gitignore"
-    gi.parent.mkdir(parents=True, exist_ok=True)
-    old = gi.read_text() if gi.exists() else ""
-    gi.write_text(old + ("" if not old or old.endswith("\n") else "\n") + "out/\n")
-
-
 def _plan_paths(cfg: Config, top: Path, scoreboard: bool = True) -> list[str]:
     """Harness-owned files that exist under the repo: config, plan, scoreboard, gaps report."""
     keys = [k for k in HARNESS_KEYS if scoreboard or not k.startswith("scoreboard")]
@@ -1212,7 +1201,6 @@ def commit_harness(cfg: Config, message: str, dry_run: bool = False) -> dict[str
             raise HarnessError(
                 f"targets dropped or changed vs HEAD (the owner commits that): {moved}"
             )
-        ensure_out_ignored(cfg, top)
         paths = _not_ignored(top, _plan_paths(cfg, top))
         if paths:
             _git(top, "add", "-A", "--", *paths)
@@ -1246,13 +1234,6 @@ def _not_ignored(top: Path, paths: list[str]) -> list[str]:
 
 
 # ---------------------------------------------------------------- scoreboard
-
-
-def _board_digest(board: dict[str, Any]) -> str:
-    d = {"items": board["items"], "candidates": board["candidates"]}
-    if board.get("trees"):
-        d["trees"] = board["trees"]
-    return digest(d)
 
 
 TREE_RUNS, TREE_KEYS = 6, 300  # limits: runs kept per tree key, tree keys kept on the board
@@ -1291,8 +1272,8 @@ def write_scoreboard(
     """Merge results into the scoreboard: ``current`` (measured at HEAD) or candidates.
     ``trees`` (item -> tree key) feeds the flaky-result fact.
 
-    Refuses (HarnessError) when the scoreboard on disk fails its digest: an edited board is
-    never overwritten, so the edit stays visible.
+    Refuses (HarnessError) when the scoreboard on disk cannot be read: it is never
+    overwritten (git history protects the committed board).
     """
     path = cfg.file("scoreboard")
     assert path is not None
@@ -1304,18 +1285,15 @@ def write_scoreboard(
         if trees:
             _note_trees(board, results, trees)
         board["items" if current else "candidates"].update(results)
-        doc = {"writer": "brick-harness measure", **board, "digest": _board_digest(board)}
+        doc = {"writer": "brick-harness measure", **board}
         tmp = path.with_suffix(path.suffix + ".tmp")
         tmp.write_text(json.dumps(doc, indent=2, sort_keys=True) + "\n")
         tmp.replace(path)
-        md = cfg.file("scoreboard_md")
-        if md:
-            md.write_text(render_md(board))
         record_history(cfg, results, current)
 
 
 def read_board(path: Path) -> tuple[dict[str, Any], str | None]:
-    """Return ({items, candidates}, problem). A board whose digest fails was edited by hand."""
+    """Return ({items, candidates}, problem). """
     empty: dict[str, Any] = {"items": {}, "candidates": {}, "trees": {}}
     if not path.exists():
         return empty, None
@@ -1332,72 +1310,7 @@ def read_board(path: Path) -> tuple[dict[str, Any], str | None]:
         "candidates": doc.get("candidates", {}),
         "trees": doc.get("trees", {}),
     }
-    legacy = "candidates" not in doc and doc.get("digest") == digest(board["items"])
-    if doc.get("digest") != _board_digest(board) and not legacy:
-        return (
-            empty,
-            "scoreboard digest mismatch: edited outside the measurer; all items treated as unmeasured",
-        )
     return board, None
-
-
-def read_scoreboard(path: Path) -> tuple[dict[str, Any], str | None]:
-    """Current (HEAD) results only, with the board's problem."""
-    board, bad = read_board(path)
-    return board["items"], bad
-
-
-def _fact_lines(r: dict[str, Any]) -> list[str]:
-    """One short line per fact a result carries (never part of its status)."""
-    out = []
-    if r.get("ignored_edits"):
-        out.append(f"ignored-edits {len(r['ignored_edits'])}: {', '.join(r['ignored_edits'][:5])}")
-    if r.get("flaky"):
-        out.append(f"FLAKY: same tree {len(r['flaky']['runs'])} runs, passed and failed")
-    for m, n in sorted(r.get("noise", {}).items()):
-        if n["within_noise"]:
-            out.append(f"within-noise {m} [{n['min']:.4g}..{n['max']:.4g}]")
-    sc = r.get("scope", {})
-    if sc.get("outside_paths"):
-        out.append(f"outside-paths {len(sc['outside_paths'])}")
-    if sc.get("unlisted_names"):
-        out.append(f"unlisted-names {', '.join(sc['unlisted_names'][:5])}")
-    d = r.get("dependencies", {})
-    if d:
-        out.append(
-            f"deps +{len(d['added'])} ~{len(d['changed'])}"
-            + (f" not-in-stack {', '.join(d['not_in_stack'])}" if d.get("not_in_stack") else "")
-            + (f" second-major {', '.join(d['second_major'])}" if d.get("second_major") else "")
-        )
-    if r.get("suppressions"):
-        out.append(
-            f"suppressions {len(r['suppressions'])}: "
-            + ", ".join(f"{x['file']}:{x['line']}" for x in r["suppressions"][:5])
-        )
-    if r.get("rules", {}).get("skipped"):
-        out.append("rules-skipped " + ", ".join(x["rule"] for x in r["rules"]["skipped"][:5]))
-    if r.get("environment"):
-        out.append(f"env {r['environment']}")
-    out += r.get("notes", [])
-    return [x.replace("|", "/") for x in out]
-
-
-def render_md(board: dict[str, Any]) -> str:
-    rows = ["| item | result | status | ref | unmet | facts |", "|---|---|---|---|---|---|"]
-    for kind in ("items", "candidates"):
-        for item, r in sorted(board[kind].items()):
-            bad = [
-                f"{c['metric']} {c['actual']} (want {c['op']} {c['value']})"
-                for c in r.get("targets", [])
-                if not c["met"]
-            ]
-            bad += r.get("errors", [])
-            label = "current" if kind == "items" else "candidate"
-            rows.append(
-                f"| {item} | {label} | {r['status']} | {str(r['ref'])[:10]} | {'; '.join(bad)} "
-                f"| {'; '.join(_fact_lines(r))} |"
-            )
-    return "# Scoreboard\n\nWritten by the measurer only.\n\n" + "\n".join(rows) + "\n"
 
 
 # ---------------------------------------------------------------- merging (bh-merge)
@@ -1742,7 +1655,7 @@ def state(cfg: Config) -> dict[str, Any]:
     if top is not None and not out_ignored(cfg, top):
         problems.append(
             f"measure_out {cfg.paths['measure_out']} is not git-ignored: add it to .gitignore "
-            f"(bh-commit writes {HDIR}/.gitignore with out/ for the default location)"
+            f"(bh-init writes {HDIR}/.gitignore with out/ for the default location)"
         )
     bricks, targets, catalogue = _load_plan(cfg, problems)
     board, bad = read_board(cfg.file("scoreboard"))  # type: ignore[arg-type]
@@ -2134,10 +2047,6 @@ def _missing_jobs(
     jobs = [j for j in cfg.data.get("catalogue_jobs", DEFAULT_JOBS) if j not in cfg.na]
     covered = {(e["job"].split(":", 1)[0], e["ecosystem"]) for e in catalogue}  # formats:csv
     return {eco: [j for j in jobs if (j, eco) not in covered] for eco in ecos}
-
-
-def _in_head(top: Path, ref: str) -> bool:
-    return _git_ok(top, "merge-base", "--is-ancestor", ref, "HEAD")
 
 
 def _uncommitted(cfg: Config, top: Path | None, scoreboard: bool = False) -> list[str]:

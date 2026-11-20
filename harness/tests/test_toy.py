@@ -410,15 +410,14 @@ def test_gaps_add_rejects_unresolvable_evidence_and_writes_only_on_request(toy):
     assert ".brick-harness/gaps.json" in s["uncommitted"]
 
 
-def test_commit_writes_out_ignore_when_missing(toy):
+def test_state_reports_an_out_dir_that_is_not_git_ignored(toy):
     gi = toy / ".brick-harness" / ".gitignore"
     gi.rename(toy / "moved-gitignore")
     commit_all(toy, "drop ignore")
     _, s = cli("bh-state", toy)
     assert any("not git-ignored" in p for p in s["problems"])
-    code, c = cli("bh-commit", toy, "--message", "ignore out")
-    assert code == 0 and ".brick-harness/.gitignore" in c["files"]
-    assert gi.read_text() == "out/\n"
+    gi.write_text("out/\n")
+    commit_all(toy, "restore ignore")
     _, s = cli("bh-state", toy)
     assert s["problems"] == []
 
