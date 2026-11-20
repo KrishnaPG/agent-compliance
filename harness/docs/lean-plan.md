@@ -41,6 +41,35 @@ Branch `harness-lean`. Baseline before any change: `cd harness && python3 -m pyt
 | `bh-init` | — | Onboarding inside the harness run (approved step 1) | later |
 | `in_place` measuring, `read_scoreboard`, `_in_head`, scoreboard self-digest | — | Dead or self-protection of our own file: deleted (git history protects the scoreboard) | 1a |
 
+## Waste removed with the orchestrator (wave 1b unless marked)
+
+Tokens:
+
+- **W1 Minimal agent context.** Every agent job starts `claude -p --bare` with only `--plugin-dir`, its agent, its allowed tools and `--json-schema`; no user CLAUDE.md, memory, other plugins, MCP servers or hooks.
+- **W2 Plan once.** The confirmed plan is stored; re-planning starts only when a cited document's content changed (git digests of the cited files), never per run.
+- **W3 Incremental gaps.** Only documents changed since the last gaps commit (`git diff`) are reviewed; earlier verdicts are reused by key, as the catalog's review cache does.
+- **W4 Model per job by the host, not by code.** The plugin ships agent definitions (`agents/*.md`: planner, gaps reader, builder, harvester, each with model, effort and tools in frontmatter); a job is `claude -p --agent <name>`; host built-ins (Explore) are used where they fit. Each job carries `--max-budget-usd`.
+- **W5 Cache-friendly prompts.** Jobs of one kind share an identical prefix (agent definition, rules, schema); the item's packet comes last.
+- **W6 Stop on no progress.** A round that moved no measured number ends the run (scoreboard comparison), before `max_rounds`.
+
+Time:
+
+- **W7 Measure only what changed.** A result is keyed by the item's tree sha and target digest; an unchanged key reuses the recorded result without running tests (the flaky key of SG-05 becomes the cache key).
+- **W8 Run only affected tests.** The command gets the item's paths and its dependents' (`affected()`), not the whole suite.
+- **W9 Warm environments.** One environment per slot for the whole run; an item's commands go to a remote host in one batch.
+- **W10 Overlap.** Setup (tool install, test-runner item) runs alongside the gaps and plan agent jobs.
+
+Owner effort:
+
+- **W11 One ranked batch of questions per run**, asked between runs, recorded, never re-asked.
+- **W12 No commands for the owner** (self-onboarding, approved).
+
+Code (wave 1a/2):
+
+- **W13 One `bh` command with subcommands** instead of 14 `bh-*` scripts with their own argument boilerplate.
+- **W14 One set of JSON Schemas** serves data validation (jsonschema), agent output (`--json-schema`) and tests.
+- **W15 Safeguard proofs from the tests.** Tests carry a pytest marker with their SG id; the register's test list is generated, so it cannot drift.
+
 ## Waves
 
 - **1a** (parallel, separate git worktrees): core (`bhcore.py` and every `bin/` wrapper except the tracker ones, one agent); tracker (`bhtracker.py`, adapters, tracker CLIs, decision 0001, one agent). Stable boundary: `bhtracker` keeps `gap_facts`, `parent_is_feature`, `show_resolver`; `bhcore` keeps the Python `state(cfg)` dict, `value_queue` and the names `bhtracker` imports.
