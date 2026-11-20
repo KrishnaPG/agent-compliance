@@ -3,10 +3,11 @@
 
 Run after the scoreboard commit at HEAD and before admission. For each item in the plan that
 names tracker refs: an entry still open while the item is measured met at HEAD is closed (reason:
-the sha and targets digest, acting as the claim holder); an entry closed while the item is not
+the sha, acting as the claim holder); an entry closed while the item is not
 met at HEAD is reopened. Entries of no admitted item are never touched; nothing is deleted
 (a missing ref is the fact ref-missing); writes happen only on a mismatch, so a repeat is a
-no-op. Without --write it lists the mismatches. Exit 0, or 2 on error.
+no-op. Without --write it lists the mismatches. With no tracker configured it does nothing.
+Exit 0, or 2 on error.
 
   bh-reconcile --config .brick-harness/config.json [--write]
 """
