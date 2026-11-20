@@ -134,8 +134,7 @@ Work hierarchy (decision `docs/decisions/0001-work-tracking.md`): goal, feature,
 items are measured. Item `kind` is `brick`, `system` or `change`; `refs` names tracker refs
 an item resolves; `split_from` marks a child of a split, and the parent depends on each child
 (added when read) so it is measured after them. The gaps report carries, derived when read,
-`rollup` (items met/total per feature that has an item not met) and `facts` (split parent
-without a child dependency, shared path, never scored). `bh-gaps --source cycle` lists every
+`facts` (shared path; the per-feature met/total is the state's `features` part). `bh-gaps --source cycle` lists every
 item not met as stuck (the run passes only what it attempted; an oscillating target is named),
 capped in its printed report with `stuck_more`; the full list is in `gaps.json`.
 
@@ -159,9 +158,9 @@ for the rest. `bh-reconcile [--write]` is the only caller of close and reopen: a
 scoreboard commit, an open entry of an item measured met at HEAD is closed (acting as its
 claim holder) and a closed entry of an item not met is reopened; it never deletes. `bh-file
 [--write]` files the ranked findings of `gaps.json` (looked up by key first, at most
-`limits.file_per_run`). The gaps report adds facts: tracker mismatches, INVEST booleans and
-flow (WIP, throughput, cycle time) per item, `split-without-kind` (`split_kind`), and
-`parent-unmet-after-children`; a split parent is measured but never built.
+`limits.file_per_run`). The gaps report adds facts: tracker mismatches; the plan agent judges
+INVEST and size against `config.sizing` (no heuristic code); a split parent is measured but
+never built.
 Claim leases of Beads (`lease_expires_at`) are Beads' own; the harness never reclaims.
 
 Value order (SG-17): `.brick-harness/features.json` holds the owner's slice and value per

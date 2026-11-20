@@ -24,7 +24,7 @@
       "items": {
         "type": "object"
       },
-      "description": "Facts about item sizes against config sizing, for the owner; never a gap or a gate."
+      "description": "Work-packet notes against config sizing.packet_tokens, for the owner; never a gap or a gate. Item size against config sizing is judged by the plan agent."
     },
     "reviewed_head": {
       "type": [
@@ -58,13 +58,6 @@
     "packets": {
       "type": "object",
       "description": "Work packet size in tokens per item (largest first, capped)."
-    },
-    "rollup": {
-      "type": "object",
-      "description": "Per feature named by an item that is not met: items met and total, derived at read time, never stored as status.",
-      "additionalProperties": {
-        "type": "object"
-      }
     },
     "facts": {
       "type": "array",

@@ -2725,39 +2725,16 @@ def unmet_gaps(
     return out
 
 
-def structure_facts(
-    cfg: Config,
-    bricks: list[dict[str, Any]],
-    st: dict[str, Any],
-) -> tuple[dict[str, Any], list[dict[str, Any]]]:
-    """(rollup, facts) for the gaps report (M4, M12), derived at read time and never stored:
-    per feature named by an item not met, items met and total; split parents that do not list
-    a child in depends_on; paths owned by two items; items never scored. Changes no status."""
-    status = {b["id"]: b["status"] for b in st["bricks"]}
-    named: dict[str, list[str]] = {}
-    for b in bricks:
-        for f in b.get("features", []):
-            named.setdefault(f, []).append(b["id"])
-    rollup = {
-        f: {"met": sum(status[i] == "met" for i in ids), "total": len(ids)}
-        for f, ids in sorted(named.items())
-        if any(status[i] != "met" for i in ids)
-    }
-    facts: list[dict[str, Any]] = []
-    for b in bricks:
-        if b.get("_undeclared_children"):
-            facts.append(
-                {
-                    "kind": "split-parent-without-child-dependency",
-                    "item": b["id"],
-                    "children": b["_undeclared_children"],
-                    "note": "depends_on does not list them; the harness measures the parent after them anyway",
-                }
-            )
+def shared_path_facts(bricks: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Fact ``shared-path``: a path owned by two items (or an item's path under another's).
+
+    Pure path arithmetic over the items file; git and ast-grep have no notion of an item's
+    owned paths, so there is no tool to adopt. Changes no status."""
     owners: dict[str, set[str]] = {}
     for b in bricks:
         for p in _own_paths(b):
             owners.setdefault(p.rstrip("/"), set()).add(b["id"])
+    facts: list[dict[str, Any]] = []
     seen: set[tuple[str, tuple[str, ...]]] = set()
     for p, ids in sorted(owners.items()):
         sharing = set(ids)
@@ -2766,129 +2743,6 @@ def structure_facts(
         if len(sharing) > 1 and (p, tuple(sorted(sharing))) not in seen:
             seen.add((p, tuple(sorted(sharing))))
             facts.append({"kind": "shared-path", "path": p, "items": sorted(sharing)})
-    for b in bricks:
-        if status[b["id"]] == "unmeasured":
-            facts.append({"kind": "never-scored", "item": b["id"]})
-    facts += split_facts(bricks, status)
-    return rollup, facts
-
-
-def split_facts(bricks: list[dict[str, Any]], status: dict[str, str]) -> list[dict[str, Any]]:
-    """M12 facts: a split child with no ``split_kind`` (split-without-kind), and a split
-    parent not met although all its children are (parent-unmet-after-children)."""
-    facts: list[dict[str, Any]] = []
-    children: dict[str, list[str]] = {}
-    for b in bricks:
-        if b.get("split_from"):
-            children.setdefault(b["split_from"], []).append(b["id"])
-            if not b.get("split_kind"):
-                facts.append(
-                    {"kind": "split-without-kind", "item": b["id"], "parent": b["split_from"]}
-                )
-    for p, kids in sorted(children.items()):
-        if (
-            p in status
-            and all(status.get(k) == "met" for k in kids)
-            and status[p] in ("unmet", "stale", "conflict")
-        ):
-            facts.append(
-                {"kind": "parent-unmet-after-children", "item": p, "children": sorted(kids)}
-            )
-    return facts
-
-
-def _dependency_cycle_members(bricks: list[dict[str, Any]]) -> set[str]:
-    """Items that can reach themselves through depends_on (an item merely behind a cycle is not)."""
-    deps = {b["id"]: [d for d in b.get("depends_on", [])] for b in bricks}
-    out = set()
-    for start in deps:
-        seen: set[str] = set()
-        todo = list(deps[start])
-        while todo:  # walk the finite graph
-            i = todo.pop()
-            if i == start:
-                out.add(start)
-                break
-            if i not in seen:
-                seen.add(i)
-                todo += deps.get(i, [])
-    return out
-
-
-def _first_seen(top: Path | None, rel: str, item: str) -> str | None:
-    """Commit time of the first commit whose items file names ``item``."""
-    if top is None or not _git_ok(top, "rev-parse", "--verify", "-q", "HEAD"):
-        return None
-    try:
-        out = _git(top, "log", "--reverse", "--format=%cI", f'-S"id": "{item}"', "--", rel)
-    except HarnessError:
-        return None
-    return out.splitlines()[0] if out else None
-
-
-def invest_flow(
-    cfg: Config,
-    bricks: list[dict[str, Any]],
-    st: dict[str, Any],
-    board: dict[str, Any] | None,
-    tracker_parent_feature: Callable[[dict[str, Any]], bool] | None = None,
-) -> list[dict[str, Any]]:
-    """M11 facts, never scored. Per item not met (capped at limits.decision_items): the INVEST
-    questions as booleans (independent: not in a dependency cycle; valuable: names a feature or
-    its tracker parent is a feature; estimable: est_loc present; small: no sizing note;
-    testable: not blocked by a gap). Flow (Kanban): WIP against horizon.items, and the cycle
-    time of items met since the last harvest, from the commit that introduced the item to its
-    scoreboard ``measured_at``; throughput is their count."""
-    cap = cfg.limit("decision_items")
-    status = {b["id"]: b["status"] for b in st["bricks"]}
-    blocked = {b["id"]: b["blocked_by"] for b in st["bricks"]}
-    cyc = _dependency_cycle_members(bricks)
-    notes: dict[str, int] = {}
-    for n in sizing_notes(cfg, bricks, board):
-        notes[n["item"]] = notes.get(n["item"], 0) + 1
-    facts: list[dict[str, Any]] = []
-    for b in [x for x in bricks if status[x["id"]] != "met"][:cap]:
-        i = b["id"]
-        facts.append(
-            {
-                "kind": "invest",
-                "item": i,
-                "independent": i not in cyc,
-                "valuable": bool(b.get("features"))
-                or bool(tracker_parent_feature and tracker_parent_feature(b)),
-                "estimable": "est_loc" in b,
-                "small": i not in notes,
-                "testable": not blocked.get(i),
-            }
-        )
-    top = git_top(cfg.dir)
-    bf = cfg.file("bricks")
-    since = _last_harvest(top)
-    rows = []
-    for b in bricks:
-        r = ((board or {}).get("items") or {}).get(b["id"])
-        if status[b["id"]] != "met" or not r or not r.get("measured_at"):
-            continue
-        at = datetime.fromisoformat(r["measured_at"])
-        if since is not None and at.replace(microsecond=0) <= since:
-            continue
-        born = (
-            _first_seen(top, _under(bf, top), b["id"])
-            if top and bf and bf.is_relative_to(top)
-            else None
-        )
-        if born:
-            rows.append((b["id"], round((at - datetime.fromisoformat(born)).total_seconds())))
-    horizon = int(cfg.data.get("horizon", {}).get("items", 20))
-    facts.append(
-        {
-            "kind": "flow",
-            "wip": sum(1 for v in status.values() if v != "met"),
-            "horizon": horizon,
-            "throughput": len(rows),
-            "cycle_time_s": dict(sorted(rows)[:cap]),
-        }
-    )
     return facts
 
 
@@ -2910,7 +2764,8 @@ def merge_gaps(
     nothing unless ``write``. An empty ``added`` clears ``source``'s earlier findings. For
     source ``cycle`` every item not met gets a gap (the ``unmet`` ones with their reason, the
     rest ``not-attempted``) and ``stuck`` lists them capped at ``limits.decision_items`` with
-    ``stuck_more``; the full list is in the report.
+    ``stuck_more``; the full list is in the report. ``parent_feature`` is accepted for the
+    callers that still pass it and is unused.
     """
     if source == "check":
         raise HarnessError("source 'check' is reserved for the mechanical checks")
@@ -2951,13 +2806,12 @@ def merge_gaps(
         rules,
     )
     st = st or state(cfg)
-    rollup, facts = structure_facts(cfg, bricks, st)
     unmet_items = [b["id"] for b in st["bricks"] if b["status"] != "met"]
     pk = packet_report(cfg, unmet_items)
     import bhrules
 
-    facts = facts + learn["bad_cites"] + pk["facts"] + bhrules.rule_facts(cfg, bricks)
-    facts += invest_flow(cfg, bricks, st, board, parent_feature)
+    facts = shared_path_facts(bricks) + learn["bad_cites"] + pk["facts"]
+    facts += bhrules.rule_facts(cfg, bricks)
     if tracker_facts is not None:
         facts += tracker_facts(st, bricks)
     finds = [g for g in gaps if g.get("source") == "finding"]
@@ -2968,10 +2822,9 @@ def merge_gaps(
             for t in ("owner-decides", "fixable")
         },
         "gaps": gaps,
-        "rollup": rollup,
         "facts": facts,
         "reviewed_head": _head(cfg) if write and source == "review" else prev_head,
-        "sizing_notes": sizing_notes(cfg, bricks, board) + pk["notes"],
+        "sizing_notes": pk["notes"],
         "answered": learn["answered"],
         "re_asked": learn["re_asked"],
         "learning": learning_counts(cfg, gaps, learn, decs, rules, finds),
@@ -3115,13 +2968,6 @@ def render_gaps_md(report: dict[str, Any]) -> str:
                 )
                 for g in finds
             ]
-        )
-        out += "\n"
-    if report.get("rollup"):
-        out += "\n## Features in the horizon\n\nItems met of total, derived when read; never stored.\n\n"
-        out += "\n".join(
-            ["| feature | met | total |", "|---|---|---|"]
-            + [f"| {f} | {r['met']} | {r['total']} |" for f, r in report["rollup"].items()]
         )
         out += "\n"
     if report.get("facts"):
@@ -4021,63 +3867,3 @@ def packet_report(cfg: Config, items: list[str]) -> dict[str, Any]:
 # ---------------------------------------------------------------- sizing notes (SG-14)
 
 SIZING_DEFAULT = {"min_loc": 150, "max_loc": 2000, "packet_tokens": 1600}
-
-
-def _measured_loc(cfg: Config, top: Path | None, b: dict[str, Any]) -> int | None:
-    """Lines in the tracked files under the item's own paths, or None without any."""
-    own = _own_paths(b)
-    if top is None or not own:
-        return None
-    spec = [_under(cfg.dir / p, top) for p in own]
-    n = 0
-    for f in _git(top, "ls-files", "--", *spec).splitlines():
-        try:
-            n += len((top / f).read_text().splitlines())
-        except (OSError, UnicodeDecodeError):
-            continue
-    return n or None
-
-
-def sizing_notes(
-    cfg: Config, bricks: list[dict[str, Any]], board: dict[str, Any] | None = None
-) -> list[dict[str, Any]]:
-    """Facts about how items are sized, for the owner: est_loc or measured lines outside
-    config ``sizing`` (min_loc 150, max_loc 2000; measured lines count against min_loc only for
-    an item the scoreboard has met), a purpose that may join two jobs, one
-    declared consumer, an OSS tool that already fits. Never a gap, never a status."""
-    s = {**SIZING_DEFAULT, **cfg.data.get("sizing", {})}
-    top = git_top(cfg.dir)
-    notes = []
-    for b in bricks:
-        i = b["id"]
-        est = b.get("est_loc")
-        got = _measured_loc(cfg, top, b)
-        built = ((board or {}).get("items", {}).get(i) or {}).get("status") == "met"
-        for label, n in (("est_loc", est), ("measured lines", got)):
-            if n is None:
-                continue
-            if n > s["max_loc"]:
-                notes.append(
-                    (
-                        i,
-                        f"{label} {n} above sizing.max_loc {s['max_loc']}: may be too large for one agent session",
-                    )
-                )
-            elif n < s["min_loc"] and (label == "est_loc" or built):
-                notes.append(
-                    (
-                        i,
-                        f"{label} {n} below sizing.min_loc {s['min_loc']}: may be too small to justify a package",
-                    )
-                )
-        purpose = b.get("purpose", "")
-        if re.search(r"\band\b|;", purpose):
-            notes.append((i, f"purpose may join two jobs: {purpose[:120]}"))
-        if len(b.get("consumers", [])) == 1:
-            notes.append((i, f"a single consumer ({b['consumers'][0]}): is a package justified?"))
-        for o in b.get("oss_checked", []):
-            if o.get("fits"):
-                notes.append(
-                    (i, f"OSS tool {o['tool']} {o['version']} fits the job: is code needed?")
-                )
-    return [{"item": i, "note": n} for i, n in notes]

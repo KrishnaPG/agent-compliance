@@ -242,7 +242,7 @@ def test_a_split_from_an_unknown_item_is_a_blocking_gap(toy):
 # ---------------------------------------------------------------- M4: roll-up and facts
 
 
-def test_gaps_report_carries_the_rollup_and_structure_facts_and_changes_no_status(toy):
+def test_gaps_report_carries_the_shared_path_fact_and_changes_no_status(toy):
 
     def add(d):
         d["bricks"].append(change("cr-a", path="src/csv_reader.py", split_from="csv-reader"))
@@ -251,21 +251,13 @@ def test_gaps_report_carries_the_rollup_and_structure_facts_and_changes_no_statu
     plan_edit(toy, "targets.json", lambda d: d["targets"].extend(default_targets("cr-a")))
     before = {b["id"]: b["status"] for b in full_state(toy)[1]["bricks"]}
     out = run("bh-gaps", toy)[1]
-    assert out["rollup"]["F1"] == {"met": 0, "total": 4}
-    kinds = {f["kind"] for f in out["facts"]}
-    assert kinds >= {
-        "split-parent-without-child-dependency",
-        "shared-path",
-        "never-scored",
-    }
-    sp = [f for f in out["facts"] if f["kind"] == "split-parent-without-child-dependency"][0]
-    assert sp["item"] == "csv-reader" and sp["children"] == ["cr-a"]
+    assert "rollup" not in out
     sh = [f for f in out["facts"] if f["kind"] == "shared-path"][0]
     assert sh["path"] == "src/csv_reader.py" and sh["items"] == ["cr-a", "csv-reader"]
     assert {b["id"]: b["status"] for b in full_state(toy)[1]["bricks"]} == before
     run("bh-gaps", toy, "--write")
     md = (toy / ".brick-harness" / "gaps.md").read_text()
-    assert "## Facts" in md and "## Features in the horizon" in md
+    assert "## Facts" in md and "## Features in the horizon" not in md
 
 
 # ---------------------------------------------------------------- M5: horizon admission

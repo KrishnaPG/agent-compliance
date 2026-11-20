@@ -6,7 +6,6 @@ agents, never against a model.
 """
 
 import json
-import re
 import shutil
 import subprocess
 import sys
@@ -383,55 +382,6 @@ def test_gaps_and_plan_prompts_hand_over_the_recorded_decisions_as_settled_input
 
 
 # ---------------------------------------------------------------- SG-14: sizing notes
-
-
-def sized_toy(toy, **sizing):
-    def bricks(d):
-        by = {b["id"]: b for b in d["bricks"]}
-        by["csv-reader"].update(
-            {
-                "est_loc": 10,
-                "consumers": ["csv2json"],
-                "purpose": "read CSV",
-                "hides": "dialects",
-                "interface": "read_rows(text) -> list[dict]",
-                "oss_checked": [{"tool": "csv", "version": "stdlib", "fits": True}],
-            }
-        )
-        by["json-writer"].update({"est_loc": 5000})
-        by["csv2json"].update({"purpose": "read the CSV and write the JSON"})
-
-    edit_json(toy / ".brick-harness" / "bricks.json", bricks)
-    if sizing:
-        edit_json(toy / ".brick-harness" / "config.json", lambda c: c.update({"sizing": sizing}))
-
-
-def test_sizing_notes_list_facts_against_config_thresholds_and_change_no_status(toy):
-    before = status(toy)[0]
-    sized_toy(toy)
-    _, r = cli("bh-gaps", toy, "--write")
-    notes = {(n["item"], n["note"].split(":")[0].split(" (")[0]) for n in r["sizing_notes"]}
-    text = " | ".join(n["note"] for n in r["sizing_notes"])
-    assert "est_loc 10 below sizing.min_loc 150" in text  # defaults 150 and 2000
-    assert "est_loc 5000 above sizing.max_loc 2000" in text
-    assert "purpose may join two jobs" in text and "a single consumer (csv2json)" in text
-    assert "OSS tool csv stdlib fits" in text and notes
-    assert r["counts"] == cli("bh-gaps", toy)[1]["counts"]
-    assert not any(g["kind"] == "other" for g in r["gaps"])  # notes are not gaps
-    md = (toy / ".brick-harness" / "gaps.md").read_text()
-    assert "## Sizing notes" in md and "est_loc 5000" in md
-    assert status(toy)[0] == before  # a fact: no status moved
-    on_disk = json.loads((toy / ".brick-harness" / "gaps.json").read_text())
-    assert bhcore.validate(on_disk, bhcore.load_schema("gaps")) == []
-
-
-def test_sizing_thresholds_come_from_config_and_lines_are_measured(toy):
-    sized_toy(toy, min_loc=5, max_loc=1)
-    _, r = cli("bh-gaps", toy)
-    text = " | ".join(n["note"] for n in r["sizing_notes"])
-    assert "est_loc 10 below" not in text  # 10 >= min_loc 5
-    assert "est_loc 10 above sizing.max_loc 1" in text
-    assert re.search(r"measured lines \d+ above sizing.max_loc 1", text)
 
 
 def test_the_toy_without_sizing_fields_has_no_sizing_notes_and_stays_valid(toy):
