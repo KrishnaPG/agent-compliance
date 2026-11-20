@@ -54,7 +54,7 @@ agent runs each tool and returns its JSON.
   measuring, the plan commit's (HEAD's) plan and `protected` paths and the held-out ref
   `refs/brick-harness/holdout` are laid over the ref's checkout (a guarded file the ref added
   is deleted), so edits there have no effect; they are listed under the item as
-  `ignored_edits`. Facts recorded on each result and in `scoreboard.md`, never changing a
+  `ignored_edits`. Facts recorded on each result in `scoreboard.json`, never changing a
   status: `scope` (paths outside the item's `path`/`paths`; public Python names the
   contract's optional `exports` list lacks), `dependencies` (lockfile packages added or
   changed since the ref's fork, not named in `standards.stack`, or with a new major
@@ -77,7 +77,12 @@ agent runs each tool and returns its JSON.
   branches, so they return their commit and this sets `bh/<ID>` to it from the main checkout:
   the commit must exist and be new; created or fast-forwarded, otherwise refused. What it
   holds under plan or protected paths is not judged here.
-- `bh-state [--parts | --part KEY | --value KEY | --affected REF]`: the whole state, derived from files.
+- `bh-state [--affected REF]`: the whole state, derived from files, written atomically to
+  `<measure_out>/state.json` (git-ignored); the CLI prints a small summary (`file`, `head`,
+  `plan_head`, `all_met`, `counts` per status, `ready`, `ready_system`, `unmet`, each id list
+  capped at `limits.decision_items` with a `*_more` count, `gaps`, `problems`) and agents read
+  the file themselves. Until the workflows read the file, `--part KEY`, `--parts`, `--value KEY`
+  and `--part pending --after ID` remain their read path (checksums per part, below).
   Item status is `met` only when the result's ref is in HEAD and the item's paths (with its
   dependencies' and the protected paths) are unchanged since; otherwise `stale`,
   `met-unmerged`, `conflict`, `unmet`, `unmeasured`, or `blocked` (with the gap ids that
@@ -205,7 +210,7 @@ report counts questions opened, answered and re-asked per cycle.
 .brick-harness/
   config.json  .gitignore (out/)
   targets.json  bricks.json  contracts/  catalogue.json   # plan, committed
-  scoreboard.json  scoreboard.md                          # measurer only, committed
+  scoreboard.json                                        # measurer only, committed
   gaps.json  gaps.md                                      # bh-gaps and bh-rank, committed
   out/  (history.json: per measurement, each target met or not)  # raw output, ignored
 ```

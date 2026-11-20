@@ -7,7 +7,7 @@ import json
 
 import bhcore
 import pytest
-from test_toy import cli, commit_all, copy_toy, git
+from test_toy import cli, commit_all, copy_toy, full_state, git
 from test_work_tracking import cfg_of, conf, default_targets, measure_and_commit, plan_edit
 
 
@@ -67,7 +67,7 @@ def pending_ids(repo):
 
 def test_without_features_the_queue_is_the_build_order_and_nothing_changes(toy):
     assert queue(toy) == ["csv-reader", "json-writer", "csv2json"] == pending_ids(toy)
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert s["value"] == {
         "sellable_at_head": [],
         "if_stopped_today": [],
@@ -82,7 +82,7 @@ def test_earliest_slice_first_each_feature_closure_in_dependency_order(toy):
     write_features(toy, feat("F1", "csv2json", 2, 100), feat("F2", "extra", 1, 1))
     assert queue(toy) == ["json-writer", "extra", "csv-reader", "csv2json"]
     assert pending_ids(toy) == queue(toy)  # the decision part's page is the head of the queue
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert s["value"]["next"] == {"feature": "F2", "remaining_cost": 2}
 
 
@@ -117,7 +117,7 @@ def test_unvalued_features_rank_last_are_listed_and_never_by_an_agent_estimate(t
         feat("OK", "csv-reader", 5, 1),
     )
     assert queue(toy)[0] == "csv-reader"  # the valued feature, though its slice is later
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     un = {u["feature"]: u["missing"] for u in s["value"]["unvalued"]}
     assert un["NOVALUE"] == ["value"] and "does not exist" in un["BADSRC"][0]
     _, g = cli("bh-gaps", toy)
@@ -133,7 +133,7 @@ def test_items_no_feature_names_follow_in_build_order(toy):
 def test_a_feature_pointing_at_an_unknown_acceptance_item_is_unvalued_and_changes_no_order(toy):
     write_features(toy, feat("A", "nope", 1, 1))
     assert queue(toy) == ["csv-reader", "json-writer", "csv2json"]
-    assert cli("bh-state", toy)[1]["value"]["unvalued"] == [
+    assert full_state(toy)[1]["value"]["unvalued"] == [
         {"feature": "A", "missing": ["acceptance item nope unknown"]}
     ]
 
@@ -142,7 +142,7 @@ def test_finish_before_start_holds_later_features_while_the_earlier_has_ready_it
     add_items(toy, sys_item("later", est_loc=1))
     write_features(toy, feat("F1", "csv2json", 1, 5), feat("F2", "later", 2, 5))
     measure_and_commit(toy, "csv-reader")  # F1 is under way: csv-reader met, json-writer ready
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     rows = {b["id"]: b for b in s["bricks"]}
     assert rows["json-writer"]["ready"] and not rows["later"]["ready"]
     assert rows["later"]["held_by"] == "F1" and rows["later"]["status"] == "unmeasured"
@@ -152,7 +152,7 @@ def test_finish_before_start_holds_later_features_while_the_earlier_has_ready_it
 def test_nothing_is_held_before_a_feature_has_started_or_when_the_earlier_has_no_ready_item(toy):
     add_items(toy, sys_item("later"))
     write_features(toy, feat("F1", "csv2json", 1, 5), feat("F2", "later", 2, 5))
-    _, s = cli("bh-state", toy)  # nothing started
+    _, s = full_state(toy)  # nothing started
     assert s["decision"]["held"] == {} and "later" in s["ready_system"]
     # started, but no F1 item is ready (json-writer is blocked, csv2json waits): F2 is not held
     measure_and_commit(toy, "csv-reader")
@@ -163,7 +163,7 @@ def test_nothing_is_held_before_a_feature_has_started_or_when_the_earlier_has_no
                 b["depends_on"] = ["ghost"]  # a missing dependency blocks it
 
     plan_edit(toy, "bricks.json", wait)
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     rows = {b["id"]: b for b in s["bricks"]}
     assert rows["json-writer"]["status"] == "blocked" and rows["later"]["ready"]
     assert rows["later"].get("held_by") is None
@@ -171,9 +171,9 @@ def test_nothing_is_held_before_a_feature_has_started_or_when_the_earlier_has_no
 
 def test_sellable_facts_follow_the_measured_acceptance_item(toy):
     write_features(toy, feat("SELL", "csv-reader", 1, 9), feat("NEXT", "csv2json", 2, 5))
-    assert cli("bh-state", toy)[1]["value"]["sellable_at_head"] == []
+    assert full_state(toy)[1]["value"]["sellable_at_head"] == []
     measure_and_commit(toy, "csv-reader")
-    v = cli("bh-state", toy)[1]["value"]
+    v = full_state(toy)[1]["value"]
     assert v["sellable_at_head"] == ["SELL"]
     assert v["if_stopped_today"] == [{"feature": "SELL", "slice": 1}]
     assert v["next"] == {"feature": "NEXT", "remaining_cost": 2}  # json-writer and csv2json
@@ -202,7 +202,7 @@ def test_the_decision_page_keeps_its_cap_and_paging_in_value_order(toy):
 
 def test_features_file_fails_closed_as_a_problem_and_value_queue_is_pure(toy):
     (toy / ".brick-harness" / "features.json").write_text('{"features": [{"id": "x"}]}')
-    code, s = cli("bh-state", toy)
+    code, s = full_state(toy)
     assert code == 1 and "features" in s["problems"][0]
     cfg = cfg_of(toy)
     st = bhcore.state(cfg)

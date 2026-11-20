@@ -14,7 +14,7 @@ from pathlib import Path
 
 import bhcore
 import pytest
-from test_toy import BIN, ENV, cli, commit_all, copy_toy, git, status
+from test_toy import BIN, ENV, cli, commit_all, copy_toy, full_state, git, status
 
 ROOT = Path(__file__).resolve().parent.parent
 FLOWS = ROOT / "workflows"
@@ -131,7 +131,7 @@ def test_findings_are_recorded_in_gaps_json_apart_from_spec_gaps(toy):
     # a bh-gaps run keeps them and recomputes the mechanical gaps around them
     _, g = cli("bh-gaps", toy, "--write")
     assert len([x for x in g["gaps"] if x["source"] == "finding"]) == 2
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert ".brick-harness/gaps.json" in s["uncommitted"]
     code, c = cli("bh-commit", toy, "--message", "findings")
     assert ".brick-harness/gaps.json" in c["files"]
@@ -174,7 +174,7 @@ def test_findings_schema_agrees_with_jsonschema():
 
 def test_build_rounds_work_only_on_items_with_unmet_measured_targets(toy):
     """A finding is never work by itself: only items the measurer reports unmet are ready."""
-    _, s = cli("bh-state", toy)
+    _, s = full_state(toy)
     assert {b["id"]: b["status"] for b in s["bricks"]}["csv-reader"] == "unmeasured"
     cli("bh-measure", toy, "--item", "csv-reader")
     cli("bh-commit", toy, "--message", "scoreboard")

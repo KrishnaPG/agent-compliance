@@ -1,28 +1,32 @@
 #!/usr/bin/env python3
-"""Print the harness state derived from project files as JSON.
+"""Write the harness state to a file and print a small summary of it.
 
 Validates the config, lists files (harness-owned ones are creatable), item status from the
 scoreboard (with the previous ref and unmet numbers of an item to rebuild), blocked items,
 dependency waves, ready items, builder branches (bh/<item>), the plan commit, rendered
-per-item commands, catalogue entries and duplicates, lockfile versions, design-checklist
-mentions, the mechanical spec gaps and counts. Exit 0 with no problems, 1 with problems,
-2 when the config cannot be read or a part is unknown.
+per-item commands, catalogue entries and duplicates, lockfile versions, the mechanical spec
+gaps and counts. Exit 0 with no problems, 1 with problems, 2 when the config cannot be read
+or a part is unknown.
 
-  bh-state --config .brick-harness/config.json [--parts | --part KEY ... | --value KEY | --affected REF]
-  bh-state --config .brick-harness/config.json --part pending --after ID
+  bh-state --config .brick-harness/config.json
+  bh-state --config .brick-harness/config.json [--part KEY ... | --parts | --value KEY | --affected REF]
 
-The decision part lists only items not met, most valuable first (the value order of
-.brick-harness/features.json, else build order), at most limits.decision_items, with counts per
-status and ``more`` (the count left); --part pending --after ID prints the next page
-({"pending": {items, more, next}}). --part learning --after D-n pages the decision records.
+Big output never crosses an agent: the full state is written (atomically) to
+``<measure_out>/state.json`` (the out directory is git-ignored) and the CLI prints
+{"file", "head", "plan_head", "all_met", "counts": {status: n}, "ready", "ready_system",
+"unmet", "unmet_more", "problems", ...}, each id list capped at limits.decision_items. Agents
+read the file themselves (a path, a ``jq`` filter); nothing is re-read in slices or checked
+against a checksum.
 
---value prints one part's bare JSON value (what a sliced re-read joins); --parts prints the part names with a checksum of each (lib/prelude.js recomputes them to
-detect a part shortened in transit); --part prints {KEY: value} for each KEY; --affected
-prints the items a ref touches and everything depending on them.
+--part prints {KEY: value} for each KEY, --value the bare value of one KEY, --parts the part
+names with a checksum of each, and --part pending --after ID / --part learning --after D-n
+page their part: the read path of the workflows until they read the state file (wave 1b).
+--affected prints the items a ref touches and everything depending on them.
 """
 
 import argparse
 import json
+import os
 import sys
 from pathlib import Path
 
@@ -39,6 +43,42 @@ from bhcore import (  # noqa: E402
     state,
     value_queue,
 )
+
+
+def summary(cfg: Config, s: dict) -> dict:
+    """Write the full state to <measure_out>/state.json and return its small summary.
+
+    Tools checked for the write: ``os.replace`` of a temp file in the same directory is the
+    stdlib's atomic write; nothing else was needed.
+    """
+    out = cfg.file("measure_out")
+    assert out is not None
+    out.mkdir(parents=True, exist_ok=True)
+    path = out / "state.json"
+    tmp = path.with_name(f".state.{os.getpid()}.tmp")
+    tmp.write_text(json.dumps(s, sort_keys=True, separators=(",", ":")))
+    os.replace(tmp, path)
+    cap = cfg.limit("decision_items")
+    unmet = [b["id"] for b in s["bricks"] if b["status"] != "met"]
+    counts: dict[str, int] = {}
+    for b in s["bricks"]:
+        counts[b["status"]] = counts.get(b["status"], 0) + 1
+    return {
+        "file": str(path),
+        "head": s["head"],
+        "plan_head": s["plan_head"],
+        "all_met": s["all_met"],
+        "counts": counts,
+        "ready": s["ready"][:cap],
+        "ready_more": max(0, len(s["ready"]) - cap),
+        "ready_system": s["ready_system"][:cap],
+        "ready_system_more": max(0, len(s["ready_system"]) - cap),
+        "unmet": unmet[:cap],
+        "unmet_more": max(0, len(unmet) - cap),
+        "gaps": len(s["gaps"]),
+        "problems": s["problems"][:cap],
+        "problems_more": max(0, len(s["problems"]) - cap),
+    }
 
 
 def main() -> int:
@@ -99,7 +139,7 @@ def main() -> int:
     if unknown:
         print(json.dumps({"problems": [f"unknown part {k}" for k in unknown], "parts": sorted(s)}))
         return 2
-    out = {k: s[k] for k in a.part} if a.part else s
+    out = {k: s[k] for k in a.part} if a.part else summary(cfg, s)
     print(json.dumps(out, sort_keys=True, separators=(",", ":")))
     return 1 if s["problems"] else 0
 

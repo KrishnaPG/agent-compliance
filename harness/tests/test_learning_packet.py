@@ -11,7 +11,7 @@ from pathlib import Path
 
 import bhcore
 import pytest
-from test_toy import EMPTY_CATALOG, ROOT, cli, commit_all, copy_toy, git
+from test_toy import EMPTY_CATALOG, ROOT, cli, commit_all, copy_toy, full_state, git
 from test_work_tracking import cfg_edit, plan_edit
 
 KIND = "no-numeric-target"
@@ -46,7 +46,7 @@ def answer(repo, gap, text="use 3 retries", kinds=KIND, areas=AREA, source="feat
 
 
 def status_of(repo, item):
-    return {b["id"]: b for b in cli("bh-state", repo)[1]["bricks"]}[item]
+    return {b["id"]: b for b in full_state(repo)[1]["bricks"]}[item]
 
 
 # ---------------------------------------------------------------- SG-16

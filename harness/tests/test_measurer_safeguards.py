@@ -250,8 +250,6 @@ def test_same_tree_passing_and_failing_is_recorded_as_flaky_without_changing_sta
     assert code == 1 and second["status"] == "unmet"  # the status is the measurement's alone
     assert [x["status"] for x in second["flaky"]["runs"]] == ["met", "unmet"]
     assert second["flaky"]["runs"][1]["errors"]
-    md = (toy / ".brick-harness" / "scoreboard.md").read_text()
-    assert "FLAKY" in md
 
 
 def test_different_trees_with_different_results_are_not_flaky(toy):
