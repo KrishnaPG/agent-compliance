@@ -2,13 +2,12 @@
 """Deterministic measurer: the only writer of the scoreboard.
 
 Runs the configured test and bench commands for each item in a clean checkout of its ref,
-compares raw numbers with the targets, records each result in the scoreboard (JSON and
-markdown) as it lands, and prints the run as JSON. A result at HEAD is current; any other
+compares raw numbers with the targets, records each result in the scoreboard as it lands, and prints the run as JSON. A result at HEAD is current; any other
 ref is a candidate. Exit 0 when every measured item met its targets, 1 when any did not,
 2 on a usage or config error or when a result could not be recorded (the results are
 still printed).
 
-  bh-measure --config .brick-harness/config.json [--item ID[@REF] ...] [--in-place] [--slot N]
+  bh-measure --config .brick-harness/config.json [--item ID[@REF] ...] [--slot N]
 
 One call runs env_setup, test and bench for each item, each bounded by commands.timeout_s.
 Callers with a shell time limit measure one item per call.
@@ -32,16 +31,11 @@ def main() -> int:
         default=[],
         help="ID or ID@REF (default ref HEAD); repeat; default all items",
     )
-    ap.add_argument(
-        "--in-place",
-        action="store_true",
-        help="measure the working tree as is (met-uncommitted at best; never satisfies a target)",
-    )
     ap.add_argument("--slot", type=int, default=0)
     a = ap.parse_args()
     try:
         items = [(i.partition("@")[0], i.partition("@")[2] or "HEAD") for i in a.item]
-        run = measure(Config(a.config), items, in_place=a.in_place, slot=a.slot)
+        run = measure(Config(a.config), items, slot=a.slot)
     except HarnessError as e:
         print(json.dumps({"ok": False, "error": str(e), "items": {}}))
         return 2

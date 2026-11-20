@@ -272,14 +272,14 @@ def remote_config(toy, copy=True):
 
 def test_remote_test_command_leaves_results_in_out(toy):
     remote_config(toy)
-    code, run = cli("bh-measure", toy, "--item", "csv-reader", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv-reader")
     assert run["items"]["csv-reader"]["metrics"]["tests.passed"] >= 2
-    assert run["items"]["csv-reader"]["status"] == "met-uncommitted"
+    assert run["items"]["csv-reader"]["status"] == "met"
 
 
 def test_remote_test_command_without_results_is_unmet(toy):
     remote_config(toy, copy=False)
-    code, run = cli("bh-measure", toy, "--item", "csv-reader", "--in-place")
+    code, run = cli("bh-measure", toy, "--item", "csv-reader")
     r = run["items"]["csv-reader"]
     assert code == 1 and r["status"] == "unmet"
     assert any("junit" in e for e in r["errors"])

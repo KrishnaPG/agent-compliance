@@ -865,17 +865,14 @@ def set_branch(cfg: Config, item: str, sha: str) -> dict[str, Any]:
     return {"ok": True, "item": item, "branch": f"bh/{item}", "ref": full, "previous": old or None}
 
 
-def measure(
-    cfg: Config, items: list[tuple[str, str]], in_place: bool = False, slot: int = 0
-) -> dict[str, Any]:
+def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[str, Any]:
     """Measure ``(item, ref)`` pairs; record each result in the scoreboard as it lands.
 
     Config, items and targets are read from the invoking checkout, never from the measured
     ref. A ref is measured on its checkout with the plan commit's plan and protected paths and
     the held-out cases laid over it (``overlay_plan``); its edits there have no effect and
     are listed as ``ignored_edits``. A result at HEAD is current; any other ref is a candidate,
-    which never replaces a met current result. ``in_place`` results are ``met-uncommitted``
-    at best and never satisfy a target.
+    which never replaces a met current result.
     """
     import bhrules
 
@@ -903,57 +900,48 @@ def measure(
         except HarnessError as e:
             errors.append(f"{item}: not recorded: {e}")
 
-    if in_place:
-        for item, _ in items:
-            r = measure_item(
-                cfg, bricks[item], targets, cfg.dir, cfg.dir, out_root / item, slot, "working-tree"
-            )
-            if r["status"] == "met":
-                r["status"] = "met-uncommitted"
-            record(item, r, current=False)
-    else:
-        top = git_top(cfg.dir)
-        if top is None:
-            raise HarnessError("not a git repository; use --in-place")
-        _git(top, "worktree", "prune")
-        head = _git(top, "rev-parse", "HEAD")
-        root_rel = _under(cfg.dir, top)
-        by_ref: dict[str, list[str]] = {}
-        for item, ref in items:
-            by_ref.setdefault(_git(top, "rev-parse", "--verify", ref + "^{commit}"), []).append(
-                item
-            )
-        for sha, its in by_ref.items():
-            facts = ref_facts(cfg, top, sha) | _dependency_facts(cfg, top, sha)
-            try:
-                chg = [
-                    c.removeprefix(root_rel + "/")
-                    for c in changed_paths(top, sha)
-                    if root_rel == "." or c.startswith(root_rel + "/")
-                ]
-            except HarnessError:
-                chg = []
-            sup = bhrules.suppressions(cfg, top, sha)
-            if sup:
-                facts["suppressions"] = sup
-            with clean_checkout(top, sha) as co:
-                overlay_plan(cfg, top, co, head)
-                for item in its:
-                    b = bricks[item]
-                    r = measure_item(
-                        cfg,
-                        b,
-                        targets,
-                        co,
-                        co / root_rel,
-                        out_root / item,
-                        slot,
-                        sha,
-                        facts | _scope_facts(cfg, top, co, b, sha),
-                        chg,
-                    )
-                    key = tree_key(cfg, top, bricks, item, sha, head, r["targets_digest"])
-                    record(item, r, current=sha == head, tree=key)
+    top = git_top(cfg.dir)
+    if top is None:
+        raise HarnessError("not a git repository")
+    _git(top, "worktree", "prune")
+    head = _git(top, "rev-parse", "HEAD")
+    root_rel = _under(cfg.dir, top)
+    by_ref: dict[str, list[str]] = {}
+    for item, ref in items:
+        by_ref.setdefault(_git(top, "rev-parse", "--verify", ref + "^{commit}"), []).append(
+            item
+        )
+    for sha, its in by_ref.items():
+        facts = ref_facts(cfg, top, sha) | _dependency_facts(cfg, top, sha)
+        try:
+            chg = [
+                c.removeprefix(root_rel + "/")
+                for c in changed_paths(top, sha)
+                if root_rel == "." or c.startswith(root_rel + "/")
+            ]
+        except HarnessError:
+            chg = []
+        sup = bhrules.suppressions(cfg, top, sha)
+        if sup:
+            facts["suppressions"] = sup
+        with clean_checkout(top, sha) as co:
+            overlay_plan(cfg, top, co, head)
+            for item in its:
+                b = bricks[item]
+                r = measure_item(
+                    cfg,
+                    b,
+                    targets,
+                    co,
+                    co / root_rel,
+                    out_root / item,
+                    slot,
+                    sha,
+                    facts | _scope_facts(cfg, top, co, b, sha),
+                    chg,
+                )
+                key = tree_key(cfg, top, bricks, item, sha, head, r["targets_digest"])
+                record(item, r, current=sha == head, tree=key)
     run: dict[str, Any] = {
         "ok": not errors and all(r["status"] == "met" for r in results.values()),
         "scoreboard": str(cfg.file("scoreboard")),
@@ -1576,8 +1564,6 @@ def record_status(
         return None
     if not digest_ok:
         return "stale"
-    if r.get("ref") == "working-tree":
-        return "met-uncommitted" if r["status"] in ("met", "met-uncommitted") else "unmet"
     if not resolvable:
         return "stale"
     if r["status"] == "conflict":
@@ -1965,7 +1951,7 @@ def _facts(
     if r is None:
         return None
     ok = r.get("targets_digest") == dg
-    if not ok or r.get("ref") == "working-tree" or top is None:
+    if not ok or top is None:
         return record_status(r, ok, resolvable=top is not None)
     sha = str(r.get("ref", ""))
     res = bool(re.fullmatch(r"[0-9a-f]{40}", sha)) and _git_ok(

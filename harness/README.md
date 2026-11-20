@@ -68,7 +68,7 @@ agent runs each tool and returns its JSON.
   names it; else `local`). `notes` say when a ref lacks the plan commit. Each result is
   written as it lands: at HEAD it is *current*; at any other ref it is a *candidate*, which
   never replaces a met current result. An unreadable scoreboard is never
-  overwritten. `--in-place` results are `met-uncommitted` at best and satisfy nothing.
+  overwritten.
 - `bh-merge`: merges every met candidate not yet in HEAD, in build order, with
   `git merge --no-ff`. A catalogue-only conflict is resolved by a schema-checked JSON union;
   any other conflict is aborted and recorded, so the item is rebuilt with "conflicts with
