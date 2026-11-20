@@ -16,7 +16,7 @@
 - 1.3.0: `checks/` added: static check packs (ast-grep 0.51.3) for RL-08 and LC-17, HO-02 and ID-15 in Python and TypeScript, indexed by `checks/index.json`.
 - 1.3.0: overlay check opt-outs: one line per rule under `## Check opt-outs`, exactly `- <RULE-ID> not-applicable: <reason>`; a line without a reason opts nothing out.
 - 1.4.0: pack `agent-jobs` (AJ) added for designs that start AI agent jobs.
-- 1.4.0: AJ-01 added: work a program or adopted tool can do runs as code; an agent job is started only for judgement or a result a person reads.
+- 1.4.0: AJ-01 added: work a program or adopted tool can do runs as code; an agent job is started only for judgement and returns its result to the program.
 - 1.4.0: AJ-02 added: an agent job loads only the instructions, tools and files it uses; large inputs by path; judged from its start record.
 - 1.4.0: AJ-03 added: a job kind's model, effort, tools, turn limit and instructions live in the host's agent definition, never in program code.
 - 1.4.0: AJ-04 added: jobs of one kind share a byte-identical prompt prefix with job-specific data last; cache reads are measured.
