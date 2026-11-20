@@ -25,7 +25,7 @@ Every verdict names a catalog rule id and its evidence (step 3 sets which eviden
    - **Established** (a foundation or vendor project in wide production use, e.g. PostgreSQL, ClickHouse, Kubernetes, Prometheus, OpenSSH): no clone. Evidence is its versioned official documentation, release notes, security advisories and release signing or provenance page. A runtime claim the documentation does not settle is read from one file at the pinned tag (the forge's raw-file or contents API), never a clone.
    - **Other** (small, young or single-maintainer): `git clone --depth 1 --branch <tag> <url> <clone directory>/<name>`, then read its API types or CRDs; its delete, revoke and crash-reread paths; its chart or install manifest (RBAC scope, image digest); its open issues and declared non-goals in the needed paths; its release pipeline (signing, SBOM, provenance).
 4. **Judge.** Per candidate, one row per requirement and per in-scope catalog rule: `| Rule or requirement | Candidate | HELD/BROKEN/NA/UNVERIFIED | Evidence |`. Evidence is a `path:line` in the source, a versioned documentation URL with its section (adopted and established tiers only), or the answer of a real install. A README sentence or star count is never evidence. A runtime behaviour the evidence does not settle is UNVERIFIED.
-5. **Verdict.** Present a candidate only when no row is BROKEN or UNVERIFIED. Otherwise say "no OSS meets the rules", list each candidate's BROKEN rule ids, keep the current owner, and name an upstream contribution that would close a near miss. When every candidate fails, check what the industry uses for the job before concluding none fits.
+5. **Verdict.** Present a candidate only when no row is BROKEN or UNVERIFIED. Otherwise say "no OSS meets the rules", list each candidate's BROKEN rule ids, keep the current owner, and name an upstream contribution that would close a near miss. When every candidate fails, check what the industry uses for the job before concluding none fits. When more than one candidate qualifies, present the one with the least waste, compared on the qualifying candidates only: owner steps (commands a person types, decisions a person makes), then tokens per run, then lines of code the project must own, then wall time (recurring owner effort, then recurring spend, then upkeep, then time), each a number with its source (measured: the run or call; estimated: the basis stated).
 
 ## Output
 
@@ -37,4 +37,5 @@ Requirements: ...
 Candidates: ...
 | Rule or requirement | Candidate | Verdict | Evidence |
 Verdict: <candidate> passes | no OSS meets the rules (<candidate>: <rule ids>)
+Waste: C1 <owner steps>, <tokens>, <lines>, <wall time> (<source of each>); C2 ... (qualifying candidates only, or "one candidate qualifies")
 ```

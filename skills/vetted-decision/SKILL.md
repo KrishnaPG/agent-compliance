@@ -26,7 +26,7 @@ The answer is its own proof: every verdict names a catalog rule id and its evide
 4. **Judge, per option,** by the compliance-review method: scope the domains from `catalog/index.md`, then one row per in-scope rule, `| Rule | Option | HELD/BROKEN/NA | Evidence |`. Evidence is a `path:line` of the project's code or the owner's source, or a real call with the owner's answer. A runtime rule that only documentation supports is UNVERIFIED, never HELD. List only BROKEN, UNVERIFIED and the HELD rows that separate the options; give the count of the rest.
 5. **Attack the leading option.** What breaks if it is chosen: consumers, other installations, unattended runs, human steps, recovery (which failure goes unseen, what could be deleted, how it is restored). Each finding is a rule row in step 4.
 6. **Falsifying call.** The one real call whose answer would prove the recommendation wrong. Run it and show the owner's answer, never a secret value. Not runnable yet: the recommendation is UNVERIFIED and says so.
-7. **Recommendation.** One option with no BROKEN and no UNVERIFIED rule, and one line per rejected option naming the rule ids it broke. No option qualifies: say so, and name the rule and the redesign that would clear it. A point only the project owner decides (catalog PR-10: conflict between approved documents, new owner, wider privilege, retention, scope; the bindings' categories) is named as such with the recommendation; work continues around it.
+7. **Recommendation.** One option with no BROKEN and no UNVERIFIED rule, and one line per rejected option naming the rule ids it broke. When more than one option qualifies, recommend the one with the least waste, compared on the qualifying options only: tokens per run, wall time per run, owner steps (commands a person types, decisions a person makes) and lines of code the project must own, each a number with its source (measured: the run or call; estimated: the basis stated). Show the comparison; when the numbers favour different options, decide in this order: owner steps, then tokens per run, then lines of code the project must own, then wall time (recurring owner effort, then recurring spend, then upkeep, then time). No option qualifies: say so, and name the rule and the redesign that would clear it. A point only the project owner decides (catalog PR-10: conflict between approved documents, new owner, wider privilege, retention, scope; the bindings' categories) is named as such with the recommendation; work continues around it.
 
 ## Output
 
@@ -39,6 +39,7 @@ Trace: <per option>
 | Rule | Option | Verdict | Evidence |
 Attack: ...
 Falsifying call: <call> -> <owner's answer>
+Waste: O1 <tokens>, <wall time>, <owner steps>, <lines> (<source of each>); O2 ... (qualifying options only, or "one option qualifies")
 Recommendation: <option>; rejected: O2 (CI-09, HO-14), ...
 Owner decides: <category: question> or none
 ```

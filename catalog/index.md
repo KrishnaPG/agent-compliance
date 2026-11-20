@@ -1,6 +1,6 @@
 # Compliance catalog
 
-Version: 1.3.0
+Version: 1.4.0
 
 The fixed rule set a design, spec, decision record or implementation plan is reviewed against. A review records one reading per rule, so review rounds converge.
 
@@ -54,6 +54,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | Cell | an independently failing deployment unit (site, region, environment) |
 | Envelope | the message metadata outside the payload |
 | IaC | infrastructure as code |
+| Agent job | one run of an AI agent (an LLM with tools) that a program or harness starts, with no person in its conversation; the host is the program that runs it (for example a coding agent in headless mode) |
 
 ## Domains
 
@@ -74,7 +75,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | DS Data safety and retention | `base/DS.md` | 17 | no deletion without backup or decision, recovery tiers, deletion eligibility, projections, erasure |
 | DC Documents | `base/DC.md` | 12 | current-rule documents, one home per rule, conflicts named, no assumed capability |
 | PN Plans | `base/PN.md` | 19 | step format a junior can follow, gates, traceability, real-flow evidence, rollback order |
-| PR Process | `base/PR.md` | 13 | defect records, independent review, forward-only history, tests kept strict |
+| PR Process | `base/PR.md` | 14 | defect records, independent review, forward-only history, tests kept strict |
 | UI Web frontend | (packs only) | 0 | browser clients; rules live in the frontend pack the overlay names |
 
 ## Packs
@@ -89,6 +90,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | `postgresql` (PG) | `packs/postgresql/CI.md` (authentication includes, shared cluster); `packs/postgresql/HO.md` (replication slots) | 3 | shared cluster, per-tenant configuration, replication slots |
 | `systemd` (SD) | `packs/systemd/RL.md` (timeouts, ordering, timers); `packs/systemd/CI.md` (drop-ins, one instance) | 5 | unit timeouts and results, ordering, drop-ins, timers |
 | `salt` (SALT) | `packs/salt/RL.md` (requisites); `packs/salt/CI.md` (concurrent runs); `packs/salt/DS.md` (cleaned directories); `packs/salt/ID.md` (secrets) | 4 | requisites, concurrent runs, managed directories, secrets at render |
+| `agent-jobs` (AJ) | `packs/agent-jobs/NO.md` (no agent in a mechanical path, agent definitions); `packs/agent-jobs/PF.md` (minimal context, stable prompt prefix, caps and convergence); `packs/agent-jobs/RL.md` (structured results) | 7 | designs that start AI agent jobs: mechanical work as code, minimal context, agent definitions in the host, cacheable prompt prefix, turn or spend caps, loops that stop when nothing moved, schema-checked results |
 
 ## Scenario index
 
@@ -159,3 +161,5 @@ Deciding rule ids are in `scenarios.md`.
 | 61 | Interactive user command and synchronous read | HO, HS |
 | 62 | Notification to a person | HO, HS |
 | 63 | New integration edge designed | HO, RL, NO |
+| 64 | A program starts AI agent jobs | NO, PF, RL, ID, CF, PR |
+| 65 | A loop of agent rounds repeats | PF, RL, PR |

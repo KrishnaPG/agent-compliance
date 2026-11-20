@@ -213,10 +213,6 @@
         "answered_by": {
           "type": "string",
           "description": "Id of the decision record (D-n) or overlay rule that settles this gap's kind and area; bh-gaps checks the cite and lists the gap as answered instead of blocking."
-        },
-        "filed": {
-          "type": "string",
-          "description": "The tracker ref this finding was filed under (bh-file); the record that keeps filing idempotent."
         }
       }
     }
