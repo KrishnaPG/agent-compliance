@@ -35,3 +35,5 @@
 - 1.5.0: ID-05 changed: a person's own account is not a duty account; the end of one membership ends its access, never the account (LC-42).
 - 1.5.0: ID-03 changed: a person's own account is excepted from the removal path at a duty's end (LC-42).
 - 1.5.0: scenarios 9, 11, 20 and 39 list the new rules that decide them; scenarios 66 (a member leaves, or a seat, grant or membership ends) and 67 (a change adds or alters a termination) added.
+- 1.5.2: LC-41 changed: the last preference is ending running work by the owner's own end of the object that owns it (one stop, shutdown, cancel or delete, whose cascade ends the children; one call for one named child); never listing an owner's children to end each, never ending a parent whose cascade reaches retained data; the test question asks whether any step enumerates an owner's children.
+- 1.5.2: scenarios 66 and 67 list NO-01, NO-06 and NO-09 (67 also RL-24), so the review skill's Scope step takes the NO domain from them; the scenario index rows 66 and 67 add NO.

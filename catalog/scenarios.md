@@ -69,5 +69,5 @@ Base catalog 1.5.0. Each scenario lists the base rules that decide it, and the p
 | 63 | New integration edge designed | HO-01, HO-23, HO-24, HO-25, HO-36, HO-37, NO-15, RL-23, HO-40, ID-15 |  |
 | 64 | A program starts AI agent jobs (a build harness, a review fan-out) | NO-05, NO-06, NO-03, CF-07, PF-02, PF-03, PF-05, PF-14, RL-06, RL-16, RL-17, ID-11, PF-06, PR-10, PR-14 | AJ-01, AJ-02, AJ-03, AJ-04, AJ-05, AJ-06, AJ-07 |
 | 65 | A loop of agent rounds repeats (build then measure, review then fix) | PF-02, PF-06, RL-06, RL-17, PR-11 | AJ-05, AJ-06, AJ-07 |
-| 66 | A member leaves an organisation, or a seat, grant or membership ends | LC-39, LC-40, LC-41, LC-42, LC-02, ID-05, ID-03, DS-01, DS-04, DS-13 |  |
-| 67 | A change adds or alters a delete, revoke, disable, prune, cleanup or reversal | LC-39, LC-40, LC-41, LC-42, LC-43, LC-02, DS-01, DS-04, DS-08, DS-13, RL-03 |  |
+| 66 | A member leaves an organisation, or a seat, grant or membership ends | LC-39, LC-40, LC-41, LC-42, LC-02, ID-05, ID-03, DS-01, DS-04, DS-13, NO-01, NO-06, NO-09 |  |
+| 67 | A change adds or alters a delete, revoke, disable, prune, cleanup or reversal | LC-39, LC-40, LC-41, LC-42, LC-43, LC-02, DS-01, DS-04, DS-08, DS-13, RL-03, RL-24, NO-01, NO-06, NO-09 |  |

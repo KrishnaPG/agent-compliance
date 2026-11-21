@@ -1,6 +1,6 @@
 # Compliance catalog
 
-Version: 1.5.0
+Version: 1.5.2
 
 The fixed rule set a design, spec, decision record or implementation plan is reviewed against. A review records one reading per rule, so review rounds converge.
 
@@ -166,5 +166,5 @@ Deciding rule ids are in `scenarios.md`.
 | 63 | New integration edge designed | HO, RL, NO |
 | 64 | A program starts AI agent jobs | NO, PF, RL, ID, CF, PR |
 | 65 | A loop of agent rounds repeats | PF, RL, PR |
-| 66 | A member leaves an organisation, or a seat, grant or membership ends | LC, ID, DS |
-| 67 | A change adds or alters a delete, revoke, disable, prune, cleanup or reversal | LC, DS, RL |
+| 66 | A member leaves an organisation, or a seat, grant or membership ends | LC, ID, DS, NO |
+| 67 | A change adds or alters a delete, revoke, disable, prune, cleanup or reversal | LC, DS, RL, NO |
