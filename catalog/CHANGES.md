@@ -25,6 +25,7 @@
 - 1.4.0: AJ-07 added: a loop of agent rounds has a round bound and stops, reported as not converged, when a round moved no measured number.
 - 1.4.0: PR-14 added: owner questions from unattended runs, agent jobs included, are batched per run, recorded with their answers and never asked again while their inputs hold.
 - 1.4.0: scenarios 64 (a program starts AI agent jobs) and 65 (a loop of agent rounds repeats) added; index term "Agent job".
+- 1.5.1: the 1.5.0 catalog merged with the orchestrator work on main (no rule change).
 - 1.5.0: termination tiers (T0 irreversible or liability, T1 costly but capped, T2 harmless) defined in `base/LC.md` beside the L0-L6 levels; index terms "Termination tier", "Recovery tier", "Life site, death site".
 - 1.5.0: LC-39 added: every termination effect declares its termination tier, its bound ("at the action" for T0; a number for T1 and T2, with the spend cap for T1) and the native mechanism that meets it.
 - 1.5.0: LC-40 added: a T0 effect is checked at the action against the owner's current state and runs after every reversible step and refusal; an uncheckable one is a named, measured gap.

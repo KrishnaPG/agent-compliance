@@ -32,7 +32,7 @@ claude plugin marketplace add KrishnaPG/agent-compliance
 claude plugin install agent-compliance@agent-compliance
 ```
 
-Pin a release by adding a tag to the marketplace source: `claude plugin marketplace add KrishnaPG/agent-compliance#v1.5.0`.
+Pin a release by adding a tag to the marketplace source: `claude plugin marketplace add KrishnaPG/agent-compliance#v1.5.1`.
 
 For a team, put this in the project's `.claude/settings.json` so everyone gets the same pinned version:
 
@@ -40,7 +40,7 @@ For a team, put this in the project's `.claude/settings.json` so everyone gets t
 {
   "extraKnownMarketplaces": {
     "agent-compliance": {
-      "source": { "source": "github", "repo": "KrishnaPG/agent-compliance", "ref": "v1.5.0" }
+      "source": { "source": "github", "repo": "KrishnaPG/agent-compliance", "ref": "v1.5.1" }
     }
   },
   "enabledPlugins": { "agent-compliance@agent-compliance": true }
