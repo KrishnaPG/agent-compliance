@@ -25,3 +25,12 @@
 - 1.4.0: AJ-07 added: a loop of agent rounds has a round bound and stops, reported as not converged, when a round moved no measured number.
 - 1.4.0: PR-14 added: owner questions from unattended runs, agent jobs included, are batched per run, recorded with their answers and never asked again while their inputs hold.
 - 1.4.0: scenarios 64 (a program starts AI agent jobs) and 65 (a loop of agent rounds repeats) added; index term "Agent job".
+- 1.5.0: termination tiers (T0 irreversible or liability, T1 costly but capped, T2 harmless) defined in `base/LC.md` beside the L0-L6 levels; index terms "Termination tier", "Recovery tier", "Life site, death site".
+- 1.5.0: LC-39 added: every termination effect declares its termination tier, its bound ("at the action" for T0; a number for T1 and T2, with the spend cap for T1) and the native mechanism that meets it.
+- 1.5.0: LC-40 added: a T0 effect is checked at the action against the owner's current state and runs after every reversible step and refusal; an uncheckable one is a named, measured gap.
+- 1.5.0: LC-41 added: T1 and T2 bounds are met by a native mechanism paid per change, never a timer of ours or a shortened cache or token lifetime; each bound is measured and alerted.
+- 1.5.0: LC-42 added: ending a membership, affiliation, seat, grant or tenant ends access only; the person's account, links, authorship and history stay, and data follows the organisation's policy and retention; the person is removed only on their own erasure request (DS-15) or a guarded exception the overlay names.
+- 1.5.0: LC-43 added: a life site names its level and a death site its termination tier, mechanism and what it keeps, as a one-line comment of rule ids at the site.
+- 1.5.0: ID-05 changed: a person's own account is not a duty account; the end of one membership ends its access, never the account (LC-42).
+- 1.5.0: ID-03 changed: a person's own account is excepted from the removal path at a duty's end (LC-42).
+- 1.5.0: scenarios 9, 11, 20 and 39 list the new rules that decide them; scenarios 66 (a member leaves, or a seat, grant or membership ends) and 67 (a change adds or alters a termination) added.
