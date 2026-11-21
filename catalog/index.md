@@ -1,6 +1,6 @@
 # Compliance catalog
 
-Version: 1.4.0
+Version: 1.5.0
 
 The fixed rule set a design, spec, decision record or implementation plan is reviewed against. A review records one reading per rule, so review rounds converge.
 
@@ -32,6 +32,9 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 | Hand-off | a fact, command or obligation that leaves one owner so another acts on it |
 | Remote call | any network interaction across a process boundary, a remote shell command included |
 | L0-L6 | lifecycle levels: L0 deployment record, L1 substrate, L2 durable authorities, L3 immutable configuration, L4 services, L5 operations, L6 durable results (defined in `base/LC.md`) |
+| Termination tier | T0, T1 or T2: how fast and how surely an ending, removal or destruction must take effect, by the damage of a late or unguarded one (defined in `base/LC.md`; LC-39 to LC-43). Declared at every termination, as the level is at every acquisition |
+| Recovery tier | the RPO and RTO class of a capsule (`base/DS.md`, DS-12); never called a termination tier |
+| Life site, death site | the code that acquires a resource (with its parents and dependency edges), and the code that performs a termination effect |
 | Install path | whatever builds an installation: a package, job, seed, operator resource or infrastructure-as-code root |
 | Installation, class | one deployed instance of the platform; its class is development, verification or production |
 | Capsule | the versioned state record of one persistent service |
@@ -60,7 +63,7 @@ The fixed rule set a design, spec, decision record or implementation plan is rev
 
 | Domain | File | Rules | Scope |
 |---|---|---|---|
-| LC Lifecycle and ownership | `base/LC.md` | 38 | levels, parent-first acquisition, child-first release, crash recovery, one owner per fact, lineage |
+| LC Lifecycle and ownership | `base/LC.md` | 43 | levels, parent-first acquisition, child-first release, termination tiers, crash recovery, one owner per fact, lineage |
 | HO Hand-offs and remote calls | `base/HO.md` | 40 | messaging between owners, acknowledgement, idempotency, retries, deadlines, dead letters, sagas, reconciliation, non-durable wake-up hints |
 | HS Hand-off scenarios | `base/HS.md` | 24 | one row per kind of hand-off (event, command, webhook, bulk transfer, projection, repair, deletion, control plane) |
 | RL Reliability and recovery | `base/RL.md` | 29 | detect, remediate, verify, escalate; deadlines; no timers; idempotent re-runs; rollback; unattended runs |
@@ -163,3 +166,5 @@ Deciding rule ids are in `scenarios.md`.
 | 63 | New integration edge designed | HO, RL, NO |
 | 64 | A program starts AI agent jobs | NO, PF, RL, ID, CF, PR |
 | 65 | A loop of agent rounds repeats | PF, RL, PR |
+| 66 | A member leaves an organisation, or a seat, grant or membership ends | LC, ID, DS |
+| 67 | A change adds or alters a delete, revoke, disable, prune, cleanup or reversal | LC, DS, RL |

@@ -1,6 +1,6 @@
 # Scenarios
 
-Base catalog 1.4.0. Each scenario lists the base rules that decide it, and the pack rules that add to them when the pack is in use. A scenario the artifact touches puts every listed rule in scope; the project overlay adds its own rules and scenarios.
+Base catalog 1.5.0. Each scenario lists the base rules that decide it, and the pack rules that add to them when the pack is in use. A scenario the artifact touches puts every listed rule in scope; the project overlay adds its own rules and scenarios.
 
 | # | Scenario | Base rules | Pack rules |
 |---|---|---|---|
@@ -12,9 +12,9 @@ Base catalog 1.4.0. Each scenario lists the base rules that decide it, and the p
 | 6 | Re-run after a failed or partial release | RL-25, RL-07, DS-09, HO-07, LC-18, LC-21, LC-34, HO-16, HS-23, DS-10 | KF-06, KF-07 |
 | 7 | Two installations releasing concurrently on one shared host | CI-01, CI-02, CI-03, CI-04, CI-05, CI-06, CI-07, CI-08, CI-09, HS-22, HS-24, RL-03, PF-07 | SD-05, SD-03, PG-01, SALT-02, TF-01 |
 | 8 | One installation's input missing or unreadable | RL-10, CI-07, HO-26, HO-11, HO-31, ID-06, CF-18, CF-06, OB-11, LC-27, OB-05 |  |
-| 9 | Installation retirement or purge | DS-16, DS-13, DS-04, DS-01, LC-02, LC-11, LC-20, ID-05, HS-21 | TF-06, KF-10, NJ-07 |
+| 9 | Installation retirement or purge | DS-16, DS-13, DS-04, DS-01, LC-02, LC-11, LC-20, ID-05, HS-21, LC-39, LC-40, LC-42 | TF-06, KF-10, NJ-07 |
 | 10 | A different setup (other host, cloud project, user, domain) | CF-01, CF-18, CF-03, CF-05, CF-08, CF-09, CF-14, CF-15, PN-05, ID-09 |  |
-| 11 | Credential rotation and revocation | ID-12, ID-03, ID-13, ID-04, ID-05, ID-06, LC-35, SC-14, ID-15 | TF-03, NJ-07, GCP-05, GCP-01, KF-12 |
+| 11 | Credential rotation and revocation | ID-12, ID-03, ID-13, ID-04, ID-05, ID-06, LC-35, SC-14, ID-15, LC-39, LC-41 | TF-03, NJ-07, GCP-05, GCP-01, KF-12 |
 | 12 | Unattended run with no person present | RL-16, RL-17, RL-26, RL-06, RL-14, ID-11, OB-09 | GCP-01, TF-05, TF-01, SD-01 |
 | 13 | Development, verification and production class differences | CF-03, CF-04, RL-27, RL-26, DS-12 | NJ-01 |
 | 14 | Critical alert firing | RL-26, RL-19, RL-25, RL-03, RL-04, RL-24, RL-02, RL-29, OB-03, PR-01 |  |
@@ -23,7 +23,7 @@ Base catalog 1.4.0. Each scenario lists the base rules that decide it, and the p
 | 17 | Cloud API 403, 404, 5xx or quota | HO-18, HO-12, HO-07, HO-19, RL-12, RL-18, SC-07, ID-14, HO-17, HO-28 | GCP-05 |
 | 18 | Stale state lock | CI-03, CI-01, HS-18, HS-22, CI-13 | TF-01, TF-02 |
 | 19 | Owner-only actions (bootstrap apply, access-control deletions) | ID-14, ID-03, ID-11, PL-01, DS-08, PR-10 | GCP-04 |
-| 20 | Data-bearing object deletion | DS-01, DS-02, DS-04, DS-07, DS-08, DS-12, DS-13, LC-07, LC-11, LC-20, LC-22, DS-17 | KF-10, TF-06, SALT-03 |
+| 20 | Data-bearing object deletion | DS-01, DS-02, DS-04, DS-07, DS-08, DS-12, DS-13, LC-07, LC-11, LC-20, LC-22, DS-17, LC-39, LC-40, LC-43 | KF-10, TF-06, SALT-03 |
 | 21 | Backup and restore | DS-03, DS-12, DS-09, LC-15, LC-16, LC-24, RL-28, HS-20 |  |
 | 22 | Image build, sign, verify | SC-01, SC-02, SC-03, SC-04, SC-05, SC-14, ID-12, SC-15, SC-06, SC-07, SC-10, NO-11, SC-11, SC-13, ID-02, PF-05, SC-16, SC-17, SC-20 |  |
 | 23 | A bug found mid-work | PR-01, OB-01, PR-09, RL-29, NO-12 |  |
@@ -42,7 +42,7 @@ Base catalog 1.4.0. Each scenario lists the base rules that decide it, and the p
 | 36 | External dependency (code host, registry, provider) unavailable | HO-20, HO-12, RL-12, RL-26, HS-07, CF-14 |  |
 | 37 | Replacing an old mechanism with a new one | NO-11, NO-14, NO-26, NO-22, HO-14, DC-02, NO-29 |  |
 | 38 | Tenant data export | HS-10, HS-12, HO-04, HO-15, HO-33, PF-05, LC-26, ID-08, DS-14, CI-14 |  |
-| 39 | Tenant erasure, including copies in projections, telemetry and backups | HS-21, DS-15, DS-04, DS-13, DS-12, LC-36, HS-13, HS-11, CI-14 |  |
+| 39 | Tenant erasure, including copies in projections, telemetry and backups | HS-21, DS-15, DS-04, DS-13, DS-12, LC-36, HS-13, HS-11, CI-14, LC-39, LC-40, LC-42 |  |
 | 40 | Cost or budget overrun | PF-01, PF-14, CF-13, HO-12, OB-06 |  |
 | 41 | Quota or rate-limit exhaustion (provider, cloud, entitlement) | HO-18, HO-12, HO-20, HO-28, RL-12, CF-14 |  |
 | 42 | Clock skew and certificate expiry | HO-21, CF-13, OB-17, RL-09, RL-19 |  |
@@ -69,3 +69,5 @@ Base catalog 1.4.0. Each scenario lists the base rules that decide it, and the p
 | 63 | New integration edge designed | HO-01, HO-23, HO-24, HO-25, HO-36, HO-37, NO-15, RL-23, HO-40, ID-15 |  |
 | 64 | A program starts AI agent jobs (a build harness, a review fan-out) | NO-05, NO-06, NO-03, CF-07, PF-02, PF-03, PF-05, PF-14, RL-06, RL-16, RL-17, ID-11, PF-06, PR-10, PR-14 | AJ-01, AJ-02, AJ-03, AJ-04, AJ-05, AJ-06, AJ-07 |
 | 65 | A loop of agent rounds repeats (build then measure, review then fix) | PF-02, PF-06, RL-06, RL-17, PR-11 | AJ-05, AJ-06, AJ-07 |
+| 66 | A member leaves an organisation, or a seat, grant or membership ends | LC-39, LC-40, LC-41, LC-42, LC-02, ID-05, ID-03, DS-01, DS-04, DS-13 |  |
+| 67 | A change adds or alters a delete, revoke, disable, prune, cleanup or reversal | LC-39, LC-40, LC-41, LC-42, LC-43, LC-02, DS-01, DS-04, DS-08, DS-13, RL-03 |  |
