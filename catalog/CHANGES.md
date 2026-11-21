@@ -32,4 +32,5 @@
 - 1.5.0: LC-42 added: ending a membership, affiliation, seat, grant or tenant ends access only; the person's account, links, authorship and history stay, and data follows the organisation's policy and retention.
 - 1.5.0: LC-43 added: a life site names its level and a death site its termination tier, mechanism and what it keeps, as rule ids in a comment at the site.
 - 1.5.0: ID-05 changed: a person's own account is not a duty account; the end of one membership ends its access, never the account (LC-42).
+- 1.5.0: ID-03 changed: a person's own account is excepted from the removal path at a duty's end (LC-42).
 - 1.5.0: scenarios 9, 11, 20 and 39 list the new rules that decide them; scenarios 66 (a member leaves, or a seat, grant or membership ends) and 67 (a change adds or alters a termination) added.

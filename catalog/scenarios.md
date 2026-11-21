@@ -12,9 +12,9 @@ Base catalog 1.5.0. Each scenario lists the base rules that decide it, and the p
 | 6 | Re-run after a failed or partial release | RL-25, RL-07, DS-09, HO-07, LC-18, LC-21, LC-34, HO-16, HS-23, DS-10 | KF-06, KF-07 |
 | 7 | Two installations releasing concurrently on one shared host | CI-01, CI-02, CI-03, CI-04, CI-05, CI-06, CI-07, CI-08, CI-09, HS-22, HS-24, RL-03, PF-07 | SD-05, SD-03, PG-01, SALT-02, TF-01 |
 | 8 | One installation's input missing or unreadable | RL-10, CI-07, HO-26, HO-11, HO-31, ID-06, CF-18, CF-06, OB-11, LC-27, OB-05 |  |
-| 9 | Installation retirement or purge | DS-16, DS-13, DS-04, DS-01, LC-02, LC-11, LC-20, ID-05, HS-21, LC-39, LC-40, LC-42 | TF-06, KF-10, NJ-07 |
+| 9 | Installation retirement or purge | DS-16, DS-13, DS-04, DS-01, LC-02, LC-11, LC-20, ID-05, HS-21, LC-39, LC-40, LC-41, LC-42, LC-43 | TF-06, KF-10, NJ-07 |
 | 10 | A different setup (other host, cloud project, user, domain) | CF-01, CF-18, CF-03, CF-05, CF-08, CF-09, CF-14, CF-15, PN-05, ID-09 |  |
-| 11 | Credential rotation and revocation | ID-12, ID-03, ID-13, ID-04, ID-05, ID-06, LC-35, SC-14, ID-15, LC-39, LC-41 | TF-03, NJ-07, GCP-05, GCP-01, KF-12 |
+| 11 | Credential rotation and revocation | ID-12, ID-03, ID-13, ID-04, ID-05, ID-06, LC-35, SC-14, ID-15, LC-39, LC-41, LC-43 | TF-03, NJ-07, GCP-05, GCP-01, KF-12 |
 | 12 | Unattended run with no person present | RL-16, RL-17, RL-26, RL-06, RL-14, ID-11, OB-09 | GCP-01, TF-05, TF-01, SD-01 |
 | 13 | Development, verification and production class differences | CF-03, CF-04, RL-27, RL-26, DS-12 | NJ-01 |
 | 14 | Critical alert firing | RL-26, RL-19, RL-25, RL-03, RL-04, RL-24, RL-02, RL-29, OB-03, PR-01 |  |
