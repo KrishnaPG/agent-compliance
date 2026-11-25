@@ -79,3 +79,35 @@ def test_rendering_is_stable_and_refuses_an_invalid_packet(tmp_path):
     bad["design"] = "x"
     (tmp_path / bhpacket.PACKETS_DIR / "toy_item.json").write_text(json.dumps(bad))
     assert bhpacket.step("render_packet", tmp_path, "toy_item")[0] == 1
+
+
+def test_only_planner_written_fields_count_toward_the_cap(tmp_path):
+    p = fixture("valid")
+    p["applies"][0]["text"] = "x" * 20000  # a program-filled field, far over the cap
+    p["acceptance"][0]["scenario"] = "y" * 20000
+    put(tmp_path, p)
+    out = json.loads(bhpacket.step("assemble_packet", tmp_path, "toy_item")[1])
+    assert out["facts"] == [] and bhpacket.planner_bytes(p) < bhpacket.packet_cap_bytes(tmp_path)
+
+
+def test_the_planner_fields_are_the_ones_the_catalog_names():
+    p = fixture("valid")
+    want = [
+        p["goal"],
+        [a["id"] for a in p["applies"]],
+        [d["id"] for d in p["constraints"].get("decisions", [])],
+        p["constraints"]["declared_paths"],
+    ]
+    assert sorted(map(json.dumps, bhpacket.planner_values(p))) == sorted(
+        map(json.dumps, [want[0], *want[1], *want[2], want[3]])
+    )
+
+
+def test_declared_paths_over_the_cap_are_a_fact_and_never_a_refusal(tmp_path):
+    p = fixture("valid")
+    p["constraints"]["declared_paths"] = [f"src/module_{i}/file.py" for i in range(300)]
+    put(tmp_path, p)
+    code, out, err = bhpacket.step("assemble_packet", tmp_path, "toy_item")
+    assert code == 0 and err == "" and json.loads(out)["facts"][0]["kind"] == "over_cap"
+    again = json.loads(bhpacket.step("assemble_packet", tmp_path, "toy_item")[1])
+    assert again["facts"][0]["kind"] == "over_cap"  # still a fact, still no refusal

@@ -108,24 +108,45 @@ def packet_cap_bytes(root: Path) -> int:
     return int({**SIZING_DEFAULT, **sizing}["packet_tokens"]) * 4
 
 
+def planner_values(packet: Any, schema: Any = None) -> list[Any]:
+    """The values of the planner-written fields: the schema nodes annotated ``x-written-by: planner``
+    (the schema is the one place that says who writes what; the program fills the rest)."""
+    schema = load_schema("packet") if schema is None else schema
+    if schema.get("x-written-by") == "planner":
+        return [packet]
+    found: list[Any] = []
+    if isinstance(packet, dict):
+        for key, sub in schema.get("properties", {}).items():
+            if key in packet:
+                found += planner_values(packet[key], sub)
+    elif isinstance(packet, list) and isinstance(schema.get("items"), dict):
+        for item in packet:
+            found += planner_values(item, schema["items"])
+    return found
+
+
+def planner_bytes(packet: dict[str, Any]) -> int:
+    """UTF-8 bytes of the planner-written fields as JSON: the unit sizing.packet_tokens counts at 4 bytes a token."""
+    return len(json.dumps(planner_values(packet), ensure_ascii=False).encode())
+
+
 def apply_cap(root: Path, packet: dict[str, Any]) -> list[dict[str, str]]:
-    """Move the goal to a file in the packet directory when it is over the cap, and reference it
-    by path; return the facts (never a refusal: over the cap is a fact)."""
+    """Count only the planner-written fields against the cap. Over it, move the goal (the one free
+    text among them) to a file in the packet directory and reference it by path. Over the cap is a
+    fact, never a refusal."""
     from bhorch import write_atomic
 
-    cap, goal = packet_cap_bytes(root), packet["goal"]
-    if len(goal.encode()) <= cap:
+    cap, size = packet_cap_bytes(root), planner_bytes(packet)
+    if size <= cap:
         return []
     rel = f"{PACKETS_DIR}/{packet['id']}/goal.md"
-    write_atomic(root / rel, goal.rstrip() + "\n")
-    packet["goal"] = f"The goal is in {rel}; read it first."
-    packet.setdefault("overflow", []).append({"path": rel})
-    return [
-        {
-            "kind": "over_cap",
-            "detail": f"goal is {len(goal.encode())} bytes, over the cap of {cap}; moved to {rel}",
-        }
-    ]
+    detail = f"planner-written fields are {size} bytes, over the cap of {cap}"
+    if not any(o["path"] == rel for o in packet.get("overflow", [])):
+        write_atomic(root / rel, packet["goal"].rstrip() + "\n")
+        packet["goal"] = f"The goal is in {rel}; read it first."
+        packet.setdefault("overflow", []).append({"path": rel})
+        detail += f"; the goal moved to {rel} ({planner_bytes(packet)} bytes left)"
+    return [{"kind": "over_cap", "detail": detail}]
 
 
 def render_markdown(p: dict[str, Any]) -> str:

@@ -2,7 +2,7 @@
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "packet.schema.json",
   "title": "work packet",
-  "description": "The one contract for L3 (tests), L4 (build) and L5 (measure). Field names follow docs/atdd/fields.yaml. Planner-written fields state the goal and why, never the design: a field not listed here, such as a design field, is refused.",
+  "description": "The one contract for L3 (tests), L4 (build) and L5 (measure). Field names follow docs/atdd/fields.yaml. Planner-written fields state the goal and why, never the design: a field not listed here, such as a design field, is refused. The x-written-by annotation marks the planner-written fields: only these count toward sizing.packet_tokens; the program fills the rest.",
   "type": "object",
   "required": [
     "schema_version",
@@ -44,7 +44,8 @@
     "goal": {
       "type": "string",
       "minLength": 1,
-      "description": "commander's intent: the intent and why, with no design"
+      "description": "commander's intent: the intent and why, with no design",
+      "x-written-by": "planner"
     },
     "applies": {
       "type": "array",
@@ -59,7 +60,8 @@
         "properties": {
           "id": {
             "type": "string",
-            "pattern": "^([GPR][0-9]+|QBC-[0-9]+)$"
+            "pattern": "^([GPR][0-9]+|QBC-[0-9]+)$",
+            "x-written-by": "planner"
           },
           "text": {
             "type": "string",
@@ -87,7 +89,8 @@
             "additionalProperties": false,
             "properties": {
               "id": {
-                "type": "string"
+                "type": "string",
+                "x-written-by": "planner"
               },
               "text": {
                 "type": "string"
@@ -112,7 +115,8 @@
           "minItems": 1,
           "items": {
             "type": "string"
-          }
+          },
+          "x-written-by": "planner"
         },
         "limits": {
           "type": "object"
