@@ -29,5 +29,91 @@
       "*.cjs"
     ],
     "ts_comment_rule": "@typescript-eslint/ban-ts-comment"
+  },
+  "presets": {
+    "python": {
+      "detect": "pyproject.toml",
+      "tools": [
+        "ruff==0.17.6",
+        "import-linter==2.17",
+        "pre-commit==4.7.0"
+      ],
+      "add_tools": "uv add --dev {tools}",
+      "run": "uv run --frozen",
+      "install_hooks": "uv run --frozen pre-commit install-hooks",
+      "lint": "uv run --frozen pre-commit run --all-files",
+      "protects": {
+        "files": [
+          ".pre-commit-config.yaml",
+          ".importlinter"
+        ],
+        "pyproject_tables": [
+          "ruff",
+          "importlinter"
+        ]
+      },
+      "ruff": {
+        "extend-select": [
+          "DTZ",
+          "S105",
+          "S106",
+          "S107",
+          "S108",
+          "PLR2004",
+          "TID251"
+        ],
+        "banned-api": {
+          "time.sleep": "[no-sleep] a fixed sleep waits on time, not on the event -> block on the event itself (subprocess.run, Future.result, a queue get, a lock); prevent it: wait on what produces the result . ref: no polling",
+          "asyncio.sleep": "[no-sleep] an async sleep is a timed wait -> await the event itself (an asyncio.Event, a Future, a stream read); prevent it: wait on what produces the result . ref: no polling",
+          "anyio.sleep": "[no-sleep] a timed wait -> await the event itself (anyio.Event, a stream receive); prevent it: wait on what produces the result . ref: no polling",
+          "trio.sleep": "[no-sleep] a timed wait -> await the event itself (trio.Event, a channel receive); prevent it: wait on what produces the result . ref: no polling",
+          "threading.Timer": "[no-sleep] a timer polls on a clock -> react to the event that makes the work due (a callback, a queue, a notify); prevent it: wire the producer to the consumer . ref: no polling",
+          "sched.scheduler": "[no-sleep] a scheduler waits on a clock -> react to the event that makes the work due; prevent it: wire the producer to the consumer . ref: no polling"
+        }
+      },
+      "hooks": [
+        {
+          "id": "ruff",
+          "name": "ruff (presets: DTZ, S105-S108, PLR2004, TID251)",
+          "entry": "uv run --frozen ruff check --output-format concise",
+          "language": "system",
+          "types_or": [
+            "python",
+            "pyi"
+          ]
+        },
+        {
+          "id": "import-linter",
+          "name": "import-linter (owner boundaries)",
+          "entry": "uv run --frozen lint-imports",
+          "language": "system",
+          "pass_filenames": false,
+          "types": [
+            "python"
+          ]
+        },
+        {
+          "id": "uv-lock",
+          "name": "uv lock --check (every dependency locked)",
+          "entry": "uv lock --check",
+          "language": "system",
+          "pass_filenames": false,
+          "files": "^(pyproject\\.toml|uv\\.lock)$"
+        }
+      ],
+      "owner_files": [
+        "CODEOWNERS",
+        ".github/CODEOWNERS",
+        "docs/CODEOWNERS"
+      ],
+      "openapi_globs": [
+        "openapi.yaml",
+        "openapi.yml",
+        "openapi.json",
+        "*/openapi.yaml",
+        "*/openapi.yml",
+        "*/openapi.json"
+      ]
+    }
   }
 }

@@ -11,6 +11,8 @@
 #   "mitmproxy==12.3.1",
 #   "pathspec==1.1.1",
 #   "sqlparse==0.6.1",
+#   "tomlkit==0.15.3",
+#   "ruamel.yaml==0.19.1",
 # ]
 # ///
 """The one entry of the plugin's own tests and acceptance rows: pytest under the pinned interpreter and packages.

@@ -118,6 +118,12 @@ PROJECT_KEYS = (
 )
 
 
+# The linter presets (checkers.json ``presets``, keyed by stack): the standard files and pyproject
+# tool tables they write are guarded like the other lint config, read from the one table.
+PRESETS: dict[str, Any] = json.loads((HARNESS_DIR / "checkers.json").read_text()).get("presets", {})
+PRESET_FILES = [f for p in PRESETS.values() for f in p["protects"]["files"]]
+LINT_TABLES = ("pytest", "ruff", "mypy", *(t for p in PRESETS.values() for t in p["protects"]["pyproject_tables"]))
+
 # What a builder may not change in a measured ref: the tests, the test and lint config (the
 # test and lint tables of pyproject.toml only), the recipes, the ratchet and packet files, the
 # held-out cases' directory, and the files Python runs at start-up.
@@ -148,6 +154,7 @@ DEFAULT_PROTECTED = [
     "holdout_files/",
     "sitecustomize.py",
     "usercustomize.py",
+    *PRESET_FILES,
 ]
 
 
@@ -402,6 +409,7 @@ def _jail(
     seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
     seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
     seal += ["--setenv", "XDG_CACHE_HOME", "/tmp/.cache", "--setenv", "TMPDIR", "/tmp"]
+    seal += ["--setenv", "UV_OFFLINE", "1"]  # no network in the jail: uv says so instead of retrying
     for d in hide:
         seal += ["--tmpfs", str(d)] if d.is_dir() else []
     for w in [co, *writable]:
@@ -417,8 +425,10 @@ def _run(
     timeout: float,
     hide: list[Path] | None = None,
     writable: list[Path] | None = None,
+    keep: int = 2000,
 ) -> dict[str, Any]:
-    """Run ``cmd`` sealed in ``_jail`` with ``cwd`` inside the checkout ``co``; ``hide=None`` runs it open."""
+    """Run ``cmd`` sealed in ``_jail`` with ``cwd`` inside the checkout ``co``; ``hide=None`` runs it open.
+    ``tail`` keeps the last ``keep`` characters of the output (``keep=0`` keeps all of it)."""
     t0 = time.monotonic()
     argv = ["sh", "-c", cmd]
     if hide is not None:
@@ -433,7 +443,7 @@ def _run(
             stdin=subprocess.DEVNULL,
             timeout=timeout,
         )
-        exit_code, tail = p.returncode, (p.stdout + p.stderr)[-2000:]
+        exit_code, tail = p.returncode, (p.stdout + p.stderr)[-keep:]
     except subprocess.TimeoutExpired:  # --die-with-parent takes the jail's children with it
         exit_code, tail = None, f"timeout after {timeout}s"
     return {"cmd": cmd, "exit": exit_code, "seconds": round(time.monotonic() - t0, 3), "tail": tail}
@@ -829,7 +839,7 @@ def _checkout_paths(co: Path, rev: str, names: list[str]) -> None:
         raise HarnessError(f"overlay of {rev[:12]} failed: {p.stderr.strip()}")
 
 
-TOOL_TABLE = re.compile(r"^\[\[?tool\.(pytest|ruff|mypy)\b")
+TOOL_TABLE = re.compile(r"^\[\[?tool\.(" + "|".join(dict.fromkeys(LINT_TABLES)) + r")\b")
 
 
 def _tool_cfg(text: str) -> dict[str, Any]:
@@ -838,7 +848,7 @@ def _tool_cfg(text: str) -> dict[str, Any]:
         tool = tomllib.loads(text).get("tool", {})
     except tomllib.TOMLDecodeError:
         return {"unreadable": text}
-    return {k: v for k, v in tool.items() if k in ("pytest", "ruff", "mypy")}
+    return {k: v for k, v in tool.items() if k in LINT_TABLES}
 
 
 def _with_base_tool_tables(ours: str, base: str) -> str:
@@ -1232,20 +1242,92 @@ def _teach_sarif(log: dict[str, Any], digest: str | None) -> None:
             run.setdefault("properties", {})["packet_sha256"] = digest
 
 
+HOOK_ID = re.compile(r"^- hook id: (\S+)$")
+HOOK_STATUS = re.compile(r"^\S.*\.{3,}\s*(Passed|Failed|Skipped)\b")
+# path:line:col: CODE message, the concise line ruff, flake8 and mypy-style linters print
+FINDING = re.compile(r"^(?P<path>[^:\s][^:]*):(?P<line>\d+):(?P<col>\d+): (?P<code>[A-Z]+\d+) (?P<msg>.*)$")
+
+
+def _hook_failures(text: str) -> dict[str, str]:
+    """hook id -> its own output, for each hook pre-commit reports Failed."""
+    failed: dict[str, list[str]] = {}
+    cur: list[str] | None = None
+    for line in text.splitlines():
+        if HOOK_STATUS.match(line):
+            cur = None
+        elif m := HOOK_ID.match(line):
+            cur = failed.setdefault(m.group(1), [])
+        elif cur is not None and not line.startswith("- exit code:"):
+            cur.append(line)
+    return {k: "\n".join(v).strip() for k, v in failed.items()}
+
+
+BULLET = re.compile(r"^-\s+(?P<msg>\S.*)$")
+
+
+def _hook_findings(text: str) -> list[dict[str, Any]]:
+    """The findings in one hook's own output: concise ``path:line:col: CODE message`` lines, else
+    bulleted ``- ...`` lines (import-linter lists broken imports so), else its last lines."""
+    lines = [ln for ln in text.splitlines() if ln.strip() and not re.search(r"[\u2500-\u257f]", ln)]
+    coded = [m.groupdict() for ln in lines if (m := FINDING.match(ln))]
+    if coded:
+        return coded
+    return [{"msg": m["msg"]} for ln in lines if (m := BULLET.match(ln))] or [{"msg": " ".join(lines[-5:])}]
+
+
+def _precommit_sarif(failures: dict[str, str]) -> dict[str, Any]:
+    """One SARIF run for the project's pre-commit: each finding is a result, under its rule code
+    when the line has one, else under the hook; a hook's whole output is its rule's help, so the
+    tool's own teaching (banned-api msg, contract guidance) reaches the reader."""
+    results: list[dict[str, Any]] = []
+    rules: dict[str, dict[str, Any]] = {}
+    for hook, text in failures.items():
+        helptext = "\n".join(ln for ln in text.splitlines() if not re.search(r"[\u2500-\u257f]", ln)).strip()
+        for f in _hook_findings(text):
+            rid = f.get("code") or hook
+            rules.setdefault(rid, {"id": rid, "shortDescription": {"text": f"{rid} (pre-commit hook {hook})"}, "help": {"text": helptext[-1500:] or hook}})
+            res: dict[str, Any] = {"ruleId": rid, "message": {"text": f["msg"]}}
+            if f.get("path"):
+                res["locations"] = [{"physicalLocation": {"artifactLocation": {"uri": f["path"]}, "region": {"startLine": int(f["line"]), "startColumn": int(f["col"])}}}]
+            results.append(res)
+    return {"runs": [{"tool": {"driver": {"name": "pre-commit", "rules": list(rules.values())}}, "results": results}]}
+
+
 def _lint_sarif(
-    co: Path, env: dict[str, str], out: Path, hide: list[Path], digest: str | None = None
-) -> None:
-    """Lint the checkout with ruff (its own SARIF output, sealed like the tests) when it has a ruff config."""
-    if not shutil.which("ruff") or not any(
+    co: Path,
+    env: dict[str, str],
+    out: Path,
+    hide: list[Path] | None,
+    digest: str | None = None,
+    timeout: float = 600,
+) -> dict[str, str]:
+    """Lint the checkout once, sealed like the tests, into ``out/findings.sarif``: the project's
+    own pre-commit (the preset stack's ``lint`` command) when it has a ``.pre-commit-config.yaml``,
+    so the measurer runs what a human's commit runs; else ruff when the checkout has a ruff config.
+    Returns hook id -> output for each failed pre-commit hook."""
+    lint = next(
+        (p["lint"] for p in PRESETS.values() if (co / p["detect"]).is_file() and p.get("lint")), None
+    )
+    if lint and (co / ".pre-commit-config.yaml").is_file():
+        r = _run(lint, co, co, env, timeout, hide, keep=0)
+        failures = _hook_failures(r["tail"]) if r["exit"] != 0 else {}
+        if r["exit"] != 0 and not failures:
+            failures = {"pre-commit": r["tail"][-1500:]}
+        raw = co / ".bh-lint.sarif"
+        raw.write_text(json.dumps(_precommit_sarif(failures)))
+    elif shutil.which("ruff") and any(
         (co / f).is_file() for f in ("ruff.toml", ".ruff.toml", "pyproject.toml")
     ):
-        return
-    raw = co / ".bh-ruff.sarif"
-    _run(f"ruff check --output-format sarif --output-file {raw} .", co, co, env, 60, hide)
+        failures = {}
+        raw = co / ".bh-ruff.sarif"
+        _run(f"ruff check --output-format sarif --output-file {raw} .", co, co, env, 60, hide)
+    else:
+        return {}
     if raw.is_file():
         log = merge_sarif([raw])
         _teach_sarif(log, digest)
         (out / "findings.sarif").write_text(json.dumps(log))
+    return failures
 
 
 def _canary_into(co: Path) -> None:
@@ -1309,11 +1391,13 @@ def _project_environ() -> dict[str, str]:
 # Each toolchain's own standard install from its lockfile, run open (it needs the network)
 # before the sealed run, in file order: tools first, then packages. The install goes into the
 # checkout (copied, not hardlinked to the host cache, which a test could then rewrite) and
-# runs no package scripts.
+# runs no package scripts. Each install is the locked one: it fails when the lockfile no longer
+# matches the manifest (uv --locked, npm ci, pnpm --frozen-lockfile), so an unlocked dependency
+# is the same fact a human's install reports. mise checks only a mise.lock the project keeps.
 PREPARE = (
     ("mise.toml", "mise install"),
     (".tool-versions", "mise install"),
-    ("uv.lock", "uv sync --frozen --link-mode=copy"),
+    ("uv.lock", "uv sync --locked --link-mode=copy"),
     ("package-lock.json", "npm ci --ignore-scripts"),
     ("pnpm-lock.yaml", "pnpm install --frozen-lockfile --ignore-scripts"),
 )
@@ -1330,6 +1414,18 @@ def _prepare(cfg: Config, co: Path, env: dict[str, str], slot: int) -> str | Non
         if r["exit"] != 0:
             return f"env_setup `{cmd}`: exit {r['exit']}: {r['tail'][-300:]}"
     return None
+
+
+def _prepare_hooks(co: Path, env: dict[str, str], timeout: float) -> str | None:
+    """Install the hook environments of checkout ``co``'s ``.pre-commit-config.yaml`` open, into the
+    checkout (``PRE_COMMIT_HOME``, also set for the sealed lint run), so a remote hook runs sealed
+    as it runs on a human's machine. The error, or None (also when there is nothing to install)."""
+    preset = next((p for p in PRESETS.values() if (co / p["detect"]).is_file()), None)
+    if preset is None or not (co / ".pre-commit-config.yaml").is_file():
+        return None
+    env["PRE_COMMIT_HOME"] = str(co / ".bh-pre-commit")
+    r = _run(preset["install_hooks"], co, co, env, timeout)
+    return None if r["exit"] == 0 else f"`{preset['install_hooks']}`: exit {r['exit']}: {r['tail'][-300:]}"
 
 
 def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
@@ -1713,6 +1809,10 @@ def measure_ref(
         overlay_plan(cfg, top, co, base)
         env = dict(_project_environ(), BH_OUT=str(out))
         setup_error = None if self_check else _prepare(cfg, co, env, slot)  # a check runs on what setup installed
+        hooks_error = None if setup_error else _prepare_hooks(co, env, timeout)
+        if setup_error:  # its own fact, whatever the checks then do
+            errors.append(setup_error)
+            fact("gap", "env_setup", _teach("env_setup", f"the locked toolchain install failed: {setup_error[-120:]}", "update the lockfile with the manifest (uv lock, npm install) and commit both", "run the install before finishing"))
         flags = lambda n: f"--junitxml={shlex.quote(str(co / f'.bh-junit-{n}.xml'))} -p no:cacheprovider"  # noqa: E731
         listed = pk.get("verifier", {}).get("checks") or []
         plan = [(c, c, {"PYTEST_ADDOPTS": flags(n)}) for n, c in enumerate(listed)]
@@ -1730,14 +1830,9 @@ def measure_ref(
                 found = [c for s in _suites(xml) for c in s]
                 reports += xml
             except HarnessError as e:
-                if len(plan) == 1 or "pytest" in cmd:
-                    errors.append(setup_error or f"{e}; the test command said: {r['tail'][-300:]}")
-                    lesson = (
-                        ("env_setup", "the toolchain install from the lockfile failed", "keep the lockfile installable (frozen)", "run the install before finishing")
-                        if setup_error
-                        else ("junit", "JUnit file missing or malformed", "write well-formed JUnit XML to the report path", "run the test recipe before finishing")
-                    )
-                    fact("gap", lesson[0], _teach(*lesson))
+                if (len(plan) == 1 or "pytest" in cmd) and not setup_error:
+                    errors.append(f"{e}; the test command said: {r['tail'][-300:]}")
+                    fact("gap", "junit", _teach("junit", "JUnit file missing or malformed", "write well-formed JUnit XML to the report path", "run the test recipe before finishing"))
             cases += found
             if r["exit"] != 0:
                 checks_missed.append(label)
@@ -1745,7 +1840,13 @@ def measure_ref(
                     fact("red", label, _check_lesson(label, r, rules, out / f"check-{n}.txt"))
         if len(reports):
             reports.write(str(out / "junit.xml"))
-        _lint_sarif(co, env, out, seal, digest)
+        # lint runs on the installed toolchain and hooks; a failed install is the one fact, not every hook
+        lint = {} if setup_error or hooks_error else _lint_sarif(co, env, out, seal, digest, timeout)
+        if hooks_error:  # the checks could not start: a gap in the toolchain, not a red finding
+            fact("gap", "lint", _teach("lint", f"the project's pre-commit hooks could not be installed: {hooks_error[-120:]}", "pin pre-commit in the dev dependency group (uv add --dev pre-commit) and keep every hook installable", "run pre-commit run --all-files before finishing"))
+        for hook, said in lint.items():  # the human's commit runs the same hooks (G2)
+            first = _hook_findings(said)[0]["msg"]
+            fact("red", f"lint:{hook}", _teach(hook, f"{hook} failed: {first[:120]}", f"fix every {hook} finding in findings.sarif as its message says", "run pre-commit run --all-files before finishing"))
         diff_facts(cfg, top, base, sha, item, facts, co, cases)
         if not self_check:
             _canary_into(co)
@@ -1880,6 +1981,10 @@ def measure_ref(
         raise HarnessError(f"result JSON invalid at {bad_result.json_path}: {bad_result.message}")
     (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     (out / ".key").write_text(key)
+    # The clone is disposable once its result is recorded in out/; an unmet one is kept only when
+    # the project opts in (commands.keep_failed_clone) to debug it.
+    if met or not cfg.data.get("commands", {}).get("keep_failed_clone", False):
+        shutil.rmtree(clone)
     return result
 
 
