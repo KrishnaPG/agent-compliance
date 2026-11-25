@@ -331,7 +331,7 @@ def when_scan(ctx, paths, kind, pattern=None):
         for f in files:
             fm = _front(f.read_text())
             values[rel(f)] = fm
-            matches += [f"{rel(f)}:{k}" for k in fm]
+            matches += [f"{rel(f)}:{k}" for k, v in fm.items() if not pattern or re.search(pattern, f"{k}: {v}")]
     elif kind == "description_chars":
         for f in files:
             values[rel(f)] = len(str(_front(f.read_text()).get("description", "")))
