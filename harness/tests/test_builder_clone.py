@@ -128,6 +128,21 @@ def test_launch_uses_the_settings_file_and_no_add_dir_and_never_pre_approves_bas
     assert code == 0, err
     argv = json.loads(log.read_text().splitlines()[-1])["argv"]
     assert "--add-dir" not in argv and "Bash" not in argv[argv.index("--allowedTools") + 1].split(",")
-    assert Path(argv[argv.index("--settings") + 1]) == root / bhbuilder.SETTINGS_FILE
-    settings = json.loads((root / bhbuilder.SETTINGS_FILE).read_text())
+    clone = next((root / bhpacket.CLONES_DIR).iterdir())
+    path = Path(argv[argv.index("--settings") + 1])
+    assert path == root / bhbuilder.LAUNCH_DIR / f"{clone.name}.settings.json"  # this launch's own file
+    settings = json.loads(path.read_text())
     assert settings["sandbox"]["excludedCommands"] == ["docker"]
+    assert settings["sandbox"]["filesystem"]["allowWrite"] == [str(clone)]
+    assert not path.is_relative_to(clone)  # the builder cannot write its own settings
+    assert (clone / ".git" / "objects" / "info" / "alternates").is_file()  # the launch used the clone
+
+
+def test_two_launches_never_share_a_settings_file(tmp_path):
+    root = tmp_path / "r"
+    root.mkdir()
+    make_repo(root)
+    a, b = root / bhpacket.CLONES_DIR / "x-1", root / bhpacket.CLONES_DIR / "y-2"
+    pa = bhbuilder.write_settings(root, a, {"n": 1})
+    pb = bhbuilder.write_settings(root, b, {"n": 2})
+    assert pa != pb and json.loads(pa.read_text()) == {"n": 1} and json.loads(pb.read_text()) == {"n": 2}

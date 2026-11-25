@@ -312,7 +312,7 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
     cfg = root / ".brick-harness" / "config.json"
     sandbox = json.loads(cfg.read_bytes()).get("sandbox") if cfg.is_file() else None
     settings = bhbuilder.write_settings(
-        root, bhbuilder.builder_settings(packet, root, clone, Path(__file__).resolve().parents[2], sandbox)
+        root, clone, bhbuilder.builder_settings(packet, root, clone, Path(__file__).resolve().parents[2], sandbox)
     )
     # A login-mode launch with the plugin: bare mode runs no hooks, and the packet arrives by a hook.
     argv = [

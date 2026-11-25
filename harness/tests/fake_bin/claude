@@ -11,7 +11,6 @@ It stands in for ``claude -p --agent ... --output-format json`` and behaves from
 
   outputs        agent name -> the structured output to return (the schema is not applied here;
                  the orchestrator validates it)
-  build_files    item id -> {path: text}: what a builder writes and commits in its worktree
   auth_fail_bare true: a job in bare mode (``--bare``) fails with an authentication error
   hide_agents_bare true: bare mode ignores ``--agents`` (a host change): agent not found
   budget_overrun [agent, ...]: those agents end with the CLI's ``error_max_budget_usd`` result
@@ -88,26 +87,4 @@ if agent in spec.get("fail", []):
     sys.exit(1)
 
 out = dict(spec.get("outputs", {}).get(agent, {}))
-if agent == "harness-builder":
-    m = re.search(r"Input file[^:]*: (\S+)", prompt)
-    inp = json.loads(Path(m.group(1)).read_text()) if m else {}
-    item = inp.get("item") or "harvest"
-    env = dict(
-        os.environ,
-        GIT_AUTHOR_NAME="f",
-        GIT_AUTHOR_EMAIL="f@example.invalid",
-        GIT_COMMITTER_NAME="f",
-        GIT_COMMITTER_EMAIL="f@example.invalid",
-    )
-    files = spec.get("build_files", {}).get(item, {})
-    for rel, text in files.items():
-        Path(rel).parent.mkdir(parents=True, exist_ok=True)
-        Path(rel).write_text(text)
-    if files:
-        subprocess.run(["git", "add", "-A"], check=True, env=env)
-        subprocess.run(["git", "commit", "-qm", f"build {item}"], check=True, env=env)
-    head = subprocess.run(
-        ["git", "rev-parse", "HEAD"], capture_output=True, text=True
-    ).stdout.strip()
-    out = {"item": item, "ref": head, "catalogue_added": [], **out}
 result(structured_output=out)

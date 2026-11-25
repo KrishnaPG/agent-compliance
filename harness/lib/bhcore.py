@@ -898,7 +898,7 @@ def ref_facts(cfg: Config, top: Path, sha: str) -> dict[str, Any]:
 def set_branch(cfg: Config, item: str, sha: str) -> dict[str, Any]:
     """Point ``refs/heads/bh/<item>`` at a builder's commit, from the main checkout.
 
-    A builder in an isolated worktree cannot move the branch itself and returns its commit;
+    A builder in its own clone cannot move the source's branch; the program fetches its commit and
     this does it deterministically. The commit must exist, be new (not already in HEAD),
     The branch is created or fast-forwarded; anything else is refused. Never moves the branch
     backwards or sideways. What the commit holds under plan or protected paths is not
@@ -1958,7 +1958,7 @@ def _merging(top: Path) -> bool:
 
 
 def commit_harness(cfg: Config, message: str, dry_run: bool = False) -> dict[str, Any]:
-    """Commit the harness files (and only them) so worktrees forked from HEAD see the plan.
+    """Commit the harness files (and only them) so a builder cloned from HEAD sees the plan.
 
     Never stages the project's own documents. Refuses while a merge is in progress and when
     the targets file drops or changes a target HEAD has (the owner commits such a change).

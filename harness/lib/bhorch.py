@@ -1,13 +1,14 @@
 """The harness orchestrator: a program that runs every mechanical step and starts an agent job
 only for judgement work.
 
-Mechanical steps (git worktrees and branches, state, measuring, merging, committing, gap
+Mechanical steps (the builder's clone, git branches, state, measuring, merging, committing, gap
 merging, tracker reconcile and admit, ordering) run here, through the ``bhcore`` and
 ``bhtracker`` Python API or the ``bh-measure`` CLI (one process per item, so measuring runs in
-parallel). An agent job is started for exactly six kinds of work: ``gaps`` (read documents for
-meaning), ``plan`` (derive items, targets, contracts), ``build`` (one item, in its own
-worktree), ``harvest_find`` (duplicate helpers), ``harvest_apply`` (apply a settled pick) and
-``review`` (a feature that became sellable). Nothing else ever reaches a model.
+parallel). An agent job is started for exactly these kinds of work: ``gaps`` (read documents for
+meaning), ``plan`` (derive items, targets, contracts), ``test_author`` and ``regression_row``
+(acceptance rows), ``harvest_find`` (duplicate helpers) and ``review`` (a feature that became
+sellable). The one builder launch is ``bhpacket.launch_builder`` (a clone and its own settings,
+``bhbuilder``), never an agent job here. Nothing else ever reaches a model.
 
 A job is the host's own CLI, headless::
 
@@ -41,8 +42,7 @@ OSS and stdlib checked before writing any helper (orchestrator vetting: stdlib a
 the host CLI, vetted 2026-11-20 at base catalog 1.3.0; claude-agent-sdk 0.2.186 wraps the same CLI and adds dependencies;
 ComposioHQ agent-orchestrator, vibe-kanban, chipping-orchestrator, openai/symphony,
 claude-squad, Snakemake, Prefect and DBOS rejected there). Also checked: ``json``,
-``hashlib``, ``argparse``, ``shutil.which`` (stdlib), ``git worktree`` (git; used for the item
-worktrees instead of any worktree helper), ``bhcore.validate`` (the harness's own schema
+``hashlib``, ``argparse``, ``shutil.which`` (stdlib), ``bhcore.validate`` (the harness's own schema
 checker, reused for job outputs). The frontmatter reader is 12 lines: PyYAML is not a
 dependency of the plugin and the agent files use flat ``key: value`` lines only.
 """
@@ -78,9 +78,7 @@ SKILLS = {  # the judging method and skill files an agent reads by path (a headl
 JOBS: dict[str, tuple[str, str]] = {  # job -> (agent, config phase for model/effort override)
     "gaps": ("harness-gaps-reader", "gaps"),
     "plan": ("harness-planner", "plan"),
-    "build": ("harness-builder", "build"),
     "harvest_find": ("harness-harvester", "harvest"),
-    "harvest_apply": ("harness-builder", "harvest"),
     "review": ("harness-reviewer", "review"),
     "test_author": ("harness-test-author", "test_author"),
     "regression_row": (
@@ -90,7 +88,6 @@ JOBS: dict[str, tuple[str, str]] = {  # job -> (agent, config phase for model/ef
 }
 ROLE = {  # job -> jobs[*].role
     "plan": "planner",
-    "build": "builder",
     "review": "reviewer",
     "test_author": "test_author",
     "regression_row": "reviewer",
@@ -730,225 +727,6 @@ class Orchestrator:
 
     # ------------------------------------------------------------ phase: build
 
-    def worktree(self, name: str, base: str) -> Path:
-        path = self.out / "worktrees" / name
-        if path.exists():
-            git(self.top, "worktree", "remove", "--force", str(path), check=False)
-        git(self.top, "worktree", "prune")
-        path.parent.mkdir(parents=True, exist_ok=True)
-        git(self.top, "worktree", "add", "--detach", str(path), base)
-        return path
-
-    def drop_worktree(self, path: Path) -> None:
-        git(self.top, "worktree", "remove", "--force", str(path), check=False)
-
-    def feedback(self, b: dict[str, Any]) -> dict[str, Any] | None:
-        last = b.get("last")
-        if not last:
-            return None
-        return {
-            "previous_ref": last["ref"],
-            "measurer_status": last["status"],
-            "unmet": [
-                f"{u['metric']}: actual {'not measured' if u['actual'] is None else u['actual']}, "
-                f"required {u['op']} {u['value']}"
-                for u in last.get("unmet", [])
-            ],
-            "measurer_errors": last.get("errors", []),
-        }
-
-    def fill(self, template: str, slot: int) -> str:
-        sl = self.cfg.data.get("slots", {})
-        port = sl.get("port_base", 20000) + slot * sl.get("port_stride", 100)
-        return template.replace("{slot}", str(slot)).replace("{port_base}", str(port))
-
-    def commands_for(self, s: dict[str, Any], item: str, slot: int) -> dict[str, str]:
-        out = {}
-        for k, v in (s["commands"].get(item) or {}).items():
-            if k not in ("env_setup", "test", "bench"):
-                continue
-            v = {"run": v} if isinstance(v, str) else v
-            out[k] = (
-                f"pending ({v['pending']}); the measurer cannot score it yet"
-                if v.get("pending")
-                else self.fill(v["run"], slot)
-            )
-        return out
-
-    def item_key(self, item: str) -> str:
-        """What a build of ``item`` depends on: its own and its dependencies' files and the
-        protected paths at HEAD (blob shas, from ``git ls-tree``), and its targets. Other items
-        and the harness's own reports (scoreboard, gaps) do not move it, so a second process
-        over the same code finds the first one's builder result. Same file set as
-        ``bhcore.tree_key`` less the result files, which change on every run."""
-        top, cfg = self.top, self.cfg
-        bricks, targets, _ = bhcore._load_plan(cfg, [])
-        by_id = {b["id"]: b for b in bricks}
-        spec = bhcore._item_pathspec(cfg, top, by_id, item)
-        pats = [p for p in spec if not p.startswith(":(")]
-        excl = [p[len(":(exclude)") :] for p in spec if p.startswith(":(exclude)")]
-        excl += bhcore._keyed(cfg, bhcore.RESULT_KEYS, top)
-        mine = {
-            n: b
-            for n, b in bhcore._tree_files(top, "HEAD").items()
-            if bhcore._matches(n, pats) and not bhcore._matches(n, excl)
-        }
-        return bhcore.digest(
-            [sorted(mine.items()), bhcore.target_digest(cfg, by_id[item], targets)]
-        )
-
-    async def build_one(self, s: dict[str, Any], b: dict[str, Any]) -> dict[str, Any]:
-        item, head = b["id"], s["head"]
-        fb = self.feedback(b)
-        packet = bhcore.work_packet(self.cfg, item)
-        pfile = self.jobs_dir / f"{item}.{sha(packet['text'])}.packet.md"
-        core = {
-            "task": "build",
-            "item": item,
-            "tree": self.item_key(item),
-            "feedback": fb,
-            "packet_sha": sha(packet["text"]),
-            "protected": self.cfg.data.get("protected", []),
-            "catalogue": (s["files"].get("catalogue") or {}).get("rel"),
-            "commands": s["commands"].get(item),
-            "skills": {"vet-oss": str(SKILLS["vet-oss"])},
-        }
-        rec: dict[str, Any] = {"item": item, "ok": False}
-        cached = (self.jobs_dir / f"{job_key('build', core)}.json").exists()
-        wt = None
-        async with self.sem_slot() as slot:
-            if not cached and not self.dry:
-                write_atomic(pfile, packet["text"])
-                wt = self.worktree(item, head)
-                prev = (fb or {}).get("previous_ref")
-                if (
-                    prev
-                    and SHA_RE.match(prev)
-                    and git(self.top, "cat-file", "-e", prev, check=False).returncode == 0
-                ):
-                    git(
-                        wt, "merge", "--no-edit", prev, check=False
-                    )  # a conflict is the builder's to resolve
-            extra = {
-                "work_packet": str(pfile),
-                "worktree": str(wt) if wt else None,
-                "slot": slot,
-                "commands_for_your_slot": self.commands_for(s, item, slot),
-                "started_from": head,
-                "plan_commit": s["plan_head"],
-            }
-            instruction = f"Build item {item} in your worktree (your working directory). Work packet: {pfile}."
-            j = await self.job(
-                "build",
-                item,
-                core,
-                extra,
-                instruction,
-                cwd=wt if wt else self.cfg.dir,
-                locked=True,
-            )
-        rec["job"] = {k: j.get(k) for k in ("key", "ok", "error", "skipped")}
-        if j.get("dry_run") or not j["ok"]:
-            return rec | {"error": j.get("error"), "dry_run": j.get("dry_run")}
-        out = j["output"]
-        rec["missing_context"] = out.get("missing_context", [])
-        rec["catalogue_added"] = out.get("catalogue_added", [])
-        ref = git(wt, "rev-parse", "HEAD").stdout.strip() if wt and wt.exists() else out["ref"]
-        if wt and wt.exists() and git(wt, "status", "--porcelain").stdout.strip():
-            rec["notes"] = "uncommitted changes in the worktree were not part of the commit"
-        if ref == head or ref == s["plan_head"]:
-            rec.update(ok=True, nochange=True, ref="HEAD")
-        else:
-            try:
-                bhcore.set_branch(self.cfg, item, ref)
-                rec.update(ok=True, ref=ref)
-            except HarnessError as e:
-                rec["error"] = f"branch bh/{item} not set: {e}"
-                self.errors.append(rec["error"])
-                return rec
-        if wt:
-            self.drop_worktree(wt)
-        return rec
-
-    def sem_slot(self) -> Any:
-        """``async with`` over the concurrency semaphore that yields a free slot number."""
-        orch = self
-
-        class _Slot:
-            async def __aenter__(self) -> int:
-                await orch.sem.acquire()
-                self.slot = orch.free_slots.pop()
-                return self.slot
-
-            async def __aexit__(self, *a: Any) -> None:
-                orch.free_slots.append(self.slot)
-                orch.sem.release()
-
-        return _Slot()
-
-    async def phase_build(self, only: list[str] | None = None) -> dict[str, Any]:
-        s = self.state()
-        ready = s["ready"] + s["ready_system"]  # system items: wiring code and end-to-end tests
-        todo = [i for i in (only or ready) if i in ready]
-        skipped = [i for i in (only or []) if i not in ready]
-        res: dict[str, Any] = {
-            "refs": [],
-            "failed": [],
-            "nochange": [],
-            "attempted": todo,
-            "skipped": skipped,
-        }
-        if not todo:
-            return res
-        if s["uncommitted"] and not self.dry:  # builders fork from HEAD: the plan must be in it
-            self.commit("plan before build")
-            s = self.state()
-            if s["uncommitted"]:
-                return {
-                    **res,
-                    "failed": todo,
-                    "error": f"plan files still uncommitted: {s['uncommitted']}",
-                }
-        by_id = {b["id"]: b for b in s["bricks"]}
-        # Measure at HEAD first: code that already exists may be met; only the unmet get a builder.
-        pre = [i for i in todo if by_id[i]["status"] in REMEASURE]
-        res["measured_head"] = await self.measure_all([(i, "HEAD") for i in pre]) if pre else []
-        if pre and not self.dry:
-            self.commit("scoreboard")
-            s = self.state()
-            by_id = {b["id"]: b for b in s["bricks"]}
-        met = {m["item"] for m in res["measured_head"] if m["status"] in ("met", "met-uncommitted")}
-        now_ready = set(s["ready"] + s["ready_system"])
-        to_build = [i for i in todo if i not in met and i in now_ready]
-        if not to_build:
-            return res
-        built = await asyncio.gather(*(self.build_one(s, by_id[i]) for i in to_build))
-        res["built"], res["missing_context"] = built, []
-        for r in built:
-            if r.get("dry_run"):
-                continue
-            if not r.get("ok"):
-                res["failed"].append(r["item"])
-                continue
-            if r.get("nochange"):
-                res["nochange"].append(r["item"])
-            res["refs"].append({"ref": r["ref"], "items": [r["item"]]})
-            res["missing_context"] += [
-                {
-                    "summary": f"missing context for {r['item']}: {m}",
-                    "kind": "missing-context",
-                    "source": "build",
-                    "impact": [r["item"]],
-                }
-                for m in r.get("missing_context", [])
-            ]
-        if res["missing_context"] and not self.dry:
-            try:
-                bhcore.add_findings(self.cfg, res["missing_context"], write=True)
-            except HarnessError as e:
-                self.errors.append(f"missing-context findings not recorded: {e}")
-        return res
-
     # ------------------------------------------------------------ phase: harvest
 
     async def phase_harvest(self) -> dict[str, Any]:
@@ -1002,53 +780,14 @@ class Orchestrator:
             if not settled(c)
         ]
         report = self.write_gaps(open_, "harvest")  # an empty list clears resolved findings
-        commit = self.commit("harvest gaps")
+        self.commit("harvest gaps")
         self.tracker("reconcile")
-        head = (commit or {}).get("head") or s["head"]
-        applied = await asyncio.gather(*(self.apply_one(s, c, head) for c in todo))
-        refs = [{"ref": a["ref"]} for a in applied if a.get("ok")]
         return {
             "candidates": cands,
             "reported": len(open_),
             "rejected": report.get("rejected", []),
-            "applied": applied,
-            "refs": refs,
             "settled": len(todo),
         }
-
-    async def apply_one(self, s: dict[str, Any], c: dict[str, Any], head: str) -> dict[str, Any]:
-        core = {
-            "task": "harvest_apply",
-            "candidate": c,
-            "catalogue": (s["files"].get("catalogue") or {}).get("rel"),
-            "items_file": (s["files"].get("bricks") or {}).get("rel"),
-            "tests": {
-                i: (s["merged"]["commands"].get(i) or s["commands"].get(i) or {}).get("test")
-                for i in c["bricks"]
-            },
-            "protected": self.cfg.data.get("protected", []),
-            "started_from": head,
-        }
-        wt = None
-        if not self.dry:
-            wt = self.worktree("harvest-" + sha(c), head)
-        j = await self.job(
-            "harvest_apply",
-            c["job"],
-            core,
-            {},
-            "Apply the settled helper pick in your worktree.",
-            cwd=wt if wt else self.cfg.dir,
-        )
-        if j.get("dry_run") or not j["ok"]:
-            return {"candidate": c["job"], "ok": False, "error": j.get("error")}
-        ref = git(wt, "rev-parse", "HEAD").stdout.strip() if wt else j["output"]["ref"]
-        if wt:
-            git(
-                self.top, "update-ref", f"refs/heads/bh/harvest-{sha(c)}", ref
-            )  # keep the commit reachable
-            self.drop_worktree(wt)
-        return {"candidate": c["job"], "ok": ref != head, "ref": ref}
 
     # ------------------------------------------------------------ phase: review
 
@@ -1110,29 +849,13 @@ class Orchestrator:
             res["gaps"] = await self.phase_gaps()
         if "plan" not in skip:
             res["plan"] = await self.phase_plan()
-        max_rounds = 1 if self.dry else int(cfg.data.get("max_rounds", 3))
+        # Building goes one way only: a packet, the test author, the builder's clone (``run_packets``).
+        # With no packet there is nothing to build, and the run says so.
         why: dict[str, str] = {}
         budgets = cfg.data.get("budgets", {})
-        for n in range(1, max_rounds + 1):
-            s = self.state()
-            if not (s["ready"] or s["ready_system"] or s["unmerged"]):
-                break
-            if self.over_budget(budgets):
-                res["stopped"] = "budget"
-                break
-            before = fingerprint(cfg)
-            b = await self.phase_build()
-            for r in b.get("refs", []):
-                why.update({i: "unmet" for i in r["items"]})
-            why.update({i: "no-change" for i in b.get("nochange", [])})
-            why.update({i: "build-failed" for i in b.get("failed", [])})
-            m = await self.phase_measure(b.get("refs", []))
-            res["rounds"].append({"round": n, "build": b, "measure": m})
-            if self.dry:
-                break
-            if fingerprint(cfg) == before:  # W6: no measured number moved
-                res["stopped"] = res["stopped"] or "no progress"
-                break
+        s = self.state()
+        if s["ready"] or s["ready_system"] or s["unmerged"]:
+            res["stopped"] = "budget" if self.over_budget(budgets) else "no packets"
         if not self.dry:
             self.tracker("reconcile")
         s = self.state()
@@ -1156,8 +879,6 @@ class Orchestrator:
             and any(b["status"] == "met" for b in s["bricks"])
         ):
             h = await self.phase_harvest()
-            if h.get("refs"):
-                h["measured"] = await self.phase_measure(h["refs"])
             res["harvest"] = h
             self.tracker("reconcile")
         return self.finish(res, cyc, sellable0)
@@ -1508,8 +1229,6 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
         phases = {"gaps": await orch.phase_gaps()}
     elif cmd == "plan":
         phases = {"plan": await orch.phase_plan()}
-    elif cmd == "build":
-        phases = {"build": await orch.phase_build(a.item or None)}
     elif cmd == "measure":
         refs = [
             {"ref": r.partition("@")[2] or "HEAD", "items": [r.partition("@")[0]]}
@@ -1517,10 +1236,7 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
         ]
         phases = {"measure": await orch.phase_measure(refs or None)}
     elif cmd == "harvest":
-        h = await orch.phase_harvest()
-        if h.get("refs"):
-            h["measured"] = await orch.phase_measure(h["refs"])
-        phases = {"harvest": h}
+        phases = {"harvest": await orch.phase_harvest()}
     else:
         raise HarnessError(f"unknown command {cmd}")
     s = orch.state()
@@ -1539,17 +1255,15 @@ def main(argv: list[str] | None = None) -> int:
             help="list the agent jobs that would start; write nothing, spend nothing",
         )
     sub = ap.add_subparsers(dest="cmd", required=True)
-    r = sub.add_parser("run", parents=[common], help="gaps, plan, build+measure rounds, harvest")
+    r = sub.add_parser("run", parents=[common], help="gaps, plan, then each packet (test author, builder clone, measurer); harvest")
     r.add_argument("--skip", nargs="*", default=[], choices=["gaps", "plan", "harvest"])
     sub.add_parser("gaps", parents=[common], help="find spec gaps")
     sub.add_parser("plan", parents=[common], help="derive items, targets, contracts")
-    b = sub.add_parser("build", parents=[common], help="build the ready items (one round)")
-    b.add_argument("--item", action="append", help="only this item (repeatable)")
     m = sub.add_parser(
         "measure", parents=[common], help="measure ITEM@REF (repeatable), merge, re-measure"
     )
     m.add_argument("--item", action="append", help="ID[@REF]; none: the ready items at HEAD")
-    sub.add_parser("harvest", parents=[common], help="find duplicated helpers; apply settled picks")
+    sub.add_parser("harvest", parents=[common], help="find duplicated helpers")
     st = sub.add_parser("step", help="run one program step with no agent and no config")
     st.add_argument("name", choices=bhpacket.STEPS)
     st.add_argument("--item")  # required by every step but merge

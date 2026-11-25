@@ -311,42 +311,17 @@ def test_the_mechanical_phases_start_no_agent(toy, fake):
     assert {b["id"]: b["status"] for b in s["bricks"]}["json-writer"] == "met"
 
 
-def test_a_builder_works_in_its_own_worktree_and_the_orchestrator_sets_the_branch(toy, fake):
-    o = orch(toy)
-    r = run(o.phase_build())
-    built = {b["item"]: b for b in r["built"]}
-    assert set(built) == {"json-writer"}  # csv-reader was already met at HEAD: no builder for it
-    assert r["measured_head"] and r["refs"][0]["items"] == ["json-writer"]
-    (c,) = [c for c in fake.calls() if c["agent"] == "harness-builder"]
-    assert "worktrees/json-writer" in c["cwd"] and c["cwd"].startswith(str(toy))
-    assert str(o.jobs_dir) in c["argv"] and str(bhorch.PLUGIN_ROOT) in c["argv"]  # --add-dir
-    ref = git(toy, "rev-parse", "bh/json-writer")
-    assert ref == r["refs"][0]["ref"] and ref != git(toy, "rev-parse", "HEAD")
-    assert "Write,Edit,Bash" in arg(c, "--allowedTools").replace(", ", ",")
-    assert not (o.out / "worktrees" / "json-writer").exists()  # the worktree is dropped after
-    inp = json.loads(
-        Path(
-            c["stdin"]
-            .split("Input file (read it first; it names every other path): ")[1]
-            .split("\n")[0]
-        ).read_text()
-    )
-    assert Path(inp["work_packet"]).is_file() and inp["slot"] in (0, 1)
-    assert inp["commands_for_your_slot"]["test"].startswith("PYTHONPATH=")
-
-
 def test_a_full_run_leads_with_the_product_view_and_records_auth_and_cost(toy, fake):
     o = orch(toy)
     res = run(o.run())
     assert list(res)[:3] == ["product", "status", "owner_questions"]
-    assert res["status"]["all_met"] and "json-writer" in res["status"]["met"]
     assert res["auth"] == {
         "mode_at_start": "login",
         "mode_at_end": "login",
         "fallbacks_to_login": 0,
     }
     kinds = [j["job"] for j in res["jobs"]]
-    assert kinds[:2] == ["gaps", "plan"] and "build" in kinds and "harvest_find" in kinds
+    assert kinds == ["gaps", "plan"]
     assert res["totals"]["jobs"] == len(kinds) and res["totals"]["cost_usd"] == pytest.approx(
         0.01 * len(kinds)
     )
@@ -355,16 +330,7 @@ def test_a_full_run_leads_with_the_product_view_and_records_auth_and_cost(toy, f
     assert text.startswith("PRODUCT") and text.index("PRODUCT") < text.index("STATUS") < text.index(
         "AUTH"
     )
-    assert [r["round"] for r in res["phases"]["rounds"]] == [1]  # round 1 built it; nothing left
-
-
-def test_a_round_that_moves_no_number_ends_the_run_before_max_rounds(toy, fake):
-    fake.spec(build_files={})  # the builder commits nothing
-    o = orch(toy)
-    res = run(o.run(skip=["gaps", "plan", "harvest"]))
-    # round 1 measured the items for the first time (numbers moved); round 2 changed nothing
-    assert res["phases"]["stopped"] == "no progress" and len(res["phases"]["rounds"]) == 2
-    assert res["status"]["all_met"] is False
+    assert res["phases"]["stopped"] == "no packets"  # building is the packet flow's, never a round here
 
 
 def test_a_run_over_its_token_budget_stops_before_a_round(toy, fake):
@@ -434,7 +400,7 @@ def test_every_job_has_an_agent_file_with_model_tools_and_a_section():
         assert d["name"] == agent and d["model"] and d["tools"], agent
         body = (bhorch.AGENTS_DIR / f"{agent}.md").read_text()
         assert f"## Job: {job.replace('_', ' ')}" in body, (agent, job)
-        assert phase in ("gaps", "plan", "build", "harvest", "review", "test_author")
+        assert phase in ("gaps", "plan", "harvest", "review", "test_author")
     assert bhorch.agent_def("harness-reviewer")["tools"] == [
         "Read",
         "Grep",
@@ -463,9 +429,7 @@ def test_job_schemas_are_self_contained_and_check_outputs():
     ok = {
         "gaps": {"gaps": [{"kind": "other", "summary": "s", "tag": "fixable", "evidence": []}]},
         "plan": PLAN_OUT,
-        "build": {"item": "a", "ref": "a" * 40, "catalogue_added": []},
         "harvest_find": {"candidates": []},
-        "harvest_apply": {"ref": "b" * 40},
         "review": {"findings": [{"summary": "x", "severity": "S2"}]},
         "test_author": {"acceptance": [ROW]},
         "regression_row": {"acceptance": [ROW]},
@@ -474,9 +438,6 @@ def test_job_schemas_are_self_contained_and_check_outputs():
     for job, out in ok.items():
         s = bhorch.job_schema(job)
         assert "$ref" not in json.dumps(s) and bhcore.schema_errors(out, s) == [], job
-    assert bhcore.schema_errors(
-        {"item": "a", "ref": "short", "catalogue_added": []}, bhorch.job_schema("build")
-    )
     assert bhcore.schema_errors({"gaps": [{"kind": "nope"}]}, bhorch.job_schema("gaps"))
 
 
@@ -523,30 +484,6 @@ def test_a_job_prompt_is_paths_only_and_the_state_goes_through_a_file(toy, fake)
     assert input_of(c)["documents"]["features"]["rel"] == "features.md"
 
 
-def test_max_rounds_ends_the_run_and_what_is_not_met_is_listed_with_its_reason(toy, fake):
-    """SG-08."""
-    cfg = toy / ".brick-harness" / "config.json"
-    d = json.loads(cfg.read_text())
-    d["max_rounds"] = 1
-    cfg.write_text(json.dumps(d))
-    commit_all(toy, "one round")
-    fake.spec(build_files={})
-    res = run(orch(toy).run(skip=["gaps", "plan", "harvest"]))
-    assert len(res["phases"]["rounds"]) == 1
-    assert {s["item"]: s["reason"] for s in res["status"]["stuck"]}["json-writer"] == "no-change"
-
-
-def test_a_stale_item_is_measured_at_head_and_only_an_unmet_one_gets_a_builder(toy, fake):
-    """SG-12, SG-15: code that already exists is scored before any builder is paid for."""
-    o = orch(toy)
-    r = run(o.phase_build())
-    assert {m["item"]: m["status"] for m in r["measured_head"]} == {
-        "csv-reader": "met",
-        "json-writer": "unmet",
-    }
-    assert [c["cwd"].rsplit("/", 1)[1] for c in fake.calls()] == ["json-writer"]
-
-
 def test_a_re_review_job_is_given_only_the_diff_since_the_last_review_and_open_findings(toy, fake):
     """SG-13."""
     o = orch(toy)
@@ -558,72 +495,6 @@ def test_a_re_review_job_is_given_only_the_diff_since_the_last_review_and_open_f
     ri = input_of(fake.calls()[1])["review_input"]
     assert ri["since"] and ri["changed"] == ["features.md"] and "New text." in ri["diff"]
     assert ri["open"] == []
-
-
-def test_missing_context_from_a_builder_is_recorded_as_a_finding(toy, fake):
-    """SG-18: what the packet lacked is returned, ranked and recorded, never looked up."""
-    fake.spec(outputs={**OUTPUTS, "harness-builder": {"missing_context": ["the CSV dialect"]}})
-    o = orch(toy)
-    run(o.phase_build())
-    doc = json.loads((toy / ".brick-harness" / "gaps.json").read_text())
-    f = [g for g in doc["gaps"] if g.get("source") == "finding"]
-    assert [g["kind"] for g in f] == ["missing-context"] and "the CSV dialect" in f[0]["summary"]
-    (c,) = [c for c in fake.calls() if c["agent"] == "harness-builder"]
-    assert "json-writer" in Path(input_of(c)["work_packet"]).read_text()  # the packet is a file
-
-
-def test_a_feature_that_became_sellable_gets_one_review_by_a_job_that_did_not_build_it(toy, fake):
-    """SG-19: the reviewer is its own agent; its findings are recorded and ranked."""
-    (toy / ".brick-harness" / "features.json").write_text(
-        json.dumps({"features": [{"id": "F1", "title": "convert", "acceptance": "csv2json"}]})
-    )
-    commit_all(toy, "features")
-    finding = {
-        "summary": "no error path",
-        "rule": "RL-01",
-        "severity": "S3",
-        "evidence": "theoretical",
-    }
-    fake.spec(outputs={**OUTPUTS, "harness-reviewer": {"findings": [finding]}})
-    res = run(orch(toy).run(skip=["gaps", "plan", "harvest"]))
-    assert res["product"]["became_sellable_this_run"] == ["F1"]
-    assert [x["feature"] for x in res["phases"]["reviews"]] == ["F1"]
-    rv = [c for c in fake.calls() if c["agent"] == "harness-reviewer"]
-    assert len(rv) == 1 and "Bash(git diff:*)" in arg(rv[0], "--allowedTools")
-    doc = json.loads((toy / ".brick-harness" / "gaps.json").read_text())
-    assert [g["summary"] for g in doc["gaps"] if g.get("source") == "finding"] == ["no error path"]
-
-
-def test_a_restart_of_a_run_does_not_pay_a_builder_again(toy, fake):
-    """The build key is the item's own tree, targets and feedback: the gaps report and the
-    scoreboard commits of a second process do not move it."""
-    o1 = orch(toy)
-    run(o1.phase_gaps())
-    run(o1.phase_plan())
-    b1 = run(o1.phase_build())  # the process stops here, before measuring
-    builders = lambda: [c for c in fake.calls() if c["agent"] == "harness-builder"]  # noqa: E731
-    assert len(builders()) == 1
-    o2 = orch(toy)
-    run(o2.phase_gaps())
-    run(o2.phase_plan())
-    b2 = run(o2.phase_build())
-    assert len(builders()) == 1 and b2["built"][0]["job"]["skipped"] is True
-    assert (
-        b2["refs"] == b1["refs"] and git(toy, "rev-parse", "bh/json-writer") == b1["refs"][0]["ref"]
-    )
-
-
-def test_a_spent_budget_starts_no_review_and_no_harvest_job(toy, fake):
-    cfg = toy / ".brick-harness" / "config.json"
-    d = json.loads(cfg.read_text())
-    d["budgets"] = {"run_tokens": 10}  # a job in the fake costs 15 tokens
-    cfg.write_text(json.dumps(d))
-    commit_all(toy, "budget")
-    res = run(orch(toy).run(skip=["gaps", "plan"]))
-    assert [j["job"] for j in res["jobs"]] == ["build"]  # round 1 ran; the budget is then spent
-    assert res["status"]["all_met"] and res["phases"]["stopped"] == "budget"
-    assert res["phases"]["not_run_for_budget"] == ["reviews", "harvest"]
-    assert [c["agent"] for c in fake.calls()] == ["harness-builder"]
 
 
 def test_a_job_that_spent_money_and_failed_is_not_an_authentication_failure(toy, fake, monkeypatch):

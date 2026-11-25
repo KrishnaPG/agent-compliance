@@ -53,9 +53,9 @@ Verification: fitness 1, lint 25, measure 4, test 133.
 | P11 | 0 | 1 | 0 | 1 | b4-AC11 |
 | P12 | 0 | 0 | 0 | 0 |  |
 | R1 | 0 | 1 | 0 | 1 | b1-AC20 |
-| R2 | 0 | 6 | 0 | 6 | b9-AC1, b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
+| R2 | 0 | 5 | 0 | 5 | b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
 | R3 | 0 | 5 | 16 | 21 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC3, d6-AC4, d6-AC5, d6-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13, d6-AC14, d6-AC15 |
-| R4 | 0 | 56 | 0 | 56 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC4, b9-AC5, b9-AC7, b9-AC8, b9-AC9, b9-AC13, b9-AC14, b9-AC15 |
+| R4 | 0 | 53 | 0 | 53 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC4, b9-AC8, b9-AC13, b9-AC14, b9-AC15 |
 | R5 | 0 | 0 | 41 | 41 | d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d0-AC17, d1-AC1, d1-AC2, d2-AC3, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC11, d8-AC12 |
 | R6 | 0 | 0 | 0 | 0 |  |
 | R7 | 0 | 0 | 0 | 0 |  |
@@ -200,10 +200,7 @@ None.
 - b4-AC11: the title says "without pattern lists"; the row asserts the flag-based comparison that replaces them
 - b5-AC2: "kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted
 - b5-AC3: plan does not name the keyword; fixture must use one the old validator ignored; plan omits the teaching
-- b9-AC5: plan names the locations in prose; the row matches each by a short substring of the path
-- b9-AC7: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
 - b9-AC8: plan gives no SG-01 line text
-- b9-AC9: plan omits the teaching text (file-tool refusals are the tool's own)
 - b9-AC12: plan omits the teaching text
 - b9-AC13: the commit_message field names are not fixed by the spec
 - b9-AC14: plan omits the teaching text

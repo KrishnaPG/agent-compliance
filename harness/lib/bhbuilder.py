@@ -15,12 +15,12 @@ import subprocess
 from pathlib import Path
 from typing import Any
 
-SETTINGS_FILE = ".brick-harness/builder-settings.json"
+LAUNCH_DIR = ".brick-harness/launch"  # one settings file per builder launch, named by its clone
 PROGRAM = "bh"  # the program's git identity: the builder never commits
 SG01 = "SG-01"  # the spec line for a protected acceptance test (packet-standards.md, L4)
 
 # Where the program keeps what a builder must not change, under the source repository.
-_STATE = ("custody", "packets", "out", "hook-facts", "run-report.txt", "config.json", "builder-settings.json")
+_STATE = ("custody", "packets", "out", "hook-facts", "run-report.txt", "config.json", "launch")
 
 
 def _git(cwd: Path, *args: str, env: dict[str, str] | None = None) -> str:
@@ -89,10 +89,12 @@ def builder_settings(
     }
 
 
-def write_settings(root: Path, settings: dict[str, Any]) -> Path:
+def write_settings(root: Path, clone: Path, settings: dict[str, Any]) -> Path:
+    """The settings of this launch only, beside the clone (never inside it, where the builder could
+    write, and never shared with another launch)."""
     from bhorch import write_atomic
 
-    path = root / SETTINGS_FILE
+    path = root / LAUNCH_DIR / f"{clone.name}.settings.json"
     write_atomic(path, json.dumps(settings, indent=2) + "\n")
     return path
 

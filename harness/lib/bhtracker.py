@@ -15,14 +15,14 @@ tracker: the work list is bricks.json in build/value order (bhcore.state), admis
 reconciliation do nothing. Done and undone in the tracker come only from the measured status:
 ``close_entry`` and ``reopen_entry`` are called from ``reconcile`` alone (a test enforces it).
 Measure, build and merge never call the tracker. Builders take no claim of their own: each
-works on its own worktree branch ``bh/<item>``, which git refuses to check out twice.
+works in its own clone of the repository, so two builders never share a checkout.
 
 OSS checked before writing this module (versions pinned, what each lacks):
   Beads 1.3.4 (bd): the tracker itself: ``bd ready``, ``bd update --claim`` (atomic),
     ``bd close``/``bd reopen``; prints JSON of its own shape, mapped by data (adapters/beads.json).
   gh 2.94.0 or later: GitHub Issues; ``gh issue list --search 'no:assignee -is:blocked'`` is the
     ready filter; no atomic claim (an assignee is a soft claim); JSON of its own shape.
-  git 2.53.0: worktree branches stop two builders on one item inside a run; no lock across
+  git 2.53.0: one clone per builder keeps two builders on one item apart inside a run; no lock across
     machines (a tracker without atomic claim has none either; recorded in decision 0001).
   jq, jsonpath-ng: not used; one path per field with [] and [key=value] is all the adapters
     need and adds no dependency to a stdlib-only plugin.
@@ -351,7 +351,7 @@ class Tracker:
     def claim(self, ref: str) -> dict[str, Any]:
         """Take an entry: ``{claimed, holder, by}``. The adapter's claim command when it has
         one (bd update --claim is atomic; a gh assignee is soft); without one the entry is
-        taken, and builders are kept apart by their worktree branches ``bh/<item>``."""
+        taken, and builders are kept apart by their own clones."""
         if not self.has("claim"):
             return {"claimed": True, "holder": self.actor, "by": "branch"}
         try:

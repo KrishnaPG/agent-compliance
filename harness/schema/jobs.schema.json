@@ -155,38 +155,6 @@
         }
       }
     },
-    "build": {
-      "type": "object",
-      "required": [
-        "item",
-        "ref",
-        "catalogue_added"
-      ],
-      "properties": {
-        "item": {
-          "type": "string"
-        },
-        "ref": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
-        },
-        "catalogue_added": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        },
-        "notes": {
-          "type": "string"
-        },
-        "missing_context": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
-        }
-      }
-    },
     "harvest_find": {
       "type": "object",
       "required": [
@@ -242,18 +210,6 @@
               }
             }
           }
-        }
-      }
-    },
-    "harvest_apply": {
-      "type": "object",
-      "required": [
-        "ref"
-      ],
-      "properties": {
-        "ref": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
         }
       }
     },

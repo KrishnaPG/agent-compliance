@@ -665,7 +665,7 @@ def test_state_carries_unmerged_and_branches(toy):
 
 
 def builder_commit(toy, edit=None, touched=()):
-    """Play an isolated builder: commit on a detached worktree branch, no bh/ ref."""
+    """Play a builder: commit on its own branch, no bh/ ref."""
     git(toy, "checkout", "-qb", "worktree-run-1", "main")
     (toy / "src" / "json_writer.py").write_text(JSON_WRITER)
     if edit:

@@ -10,18 +10,18 @@ decides architecture and standards in the project's own documents; the harness r
   documents and cites file:line; the CLI verifies the citations). Output:
   `.brick-harness/gaps.json` and `gaps.md`, each gap with file:line evidence, tagged
   `owner-decides` or `fixable`.
-- **B. Execute the project's own build order.** Each builder works in its own git worktree
-  and environment slot on branch `bh/<item>`. Only the deterministic measurer scores; an
+- **B. Execute the project's own build order.** Each builder works in its own `git clone --shared`
+  of the base commit (own generated Claude Code settings, no remote); the program commits its change. Only the deterministic measurer scores; an
   item advances only on measured targets; a retry gets its previous commit and the numbers
   it missed. Harvest reports duplicated helpers. State lives in `.brick-harness/`,
   committed with the code.
 
 ## The orchestrator (`bh`)
 
-`bin/bh` is the one entry: `bh run`, or one phase (`bh gaps`, `bh plan`, `bh build`, `bh measure`,
+`bin/bh` is the one entry: `bh run`, or one phase (`bh gaps`, `bh plan`, `bh measure`,
 `bh harvest`); `--config` and `--dry-run` (list the agent jobs, write nothing, spend nothing)
 come before or after the subcommand. `lib/bhorch.py` is a Python program, not a script for a
-host tool: it runs **every mechanical step itself** (git worktrees and branches, state,
+host tool: it runs **every mechanical step itself** (the builder's clone, git branches, state,
 `bh-measure` per item as a process, merging, committing, tracker reconcile and admission, gap
 merging, ordering, stopping) through `bhcore`/`bhtracker` or the CLIs, and starts an **agent
 job only for judgement work**.
@@ -30,8 +30,8 @@ job only for judgement work**.
 |---|---|---|
 | gaps | mechanical checks, `bhcore.merge_gaps` (a finding whose file:line or quote does not resolve is rejected), commit | `gaps`: `harness-gaps-reader`, read only. A re-review is given only the documents' diff since the last review and the open findings (`bhcore.review_input`); decisions and the owner's answers are settled inputs |
 | plan | tracker reconcile and admit, gap merge, commit | `plan`: `harness-planner` derives items, targets (each citing the line that states its number), contracts and work packets; adds only what is missing |
-| build | commit plan, measure unmeasured ready items at HEAD (code may already exist), worktree per item from HEAD, work packet written from `bhcore.work_packet`, retry merge of the previous commit, `bh/<item>` branch set from the worktree's HEAD, measure, merge what the scoreboard lists as met, re-measure merged items and dependents at HEAD | `build`: `harness-builder`, one per item still unmet, in its own worktree and environment slot |
-| harvest | settled-pick check against the catalogue, gap merge, commit, measure the applied refs | `harvest_find`: `harness-harvester` (duplicated helpers); `harvest_apply`: `harness-builder` applies a pick the catalogue already settles |
+| build | per packet (`bh run`, or `bh step launch_builder`): `git clone --shared` of the recorded base commit, packet registered in the clone, settings generated into that launch's own file, builder started, the program's own commit (`commit_build`), then the measurer on the fetched commit | `harness-builder`, one per packet, in its own clone |
+| harvest | gap merge, commit | `harvest_find`: `harness-harvester` (duplicated helpers); a settled pick is reported, not applied |
 | review | the brief of a feature that became sellable (`bhrules.feature_review`), finding recorded by `bhcore.add_findings` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
 
 `run` = gaps, plan, rounds of build+measure (stop at `max_rounds`, at a budget, or when a round
@@ -58,7 +58,7 @@ and `totals`; `overlay_candidates` lists areas the owner answered often enough t
 plus, in login mode, `--plugin-dir <plugin> --agent agent-compliance:<agent>`; in bare mode
 `--agents <json> --agent <agent>` (below).
 
-with `cwd` the item's worktree for builders. The prompt (stdin) is a short instruction plus
+with `cwd` the builder's clone for builders. The prompt (stdin) is a short instruction plus
 file paths; the job's input is a JSON file under `<measure_out>/jobs/` it reads itself, and big
 state never passes through a prompt. The agent files (`agents/harness-*.md`: model, effort,
 tools in the frontmatter; the rules, stable text first so jobs of one kind share a prefix) hold
@@ -91,7 +91,7 @@ the file and skips the job; a failed job leaves `<key>.error.json` and runs agai
 
 **Tests without a model.** `tests/fake_bin/claude` is a small executable put first on `PATH`
 by `tests/test_bhorch.py`: it reads its arguments and stdin, answers per agent name from a
-spec file, commits a builder's files in its worktree, and can fail authentication in bare
+spec file, commits a builder's files in its clone, and can fail authentication in bare
 mode, overrun the budget or fail. A paid toy run still has to prove what it cannot: that
 `--agents` definitions are accepted under `--bare`, the real result JSON
 (`structured_output`, `total_cost_usd`, `usage`) and the budget-overrun result.
@@ -136,8 +136,8 @@ agent runs each tool and returns its JSON.
   any other conflict is aborted and recorded, so the item is rebuilt with "conflicts with
   HEAD at <paths>". After each merge the plan and protected paths are restored to their
   pre-merge state in a follow-up commit. It prints the items to re-measure at HEAD.
-- `bhcore.set_branch(item, ref)`: builders run in isolated worktrees and cannot move
-  branches, so they return their commit and this sets `bh/<ID>` to it from the main checkout:
+- `bhcore.set_branch(item, ref)`: builders work in their own clones and cannot move
+  the source's branches, so the program fetches their commit and this sets `bh/<ID>` to it from the main checkout:
   the commit must exist and be new; created or fast-forwarded, otherwise refused. What it
   holds under plan or protected paths is not judged here.
 - `bhcore.state` (and `bhcore.affected(ref)`, the items a ref touches with their dependents): the
@@ -199,8 +199,7 @@ a `gh issue list --search` query). Beads 1.3.4 is pinned by sha256: a `bd` that 
 is not run and the tracker is unreachable for that run. With no `tracker.adapter` there is no
 tracker: `bricks.json` in build and value order is the work list and `bhtracker.admit` and
 `bhtracker.reconcile` do nothing. A claim is the adapter's own (`bd update --claim` is atomic; a gh
-assignee is soft); builders work on isolated branches `bh/<item>`, which git will not check out
-twice. Measure, build and merge never call the tracker.
+assignee is soft); each builder works in its own clone, so two builders never share a checkout. Measure, build and merge never call the tracker.
 `bhtracker.admit` (with write) takes ready entries of `tracker.goal` into `bricks.json` as items of kind
 `change` (id derived from the ref) within `horizon.items` minus the items not met, claiming
 each first, in `value_queue` order for entries that are items already and the tracker's order
@@ -330,7 +329,7 @@ its linux x86_64 asset is pinned by sha256 in `checkers.json`. A per-language li
 
 Tracker interface (pinned): Beads 1.3.4 (tracker, by sha256; `bd ready`, `bd update --claim`), gh 2.94.0 or later (GitHub Issues; no atomic claim; ready is a search query), git 2.53.0 (worktree branches `bh/<item>`); jq and JSONPath libraries and tracker SDKs not used (one path syntax in stdlib, no tracker bound) (see `lib/bhtracker.py`).
 
-Adopted: the host's `claude -p` CLI driven by stdlib asyncio, `git worktree`, plugin agents, skills, plugin `bin/`; JUnit XML and the
+Adopted: the host's `claude -p` CLI driven by stdlib asyncio, `git clone --shared`, plugin agents, skills, plugin `bin/`; JUnit XML and the
 JSON/CSV output of existing bench tools. Rejected for this loop, because each decides "done"
 by a checklist, the agent's report or an LLM verdict, with no gap report with resolvable
 evidence, numeric targets or harvest: Spec Kit v1.4.2, OpenSpec v2.1.0, cc-sdd v3.1.0,
