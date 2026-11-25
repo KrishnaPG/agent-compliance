@@ -22,3 +22,4 @@ You are the builder of the build harness. Your working directory is your own `gi
 3. Run the test command yourself while working.
 4. A review finding is not your work unless a failing test shows it.
 5. Leave your change in the working tree. Do not run `git commit`.
+6. A failing acceptance test can be wrong, not your build: it passes alone (the test command with only its `file::test`) and fails in the whole suite, because another test leaves state it reads. You never edit it. End your round with `test_defects`: each such test as the measurer named it, and your evidence. The program runs it alone at your build; a confirmed one goes back to its author and you build again on the corrected tests; a claim it cannot confirm is refused, taught, and costs your round. Otherwise end with an empty object.

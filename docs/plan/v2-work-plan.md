@@ -78,7 +78,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 | IR-C1 builder controls what the measurer runs | b1 (overlay of tests, test and lint config, recipes and ratchet files from the plan commit; jail and canary); b4 (suppression, skip and dropped-test facts) |
 | IR-C2 orchestrator grades itself | d4 (prompt from packet fields alone) |
 | IR-M1 H0 does not hold | b9 and d4 (a clone exists only from a packet, kept by digest outside the clone); d8 (H0 on Edit/Write, and a Bash note plus fact for hand launches) |
-| IR-M2 held-out cases; red by error | Held-out cases dropped (R3). Red by error: b2 records it, d6 returns it to the test author |
+| IR-M2 held-out cases; red by error | Held-out cases dropped (R3). Red by error: b2 records it, d6 returns it to the test author. Red by the test's own fault: the builder claims it (`test_defects`), the program confirms it passes alone and fails in the suite, and d6 returns it to that test's author for one corrected round |
 | IR-M4 bug fixes graded by their builder | d6 (the finder or the test author writes the regression test; fails at the parent, passes at the fix) |
 | IR-M11 runtime state | Packets and facts in the orchestrator's `.brick-harness/`, outside the clones (b9, d4) |
 | IR-M12 v2 contents | This plan |

@@ -1506,6 +1506,71 @@ def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
     return test
 
 
+def _node_id(co: Path, classname: str, name: str) -> str | None:
+    """The pytest node id of a JUnit case: the longest dotted prefix of its classname that is a
+    file of the checkout is the module, the rest are classes (pytest's own JUnit naming)."""
+    parts = classname.split(".")
+    for n in range(len(parts), 0, -1):
+        path = "/".join(parts[:n]) + ".py"
+        if (co / path).is_file():
+            return "::".join([path, *parts[n:], name])
+    return None
+
+
+def run_alone(cfg: Config, ref: str, cases: list[tuple[str, str]]) -> dict[tuple[str, str], str]:
+    """Each JUnit case (classname, name) of ``ref`` run alone, by the measurer's own procedure (a
+    clean ``git clone --shared`` checkout, the plan commit's protected paths laid over it, the
+    locked install, the sealed run): ``passed``, ``failed`` or ``errored`` by its JUnit result;
+    ``missing`` when the checkout has no such test; ``not_alone`` when the project's test recipe
+    has no single pytest line that runs one test by its node id, or that run reported other tests.
+    A test that passes alone and fails in the suite is an Interacting Test (Meszaros, xUnit Test
+    Patterns): its outcome depends on state another test left behind (P3: the program checks it)."""
+    top = git_top(cfg.dir)
+    if top is None:
+        raise HarnessError("not a git repository")
+    sha = _git(top, "rev-parse", "--verify", ref + "^{commit}")
+    main = next((b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), "HEAD")
+    base = _git(top, "merge-base", sha, main)
+    timeout = float(cfg.data.get("commands", {}).get("timeout_s", 600))
+    out: dict[tuple[str, str], str] = {}
+    _, clone = _claim(top / HDIR / "clones", f"alone-{sha[:12]}")
+    with clean_checkout(top, sha, clone) as co:
+        overlay_plan(cfg, top, co, base)
+        env = dict(_project_environ())
+        if prepare(cfg, co, env, {"item": "", "out": co, "workdir": co, "root": co, "ref": sha, **cfg.slot(0)})[1]:
+            return dict.fromkeys(cases, "not_alone")  # no install, no run: nothing is shown
+        test = bhinfer.infer(co).get("test", {}).get("value", "pytest")
+        if test == "pytest" or (test == "just test" and not shutil.which("just")):
+            lines = [f"{shlex.quote(sys.executable)} -m pytest -q"]
+        elif test == "just test":
+            said = _run("just --dry-run test 2>&1 >/dev/null", co, co, env, 30)["tail"].splitlines()
+            lines = [x.strip() for x in said if "pytest" in x]
+        else:
+            lines = []
+        for n, (classname, name) in enumerate(cases):
+            node = _node_id(co, classname, name)
+            if node is None:
+                out[(classname, name)] = "missing"
+                continue
+            if len(lines) != 1:
+                out[(classname, name)] = "not_alone"
+                continue
+            junit = co / f".bh-junit-alone-{n}.xml"
+            cmd = f"{lines[0]} -p no:cacheprovider --junitxml={shlex.quote(str(junit))} {shlex.quote(node)}"
+            _run(cmd, co, co, env, timeout, [top / HDIR])
+            try:
+                ran = _cases(read_junit(junit))
+            except HarnessError:
+                out[(classname, name)] = "errored"
+                continue
+            if [(c.classname, c.name) for c in ran] != [(classname, name)]:
+                out[(classname, name)] = "not_alone" if ran else "missing"
+                continue
+            kinds = {type(x).__name__ for x in ran[0].result}
+            out[(classname, name)] = "errored" if "Error" in kinds else "failed" if "Failure" in kinds else "passed"
+    return out
+
+
 # ---------------------------------------------------------------- facts against the base
 # A fact is what the candidate's own tree reports compared with the base's own tree, both read by the
 # same procedure: the test recipe's JUnit report, and ruff and eslint, each run with and without

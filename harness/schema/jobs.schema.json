@@ -228,6 +228,36 @@
         }
       }
     },
+    "builder": {
+      "type": "object",
+      "description": "the builder's end of round: empty, or its claims that a failing acceptance test is faulty (the program checks each by running the test alone at the build; a checked claim goes back to the test's author)",
+      "additionalProperties": false,
+      "properties": {
+        "test_defects": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "test",
+              "evidence"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "test": {
+                "type": "string",
+                "minLength": 1,
+                "description": "the failing test as the measurer named it: <classname>::<name> or <file>::<name>"
+              },
+              "evidence": {
+                "type": "string",
+                "minLength": 1,
+                "description": "why the test, not the build, is wrong: for example, it passes alone and fails in the suite (shared state another test leaves behind)"
+              }
+            }
+          }
+        }
+      }
+    },
     "test_author": {
       "type": "object",
       "required": [

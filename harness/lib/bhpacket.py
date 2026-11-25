@@ -630,6 +630,8 @@ def launch_builder(
         "dontAsk",
         "--settings",
         str(settings),
+        "--json-schema",  # the round's end: empty, or claims that a failing acceptance test is faulty
+        json.dumps(bhorch.job_schema("builder")),
         "--allowedTools",  # Bash is never pre-approved: the sandbox's auto-allow is its only way in
         ",".join(t for t in bhorch.agent_def(BUILDER_AGENT)["tools"] if t != "Bash"),
         *bhorch.mode_flags("login", None, BUILDER_AGENT),
@@ -667,7 +669,8 @@ def launch_builder(
         "tokens": t["input"] + t["output"],
         "packet_sha256": digest,
     }
-    return 0, result_json("launch_builder", raw, facts, jobs=[job]), ""
+    claims = (cli.get("structured_output") or {}).get("test_defects") or []  # checked by the program, never trusted
+    return 0, result_json("launch_builder", raw, facts, jobs=[job], test_defects=claims), ""
 
 
 def commit_build(root: Path, item: str) -> tuple[int, str, str]:
