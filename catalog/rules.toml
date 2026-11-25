@@ -1,0 +1,72 @@
+# The rules a design, plan, packet or review cites: maintained standards by reference, plus the
+# few house rules no standard states. A rule id is either a house rule id below or
+# "<standard key>:<section>" (for example "NIST-SP-800-53:SI-7"); the standard's own text is the
+# rule and is read at its URL, never copied here. A project adds or opts out of rules in its own
+# overlay; checks/index.json binds a house rule to the linter check that finds its breaches.
+
+[standards.OWASP-ASVS]
+title = "OWASP Application Security Verification Standard"
+version = "4.0.3"
+url = "https://owasp.org/www-project-application-security-verification-standard/"
+
+[standards.NIST-SSDF]
+title = "NIST SP 800-218 Secure Software Development Framework"
+version = "1.1"
+url = "https://csrc.nist.gov/pubs/sp/800/218/final"
+
+[standards.NIST-SP-800-53]
+title = "NIST SP 800-53 Security and Privacy Controls"
+version = "Rev. 5"
+url = "https://csrc.nist.gov/pubs/sp/800/53/r5/upd1/final"
+
+[standards.SLSA]
+title = "Supply-chain Levels for Software Artifacts"
+version = "1.0"
+url = "https://slsa.dev/spec/v1.0/"
+
+[standards.Well-Architected]
+title = "AWS Well-Architected Framework (pillars: operational excellence, security, reliability, performance efficiency, cost optimization, sustainability)"
+version = "current"
+url = "https://docs.aws.amazon.com/wellarchitected/latest/framework/welcome.html"
+
+[standards.CIS-GCP]
+title = "CIS Google Cloud Platform Foundation Benchmark"
+version = "4.0.0"
+url = "https://www.cisecurity.org/benchmark/google_cloud_computing_platform"
+
+[standards.Twelve-Factor]
+title = "The Twelve-Factor App"
+version = "current"
+url = "https://12factor.net/"
+
+[standards.W3C-Trace-Context]
+title = "W3C Trace Context"
+version = "Recommendation"
+url = "https://www.w3.org/TR/trace-context/"
+
+[standards.W3C-PROV]
+title = "W3C PROV provenance model"
+version = "Recommendation"
+url = "https://www.w3.org/TR/prov-overview/"
+
+[standards.SRE]
+title = "Google Site Reliability Engineering"
+version = "book"
+url = "https://sre.google/sre-book/table-of-contents/"
+
+[standards.EIP]
+title = "Enterprise Integration Patterns"
+version = "book"
+url = "https://www.enterpriseintegrationpatterns.com/patterns/messaging/"
+
+[house.HO-02]
+text = "A hand-off is published only after its source committed (change-data capture, the owner's change stream, an outbox, or a step that publishes its own committed outcome and acknowledges its input only after that publish is confirmed); no step writes two owners, or an owner and the channel, at once."
+cites = ["EIP:TransactionalClient"]
+
+[house.ID-15]
+text = "Authentication, token or signature verification and the authorization decision run once per trust boundary, where material enters it; blocks behind it receive the verified principal and decision as values and never verify again."
+cites = ["OWASP-ASVS:V1.4.1", "OWASP-ASVS:V1.4.4"]
+
+[house.RL-08]
+text = "No timer or waiting loop of ours (schedule, cron, timer unit, sleep, poll, requeue or retry override): a wait blocks on the producer's event through the layer's native mechanism; a business schedule that is itself the requirement is declared with its period."
+cites = []
