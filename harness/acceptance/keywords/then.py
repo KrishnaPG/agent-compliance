@@ -365,7 +365,7 @@ def then_refused(ctx, by, wrong, right, prevent):
 
 
 def _norm(s):
-    return " ".join(s.split())
+    return " ".join(s.split()).casefold()
 
 
 def then_output_contains(ctx, channel, text, max_chars=None, negate=False):
@@ -388,7 +388,9 @@ def then_output_contains(ctx, channel, text, max_chars=None, negate=False):
         body = "\n".join(s for s in _find(hj, "additionalContext"))
     else:
         body = "\n".join(channel_messages(ctx, "issue_comment"))
-    has = _norm(text) in _norm(body)
+    wanted = subst(ctx, text)
+    alts = wanted if isinstance(wanted, list) else [wanted]
+    has = any(_norm(str(t)) in _norm(body) for t in alts)
     if negate:
         need(not has, f"{channel} contains {text!r}", "remove it")
     else:

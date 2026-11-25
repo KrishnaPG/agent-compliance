@@ -582,7 +582,7 @@ acceptance:
       hook: {hook: H1}
     then:
       - field: {source: hook_output, path: additionalContext, op: present}
-      - output_contains: {channel: additional_context, text: goal}
+      - output_contains: {channel: additional_context, text: $packet.goal}
     traces_to: [R5, QBC-46, QBC-49]
     verification: test
     deterministic: true

@@ -12,7 +12,7 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `id` | string | the item id; names the packet | b9-AC13, d0-AC2 |
 | `parent_issue` | integer | tracker issue number of the item's parent | d0-AC2 |
 | `tier` | enum: mechanical, design-affecting | the tier derived from declared paths and the diff (d5) | d0-AC3, d5-AC7 |
-| `goal` | string | the intent and why, with no design | d0-AC3, d1-AC2, e4-AC1 |
+| `goal` | string | the intent and why, with no design | d0-AC3, d1-AC2, d4-AC2, e4-AC1 |
 | `applies[*].id` | string | a G, P, R or QBC id from spec section 0; every principle is always included | d0-AC4, d0-AC15 |
 | `applies[*].text` | string | that item's text, copied verbatim from spec section 0 | d0-AC4 |
 | `constraints.decisions[*].id` | string | id of a cited decision line | d0-AC5 |
