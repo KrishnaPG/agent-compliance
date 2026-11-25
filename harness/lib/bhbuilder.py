@@ -53,11 +53,16 @@ def _git(cwd: Path, *args: str, env: dict[str, str] | None = None) -> str:
 
 def make_clone(root: Path, clone: Path, base: str) -> None:
     """A shared clone at the base commit the program recorded: no remote is left to fetch from, and
-    nothing the builder does to its refs reaches the source's."""
+    nothing the builder does to its refs reaches the source's. The base commit holds the packet of
+    every item planned so far; the clone checks out none of them (git sparse-checkout), so the one
+    packet in it is the one ``register`` puts there, the packet the hooks deliver and scope by."""
+    from bhpacket import PACKETS_DIR
+
     if clone.exists():
         return
     _git(root, "clone", "-q", "--shared", "--no-checkout", str(root), str(clone))
     _git(clone, "remote", "remove", "origin")
+    _git(clone, "sparse-checkout", "set", "--no-cone", "/*", f"!/{PACKETS_DIR}/")
     _git(clone, "checkout", "-q", "--detach", base)
 
 

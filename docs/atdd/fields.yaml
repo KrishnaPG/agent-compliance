@@ -95,6 +95,9 @@ fields:
   - {schema: jobs, path: "jobs[*].item", type: string, meaning: "the item the job worked on"}
   - {schema: jobs, path: "jobs[*].started_at", type: string, meaning: "start time, RFC 3339"}
   - {schema: jobs, path: "jobs[*].exit_code", type: integer, meaning: "the job's exit code"}
+  - {schema: jobs, path: "jobs[*].subtype", type: string, meaning: "Claude CLI result subtype of an agent job (success, error_max_turns, error_max_budget_usd, error_during_execution); null when the CLI wrote no result"}
+  - {schema: jobs, path: "jobs[*].num_turns", type: integer, meaning: "Claude CLI result num_turns of an agent job; null when the CLI wrote no result"}
+  - {schema: jobs, path: "jobs[*].tree_changed", type: boolean, meaning: "builder jobs only: true when the program committed a change after the round, false for a round that changed nothing"}
   - {schema: jobs, path: "jobs[*].ended_at", type: string, meaning: "end time, RFC 3339"}
   - {schema: jobs, path: "jobs[*].cost_usd", type: number, meaning: "Claude CLI total_cost_usd of the job; 0 for a program step"}
   - {schema: jobs, path: "jobs[*].tokens", type: integer, meaning: "Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums"}

@@ -102,6 +102,9 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `jobs[*].item` | string | the item the job worked on | - |
 | `jobs[*].started_at` | string | start time, RFC 3339 | - |
 | `jobs[*].exit_code` | integer | the job's exit code | - |
+| `jobs[*].subtype` | string | Claude CLI result subtype of an agent job (success, error_max_turns, error_max_budget_usd, error_during_execution); null when the CLI wrote no result | - |
+| `jobs[*].num_turns` | integer | Claude CLI result num_turns of an agent job; null when the CLI wrote no result | - |
+| `jobs[*].tree_changed` | boolean | builder jobs only: true when the program committed a change after the round, false for a round that changed nothing | - |
 | `jobs[*].ended_at` | string | end time, RFC 3339 | - |
 | `jobs[*].cost_usd` | number | Claude CLI total_cost_usd of the job; 0 for a program step | - |
 | `jobs[*].tokens` | integer | Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums | - |
@@ -187,6 +190,9 @@ Each line is a d0 field that no acceptance criterion tests, or a config key with
 - jobs `jobs[*].item` (string) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].started_at` (string) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].exit_code` (integer) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].subtype` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].num_turns` (integer) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].tree_changed` (boolean) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].ended_at` (string) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].cost_usd` (number) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].tokens` (integer) is a d0 field that no acceptance criterion reads yet.

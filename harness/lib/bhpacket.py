@@ -518,6 +518,7 @@ def launch_builder(
         *bhorch.mode_flags("login", None, BUILDER_AGENT),
     ]
     started = datetime.now(UTC)
+    before = bhorch.git(clone, "rev-parse", "HEAD").stdout.strip()  # a later round starts from the last round's commit
     try:
         prompt = LAUNCH_PROMPT + (
             "\nYour last result went back to you; fix these, then finish:\n" + "\n".join(f"- {f}" for f in feedback)
@@ -531,7 +532,7 @@ def launch_builder(
         facts = [*facts, {"kind": "launch_failed", "detail": f"cannot start {argv[0]}: {e}"}]
     cli = bhorch.parse_cli_result(out) or {}
     t = bhorch.tokens_of(cli.get("usage"))
-    bhbuilder.commit_build(clone, packet, digest)  # the program stages and commits, never the builder
+    after = bhbuilder.commit_build(clone, packet, digest)  # the program stages and commits, never the builder
     job = {
         "id": f"{item}-builder-{digest[:12]}-{round_no}",
         "kind": "agent",
@@ -541,6 +542,9 @@ def launch_builder(
         "started_at": started.isoformat(timespec="seconds"),
         "ended_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "exit_code": code,
+        "subtype": cli.get("subtype"),  # the CLI's own outcome (success, error_max_turns, error_max_budget_usd...)
+        "num_turns": cli.get("num_turns"),
+        "tree_changed": after != before,  # false: the round was a no-op, recorded as a fact
         "cost_usd": float(cli.get("total_cost_usd") or 0),
         "tokens": t["input"] + t["output"],
         "packet_sha256": digest,
