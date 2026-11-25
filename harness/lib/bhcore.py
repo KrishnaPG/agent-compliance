@@ -348,6 +348,14 @@ def _cases(xml: Any) -> list[Any]:
     return [c for s in _suites(xml) for c in s] + top
 
 
+def _named(xml: Any, check: str) -> Any:
+    """``xml`` with each test suite named after the check that ran it, so the measurement's one
+    JUnit report groups every check's cases in its own ``testsuite`` (the JUnit grouping element)."""
+    for s in _suites(xml):
+        s.name = check
+    return xml
+
+
 def parse_junit(path: Path) -> dict[str, int]:
     """Sum JUnit XML counts over the innermost suites; HarnessError when unreadable or not counts."""
     try:
@@ -1867,7 +1875,7 @@ def measure_ref(
             try:
                 xml = read_junit(junit)
                 found = _cases(xml)
-                reports += xml
+                reports += _named(xml, label)
             except HarnessError as e:
                 if (len(plan) == 1 or "pytest" in cmd) and not setup_error:
                     errors.append(f"{e}; the test command said: {r['tail'][-300:]}")
@@ -1895,7 +1903,7 @@ def measure_ref(
             try:
                 xml = read_junit(junit)
                 canary_cases = _cases(xml)
-                reports += xml  # the canary is one of the measurer's checks: its result is in the one report
+                reports += _named(xml, "canary")  # one of the measurer's checks: its own suite in the one report
             except HarnessError as e:
                 errors.append(f"{e}; the canary run said: {r['tail'][-300:]}")
         if len(reports):

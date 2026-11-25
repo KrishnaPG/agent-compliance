@@ -53,4 +53,6 @@ def test_a_uv_project_runs_its_own_recipe_sealed(tmp_path, monkeypatch):
     junit = tmp_path / res["items"][0]["out"] / "junit.xml"
     failed = {c.name for s in bhcore._suites(bhcore.read_junit(junit)) for c in s if c.result}
     assert failed == {"test_network", "test_write_home", "test_bh_canary"}
+    suites = bhcore._suites(bhcore.read_junit(junit))  # each check is its own testsuite, named after it
+    assert [s.name for s in suites if any(c.name == "test_bh_canary" for c in s)] == ["canary"]
     assert not (Path.home() / "bh-seal-probe").exists()
