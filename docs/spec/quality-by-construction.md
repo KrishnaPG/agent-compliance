@@ -60,7 +60,7 @@ The pilot project is the private first user of the plugin. Its measurements, fiv
 - 68 hand-written regexes in 31 layout scripts: the pattern lists are to stop growing.
 - 34 of 47 committing agents skipped the decision step.
 
-- QBC-3. Claims about the design's value MUST be re-measured with the churn metrics (reopens per day; the pilot baseline before the lean process was 11) after adoption.
+- QBC-3. Success MUST be measured with DORA metrics (change-failure rate and lead time per slice) plus tokens per met slice, compared with the pre-v2 baseline (§0 R11). Reopen counts are not a success measure.
 
 ## 3. Principles
 
@@ -69,11 +69,11 @@ The pilot project is the private first user of the plugin. Its measurements, fiv
 - QBC-6. Nobody grades themselves. Order MUST come from the flow, never from the builder deciding whether a rule applies to it.
 - QBC-7. Each rule MUST have one home. When a build check covers a rule, its prose line MUST be deleted.
 - QBC-8. Rules apply forward. Each new check MUST start from a baseline (a ratchet). No old check MAY be retired until its replacement catches the same planted violations (parity test).
-- QBC-9. Tokens MUST be counted per item, not per prompt. The number of agents per tier is the real cost: measured runs took 80k to 420k tokens per agent.
+- QBC-9. Tokens MUST be counted per item, not per prompt. The number of agents per tier is the real cost; the figures are to be measured (R11).
 - QBC-10. The design MUST use host features and OSS first. The plugin MUST be self-sustained (section 7). It is proven on its toy project, and nothing from the existing plugin is used before review (section 8).
 - QBC-11. There MUST be no pass/fail gates on quality. Facts are recorded, limits cap rounds, and only measured targets move an item on. A refusal MAY be used only for order, when a step is attempted before the step it depends on (H0), and it MUST teach the right step.
 - QBC-12. Every rejection MUST teach the right way. This applies to any check, hook, verifier, linter or tool that rejects or reports something. Its message MUST say what is wrong and how to do it right, including how the error could have been prevented. Messages MUST stay short (section 6.6).
-- QBC-13. Every choice MUST follow a named industry standard or best practice and MUST reuse OSS or existing code before new code is written. Every limit MUST be a default with a stated override in a standard place, never a constant or a plugin-specific file. This covers at least:
+- QBC-13. Every choice MUST follow a named industry standard or best practice and MUST reuse OSS or existing code before new code is written. Every limit and trigger list in this spec is a default with an override in the plugin's project-local `.brick-harness/` folder (§0 P8), never a constant. This covers at least:
   - the work-in-progress limit (default 5 agents);
   - the packet cap (default 1,600 tokens) and message cap (default 300 characters);
   - the model per role;
@@ -89,7 +89,7 @@ The pilot project is the private first user of the plugin. Its measurements, fiv
 | Builder | The agent (or person) that writes the code for one work item. |
 | Work packet | The written input a builder starts from: goal, constraints, declared paths and acceptance criteria. Written by the planner or orchestrator, never by the builder. |
 | Measurer | A deterministic script, not an agent, that runs the build, tests and targets and alone says whether an item is "met". In the plugin it is `bh-measure`. |
-| agent-compliance plugin / harness | The reusable Claude Code plugin. Its harness has a planner, work packets, builders in their own worktrees, the measurer, and a safeguard register (`safeguards.json`, SG-01 to SG-19). |
+| agent-compliance plugin / harness | The reusable Claude Code plugin. Its harness has a planner, work packets, builders in their own `git clone --shared` copies of the local base commit (§0 R2), the measurer, and a safeguard register (`safeguards.json`, SG-01 to SG-19). |
 | SG-01, SG-02 | Plugin safeguards. SG-01 overlays protected paths (such as acceptance tests) so the builder's edits to them have no effect. SG-02 records a fact when a diff touches paths outside its item. |
 | Owner tag | A declaration on every API operation naming its owning module. A command prints the owner, package, database roles and operations, generated from the contracts. |
 | Fitness function | A build test that checks an architecture property declared once, such as "every served object's database owner equals its declared owner". |
@@ -103,10 +103,10 @@ Standards behind the design: fitness functions (Ford, Parsons and Kua, Building 
 
 ## 5. Plane 1: the build
 
-Any author, zero tokens. The test entry point (unit, lint, layout) is one entry point for humans and agents. The verify entry point runs the stack checks: acceptance and contracts. CI runs both as the last line, added last.
+Any author, zero tokens. The test entry point (unit, lint, layout) is one entry point for humans and agents. The verify entry point runs the stack checks: acceptance and contracts. CI may run both, but nothing depends on it (§0 P12).
 
-- QBC-16. There MUST be one test entry point and one verify entry point, used by humans, agents and CI alike.
-- QBC-17. CI MUST run the same entry points as the last line of defence.
+- QBC-16. There MUST be one test entry point and one verify entry point, used by humans and agents alike, and by CI wherever it exists.
+- QBC-17. Withdrawn (§0 P12): nothing depends on CI. CI MAY run the same entry points.
 
 ### 5.1 The ladder: the first rung that fits wins
 
@@ -150,19 +150,19 @@ Counts are approximate commit mentions in the pilot project. A candidate replace
 Order and just-in-time context only. Order comes from the flow, not from refusals.
 
 - QBC-24. A builder MUST be launched only with an approved work packet as input. That launch order is what puts design before code.
-- QBC-25. The orchestrator MUST decide the tier (epic, design-affecting or mechanical) from facts at launch: does the work touch a contract, a schema, roles or grants, compose, pins, or an architecture-target budget? The builder MUST NOT decide the tier, or whether a rule applies to it.
+- QBC-25. The orchestrator MUST decide the tier (epic, design-affecting or mechanical) from facts at launch: does the work touch a contract, a schema, roles or grants, compose, a major-version pin change, or an architecture-target budget? The builder MUST NOT decide the tier, or whether a rule applies to it.
 - QBC-26. Approval: the owner MUST approve an epic's decision record (L1); the orchestrator MUST approve a design-affecting packet (L2); a mechanical packet needs no approval beyond the tier fact.
 
 ### 6.1 Levels per tier
 
-| Tier | Trigger | Levels run | Agents | Rough tokens per item |
+| Tier | Trigger | Levels run | Agents | Tokens per item |
 |---|---|---|---|---|
-| Mechanical | Renames, pin bumps, docs, a bug fix inside one owner with no change to a contract, schema, role, compose file or budget | L4, then L5 | 1 builder (haiku or sonnet) | ~80-150k |
-| Design-affecting | Touches a contract, schema, roles or grants, compose, pins, or an architecture-target budget | L2, L3, L4, L5 | Planner, test author and builder (sonnet) | ~300-600k |
-| Epic | A new capability or owner | L1 first, then each slice as design-affecting | Plus 1 design agent (opus) and the owner | ~150-300k once, plus slices |
+| Mechanical | Renames, patch or minor pin bumps (SemVer), docs, a bug fix inside one owner with no change to a contract, schema, role, compose file or budget | L4, then L5 | 1 builder (haiku or sonnet) | to be measured (R11) |
+| Design-affecting | Touches a contract, schema, roles or grants, compose, a major-version pin change, or an architecture-target budget | L2, L3, L4, L5 | Planner, test author and builder (sonnet) | to be measured (R11) |
+| Epic | A new capability or owner | L1 first, then each slice as design-affecting | Plus 1 design agent (opus) and the owner | to be measured (R11), plus slices |
 
 - QBC-27. The tiers, triggers and levels run MUST be as in the table. The triggers are a plugin default, started narrow and widened where scope facts show slippage (QBC-13).
-- QBC-28. The new flow costs more up front than one builder plus review-and-reopen loops, so it only pays if reopens fall. This MUST be measured (QBC-3).
+- QBC-28. The new flow costs more up front than one builder plus review loops, so it only pays if change-failure rate and lead time improve at an acceptable tokens-per-met-slice. This MUST be measured against the pre-v2 baseline (§0 R11, QBC-3).
 
 Tiering is a prediction, because the diff doesn't exist at launch. Two facts correct it, and neither refuses anything:
 
@@ -179,8 +179,8 @@ Tiering is a prediction, because the diff doesn't exist at launch. Two facts cor
 | Review | Only for diffs touching auth, keys, grants, money or signatures, plus a duplication check on design-affecting items | sonnet or opus | order | A diff split to dodge the triggers. Counter: triggers are judged on the item's whole diff |
 
 - QBC-31. Each level MUST do what its row says, with the stated kind, and the stated counter MUST be implemented for the stated gaming route.
-- QBC-32. A decision record (L1) MUST be at most 2 pages and MUST NOT be written per issue.
-- QBC-33. The packet MUST have no design field and MUST cite L1 decisions rather than restate them. The packet MUST be capped at 1,600 tokens by default (QBC-13).
+- QBC-32. A decision record (L1) MUST be at most 2 pages by default (QBC-13) and MUST NOT be written per issue.
+- QBC-33. The packet MUST have no design field and MUST cite L1 decisions rather than restate them. The packet MUST be capped at 1,600 tokens by default, overridable in `.brick-harness/` (QBC-13).
 - QBC-34. The test author MUST NOT be the builder. The measurer MUST record whether the acceptance tests fail on main.
 - QBC-35. Only the measurer MAY say an item is "met".
 - QBC-36. A review step MUST run for diffs touching auth, keys, grants, money or signatures, and a duplication check MUST run on design-affecting items. Triggers MUST be judged on the item's whole diff.
@@ -201,7 +201,7 @@ This guidance is for whoever launches an agent, human or Claude. The brief is th
 | Environment | Only the context modules the task needs (for example a VM module when it runs a stack) | the orchestrator |
 
 - QBC-39. A brief MUST NOT contain: a pre-chosen design (no "do X, then Y", no chosen mechanism, no file-by-file instructions; if the design was decided at L1, cite it); the project's agent rules file repeated (the builder already loads it); or claims taken from another agent's report without a fact check (for example, ownership is checked in the database catalog, not taken from a self-written "held").
-- QBC-40. Exception: a mechanical item (a rename, a pin bump, a wording fix) has no design to decide, so its brief MAY name the exact edit.
+- QBC-40. Exception: a mechanical item (a rename, a patch or minor pin bump, a wording fix) has no design to decide, so its brief MAY name the exact edit.
 - QBC-41. Design-level work MUST start with a design agent that produces a decision record (L1 for an epic, or the planner's packet at L2). A build agent then takes that record as input. One agent MUST NOT both design and build.
 - QBC-42. The packet MUST stay within its cap. What doesn't fit is either not needed or belongs in a cited document.
 
@@ -214,29 +214,29 @@ This guidance is for whoever launches an agent, human or Claude. The brief is th
 H0, PreToolUse (Edit/Write), first code edit without a packet. Kind: order.
 
 - QBC-46. H0 MUST refuse a builder's edit, with a message that teaches, until a packet exists. It fires only when the flow was bypassed (for example a launch by hand) and costs no context otherwise. For a mechanical item the orchestrator writes a minimal packet (tier, goal, paths).
-- QBC-47. H0 messages: to the builder, "No work packet for this worktree. Builders start from a packet the orchestrator writes (goal, tier, constraints, tests). Stop and ask to be relaunched with one." To the orchestrator, "Builder <id> started without a packet. Launch builders through <launch step>, which writes the packet first; mechanical work gets a minimal one."
-- QBC-48. The packet MUST live in a protected path (SG-01), so only the orchestrator or planner can create it. (Why it refuses: a note alone would let the builder carry on, which is how gaming starts.)
+- QBC-47. H0 messages: to the builder, "No work packet for this clone. Builders start from a packet the orchestrator writes (goal, tier, constraints, tests). Stop and ask to be relaunched with one." To the orchestrator, "Builder <id> started without a packet. Launch builders through <launch step>, which writes the packet first; mechanical work gets a minimal one."
+- QBC-48. A path whose refusal must teach MUST have no permission deny rule, because deny rules run before hooks and silence them; the teaching refusal comes from a hook (§0 P5, R4). The packet MUST live in a protected path (SG-01), so only the orchestrator or planner can create it. (Why it refuses: a note alone would let the builder carry on, which is how gaming starts.)
 
-H1, SubagentStart. Kind: limit on size.
+H1, session start. Kind: limit on size.
 
-- QBC-49. H1 MUST inject, for builders and test authors, the packet's goal and constraints and the owner rows for its paths, at most 2,000 characters (about 500 tokens) once per agent. It MUST only inform and refuse nothing.
+- QBC-49. H1 MUST deliver the packet at session start (§0 R5), not on SubagentStart (withdrawn: R5): the packet's goal and constraints, the owner rows for its paths, the visible tests, the rules with their teaching messages, the ratchet baselines and the `bh check` command, within the packet cap (QBC-13). It MUST only inform and refuse nothing.
 
 H2, PreToolUse (Edit/Write). Kind: fact.
 
-- QBC-50. On the first touch of a path outside the packet, H2 MUST show one line that teaches (about 200 characters, once per path), for example: "apps/x/y.py belongs to owner Y, outside your packet. Call Y's published interface, or ask the orchestrator to widen the packet." It MUST record the fact for the orchestrator and MUST NOT block.
+- QBC-50. On the first touch of a path outside the packet, H2 MUST show one line that teaches (about 200 characters by default, once per path, QBC-13), for example: "apps/x/y.py belongs to owner Y, outside your packet. Call Y's published interface, or ask the orchestrator to widen the packet." It MUST record the fact for the orchestrator and MUST NOT block.
 
 End of build, measurer retry, no hook.
 
 - QBC-51. When a builder finishes, the measurer MUST run the same checks a human's build runs: layout, lint, generated-code freshness, unit tests, and the item's acceptance tests. A miss MUST go back to the builder with the checks' own messages and the missed numbers, for another round within the round limit (kind: fact, limit). This replaces a blocking SubagentStop hook, which would refuse and whose worktree target is undocumented.
-- QBC-52. CI MUST stay the backstop and run the same checks after everything above.
+- QBC-52. Withdrawn (§0 P12): CI is not a backstop the design relies on. The measurer's checks (QBC-51) are the last line.
 
 ### 6.4 Messages: every rejection teaches
 
-This contract covers every message from both planes: build checks, fitness functions, linters, hooks, the measurer's retry and CI.
+This contract covers every message from both planes: build checks, fitness functions, linters, hooks, and the measurer's retry.
 
 - QBC-53. Shape: `[rule] what is wrong -> the right way, and how to prevent it next time . ref`.
 - QBC-54. A message MUST name the right way concretely (a command, an API, a file or a published operation), never only "don't". For example: `[policy] 30 is a business value in plan.py:88 -> read it with policy.resolve('plan.window_days'); new values go in policy.sql . ref`.
-- QBC-55. A message MUST be at most about 300 characters per finding. Repeats MUST be grouped: the first 10 are shown, then a count. The measurer's retry MUST send only the missed checks' messages.
+- QBC-55. A message MUST be at most about 300 characters per finding by default. Repeats MUST be grouped: the first 10 by default are shown, then a count. Both are defaults with overrides (QBC-13). The measurer's retry MUST send only the missed checks' messages.
 - QBC-56. Every project check, fitness function and hook MUST report through one helper whose arguments are all required, `teach(rule, wrong, right, ref)`, so a bare rejection can't be written (kind: structure).
 - QBC-57. Third-party linters MUST use each tool's own custom-message field where it has one: ruff banned-api msg, oxlint and ESLint no-restricted-* message, import-linter contract names. A rule with a fixed message (for example ruff PLR2004) MUST get a one-line "right way" keyed by its rule code, only for rules that are enabled.
 
@@ -284,7 +284,7 @@ Recommended and decided: B + C + D.
 
 Findings that decide what can be used:
 
-- QBC-65. The anti-gaming protection is bypassable (Critical): a builder can read and delete the hidden tests, after which measurement silently skips them. Nothing is protected by default, so a stub test with wrong code measured "met". Fix: protected tests by default (K5) and isolation (K1).
+- QBC-65. The anti-gaming protection is bypassable (Critical): a builder can delete the acceptance tests, after which measurement silently skips them. Nothing is protected by default, so a stub test with wrong code measured "met". Fix: tests laid over the build by the measurer (R4, K5) and a `--shared` clone (R2, K1).
 - QBC-66. The measurer isn't fail-closed (Critical): it crashes on some inputs; two measurements can share an output folder, so a failing ref gets recorded as met; the guard that keeps failing work out of HEAD is untested. Fix: K6, K7, K8.
 - QBC-67. The safeguard register's test proves nothing (Critical): it passed with a fake entry and an unrelated test listed as proof. Fix: K3.
 - QBC-68. Gates by accident (Critical and Major): the rules check can never run on macOS or arm, so every item stays unmet (K2); the commit gate on targets stalls every build. These MUST become facts with teaching messages.
@@ -325,26 +325,19 @@ Verdict per component:
 Every verdict of the two reviews maps to one slice. No old check is removed before its replacement passes a parity test (QBC-8).
 
 - QBC-79. Slice a, Prune (Mechanical; depends on nothing). MUST: delete compliance-review and compliance-catalog after moving the shared lookup and judging method the other skills load from them; delete the 9 unused bh-* scripts and the old workflows (already gone upstream); keep template plan-dry-run and delete three others (bug-record waits for its issue form, slice e); trim skill descriptions so they don't load when not needed; fix the README and manifest claims the reviews didn't support.
-- QBC-80. Slice b, Harness core (Design-affecting; depends on the isolation spike). MUST: Critical: isolation, as proven by the spike (K1); protected tests by default (K5); unique output folders (K6); a fail-closed measurer (K7); a tested merge-only-met guard (K8); a safeguard-register test that proves its claims (K3). Major: the commit and env_setup refusals become facts with teaching messages; the measurer's facts reach the orchestrator; a run lock for `bh run`; re-review can no longer close gaps by omission. Replace with OSS: the hand-written schema validator with jsonschema; the gaps.md renderer with a template. Keep: bh, set_branch, value order, bh-answer, history. Record the toy run as proof.
+- QBC-80. Slice b, Harness core (Design-affecting; depends on the isolation spike). MUST: Critical: a `--shared` clone of the local base (R2, K1); protected tests by default (K5); unique output folders (K6); a fail-closed measurer (K7); a tested merge-only-met guard (K8); a safeguard-register test that proves its claims (K3). Major: the commit and env_setup refusals become facts with teaching messages; the measurer's facts reach the orchestrator; a run lock for `bh run`; re-review can no longer close gaps by omission. Replace with OSS: the hand-written schema validator with jsonschema; the gaps.md renderer with a template. Keep: bh, set_branch, value order, bh-answer, history. Record the toy run as proof.
 - QBC-81. Slice c, Convention over configuration (Design-affecting; depends on b). MUST: inference replaces bh-init; ruff, ESLint, oxlint and sqlfluff presets with teaching messages and ratchets replace the ast-grep pattern checks, after parity (which also removes the ast-grep downloader and the rules target's gate-by-platform (K2) and empty-scan pass (K4)); the plugin provides owners and the generic fitness functions.
-- QBC-82. Slice d, Flow (Design-affecting; depends on b). MUST: keep the harness skill, adding the test-author step (tests written first by a non-builder); tiers, roles, packet fields (goal, tier, constraints, paths) and the brief template; hooks H0 to H2; the work-in-progress limit and the other caps as defaults with overrides.
-- QBC-83. Slice e, Intake (Design-affecting; depends on d). MUST: issue forms for decision, slice and defect (bug-record becomes the defect form); a parent-check Action with a teaching message; a bounded Known issues list with its limit set as policy; issue intake keeps the issue body (the review found it was lost).
+- QBC-82. Slice d, Flow (Design-affecting; depends on b). MUST: keep the harness skill, adding the test-author step (tests written first by a non-builder); tiers, roles, packet fields (goal, tier, constraints, paths) and the brief template; hooks H0 to H2 (H1 at session start); the work-in-progress limit and the other caps as defaults with overrides.
+- QBC-83. Slice e, Intake (Design-affecting; depends on d). MUST: issue forms for decision, slice and defect (bug-record becomes the defect form); a parent check with a teaching message, run by the program at intake (a GitHub Action MAY also run it, nothing depends on it); a bounded Known issues list with its limit set as policy; issue intake keeps the issue body (the review found it was lost).
 - QBC-84. Slice f, Decisions and vetting (Design-affecting; depends on g). MUST: vetted-decision slimmer, with a fresh agent as the judge; vet-oss replaced by OpenSSF Scorecard, deps.dev and OSV-Scanner; bug-analysis narrowed so it no longer triggers on every failing test, with commitlint for fix commits.
 - QBC-85. Slice g, Standards in place of the catalog (Design-affecting; depends on nothing). MUST: references to maintained standards (OWASP ASVS, NIST SSDF and SP 800-53, SLSA, Well-Architected) plus a short list of house rules; the packet's rule list and the measurer read from it (a dependency the reviewer flagged).
 - QBC-86. Slice h, Evals (Design-affecting; depends on a to g, measured alongside). MUST rebuild evals around outcomes and measured cost: the plugin against a run without it, on the toy project.
 
 ## 10. Work intake
 
-### 10.1 How work entered the pilot project (history)
+### 10.1 History
 
-From git, all 124 issues and the owner's prompts since 2026-11-20:
-
-- Decisions came first. On the first day there were decisions and specs only, with no issues. The first issue (a tracker) appeared on day 2.
-- The tracker exploded on day 4: 85 issues were created that day, 69% of all issues so far, and issue-queue mode started that afternoon.
-- Only 43 of 124 issues follow up a decision or spec. 56% came from checking agent work: 25 test or gate failures, 20 minors, 12 review findings and 12 bugs agents found during other work.
-- Links are missing. 57% of issues cite no decision or spec. 56% cite another issue instead, in chains up to five deep. No decision lists its issues. There are no milestones or sub-issues, and the tracking issues had been stale for days.
-- What churned: 34 minor issues filed in 3 hours and then reversed; 10 of the 16 reopened issues came from compliance-review sweeps.
-- What worked: batches tied to one decision closed cleanly and weren't reopened.
+Moved to `docs/design/evidence/history.md`.
 
 ### 10.2 Industry practice adopted
 
@@ -369,7 +362,7 @@ From git, all 124 issues and the owner's prompts since 2026-11-20:
 | Minor with practical value | A small improvement | A checkbox in the single Known issues list, each line naming its parent decision or slice | Found anywhere; theoretical minors are discarded |
 
 - QBC-88. No issue MAY exist without a parent. The issue form MUST require one. A parentless issue MUST get the message: "No parent decision. Every issue sits under a decision's tracking issue: pick one, or start a decision if this is a new capability."
-- QBC-89. Agents file most issues through `gh issue create`, which bypasses form validation, so the parent check MUST also run on new issues, as a GitHub Action that comments with a teaching message.
+- QBC-89. Agents file most issues through `gh issue create`, which bypasses form validation, so the parent check MUST also run on new issues, with a teaching message, in the program's intake step. A GitHub Action MAY run it too; nothing depends on it (§0 P12).
 - QBC-90. The Known issues list MUST be a bounded backlog: at its limit (default 100, set as policy) items MUST be fixed and removed before new ones are added. There MUST never be a second list.
 - QBC-91. A review finding MUST attach to the slice under review. It reopens that slice's checklist and MUST NOT start a new chain of issues.
 - QBC-92. An agent that finds a bug during a slice MUST fix it in the slice if it is in scope; otherwise it MUST file a defect under the right parent.
@@ -383,30 +376,12 @@ From git, all 124 issues and the owner's prompts since 2026-11-20:
   2. The plugin path (P3, section 13), built and proven on the toy project. Nothing from the existing plugin is used before its Critical findings are fixed.
   3. Intake structure (I2): milestones, tracking issues and sub-issues for new work. Existing open issues move under a parent when next touched.
   4. Adopt in the pilot project, with its first large epic as the first full run.
-  5. CI backstop on a self-hosted runner.
+  5. Withdrawn (§0 P12): CI backstop. CI may exist; nothing depends on it.
   6. Paved-road generators, later, for the shapes that keep coming up.
 
-## 12. Design history: earlier proposals and where they went
+## 12. History and traceability
 
-| Earlier proposal | Where it is now | Changed? |
-|---|---|---|
-| Hooks only enforce order, are silent unless they block, and run the same checks as a human's build | Order comes from the flow; H0 is silent unless the flow was bypassed, and then refuses with a teaching message; H1 and H2 add small capped context, asked for as just-in-time context | Capped context added |
-| A note that only says "this is wrong" is how gaming starts; every rejection must teach | QBC-12; section 6.4; H0 and H2 texts | New |
-| Decision before the first code edit: refuse until a decision record or a "mechanical" exemption exists | Superseded by the next row | Yes |
-| Correction: that hook let the agent decide whether the rule applied to it (self-grading) and was close to a gate. Order comes from the flow: a builder is only launched with an approved packet | Section 6 banner; the mechanisms table; H0 records a bypass as a fact | No |
-| The tier is decided from facts by the orchestrator at launch, never by the builder | Section 6; levels per tier; tier triggers | No |
-| Every agent-side mechanism is labelled structure, fact, order or limit, with how it could be gamed | Levels table; mechanisms table; each hook | No |
-| The generic process (levels, packets, hooks, briefs) in the plugin, the fitness functions in the project repo | Superseded by a self-sustained plugin: everything ships in the plugin, and a project supplies only standard files | Yes |
-| No "done" until the build is green: a hook runs the fast checks when the agent tries to finish | End of build: the measurer runs the same checks and returns misses for a retry | Yes: no refusal |
-| CI stays the backstop | Section 5; rollout step 5 | No |
-| No pattern hooks; a pattern worth catching becomes structure, a fitness function or a configured linter rule | QBC-5; the ladder | No |
-| Briefs: goal, constraints, acceptance tests from another agent, no pre-chosen design; design work starts with a design agent | Section 6.2; L1 to L3 | No |
-| Fitness functions generated from the owner map and contracts | Ownership row; QBC-7 | No |
-| Paved-road generators, later | Ladder rung 1; rollout step 6 | No |
-| The plugin must be self-sustained; no plugin part plus project part | Section 7; QBC-10 | Yes |
-| Critically review all existing plugin skills, workflows and harness scripts before use | Section 8 | New |
-| Work entered as decisions first, then their issues; the tracker became a dumping place | Section 10 | New |
-| Don't raise decisions about old decision-record wording that new work doesn't need to change | Process lives in the plugin's own documents; new process never reopens an old decision record it doesn't change | Yes |
+Moved to `docs/design/evidence/history.md`. The spec holds requirements only.
 
 ## 13. Decisions and open items
 
@@ -414,7 +389,7 @@ From git, all 124 issues and the owner's prompts since 2026-11-20:
 - QBC-97. Decided, P3 (owner, 2026-11-25), plugin path: assemble from host features and OSS, porting only what the host lacks (the measurer core and value order, after their Critical fixes). Order engine: a program, no agent in the mechanical path (QBC-78). This is the shape of the plugin's `bh` since the Workflow-tool path was removed on 2026-11-20.
 - QBC-98. Decided, S: infer from standard files, ship presets, ask once into a standard file (B + C + D).
 - QBC-99. Decided, I2: the GitHub-native hierarchy (section 10). Minors go in the single Known issues list, each line naming its parent. No issue without a parent.
-- QBC-100. Open: the isolation spike on the toy project (`evidence/spike-order-engine.md`) MUST show: how the program launches agents headless, and at what cost; that a planted builder which edits the tests, writes its own packet or reads hidden tests is really stopped, by host-native or OSS mechanisms; that plugin hooks fire inside the launched agents, and that a teaching refusal is acted on.
+- QBC-100. Open: the isolation spike on the toy project (`evidence/spike-order-engine.md`) MUST show: how the program launches agents headless, and at what cost; that a planted builder which edits the tests or writes its own packet has no effect on the measured result (§0 R4), by host-native or OSS mechanisms; that plugin hooks fire inside the launched agents, and that a teaching refusal is acted on.
 - QBC-101. Open: an independent design review (`evidence/independent-review.md`). vetted-decision grades its own work (review finding), so this design MUST get a reader who didn't write it before slices are planned.
 - Withdrawn: D1 (adoption) is answered by work intake. D3 (a project decision forbade lint as the enforcement; the design keeps structure as the wall, so nothing conflicts). D4 (tier triggers are a plugin default, started narrow and widened where scope facts show slippage). D5 (answered by the review: replace the pattern checks with linter configurations). D6 (applies forward, when a module is next touched and a check needs it). D7 (follows from P).
 - QBC-102. New process MUST NOT reopen an old decision record it doesn't change.
