@@ -105,23 +105,26 @@ criteria:
       scan: {paths: [harness/, bin/, hooks/, skills/, tests/], kind: text, pattern: "plugin eval"}
     then:
       - scan_count: {op: eq, value: 0}
+      - paths: {paths: [evals/ablation/*], exist: true}
     traces_to: [G5, QBC-86]
+    plan_gap: "the ablation suite location is not named; the row uses evals/ablation/"
     method: lint
     deterministic: true
 
   - id: h2-AC1
-    scenario: No wording or read-count grader remains
+    scenario: No wording or read-count grader directory remains
     covers: [1]
     given:
       - repo: {name: plugin, state: candidate}
     when:
-      scan: {paths: [evals/], kind: text, pattern: "read_count|reads_at_most|wording|output_contains|regex_grader"}
+      scan: {paths: ["evals/accuracy/*/graders", "evals/*/graders"], kind: path}
     then:
-      - scan_count: {op: eq, value: 0}
+      - paths: {paths: ["evals/accuracy/*/graders", "evals/*/graders"], exist: false}
     traces_to: [R9, G5, QBC-74]
+    red_on_main: "paths exist false fails on main: evals/accuracy/billing-sync/graders and the other graders directories exist"
+    plan_gap: "the grader locations are not listed in the plan; the row names the graders directories of the existing accuracy suites"
     method: lint
     deterministic: true
-    plan_gap: "the grader kinds are not listed in the plan; the pattern lists likely names"
 
   - id: h2-AC2
     scenario: No stale results or generator remain
@@ -133,6 +136,7 @@ criteria:
     then:
       - paths: {paths: ["evals/_gen", "evals/results"], exist: false}
     traces_to: [R9, G5, QBC-74]
+    red_on_main: "paths exist false fails on main: evals/_gen exists"
     method: lint
     deterministic: true
     plan_gap: "stale results are not located in the plan; the row names evals/results and the evals/_gen generator directory"
@@ -147,6 +151,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, QBC-74]
+    red_on_main: "scan_count eq 0 fails on main: 11 lines under evals/ hold an absolute path"
     method: lint
     deterministic: true
 
@@ -194,7 +199,7 @@ criteria:
       - field: {source: metrics_output, path: v2.change_failure_rate, op: present}
       - field: {source: metrics_output, path: v2.lead_time_hours, op: present}
       - field: {source: metrics_output, path: v2.tokens_per_met_slice, op: present}
-    traces_to: [R11, G5, QBC-3, QBC-28]
+    traces_to: [R11, QBC-3]
     method: test
     deterministic: true
     plan_gap: "metric field names and the lead-time unit are not stated; the row fixes change_failure_rate, lead_time_hours and tokens_per_met_slice"

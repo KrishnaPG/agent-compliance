@@ -77,18 +77,20 @@ criteria:
     plan_gap: "the plan gives no refusal wording; the row asserts the right way names the judgement alternative"
 
   - id: g1-AC6
-    scenario: No entry cites only Convention
+    scenario: An entry that cites only Convention is reported with teaching
     covers: [4]
     given:
-      - repo: {name: plugin, state: candidate}
+      - repo: {name: toy, state: base}
+      - planted: {plant: standards_entry_cites_only_convention, class: defect, where: working_tree}
     when:
-      scan: {paths: ["standards/"], kind: text, pattern: "\"standard\": *\"Convention\""}
+      bh: {sub: check}
     then:
-      - scan_count: {op: eq, value: 0}
-    traces_to: [R9, P1, QBC-72, QBC-85]
-    method: lint
+      - fact: {kind: gap, detail: Convention}
+      - teaching: {channel: fact, wrong: "an entry cites only Convention", right: "cite a standard with its pinned version, control id and URL", prevent: "standards/schema.json rejects Convention as the only citation"}
+    traces_to: [R9, P1, P5, QBC-72, QBC-85]
+    plan_gap: "the plan states the property, not how a violation is reported; the row asserts a gap fact with teaching from bh check"
+    method: test
     deterministic: true
-    plan_gap: "the field spelling in the data is not stated; the pattern assumes a JSON field standard"
 
   - id: g2-AC1
     scenario: Every rule id that checks, skills or packets read is mapped
@@ -100,7 +102,9 @@ criteria:
     then:
       - no_fact: {kind: unmapped_rule_code}
       - no_fact: {kind: unknown_rule}
+      - field: {source: result_json, path: "map[*].old_id", op: present}
     traces_to: [R9, P11, QBC-8, QBC-85]
+    plan_gap: "the mapping output shape is not named; the row asserts a map of old ids to standard or house-rule ids"
     method: test
     deterministic: true
     plan_gap: "the 'only' half (ids nobody reads are not mapped) has no output shape in the plan; the next row covers it through the changelog"
@@ -145,6 +149,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, P11, QBC-72]
+    red_on_main: "scan_count eq 0 fails on main: 11 lines in harness, bin, agents, skills and checks read catalog/"
     method: lint
     deterministic: true
 
@@ -158,6 +163,7 @@ criteria:
     then:
       - paths: {paths: [catalog], exist: false}
     traces_to: [R9, P11, QBC-72]
+    red_on_main: "paths exist false fails on main: catalog/ exists"
     method: lint
     deterministic: true
 

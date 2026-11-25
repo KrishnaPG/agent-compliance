@@ -299,6 +299,10 @@
         "plan_gap": {
           "type": "string",
           "minLength": 1
+        },
+        "red_on_main": {
+          "type": "string",
+          "minLength": 1
         }
       },
       "if": {
@@ -571,6 +575,8 @@
                 "caches_prewarmed",
                 "no_database",
                 "database_available",
+                "database_via_pg_env",
+                "database_via_url",
                 "unsupported_stack",
                 "run_in_progress",
                 "builder_sandbox"
@@ -826,7 +832,7 @@
                 "references",
                 "dangling_references",
                 "version_strings",
-                "exits",
+                "untaught_exits",
                 "undefined_names",
                 "lint_rule"
               ]
@@ -892,6 +898,7 @@
           "git",
           "jobs",
           "junit",
+          "lines",
           "met",
           "needs_keyword",
           "no_fact",
@@ -1117,6 +1124,66 @@
             }
           }
         },
+        "lines": {
+          "description": "The non-empty lines of a channel, counted or all matched against a pattern.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "pattern"
+          ],
+          "properties": {
+            "channel": {
+              "enum": [
+                "stdout"
+              ]
+            },
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            },
+            "op": {
+              "enum": [
+                "eq",
+                "ge",
+                "le"
+              ]
+            },
+            "every": {
+              "type": "boolean"
+            }
+          },
+          "anyOf": [
+            {
+              "required": [
+                "count"
+              ]
+            },
+            {
+              "required": [
+                "every"
+              ]
+            }
+          ],
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "count"
+                ]
+              },
+              "then": {
+                "required": [
+                  "op"
+                ]
+              }
+            }
+          ]
+        },
         "output_contains": {
           "description": "A channel carries an exact text.",
           "type": "object",
@@ -1199,7 +1266,10 @@
                 "lt",
                 "le",
                 "matches",
-                "distinct"
+                "distinct",
+                "in_file",
+                "covered_by",
+                "exists"
               ]
             },
             "value": {}
@@ -1550,7 +1620,7 @@
           }
         },
         "needs_keyword": {
-          "description": "The part of the criterion that no catalog entry expresses.",
+          "description": "The part of the criterion that no catalog entry expresses. build.py reports every use as an error: add a key instead.",
           "type": "object",
           "additionalProperties": false,
           "required": [

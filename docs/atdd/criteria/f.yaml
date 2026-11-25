@@ -286,6 +286,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
       - paths: {paths: [skills/vet-oss], exist: false}
     traces_to: [R9, QBC-84]
+    red_on_main: "scan_count eq 0 fails on main: skills/vet-oss exists and skills and README.md name it"
     method: lint
     deterministic: true
 
@@ -305,18 +306,18 @@ criteria:
     plan_gap: "the exact trigger wording is not stated; the row requires the phrase recording a defect and no mention of commits"
 
   - id: f3-AC2
-    scenario: The sibling sweep, per-typo issues, termination block and vetted-decision chain are gone
+    scenario: The bug-analysis skill drops the any-defect wording, the Siblings line, the termination paragraph and the vetted-decision step
     covers: [2]
     given:
       - repo: {name: plugin, state: candidate}
     when:
-      scan: {paths: [skills/bug-analysis/], kind: text, pattern: "per-typo|sibling|terminat|vetted-decision"}
+      scan: {paths: [skills/bug-analysis/SKILL.md], kind: text, pattern: "however small|Siblings:|touches a termination|termination tier|vetted-decision"}
     then:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, P4, QBC-84]
+    red_on_main: "scan_count eq 0 fails on main: skills/bug-analysis/SKILL.md says a bug is any defect however small and has the Siblings line"
     method: lint
     deterministic: true
-    plan_gap: "the termination block is not identified by name in the plan; the pattern terminat is the row's guess at its wording"
 
   - id: f3-AC3
     scenario: The record is e1's defect form
@@ -375,34 +376,37 @@ criteria:
       - fact: {kind: commitlint, detail: issue, count: 1}
       - teaching: {channel: fact, wrong: fix commit without an issue ref, right: reference the defect issue, prevent: run commitlint in bh check over the item's commits}
       - exit_code: {code: 0}
-    traces_to: [R9, P4, P5, QBC-84]
+    traces_to: [P5, QBC-84]
     method: test
     deterministic: true
     plan_gap: "the plan says fact with teaching but gives no wording; the row requires wrong, right and prevent parts and that the commit is not blocked"
 
   - id: f3-AC7
-    scenario: A fix commit that references its issue records no fact
+    scenario: A fix commit that references its issue adds no fact beside the one for a nonconforming message
     covers: [5]
     given:
       - repo: {name: toy, state: base}
       - planted: {plant: fix_commit_with_issue_ref, class: honest}
+      - planted: {plant: nonconforming_commit_message, class: violation}
     when:
       bh: {sub: check}
     then:
-      - no_fact: {kind: commitlint}
+      - fact: {kind: commitlint, count: 1}
     traces_to: [R9, P4, QBC-84]
     method: test
     deterministic: true
 
   - id: f3-AC8
-    scenario: No commit-msg git hook is installed
+    scenario: commitlint reports without any commit-msg git hook installed
     covers: [6]
     given:
       - repo: {name: toy, state: base}
+      - planted: {plant: nonconforming_commit_message, class: violation}
     when:
       bh: {sub: check}
     then:
       - git: {assert: no_git_hook_installed}
+      - fact: {kind: commitlint, count: 1}
     traces_to: [R9, P4, QBC-84]
     method: test
     deterministic: true

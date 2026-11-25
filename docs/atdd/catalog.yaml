@@ -20,6 +20,7 @@ row_fields:
   deterministic: "true; false only for slice h rows that need a live paid model call"
   spec_ref: "the docs/spec/packet-standards.md Applied-table rows (<stage>.<part slug>, stage = common, L1..L5 or review) or enforcement mechanisms (enforce.<n>) the row proves; a row needs covers, spec_ref or both"
   plan_gap: "one line: what the plan leaves open that the row had to assume"
+  red_on_main: "one line, required when every then-entry is a negative check (see `negative_checks`): which then-entry fails on the plugin's main branch, because main still holds the violation"
 
 types:
   id: "lowercase identifier of a fixture, state or plant, matching ^[a-z0-9][a-z0-9_.-]*$"
@@ -38,7 +39,8 @@ terms:
   teaching shape: "`[rule] wrong -> right . ref`, with a non-empty right part, at most limits.message_chars (default 300) characters per finding"
   identifier token: "a whitespace-separated token of a teaching part, stripped of leading and trailing , ; : ( ) quotes and a trailing period, that matches ^(?=.*[/._=`\\d-])\\S+$ (a path, key, file, command, rule code with a digit or dash) or ^[A-Z][A-Z0-9-]+$ (an all-caps code)"
   teaching match: "the message has the teaching shape, with non-empty wrong and right segments; and every identifier token of the row's wrong, right and prevent appears in the message (case-insensitive). The prose around the tokens states intent and is not matched; the message's full wording is pinned by an approval snapshot when the generated test first passes (packet-standards L3, messages and renderings)"
-  quoted message: "where the spec quotes a message (QBC-47, QBC-50, QBC-88), its sentences fill the wrong and right parts of the teaching shape, so output_contains matches each quoted sentence on its own, never one text across ` -> `"
+  quoted message: "as docs/spec/quality-by-construction.md QBC-53 rules: a quoted spec message fills the wrong and right parts of the teaching shape, so output_contains matches each quoted sentence on its own"
+  teaching shape regex: "^\\[[^\\]]+\\] .+ -> .+ \\. \\S.*$ ; a `pattern` parameter may write it as @teaching_shape"
   sarif: "the SARIF 2.1.0 log a stage writes; field paths are SARIF JSON paths"
   manifest: "the L3 manifest mapping each criterion id to its test node id"
   decision_record: "the L1 MADR 4.0 record: its front matter and sections"
@@ -68,6 +70,14 @@ compatibility: >-
 spec_ref_exempt:
   L2.requirement-wording-in-the-spec: RFC 2119 wording applies to the spec text, not to any output the plugin produces.
   L2.slice-size: INVEST is the planner's judgement of a slice; it has no mechanical pass condition.
+
+negative_checks: >-
+  scan_count with value 0 (eq, le) or lt 1; no_fact; fact with count 0; file_unchanged;
+  paths with exist false; output_contains or file_contains with negate true; field with op
+  absent, ne or not_contains; git source_refs_unchanged, no_git_hook_installed,
+  no_remote_fetch or candidate_not_in_head; jobs none_of_kind; questions_asked 0;
+  api_call with count 0. A row of only these passes on any tree without the violation, so it
+  must carry red_on_main, or a positive then-entry that fails on main until the feature exists.
 
 rejection_rule: >-
   A row whose `then` holds a rejection assertion (exit_code with code != 0, met with status
@@ -221,6 +231,8 @@ given:
           caches_prewarmed: "the tool and package caches are already filled, so nothing needs a download"
           no_database: "the project declares no database"
           database_available: "the project declares a database and it is reachable"
+          database_via_pg_env: "the database is reachable only through the libpq PG* variables (PGHOST, PGDATABASE, PGUSER...); DATABASE_URL is unset"
+          database_via_url: "the database is reachable only through DATABASE_URL; no PG* variable is set"
           unsupported_stack: "the project's language or stack is not one the checks support"
           run_in_progress: "another bh run holds the run lock"
           builder_sandbox: "the process runs under the builder's Bash sandbox and generated settings"
@@ -373,7 +385,7 @@ when:
           references: "every file path a file names"
           dangling_references: "every file path a file names that does not exist in the tree (relative to the naming file or the repo root)"
           version_strings: "every version string found"
-          exits: "every refusal and non-zero exit site"
+          untaught_exits: "every refusal or non-zero exit site (an exit or SystemExit with a non-zero code, a hook block decision, a raised error that ends the program) whose message is not built by a teach(rule, wrong, right, ref) call"
           undefined_names: "every name one module uses from another that the other does not define"
           lint_rule: "the findings of the linter rule code in `pattern`, run alone over `paths`"
       pattern: {type: string, required: false, doc: "literal or regex; for kind text and symbol"}
@@ -503,6 +515,23 @@ then:
       prevent: {type: string, doc: "how to prevent it next time; its identifier tokens bind"}
     passes_when: "The message on channel meets terms.teaching match for wrong, right and prevent. For sarif, the message is a result's message.text, its rule's help.text and its fixes taken together."
 
+  lines:
+    meaning: The non-empty lines of a channel, counted or all matched against a pattern.
+    after: [bh, entry_point, program_step, hook, builder_action, plugin_eval]
+    params:
+      channel:
+        type: enum
+        values:
+          stdout: "the process's standard output"
+      pattern: {type: string, doc: "a regex; @teaching_shape stands for terms.teaching shape regex"}
+      count: {type: integer, minimum: 0, required: false, doc: "with op: the number of matching lines"}
+      op: {type: enum, required: false, values: {eq: "equal", ge: "at least", le: "at most"}}
+      every: {type: boolean, required: false, doc: "true: every non-empty line must match pattern"}
+    conditional:
+      - {if_present: count, require: [op]}
+      - {require_one_of: [count, every]}
+    passes_when: "With count, the number of non-empty lines matching pattern, applied to op and count, is true; with every true, every non-empty line matches pattern. At least one of count or every is given."
+
   output_contains:
     meaning: A channel carries an exact text.
     after: [bh, entry_point, program_step, hook, builder_action, plugin_eval]
@@ -564,6 +593,9 @@ then:
           le: "less than or equal"
           matches: "the value matches the regex"
           distinct: "the values have no duplicate"
+          in_file: "every value at path appears verbatim (whitespace-normalised) in the file named by value"
+          covered_by: "every value at path appears among the values at the path named by value, in the same source"
+          exists: "every value at path is a file path that exists, relative to the directory of the source file"
       value: {type: any, required: false, doc: "omitted for present and absent"}
     passes_when: "Reading path in source and applying op to value is true. contains on a list = element present; matches = regex; present = exists and is not empty; distinct = the values at path have no duplicate. A path segment [*] applies op to every element, and all must pass (with distinct, the collected values are compared)."
 
@@ -731,7 +763,7 @@ then:
     passes_when: The prompts answered from recorded_answer (plus any unanswered prompt) number exactly count.
 
   needs_keyword:
-    meaning: The part of the criterion that no catalog entry expresses.
+    meaning: "The part of the criterion that no catalog entry expresses. build.py reports every use as an error: add a key instead."
     after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
     params:
       reason: {type: string}

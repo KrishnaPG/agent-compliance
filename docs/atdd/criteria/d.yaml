@@ -13,11 +13,10 @@ criteria:
       validate: {instance: toy_item_packet, schema: harness/schema/packet.schema.json}
     then:
       - schema_valid: {valid: true}
-      - needs_keyword: {reason: "that the test author, builder and measurer all read this one schema is a statement about shared reading, not an observable output"}
     traces_to: [R5, R3, QBC-24, QBC-31]
     method: test
     deterministic: true
-    plan_gap: "the bullet prescribes one contract read by three roles; the row asserts the observable half (the instance validates against the one schema)"
+    plan_gap: "the bullet prescribes one contract read by three roles; the row asserts the observable half (the instance validates against the one schema); the enforce rows prove the shared reading"
 
   - id: d0-AC2
     scenario: The assembled packet carries id and parent_issue
@@ -65,7 +64,7 @@ criteria:
       - field: {source: packet, path: applies, op: contains, value: P1}
       - field: {source: packet, path: applies, op: contains, value: P12}
       - field: {source: packet, path: applies, op: contains, value: QBC-24}
-      - needs_keyword: {reason: "that each applies item is copied verbatim from spec section 0 needs a comparison of packet text with a spec source"}
+      - field: {source: packet, path: "applies[*].text", op: in_file, value: docs/spec/quality-by-construction.md}
     traces_to: [R5, P1, QBC-38]
     method: test
     deterministic: true
@@ -116,10 +115,11 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - fact: {kind: over_cap}
-      - needs_keyword: {reason: "the file name that carries the moved text is not named by the plan, so the path reference cannot be matched"}
+      - field: {source: packet, path: "overflow[*].path", op: exists}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, QBC-33]
     method: test
+    plan_gap: "the field name overflow[*].path is proposed for d0; the plan names no field for the moved text"
     deterministic: true
 
   - id: d0-AC8
@@ -264,10 +264,11 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - fact: {kind: over_cap}
-      - needs_keyword: {reason: "the moved text's file and the reference to it in the packet are not named by the plan"}
+      - field: {source: packet, path: "overflow[*].path", op: exists}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [P8, QBC-33, QBC-40]
     method: test
+    plan_gap: "the field name overflow[*].path is proposed for d0; the plan names no field for the moved text"
     deterministic: true
 
   - id: d1-AC5
@@ -338,21 +339,21 @@ criteria:
     plan_gap: "the field holding the test paths is not named, so only acceptance ids and a number in the verifier list are asserted"
 
   - id: d2-AC4
-    scenario: The packet carries the lint and fitness rules with teaching messages and the ratchet baselines
+    scenario: On the toy with presets applied the packet carries the enabled rules with their teaching messages and the ratchet baselines
     covers: [2]
     given:
-      - repo: {name: toy, state: base}
+      - repo: {name: toy, state: presets_applied}
       - packet: {fixture: toy_item, variant: valid}
     when:
       program_step: {step: render_packet, item: toy_item}
     then:
-      - field: {source: packet, path: verifier, op: present}
+      - output_contains: {channel: packet_markdown, text: DTZ}
       - output_contains: {channel: packet_markdown, text: baseline}
-    traces_to: [G3, R5, QBC-38, QBC-54]
+      - lines: {channel: stdout, pattern: "DTZ", op: ge, count: 1}
+    traces_to: [G3, QBC-38, QBC-54]
     method: test
     deterministic: true
-    plan_gap: "\"as they land\" ties the content to c3, c6, c8 and c4 being finished; the row checks the packet carries whatever rules and baselines exist at the fixture state"
-
+    plan_gap: "the right-way line's text and the layout of the rules in the packet are not given; the row asserts the DTZ rule code, its message and the baselines appear in the rendering"
   - id: d2-AC5
     scenario: The packet holds the text of every cited rule and decision line
     covers: [3]
@@ -363,9 +364,10 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - field: {source: packet, path: applies, op: present}
-      - needs_keyword: {reason: "that every cited id has its source text in the packet needs a per-id comparison with the cited document"}
+      - field: {source: packet, path: "constraints[*].text", op: in_file, value: docs/adr/toy_item.md}
     traces_to: [R5, QBC-24, QBC-38]
     method: test
+    plan_gap: "the toy fixture decision record path docs/adr/toy_item.md is assumed"
     deterministic: true
 
   - id: d2-AC6
@@ -455,7 +457,7 @@ criteria:
       bh: {sub: check}
     then:
       - teaching: {channel: stdout, wrong: "naive datetime without a timezone", right: "use a timezone-aware datetime", prevent: "run bh check before finishing so the lint rule reports it"}
-      - needs_keyword: {reason: "that the check runs in a temp dir under the clone and reuses the measurer's code rather than a copy is internal; only the equal result of d3-AC5 is observable"}
+      - file_unchanged: {target: outside_checkout}
     traces_to: [G1, R5, QBC-16]
     method: test
     deterministic: true
@@ -509,7 +511,7 @@ criteria:
     then:
       - teaching: {channel: stdout, wrong: "naive datetime without a timezone", right: "use a timezone-aware datetime", prevent: "run bh check before finishing so the lint rule reports it"}
       - output_contains: {channel: stdout, text: fresh-stack}
-      - needs_keyword: {reason: "that stdout holds nothing besides the missed checks' messages and the skip statement"}
+      - lines: {channel: stdout, pattern: "@teaching_shape|fresh-stack", every: true}
     traces_to: [G3, R5, QBC-16, QBC-55]
     method: test
     deterministic: true
@@ -558,7 +560,7 @@ criteria:
       program_step: {step: launch_builder, item: toy_item}
     then:
       - file_unchanged: {target: orchestrator_packet}
-      - needs_keyword: {reason: "that the stored packet is addressed by its digest in .brick-harness is an internal storage fact"}
+      - field: {source: job_record, path: "jobs[*].packet_sha256", op: eq, value: $packet_sha256}
     traces_to: [R5, QBC-24, QBC-48]
     method: test
     deterministic: true
@@ -591,6 +593,7 @@ criteria:
       hook: {hook: H1}
     then:
       - field: {source: hook_output, path: additionalContext, op: absent}
+      - exit_code: {code: 0}
     traces_to: [R5, QBC-49]
     method: test
     deterministic: true
@@ -622,6 +625,7 @@ criteria:
       builder_action: {tool: Edit, action: edit, target: clone_packet}
     then:
       - file_unchanged: {target: orchestrator_packet}
+      - field: {source: job_record, path: "jobs[*].packet_sha256", op: eq, value: $packet_sha256}
     traces_to: [R5, P6, QBC-24, QBC-48]
     method: test
     deterministic: true
@@ -635,6 +639,7 @@ criteria:
       scan: {paths: [hooks/hooks.json, harness/lib/], kind: text, pattern: SubagentStart}
     then:
       - scan_count: {op: eq, value: 0}
+      - field: {source: hooks_json, path: hooks.SessionStart, op: present}
     traces_to: [R5, QBC-49]
     method: lint
     deterministic: true
@@ -775,24 +780,90 @@ criteria:
 
   # ---------------------------------------------------------------- d6
   - id: d6-AC1
-    scenario: The test author runs before the builder as a separate job and the measurer last
-    covers: [1, 4]
+    scenario: The test author runs before the builder as a separate job and writes acceptance rows into the packet
+    covers: [1]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
-      - recorded_model: {fixture: test_author_then_builder}
+      - recorded_model: {fixture: test_author_rows}
     when:
       bh: {sub: run}
     then:
-      - jobs: {assert: order, values: [test_author, builder, measurer]}
-      - jobs: {assert: distinct, values: [test_author, builder, measurer]}
+      - jobs: {assert: order, values: [test_author, builder]}
+      - jobs: {assert: distinct, values: [test_author, builder]}
+      - field: {source: packet, path: "acceptance[*].verification", op: present}
     traces_to: [R3, P6, QBC-31, QBC-34]
     method: test
     deterministic: true
+    plan_gap: "\"writes no test code\" has no observable output named in the plan; it is proven only by the generator rows that produce every test"
 
   - id: d6-AC2
-    scenario: The visible acceptance tests are in protected paths, the builder cannot change them
+    scenario: The acceptance rows the test author wrote are valid against the criteria schema
     covers: [1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+      - recorded_model: {fixture: test_author_rows}
+    when:
+      bh: {sub: run}
+    then:
+      - schema_valid: {valid: true, instance: packet, schema: docs/atdd/criteria.schema.json}
+    traces_to: [R3, P3, QBC-31]
+    method: test
+    deterministic: true
+
+  - id: d6-AC3
+    scenario: The generator, with no agent, turns each row into exactly one test and a manifest entry
+    covers: [2]
+    spec_ref: [L3.criteria-to-tests, L3.traceability, enforce.2]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+    when:
+      program_step: {step: generate_tests, item: toy_item}
+    then:
+      - jobs: {assert: none_of_kind, values: [generator]}
+      - same_result: {a: manifest_criterion_ids, b: packet_criterion_ids, compare: equal}
+      - same_result: {a: manifest_test_node_ids, b: manifest_test_node_ids_distinct, compare: equal}
+    traces_to: [R3, P3, QBC-31, QBC-41]
+    method: test
+    deterministic: true
+    plan_gap: "one test per row is asserted as equal id lists and distinct test node ids"
+
+  - id: d6-AC4
+    scenario: Each generated test is marked by its criterion id in the project's framework
+    covers: [2]
+    spec_ref: [L3.test-code]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+    when:
+      program_step: {step: generate_tests, item: toy_item}
+    then:
+      - field: {source: manifest, path: "toy_item-AC1", op: contains, value: toy_item-AC1}
+    traces_to: [R3, QBC-31]
+    method: test
+    deterministic: true
+    plan_gap: "the marker form is not named; the manifest node id is asserted to carry the criterion id"
+
+  - id: d6-AC5
+    scenario: The generated tests and the manifest are committed in protected paths in the plan commit
+    covers: [2]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+    when:
+      program_step: {step: generate_tests, item: toy_item}
+    then:
+      - git: {assert: path_in_plan_commit, path: $acceptance_paths}
+    traces_to: [R3, QBC-31, QBC-41]
+    method: test
+    deterministic: true
+    plan_gap: "the manifest's own path is not named, so only the acceptance test paths are asserted"
+
+  - id: d6-AC6
+    scenario: The builder cannot change the protected generated tests
+    covers: [2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -801,48 +872,70 @@ criteria:
       builder_action: {tool: Edit, action: edit, target: acceptance_test}
     then:
       - file_unchanged: {target: acceptance_tests}
-      - refused: {by: file_tools, wrong: "edit of a visible acceptance test", right: "ask the test author to change the test", prevent: "acceptance test paths are protected from the builder"}
+      - refused: {by: file_tools, wrong: "edit of a protected acceptance test", right: "ask the test author to change the row and regenerate the test", prevent: "acceptance test paths are protected from the builder"}
       - git: {assert: path_in_plan_commit, path: $acceptance_paths}
     traces_to: [R3, QBC-31, QBC-41]
     method: test
     deterministic: true
     plan_gap: "the plan states no refusal text for an edit of a protected test; substrings are best guesses"
 
-  - id: d6-AC3
-    scenario: A test that is red on main for a real reason is recorded as red
-    covers: [2]
+  - id: d6-AC7
+    scenario: A row whose keyword the generator does not implement is a fact with teaching, never an empty test
+    covers: [3]
+    spec_ref: [L3.criteria-to-tests]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
-      - recorded_model: {fixture: test_author_red}
+      - planted: {plant: unimplemented_keyword_row, class: violation, where: plan_commit}
+    when:
+      program_step: {step: generate_tests, item: toy_item}
+    then:
+      - fact: {kind: gap, detail: questions_asked}
+      - teaching: {channel: fact, wrong: "the generator does not implement the keyword questions_asked", right: "implement questions_asked in the generator or change the row's keyword", prevent: "add the keyword's implementation before the row enters the packet"}
+      - field: {source: manifest, path: "toy_item-AC9", op: absent}
+    traces_to: [R3, P6, QBC-31, QBC-41]
+    method: test
+    deterministic: true
+    plan_gap: "which keyword the planted row uses is a fixture choice; questions_asked is assumed"
+
+  - id: d6-AC8
+    scenario: Every generated test fails on main by an assertion and is recorded red
+    covers: [4]
+    spec_ref: [L3.results]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+      - recorded_model: {fixture: test_author_rows}
     when:
       bh: {sub: run}
     then:
+      - junit: {tests_min: 1, errors: 0}
       - fact: {kind: red}
       - no_fact: {kind: red_by_error}
     traces_to: [R3, QBC-31, QBC-41]
     method: test
     deterministic: true
 
-  - id: d6-AC4
-    scenario: A test that is red on main by an error goes back to the test author
-    covers: [2]
+  - id: d6-AC9
+    scenario: A test that errors on main is recorded red-by-error and its row goes back to the test author
+    covers: [4]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
-      - recorded_model: {fixture: test_author_red_by_error}
+      - planted: {plant: test_errors_on_main, class: defect, where: plan_commit}
+      - recorded_model: {fixture: test_author_rows}
     when:
       bh: {sub: run}
     then:
       - fact: {kind: red_by_error}
-      - jobs: {assert: order, values: [test_author, test_author, builder]}
+      - jobs: {assert: order, values: [test_author, generator, test_author, generator, builder]}
     traces_to: [R3, P6, QBC-34, QBC-41]
     method: test
     deterministic: true
 
-  - id: d6-AC5
-    scenario: A defect gets a regression test recorded as failing at the parent and passing at the fix
-    covers: [3]
+  - id: d6-AC10
+    scenario: For a defect the test author writes the regression row and "fails at the parent, passes at the fix" is recorded
+    covers: [5]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: defect}
@@ -850,12 +943,95 @@ criteria:
     when:
       bh: {sub: run}
     then:
+      - jobs: {assert: order, values: [test_author, generator, builder]}
       - fact: {kind: regression_recorded, detail: parent}
-    traces_to: [R9, QBC-31, QBC-82]
+    traces_to: [R3, R9, QBC-31]
     method: test
     deterministic: true
-    plan_gap: "\"the finder or test author\" leaves open which one writes it; the row asserts only the recorded regression fact"
 
+  - id: d6-AC11
+    scenario: For a defect found by a finder who is not the builder, the finder's regression row is used
+    covers: [5]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: defect}
+      - recorded_model: {fixture: finder_regression_row}
+    when:
+      bh: {sub: run}
+    then:
+      - fact: {kind: regression_recorded, detail: parent}
+      - jobs: {assert: distinct, values: [finder, builder]}
+    traces_to: [R3, R9, QBC-31]
+    method: test
+    deterministic: true
+    plan_gap: "how the finder's row reaches the packet is not stated; the row asserts the recorded regression fact and distinct finder and builder jobs"
+
+  - id: d6-AC12
+    scenario: The job record shows test author, generator, builder and measurer in order, the generator not an agent
+    covers: [6]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+      - recorded_model: {fixture: test_author_rows}
+    when:
+      bh: {sub: run}
+    then:
+      - jobs: {assert: order, values: [test_author, generator, builder, measurer]}
+      - jobs: {assert: distinct, values: [test_author, generator, builder, measurer]}
+      - jobs: {assert: none_of_kind, values: [generator]}
+    traces_to: [R3, P6, QBC-34, QBC-82]
+    method: test
+    deterministic: true
+
+  - id: d6-AC13
+    scenario: The generator's bootstrap of the plugin's own v2 acceptance tests is accepted by the plain pytest entry point
+    covers: [7]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      entry_point: {entry: plugin_pytest}
+    then:
+      - exit_code: {code: 0}
+      - junit: {failures: 0, errors: 0, tests_min: 1}
+      - field: {source: manifest, path: "a1-AC1", op: present}
+    traces_to: [R3, R9, QBC-82]
+    method: test
+    deterministic: true
+    plan_gap: "the bootstrap's manifest location is not named; the row checks the manifest holds a criterion of slice a"
+
+  - id: d6-AC14
+    scenario: A planted test without a criterion is reported with teaching
+    spec_ref: [enforce.2]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+      - planted: {plant: test_without_criterion, class: violation, where: plan_commit}
+    when:
+      program_step: {step: generate_tests, item: toy_item}
+    then:
+      - fact: {kind: gap}
+      - teaching: {channel: fact, wrong: "test without a criterion", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
+    traces_to: [R3, P6, QBC-31]
+    method: test
+    deterministic: true
+    plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
+
+  - id: d6-AC15
+    scenario: A planted criterion without a test is reported with teaching
+    spec_ref: [enforce.2]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+      - planted: {plant: criterion_without_test, class: violation, where: plan_commit}
+    when:
+      program_step: {step: generate_tests, item: toy_item}
+    then:
+      - fact: {kind: gap}
+      - teaching: {channel: fact, wrong: "criterion without a test", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
+    traces_to: [R3, P6, QBC-31]
+    method: test
+    deterministic: true
+    plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
   # ---------------------------------------------------------------- d7
   - id: d7-AC1
     scenario: The planner's contract, schema or role delta is a declared file in the plan commit
@@ -1079,6 +1255,7 @@ criteria:
     then:
       - field: {source: hook_output, path: additionalContext, op: absent}
       - no_fact: {kind: scope}
+      - exit_code: {code: 0}
     traces_to: [P5, QBC-29, QBC-50]
     method: test
     deterministic: true
@@ -1092,6 +1269,7 @@ criteria:
       scan: {paths: [hooks/], kind: text, pattern: "read_text|\\.read\\(|open\\(|re\\.(search|match|findall)"}
     then:
       - scan_count: {op: eq, value: 0}
+      - field: {source: hooks_json, path: hooks.PreToolUse, op: present}
     traces_to: [P4, QBC-43]
     method: lint
     deterministic: true
@@ -1243,6 +1421,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [P8, QBC-27, QBC-90]
     method: lint
+    red_on_main: "scan_count eq 0 fails on main: harness/ holds 79 PLR2004 findings"
     deterministic: true
 
   # ---------------------------------------------------------------- d10
@@ -1273,6 +1452,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, QBC-82]
     method: lint
+    red_on_main: "scan_count eq 0 fails on main: skills/harness/SKILL.md names compliance-review and compliance-catalog"
     deterministic: true
 
   - id: d10-AC3
@@ -1283,6 +1463,7 @@ criteria:
     when:
       scan: {paths: [skills/harness/SKILL.md], kind: file_chars}
     then:
+      - field: {source: skill_md, path: body, op: contains, value: bh check}
       - threshold: {metric: skill_chars, op: le, bound: "ref:v1.5.2"}
     traces_to: [R9, QBC-59]
     method: measure
@@ -1320,6 +1501,7 @@ criteria:
       bh: {sub: run}
     then:
       - jobs: {assert: none_of_kind, values: [reviewer]}
+      - jobs: {assert: order, values: [test_author, generator, builder, measurer]}
     traces_to: [P8, QBC-36]
     method: test
     deterministic: true
@@ -1384,6 +1566,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [P4, QBC-36]
     method: lint
+    red_on_main: "scan_count eq 0 fails on main: harness/lib/bhorch.py holds AUTH_RE"
     deterministic: true
 
   - id: d11-AC7
@@ -1446,7 +1629,7 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - field: {source: packet, path: applies, op: present}
-      - needs_keyword: {reason: "that each applicable section 0 item appears in some scenario's traces_to needs a cross-check of applies against traces_to"}
+      - field: {source: packet, path: "applies[*].id", op: covered_by, value: "acceptance[*].traces_to[*]"}
     traces_to: [R5, P1, QBC-38]
     method: test
     deterministic: true
@@ -1500,89 +1683,6 @@ criteria:
     method: test
     deterministic: true
     plan_gap: "assumes the delivered context is exactly the rendering, with nothing added by the hook"
-
-  - id: d6-AC6
-    scenario: Tests are generated from the packet's rows and the manifest maps each criterion to one test
-    spec_ref: [L3.criteria-to-tests, L3.traceability, enforce.2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-    when:
-      program_step: {step: generate_tests, item: toy_item}
-    then:
-      - field: {source: manifest, path: "toy_item-AC1", op: present}
-      - same_result: {a: manifest_criterion_ids, b: packet_criterion_ids, compare: equal}
-      - same_result: {a: manifest_test_node_ids, b: manifest_test_node_ids_distinct, compare: equal}
-    traces_to: [R3, P6, QBC-31, QBC-41]
-    method: test
-    deterministic: true
-    plan_gap: "one criterion per test and one test per criterion is asserted as equal id lists and distinct node ids"
-
-  - id: d6-AC7
-    scenario: Each generated test is marked by its criterion id
-    spec_ref: [L3.test-code]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-    when:
-      program_step: {step: generate_tests, item: toy_item}
-    then:
-      - field: {source: manifest, path: "toy_item-AC1", op: contains, value: toy_item-AC1}
-    traces_to: [R3, QBC-31]
-    method: test
-    deterministic: true
-    plan_gap: "the marker form is not named; the manifest node id is asserted to carry the criterion id"
-
-  - id: d6-AC8
-    scenario: The red-on-main run is JUnit XML and every test fails with an assertion failure, not an error
-    spec_ref: [L3.results]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - recorded_model: {fixture: test_author_red}
-    when:
-      bh: {sub: run}
-    then:
-      - junit: {tests_min: 1, errors: 0}
-      - fact: {kind: red}
-      - no_fact: {kind: red_by_error}
-    traces_to: [R3, QBC-31, QBC-41]
-    method: test
-    deterministic: true
-
-  - id: d6-AC9
-    scenario: A planted test without a criterion is reported with teaching
-    spec_ref: [enforce.2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: test_without_criterion, class: violation, where: plan_commit}
-    when:
-      program_step: {step: generate_tests, item: toy_item}
-    then:
-      - fact: {kind: gap}
-      - teaching: {channel: fact, wrong: "test without a criterion", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
-    traces_to: [R3, P6, QBC-31]
-    method: test
-    deterministic: true
-    plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
-
-  - id: d6-AC10
-    scenario: A planted criterion without a test is reported with teaching
-    spec_ref: [enforce.2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: criterion_without_test, class: violation, where: plan_commit}
-    when:
-      program_step: {step: generate_tests, item: toy_item}
-    then:
-      - fact: {kind: gap}
-      - teaching: {channel: fact, wrong: "criterion without a test", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
-    traces_to: [R3, P6, QBC-31]
-    method: test
-    deterministic: true
-    plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
 
   - id: d11-AC8
     scenario: Review findings are a valid SARIF 2.1.0 log with severity mapped to level
@@ -1656,4 +1756,3 @@ criteria:
     method: test
     deterministic: true
     plan_gap: "the property name for the vector is not given; cvss_vector is assumed"
-

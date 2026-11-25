@@ -209,7 +209,7 @@ criteria:
     method: lint
     deterministic: true
     plan_gap: "docs/plan and docs/atdd name bh-init as history; the scan scope needs them excluded or the count can never reach 0"
-
+    red_on_main: "the paths then-entry (bin/bh-init exist false) fails on main, which holds bin/bh-init"
   - id: c2-AC1
     scenario: On a fixture without CODEOWNERS exactly one question is asked
     covers: [1]
@@ -283,6 +283,7 @@ criteria:
     then:
       - questions_asked: {count: 0}
       - file_unchanged: {target: project_config}
+      - paths: {paths: [CODEOWNERS], exist: true}
     traces_to: [P9, QBC-61]
     method: test
     deterministic: true
@@ -298,6 +299,7 @@ criteria:
     then:
       - file_unchanged: {target: project_config}
       - git: {assert: no_git_hook_installed}
+      - questions_asked: {count: 1}
     traces_to: [R7, G2, QBC-62]
     method: test
     deterministic: true
@@ -395,6 +397,7 @@ criteria:
       program_step: {step: apply_presets}
     then:
       - paths: {paths: [.pre-commit-config.yaml], exist: false}
+      - questions_asked: {count: 1}
     traces_to: [R7, G2, QBC-62]
     method: test
     deterministic: true
@@ -423,6 +426,7 @@ criteria:
       program_step: {step: apply_presets}
     then:
       - git: {assert: no_git_hook_installed}
+      - paths: {paths: [.pre-commit-config.yaml], exist: true}
     traces_to: [P4, QBC-19]
     method: test
     deterministic: true
@@ -460,18 +464,22 @@ criteria:
     deterministic: true
 
   - id: c3-AC12
-    scenario: The measurer holds no call to a linter or checker of its own
+    scenario: The measurer reports a planted naive datetime only through the project recipes
     covers: [9]
     given:
-      - repo: {name: plugin, state: candidate}
+      - repo: {name: toy, state: presets_applied}
+      - host: {condition: claude_code_absent}
+      - planted: {plant: naive_datetime, class: violation, where: working_tree}
     when:
-      scan: {paths: [bin/bh-measure], kind: text, pattern: "ruff|eslint|oxlint|sqlfluff|ast-grep|pre-commit"}
+      bh: {sub: measure}
     then:
-      - scan_count: {op: eq, value: 0}
+      - fact: {kind: red, detail: DTZ}
+      - teaching: {channel: fact, wrong: "DTZ005 datetime without tzinfo", right: "pass tz=timezone.utc", prevent: "run the project test recipe so ruff DTZ reports it before commit"}
+      - file_unchanged: {target: project_config}
     traces_to: [G2, QBC-62]
-    method: lint
+    method: test
     deterministic: true
-    plan_gap: "the bullet prescribes who runs checks; absence of tool names in the measurer is the nearest static observable"
+    plan_gap: "the bullet prescribes who runs checks; the row asserts the observable consequence, that the finding comes from the recipe's ruff rule and the measurer changes no config"
 
   - id: c4-AC1
     scenario: Baselines are generated at adoption
@@ -588,27 +596,31 @@ criteria:
       bh: {sub: check}
     then:
       - no_fact: {kind: ratchet_growth}
+      - exit_code: {code: 0}
     traces_to: [P11, QBC-8]
     method: test
     deterministic: true
 
   - id: c5-AC1
-    scenario: The parity report covers HO-02, ID-15 and RL-08 in Python and TypeScript
+    scenario: The parity report runs old and new on every valid and invalid case and lists per rule what each catches
     covers: [1]
     given:
       - repo: {name: plugin, state: candidate}
     when:
       bh: {sub: check, args: [parity]}
     then:
-      - fact: {kind: parity, detail: HO-02}
-      - fact: {kind: parity, detail: ID-15}
-      - fact: {kind: parity, detail: RL-08}
-      - fact: {kind: parity, detail: python}
-      - fact: {kind: parity, detail: typescript}
+      - fact: {kind: parity, detail: HO-02.python-test.yml}
+      - fact: {kind: parity, detail: HO-02.typescript-test.yml}
+      - fact: {kind: parity, detail: ID-15.python-test.yml}
+      - fact: {kind: parity, detail: ID-15.typescript-test.yml}
+      - fact: {kind: parity, detail: RL-08.python-test.yml}
+      - fact: {kind: parity, detail: RL-08.typescript-test.yml}
+      - fact: {kind: parity, detail: valid}
+      - fact: {kind: parity, detail: invalid}
     traces_to: [R7, P11, QBC-8, QBC-23]
     method: test
     deterministic: true
-    plan_gap: "the existing planted snapshots are not identified by path; the row relies on the committed ones for those three rules and assumes the parity command is a check argument"
+    plan_gap: "the parity command is assumed to be a check argument; the per-rule caught-case listing is asserted as parity facts naming each case file"
 
   - id: c5-AC2
     scenario: A rule that passes parity is retired
@@ -654,7 +666,7 @@ criteria:
     traces_to: [R9, QBC-23, QBC-73]
     method: lint
     deterministic: true
-
+    red_on_main: "scan_count fails on main, whose harness/checkers.json and harness/README.md hold download code"
   - id: c5-AC5
     scenario: No rules.violations target remains
     covers: [3]
@@ -667,7 +679,7 @@ criteria:
     traces_to: [R9, QBC-23, QBC-73]
     method: lint
     deterministic: true
-
+    red_on_main: "scan_count fails on main, whose harness/lib/bhcore.py holds rules.violations targets"
   - id: c5-AC6
     scenario: test_no_waiting.py is gone
     covers: [4]
@@ -680,7 +692,7 @@ criteria:
     traces_to: [R7, R9, QBC-81]
     method: lint
     deterministic: true
-
+    red_on_main: "paths then-entry fails on main, which holds harness/tests/test_no_waiting.py"
   - id: c5-AC7
     scenario: A planted sleep under harness/ is reported by ruff TID251 with teaching
     covers: [4]
@@ -808,16 +820,29 @@ criteria:
     plan_gap: "the output's field naming the sources read is not named by the plan"
 
   - id: c7-AC5
-    scenario: Database roles are read from the database catalog through the environment
+    scenario: Database roles are read from the database catalog through the libpq PG variables
     covers: [2]
     given:
       - repo: {name: project, state: database_roles_only}
-      - host: {condition: database_available}
+      - host: {condition: database_via_pg_env}
     when:
       bh: {sub: owners, args: [billing]}
     then:
       - field: {source: owners_output, path: database_roles, op: present}
-      - needs_keyword: {reason: "no keyword selects whether the connection comes from the PG* variables or from DATABASE_URL, so each form cannot be a separate row"}
+    traces_to: [G6, QBC-13, QBC-62]
+    method: test
+    deterministic: true
+
+  - id: c7-AC11
+    scenario: Database roles are read from the database catalog through DATABASE_URL
+    covers: [2]
+    given:
+      - repo: {name: project, state: database_roles_only}
+      - host: {condition: database_via_url}
+    when:
+      bh: {sub: owners, args: [billing]}
+    then:
+      - field: {source: owners_output, path: database_roles, op: present}
     traces_to: [G6, QBC-13, QBC-62]
     method: test
     deterministic: true
@@ -896,22 +921,21 @@ criteria:
     plan_gap: "the leaf says the fact names a file to add; a missing database has no file, so the row names the connection setting instead"
 
   - id: c8-AC1
-    scenario: pgTAP is vetted before the fitness checks name it
+    scenario: A vet record for pgTAP at its pinned version is committed with its three results and its decision
     covers: [1]
     given:
       - repo: {name: plugin, state: candidate}
-      - recorded_api: {service: github, fixture: vet_pgtap}
-      - recorded_api: {service: scorecard, fixture: vet_pgtap}
-      - recorded_api: {service: deps_dev, fixture: vet_pgtap}
-      - recorded_api: {service: osv, fixture: vet_pgtap}
     when:
-      bh: {sub: vet, args: [pgtap]}
+      scan: {paths: [docs/design/evidence/vet-pgtap.md], kind: path}
     then:
-      - fact: {kind: vet_result, detail: pgtap}
+      - paths: {paths: [docs/design/evidence/vet-pgtap.md], exist: true}
+      - file_contains: {path: docs/design/evidence/vet-pgtap.md, text: Scorecard}
+      - file_contains: {path: docs/design/evidence/vet-pgtap.md, text: deps.dev}
+      - file_contains: {path: docs/design/evidence/vet-pgtap.md, text: OSV}
+      - file_contains: {path: docs/design/evidence/vet-pgtap.md, text: Decision}
     traces_to: [G2, QBC-18]
-    method: test
+    method: lint
     deterministic: true
-    plan_gap: "the bullet prescribes process order; the row asserts only that a vet result exists for pgTAP, not that it precedes the build"
 
   - id: c8-AC2
     scenario: On a clean fixture the test recipe runs the four fitness checks and passes
@@ -1092,6 +1116,7 @@ criteria:
       bh: {sub: check}
     then:
       - no_fact: {kind: unwired}
+      - exit_code: {code: 0}
     traces_to: [G2, QBC-22]
     method: test
     deterministic: true

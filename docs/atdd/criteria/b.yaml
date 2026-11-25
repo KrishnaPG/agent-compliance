@@ -1097,6 +1097,7 @@ criteria:
   method: lint
   deterministic: true
   plan_gap: a code-structure claim; the row asserts the call text is absent
+  red_on_main: 'scan_count eq 0 fails on main: its merge_unmerged calls state(cfg) (bhcore.py)'
 - id: b4-AC1
   scenario: A JUnit id present at base and missing at the candidate yields exactly its fact and no refusal
   covers:
@@ -1344,6 +1345,10 @@ criteria:
     bh:
       sub: measure
   then:
+  - paths:
+      paths:
+      - out/*/*-*
+      exist: true
   - no_fact:
       kind: dropped_tests
   - no_fact:
@@ -1359,6 +1364,7 @@ criteria:
   - QBC-8
   method: test
   deterministic: true
+  plan_gap: the paths entry fails on main, which writes no out/<item>/<sha12>-<slot> directory
 - id: b4-AC10
   scenario: Ratchet growth is recorded through the same fact writer
   covers:
@@ -1392,9 +1398,9 @@ criteria:
   deterministic: true
   plan_gap: the writer belongs to c4; the row asserts only that the fact appears in the result JSON and run report; plan omits the teaching text
 - id: b4-AC11
-  scenario: Diff facts use no pattern lists
+  scenario: Suppressed findings are compared by the linters' own flags, not by pattern lists
   covers:
-  - 0
+  - 3
   given:
   - repo:
       name: plugin
@@ -1404,17 +1410,18 @@ criteria:
       paths:
       - harness/lib/
       kind: text
-      pattern: SKIP_PATTERNS|SUPPRESS_PATTERNS|_PATTERN_LIST
+      pattern: --ignore-noqa|--no-inline-config
   then:
   - scan_count:
-      op: eq
-      value: 0
+      op: ge
+      value: 2
+      distinct: true
   traces_to:
   - QBC-8
   - P11
   method: lint
   deterministic: true
-  plan_gap: title says "without pattern lists"; the row asserts those list names are absent, which is a text check and not a proof
+  plan_gap: the title says "without pattern lists"; the row asserts the flag-based comparison that replaces them
 - id: b5-AC1
   scenario: validate() and GAP_KINDS are gone
   covers:
@@ -1439,6 +1446,7 @@ criteria:
   - QBC-76
   method: lint
   deterministic: true
+  red_on_main: 'scan_count eq 0 fails on main: bhcore.py defines validate() and GAP_KINDS'
 - id: b5-AC2
   scenario: Gap kinds come from gaps.schema.json
   covers:
@@ -1471,13 +1479,23 @@ criteria:
   - repo:
       name: plugin
       state: candidate
-  - planted: {plant: gap_violating_ignored_keyword, class: defect, where: working_tree}
+  - planted:
+      plant: gap_violating_ignored_keyword
+      class: defect
+      where: working_tree
   when:
     program_step:
       step: gap_review
   then:
-  - schema_valid: {valid: false, instance: planted gap record, schema: harness/schema/gaps.schema.json}
-  - teaching: {channel: stderr, wrong: gaps.schema.json rejects the input, right: fix the field the schema names in the error path, prevent: validate gaps against gaps.schema.json before writing them}
+  - schema_valid:
+      valid: false
+      instance: planted gap record
+      schema: harness/schema/gaps.schema.json
+  - teaching:
+      channel: stderr
+      wrong: gaps.schema.json rejects the input
+      right: fix the field the schema names in the error path
+      prevent: validate gaps against gaps.schema.json before writing them
   traces_to:
   - P2
   - QBC-80
@@ -1539,7 +1557,7 @@ criteria:
   spec_ref:
   - L2.teaching-messages
 - id: b6-AC2
-  scenario: 'Repeats are grouped: the first limits.findings_shown then a count'
+  scenario: 'Repeats are grouped: the first limits.findings_shown, then one count line'
   covers:
   - 2
   given:
@@ -1558,12 +1576,21 @@ criteria:
       path: limits.findings_shown
       op: eq
       value: 10
-  - needs_keyword:
-      reason: no keyword counts finding lines shown versus the grouped count line in a channel
+  - lines:
+      channel: stdout
+      pattern: '@teaching_shape'
+      op: eq
+      count: 10
+  - lines:
+      channel: stdout
+      pattern: ^(?!\[).*\b5\b
+      op: eq
+      count: 1
   traces_to:
   - QBC-55
   method: test
   deterministic: true
+  plan_gap: the plan names no wording for the count line; the row matches the one non-teaching line holding the remaining count
 - id: b6-AC3
   scenario: A message is at most limits.message_chars
   covers:
@@ -1754,7 +1781,7 @@ criteria:
   spec_ref:
   - common.every-refusal-finding-or-note
 - id: b6-AC9
-  scenario: Every refusal and non-zero exit has the shape [rule] wrong -> right . ref
+  scenario: Every refusal and non-zero exit goes through teach()
   covers:
   - 6
   given:
@@ -1769,18 +1796,17 @@ criteria:
       - hooks/
       - fitness/
       - presets/
-      kind: exits
+      kind: untaught_exits
   then:
   - scan_count:
-      op: ge
-      value: 1
-  - needs_keyword:
-      reason: no keyword asserts a shape over every scanned site
+      op: eq
+      value: 0
   traces_to:
   - QBC-53
   - QBC-68
   method: fitness
   deterministic: true
+  red_on_main: 'scan_count eq 0 fails on main: its bin/ and harness/ exit without teach()'
   spec_ref:
   - common.every-refusal-finding-or-note
   - L2.teaching-messages
@@ -2225,7 +2251,7 @@ criteria:
   deterministic: true
   plan_gap: wording from QBC-47
 - id: b8-AC5
-  scenario: The remaining register rows reuse planted cases of b1, b4, b9, c4, d5 and d8
+  scenario: Every register test is a planted test or a generated test of an earlier task's criterion
   covers:
   - 2
   given:
@@ -2236,8 +2262,11 @@ criteria:
     program_step:
       step: generate_register
   then:
-  - needs_keyword:
-      reason: no keyword asserts that a register row's marked test is a named earlier task's planted case
+  - field:
+      source: register
+      path: entries[*].tests[*]
+      op: matches
+      value: ^(harness/tests/planted/|.*(b1|b4|b9|c4|d5|d8)-AC[0-9]+)
   traces_to:
   - QBC-15
   method: fitness
@@ -2296,7 +2325,7 @@ criteria:
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b8-AC8
-  scenario: No hand-kept status field remains
+  scenario: 'No hand-kept status field remains: status is generated from the JUnit results'
   covers:
   - 5
   given:
@@ -2311,18 +2340,20 @@ criteria:
     program_step:
       step: generate_register
   then:
+  - file_contains:
+      path: harness/safeguards.json
+      text: '"status"'
+      negate: true
   - field:
       source: register
       path: entries[*].status
       op: present
-  - needs_keyword:
-      reason: no keyword asserts that a hand-set status is overwritten by regeneration
   traces_to:
   - QBC-67
   - P6
   method: test
   deterministic: true
-  plan_gap: '"no hand-kept field" is a data-shape claim'
+  plan_gap: '"no hand-kept field" is a data-shape claim; the present entry fails on main, which keeps status by hand'
 - id: b9-AC1
   scenario: The builder works in a shared clone of the recorded base commit, with no remote fetch and no worktree
   covers:
@@ -2362,6 +2393,11 @@ criteria:
     bh:
       sub: run
   then:
+  - field:
+      source: builder_settings
+      path: permissions.allow
+      op: contains
+      value: Edit(*)
   - field:
       source: launch_args
       path: --add-dir
@@ -2633,6 +2669,10 @@ criteria:
       action: append
       target: orchestrator_packet
   then:
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: present
   - file_unchanged:
       target: orchestrator_packet
   traces_to:
@@ -2655,6 +2695,8 @@ criteria:
       action: delete_ref
       target: source_repo
   then:
+  - git:
+      assert: clone_is_shared_from_base
   - file_unchanged:
       target: source_refs
   - git:
@@ -3102,30 +3144,35 @@ criteria:
   deterministic: true
   plan_gap: '"renders from a template" is a design claim; the snapshot asserts the output'
 - id: b12-AC6
-  scenario: Links in the docs are checked and a broken one is reported
+  scenario: A broken link in a reviewed document is reported as a gap
   covers:
   - 6
   given:
   - repo:
-      name: plugin
-      state: candidate
+      name: toy
+      state: base
+  - planted:
+      plant: broken_link_in_document
+      class: defect
   when:
-    scan:
-      paths:
-      - docs/
-      kind: references
+    program_step:
+      step: gap_review
   then:
-  - scan_count:
-      op: eq
-      value: 0
-  - needs_keyword:
-      reason: no keyword asserts that the link checker lychee ran and its result
+  - fact:
+      kind: gap
+      detail: link
+  - teaching:
+      channel: fact
+      wrong: broken link in a document
+      right: fix the link target or remove the link
+      prevent: run lychee on the documents before the review
   traces_to:
   - R9
   - G5
   - QBC-80
-  method: lint
+  method: test
   deterministic: true
+  plan_gap: the plan names lychee, not the fact's wording
 - id: b13-AC1
   scenario: One builder's git failure yields a stuck entry and the run continues
   covers:
@@ -3300,7 +3347,7 @@ criteria:
   deterministic: true
   plan_gap: the plan names no test; the row scans for one marker per minor
 - id: b13-AC7
-  scenario: item_key, bhorch.git and bhorch.fill are each defined once
+  scenario: harness/lib defines one git runner, one item_key and one fill
   covers:
   - 5
   given:
@@ -3310,10 +3357,9 @@ criteria:
   when:
     scan:
       paths:
-      - harness/
-      - bin/
+      - harness/lib/
       kind: symbol
-      pattern: def (item_key|git|fill)\b
+      pattern: def (_git|git|item_key|fill)\b
   then:
   - scan_count:
       op: eq
@@ -3323,9 +3369,10 @@ criteria:
   - QBC-76
   method: lint
   deterministic: true
-  plan_gap: '"one home each" is read as one definition each'
+  plan_gap: one home each is read as one definition each
+  red_on_main: 'scan_count eq 3 fails on main: bhcore._git and bhorch.git are two git runners'
 - id: b13-AC8
-  scenario: _waves is gone and graphlib is used
+  scenario: _waves is gone
   covers:
   - 5
   given:
@@ -3335,8 +3382,7 @@ criteria:
   when:
     scan:
       paths:
-      - harness/
-      - bin/
+      - harness/lib/
       kind: symbol
       pattern: _waves
   then:
@@ -3347,8 +3393,9 @@ criteria:
   - QBC-76
   method: lint
   deterministic: true
+  red_on_main: 'scan_count eq 0 fails on main: bhcore.py still defines and calls _waves'
 - id: b13-AC9
-  scenario: The restated targets have one home
+  scenario: The rules.violations target literal is written in one module
   covers:
   - 5
   given:
@@ -3358,18 +3405,41 @@ criteria:
   when:
     scan:
       paths:
-      - harness/
-      - bin/
+      - harness/lib/
       kind: text
-      pattern: targets
+      pattern: rules\.violations
   then:
-  - needs_keyword:
-      reason: the plan names no symbol for the restated targets, so no scan pattern can express one home
+  - scan_count:
+      op: eq
+      value: 1
   traces_to:
   - QBC-76
   method: lint
   deterministic: true
-  plan_gap: plan does not say which targets are restated
+  plan_gap: one module is read as one occurrence of the literal
+  red_on_main: 'scan_count eq 1 fails on main: bhcore.py and bhrules.py both write the literal'
+- id: b13-AC10
+  scenario: Item order comes from graphlib.TopologicalSorter
+  covers:
+  - 5
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/lib/
+      kind: text
+      pattern: graphlib\.TopologicalSorter
+  then:
+  - scan_count:
+      op: ge
+      value: 1
+  traces_to:
+  - QBC-76
+  method: lint
+  deterministic: true
 - id: b14-AC1
   scenario: A bh run on the toy with the stub claude ends with every item met or stuck with facts
   covers:
@@ -3415,6 +3485,10 @@ criteria:
     bh:
       sub: run
   then:
+  - jobs:
+      assert: present
+      values:
+      - builder
   - jobs:
       assert: none_of_kind
       values:
@@ -3470,6 +3544,10 @@ criteria:
     bh:
       sub: run
   then:
+  - field:
+      source: launch_args
+      path: --tools
+      op: present
   - field:
       source: launch_args
       path: --tools

@@ -72,6 +72,24 @@ def catalog_lint(catalog: dict) -> list[str]:
     return out
 
 
+def negative(k: str, v: dict) -> bool:
+    """A then-entry that passes on any tree without the violation (catalog `negative_checks`)."""
+    v = v or {}
+    op, val = v.get("op"), v.get("value")
+    return (
+        (k == "scan_count" and ((op in ("eq", "le") and val == 0) or (op == "lt" and val == 1)))
+        or k in ("no_fact", "file_unchanged")
+        or (k == "fact" and v.get("count") == 0)
+        or (k == "paths" and v.get("exist") is False)
+        or (k in ("output_contains", "file_contains") and v.get("negate") is True)
+        or (k == "field" and op in ("absent", "ne", "not_contains"))
+        or (k == "git" and v.get("assert") in ("source_refs_unchanged", "no_git_hook_installed", "no_remote_fetch", "candidate_not_in_head"))
+        or (k == "jobs" and v.get("assert") == "none_of_kind")
+        or (k == "questions_asked" and v.get("count") == 0)
+        or (k == "api_call" and v.get("count") == 0)
+    )
+
+
 def unused_catalog(catalog: dict, rows: list[dict]) -> list[str]:
     """Catalog keys and enum values no row uses (comparison operators excepted)."""
     used = set()
@@ -86,7 +104,7 @@ def unused_catalog(catalog: dict, rows: list[dict]) -> list[str]:
     out = []
     for sec in ("given", "when", "then"):
         for k, entry in catalog[sec].items():
-            if (sec, k) not in used:
+            if (sec, k) not in used and k != "needs_keyword":
                 out.append(f"{sec}.{k}")
             for p, d in (entry.get("params") or {}).items():
                 if p == "op" or not isinstance(d.get("values"), dict):
@@ -283,6 +301,9 @@ def step_schema(section: dict, catalog: dict, title: str) -> dict:
         }
         conds = []
         for c in entry.get("conditional", []):
+            if "require_one_of" in c:
+                props[key].setdefault("anyOf", []).extend({"required": [x]} for x in c["require_one_of"])
+                continue
             if "if" in c:
                 cond = {"properties": {k: {"const": v} for k, v in c["if"].items()}, "required": list(c["if"])}
             else:
@@ -318,6 +339,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
             "deterministic": {"type": "boolean"},
             "spec_ref": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": sorted(refs)}},
             "plan_gap": {"type": "string", "minLength": 1},
+            "red_on_main": {"type": "string", "minLength": 1},
         },
         "if": {"properties": {"id": {"pattern": "^h"}}},
         "else": {"properties": {"deterministic": {"const": True}}},
@@ -398,6 +420,9 @@ def main() -> int:
             continue
         by_task[task].append(r)
         incompatible += [f"{rid}: {m}" for m in row_lint(r, catalog)]
+        thens_all = [(k, v) for step in r.get("then", []) for k, v in step.items()]
+        if thens_all and all(negative(k, v) for k, v in thens_all) and not r.get("red_on_main"):
+            incompatible.append(f"{rid}: only negative checks and no red_on_main (catalog negative_checks)")
         for k, v in fixture_ids(r):
             inventory[k][v] += 1
         for step in r.get("then", []):
@@ -530,7 +555,7 @@ def main() -> int:
           f"no rows: {no_rows or 'none'}; uncovered leaves: {len(thin)} tasks; "
           f"§0 untraced: {s0_untraced or 'none'}; spec_ref uncovered: {refs_uncovered or 'none'}; needs-keyword: {len(needs_kw)}; "
           f"incompatible: {len(incompatible)}; weak teaching: {len(weak)}; whole-Proves rows: {len(full_proves)}")
-    if "--check" in sys.argv and (errors or untaught or no_rows or thin or s0_untraced or refs_uncovered or incompatible or weak):
+    if "--check" in sys.argv and (errors or untaught or no_rows or thin or s0_untraced or refs_uncovered or incompatible or weak or needs_kw):
         return 1
     return 0
 
