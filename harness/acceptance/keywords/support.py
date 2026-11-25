@@ -82,6 +82,7 @@ def init_env(ctx):
         CONTRACT["env"]["answers_file"]: str(work / "answers.json"),
         "ATDD_MODEL_STATE": str(work / "model.state"),
         "ATDD_TREE": str(ctx.tree),
+        "ATDD_OUTSIDE": str(work / "outside"),
     }
     ctx.state["env"] = env
     ctx.state.setdefault("hidden_bins", [])

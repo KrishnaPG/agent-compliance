@@ -1,0 +1,40 @@
+{
+  "id": "toy_item",
+  "parent_issue": 1,
+  "tier": "mechanical",
+  "goal": "Edited by the builder.",
+  "applies": [
+    "G1"
+  ],
+  "constraints": {
+    "declared_paths": [
+      "src/**",
+      "tests/**",
+      "pyproject.toml"
+    ]
+  },
+  "acceptance": [
+    {
+      "id": "toy_item-AC1",
+      "traces_to": [
+        "G1"
+      ],
+      "verification": "test"
+    }
+  ],
+  "verifier": {
+    "rules": [],
+    "targets": [],
+    "acceptance_paths": [
+      "tests/acceptance/**"
+    ]
+  },
+  "paved_road": {
+    "test_paths": [
+      "tests/**"
+    ],
+    "dependency_command": "uv add",
+    "check_command": "bh check"
+  },
+  "definition_of_done": "Every acceptance row is met by the measurer."
+}

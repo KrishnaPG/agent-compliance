@@ -1,0 +1,5 @@
+{
+  "env": {
+    "BH_BUILDER_SANDBOX": "1"
+  }
+}
