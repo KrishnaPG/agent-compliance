@@ -126,7 +126,7 @@
       ],
       "when": {
         "entry_point": {
-          "entry": "project_test"
+          "entry": "plugin_pytest"
         }
       },
       "then": [

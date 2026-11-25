@@ -1,3 +1,4 @@
+# The catalog is frozen: new work adds one small plain pytest file per task under harness/tests, never a new key.
 # Closed keyword catalogs for the acceptance criteria of the v2 plan (ATDD, level L3).
 #
 # Every row in docs/atdd/criteria/<slice>.yaml is built only from these keys; the JSON
@@ -92,9 +93,7 @@ given:
         type: enum
         values:
           toy: "the plugin's Python toy project fixture"
-          node_toy: "a Node (package.json) project fixture"
           plugin: "this plugin's own tree"
-          project: "a minimal generic project fixture"
         doc: "toy = the plugin's Python toy project; node_toy = a Node fixture; plugin = this plugin's own tree; project = a minimal generic project fixture"
       state: {type: id, doc: "named fixture state, e.g. base, v1.5.2, candidate, no_codeowners, six_ready_items"}
     passes_when: Fixture setup; the named state is reproduced from committed files before `when` runs.
@@ -108,7 +107,6 @@ given:
         values:
           gaming: "a change a builder could make to fool the measurer (gutted test, forged conftest, edited config, out-of-checkout write, network call, passing canary)"
           violation: "code, config or input that breaks a rule or limit the program reports (a lint finding, a repeated finding, an out-of-order step)"
-          bump: "a dependency version change in a lockfile or manifest diff (patch, minor or major)"
           diff: "a change to the candidate's diff against its base that a measurement fact reads (changed plan file, test ids dropped, skips or suppressions grown)"
           defect: "a faulty input or state the program must handle with a teaching fact instead of an exception (missing or malformed JUnit, conflicting candidates, flaky test)"
           wiring: "a check or guard that exists but is not connected to the recipe or test that should run it"
@@ -116,7 +114,6 @@ given:
       where:
         type: enum
         values:
-          candidate_commit: "the plant is committed as the candidate commit"
           working_tree: "the plant is applied to the working tree, uncommitted"
           plan_commit: "the plant is committed in the plan commit"
         required: false
@@ -128,19 +125,6 @@ given:
     params:
       fixture: {type: id}
     passes_when: Fixture setup; any job launched replays the fixture and no real model is reached.
-
-  recorded_api:
-    meaning: Recorded HTTP responses stand in for an external service; the network is off.
-    params:
-      service:
-        type: enum
-        values:
-          github: "GitHub REST/GraphQL API (issues, sub-issues, repository)"
-          scorecard: "OpenSSF Scorecard API"
-          deps_dev: "deps.dev API"
-          osv: "OSV vulnerability API"
-      fixture: {type: id}
-    passes_when: Fixture setup; every request is answered from the fixture and every request is logged for api_call.
 
   hook_input:
     meaning: A recorded hook-input JSON, as Claude Code sends it, for one tool call.
@@ -222,44 +206,11 @@ given:
       condition:
         type: enum
         values:
-          probe_passes: "the sandbox self-test probe the program runs before a launch exits zero (stubbed)"
-          probe_fails: "the sandbox self-test probe the program runs before a launch exits non-zero (stubbed)"
-          probe_passes_only_with_unix_sockets: "the self-test probe exits zero only when allowAllUnixSockets is set, and non-zero without it (stubbed)"
-          account_in_socket_group: "the builder's account belongs to a group that grants container-socket access, such as docker (stubbed)"
-          claude_code_absent: "no Claude Code executable is installed on the host"
           network_off: "no network is reachable from the process"
           caches_prewarmed: "the tool and package caches are already filled, so nothing needs a download"
-          no_database: "the project declares no database"
-          database_available: "the project declares a database and it is reachable"
-          database_via_pg_env: "the database is reachable only through the libpq PG* variables (PGHOST, PGDATABASE, PGUSER...); DATABASE_URL is unset"
-          database_via_url: "the database is reachable only through DATABASE_URL; no PG* variable is set"
-          unsupported_stack: "the project's language or stack is not one the checks support"
           run_in_progress: "another bh run holds the run lock"
           builder_sandbox: "the process runs under the builder's Bash sandbox and generated settings"
     passes_when: Fixture setup; the condition holds (by stub or environment) while `when` runs.
-
-  recorded_answer:
-    meaning: A recorded owner answer to a one-time question or an approval request; never a live human or account.
-    params:
-      question: {type: id}
-      answer:
-        type: enum
-        values:
-          approve: "the owner approves the question or approval request"
-          decline: "the owner declines the question or approval request"
-    passes_when: Fixture setup; the program's question or approval prompt is answered from the record.
-
-  history:
-    meaning: A recorded history fixture of git commits, issues with sub-issue events, and bh job records.
-    params:
-      fixture: {type: id}
-      period:
-        type: enum
-        values:
-          pre_v2: "history from before the v2 changes"
-          v2: "history from the v2 work"
-          both: "history from both periods"
-    passes_when: Fixture setup; the history is readable by the program offline.
 
 when:
   bh:
@@ -273,10 +224,6 @@ when:
           run: "`bh run`: the order engine builds, measures and merges ready items"
           measure: "`bh measure`: measure one candidate against its packet"
           check: "`bh check`: the builder's self-check command"
-          owners: "`bh owners`: answer who owns a path or topic"
-          vet: "`bh vet`: record the outputs of the vetting tools as facts"
-          metrics: "`bh metrics`: compute the change-failure, lead-time and token metrics"
-          intake: "`bh intake`: process a newly filed issue"
       args: {type: list, items: string, required: false}
       parallel: {type: integer, minimum: 1, required: false, doc: "default 1"}
       rerun: {type: boolean, required: false, doc: "true: run twice; assertions read the second run, and file_unchanged compares the state after the first run with the state after the second"}
@@ -295,7 +242,6 @@ when:
       entry:
         type: enum
         values:
-          project_test: "the project's own test recipe"
           plugin_pytest: "the plugin's plain pytest entry point"
       mode:
         type: enum
@@ -315,24 +261,8 @@ when:
           render_packet: "render a packet to its Markdown form"
           validate_packet: "validate a packet file against the packet schema"
           launch_builder: "launch the builder job for an item: preconditions checked, packet registered, clone created"
-          derive_tier: "derive an item's tier from its declared paths"
           merge: "merge a candidate into HEAD"
           gap_review: "run the spec-gap review over the project documents and update the gaps list"
-          rank_findings: "rank gap findings by their cited impact and estimated size"
-          render_gaps: "render gaps.md from the gap findings"
-          generate_baselines: "write the ratchet baseline files at adoption"
-          generate_register: "build the safeguard register from the planted-test markers and JUnit results"
-          infer_config: "infer entry points, languages, owners, test location and dependency command from project files"
-          ask_once: "put one question to the owner and keep the recorded answer"
-          apply_presets: "write the approved linter and hook presets into the project's config files"
-          write_forms: "write the issue forms into the project's .github directory"
-          file_issue: "create an issue through the tracker API with its native parent"
-          intake_issue: "process a newly filed issue: parent link, parent check and message"
-          add_known_issue: "add a line to the Known issues list found by its label"
-          reopen_from_review: "reopen the slice's checklist line from a reviewer's structured finding"
-          close_tracking: "close a tracking issue when its last sub-issue closes"
-          relay_miss: "relay a linter rule miss with its right-way line"
-          map_catalog_ids: "map the rule ids that checks, skills and packets read to catalog ids"
           generate_tests: "generate tests from the packet's acceptance rows and write the manifest"
           commit_build: "stage and commit the builder's change as the program, with Packet and Criteria trailers"
       item: {type: id, required: false}
@@ -347,7 +277,6 @@ when:
         values:
           H0: "the PreToolUse guard that refuses a builder's Edit or Write without a registered packet"
           H1: "the SessionStart hook that delivers the packet as additionalContext"
-          H2: "the PreToolUse hook that shows an owner line at a first touch outside the packet's paths"
           bash_note: "the PostToolUse hook that notes a builder's Bash call made with no packet"
     passes_when: The hook exits; its exit code, stdout JSON and any fact it wrote are captured.
 
@@ -394,9 +323,7 @@ when:
           references: "every file path a file names"
           dangling_references: "every file path a file names that does not exist in the tree (relative to the naming file or the repo root)"
           version_strings: "every version string found"
-          untaught_exits: "every refusal or non-zero exit site (an exit or SystemExit with a non-zero code, a hook block decision, a raised error that ends the program) whose message is not built by a teach(rule, wrong, right, ref) call"
           undefined_names: "every name one module uses from another that the other does not define"
-          lint_rule: "the findings of the linter rule code in `pattern`, run alone over `paths`"
       pattern: {type: string, required: false, doc: "literal or regex; for kind text and symbol"}
     passes_when: The matches (or the measured number) are captured. kind references = every file path a file names; exits = every refusal and non-zero exit site; version_strings = every version string found; undefined_names = every attribute or name one module uses from another that the other does not define (a type checker's attr-defined result); lint_rule = pattern is a linter rule code (e.g. PLR2004), run alone over paths, and its findings are the matches.
 
@@ -406,12 +333,6 @@ when:
       instance: {type: string}
       schema: {type: string}
     passes_when: The validation result and every error (with its path) are captured.
-
-  plugin_eval:
-    meaning: Run `claude plugin eval` with the given arguments (slice h only; may make live model calls).
-    params:
-      args: {type: list, items: string}
-    passes_when: The eval completes; its report is captured.
 
 then:
   exit_code:
@@ -430,8 +351,6 @@ then:
         values:
           met: "the item's status is met"
           unmet: "the item's status is unmet"
-          stuck: "the item's status is stuck (round limit reached)"
-          not_checked: "the item's status is not_checked (the check could not run on this project)"
       item: {type: id, required: false}
     passes_when: result JSON items[id=<item>].status equals status (the only item when item is omitted).
 
@@ -444,7 +363,6 @@ then:
         values:
           diff: "a path changed between base and candidate in a protected or overlaid area, e.g. `M tests/x` or `A conftest.py`"
           scope: "a changed path outside the packet's declared paths (for a builder launched with no packet, every changed path)"
-          flaky: "a measured test whose result differed between repeated runs"
           red: "a test failed by an assertion (JUnit failure)"
           red_by_error: "a test errored instead of failing by assertion (JUnit error)"
           regression_recorded: "a regression test recorded as failing at the parent and passing at the fix"
@@ -453,28 +371,11 @@ then:
           skipped_growth: "the JUnit skipped count grew from base to candidate"
           suppression_growth: "findings suppressed by inline comments grew from base to candidate"
           ts_comment_growth: "ban-ts-comment findings grew from base to candidate"
-          ratchet_growth: "a ratchet baseline or ignore list grew, or a pinned hash changed, against the base"
           launch_refused: "a builder launch was refused by a precondition"
           stuck: "an item reached the round limit or failed without a result and is reported for a re-plan"
-          inferred: "a value inferred from a named project file, with its source"
-          not_declared: "a declared-data source (CODEOWNERS, database) is missing, naming what to add"
-          not_checked: "a check was skipped because its stack or database is absent"
-          re_queue: "the tier recomputed from the diff is above the launch tier (a diff hit on a tier trigger), so the item is re-queued"
-          tier: "an item's tier and the reason it was derived"
           h0_bypass: "a builder's tool call was made with no registered packet"
           over_cap: "packet content exceeded its size cap and was referenced by path"
-          unmapped_rule_code: "an enabled rule code has no right-way entry"
-          unwired: "a check, test or linter config that no recipe runs"
-          sandbox_choice: "a sandbox setting chosen from the self-test probe, e.g. allowAllUnixSockets"
-          judge_objection: "an objection returned by the fresh judge job"
-          review_finding: "a finding reported by the review of a feature"
-          idle_tracking: "a tracking issue idle past limits.idle_days"
-          second_known_list: "a second Known issues list found by label"
           gap: "a spec gap or an ill-formed required input, reported with teaching"
-          parity: "the result of comparing an old check with its replacement per language"
-          commitlint: "a commit message result from commitlint"
-          vet_result: "the raw values from a vetting tool, with no verdict"
-          unknown_rule: "a rule id that is not in the catalog"
           packet_mismatch: "a commit's Packet trailer names a sha256 other than the registered packet's"
       detail: {type: string, required: false, doc: "substring the fact's text must contain"}
       count: {type: integer, required: false, doc: "exact number of facts of this kind; default at least 1"}
@@ -498,7 +399,6 @@ then:
           sandbox: "the Bash sandbox refused it (read-only or denied path)"
           file_tools: "the scoped Edit and Write tool permissions refused it"
           program: "bh refused the order step"
-          launch: "a launch precondition refused the builder launch"
       wrong: {type: string, doc: "what is wrong, in plain words; its identifier tokens bind (see terms.teaching match)"}
       right: {type: string, doc: "the right way; its identifier tokens bind"}
       prevent: {type: string, doc: "how to prevent it next time; its identifier tokens bind"}
@@ -515,8 +415,6 @@ then:
           stderr: "the process's standard error"
           hook_output: "the hook's stdout JSON"
           fact: "the text of a fact in the result JSON"
-          run_report: "a line of the run report"
-          issue_comment: "a comment on the issue"
           tool_result: "the tool result returned to the agent"
           sarif: "the SARIF log"
       wrong: {type: string, doc: "what is wrong, in plain words; its identifier tokens bind (see terms.teaching match)"}
@@ -550,10 +448,7 @@ then:
         values:
           stdout: "the process's standard output"
           stderr: "the process's standard error"
-          run_report: "the run report"
-          packet_markdown: "the rendered packet Markdown"
           additional_context: "the additionalContext of the hook's output"
-          issue_comment: "a comment on the issue"
       text: {type: string}
       max_chars: {type: integer, required: false}
       negate: {type: boolean, required: false, doc: "true: the channel does not contain text"}
@@ -573,14 +468,10 @@ then:
           hook_output: "the hook's stdout JSON"
           hooks_json: "hooks/hooks.json"
           skill_md: "a SKILL.md file"
-          eval_report: "the report of `claude plugin eval`"
-          register: "the safeguard register"
-          baseline_file: "a ratchet baseline file"
           launch_args: "the arguments of a `claude` job launch"
           commit_message: "a commit message"
           sarif: "the SARIF log"
           manifest: "the manifest mapping criterion id to test node id"
-          decision_record: "the L1 decision record"
       path: {type: key}
       op:
         type: enum
@@ -612,8 +503,6 @@ then:
         values:
           order: "jobs with the given names occur in this order"
           distinct: "each given name is a separate job"
-          present: "a job with each given name occurs"
-          absent: "no job has any of the given names"
           program_only: "every job with one of the given names has kind program_step, and at least one ran"
       values: {type: list, items: string}
     passes_when: The named assertion holds over the jobs[*] names (role for agents, step for program steps).
@@ -629,10 +518,7 @@ then:
           source_refs: "the source repository's git refs"
           outside_checkout: "the files outside the measured checkout"
           acceptance_tests: "the acceptance test files"
-          project_config: "the project's own config files"
-          plugin_files: "the plugin's files"
           base_recipe: "the test recipe at the base commit"
-          baseline_file: "a ratchet baseline file"
     passes_when: The sha256 digest of target after `when` equals the digest before.
 
   paths:
@@ -759,7 +645,6 @@ then:
           candidate_not_in_head: "the candidate commit is not reachable from HEAD"
           merge_is_one_commit: "the merge added exactly one commit"
           source_refs_unchanged: "the source repository's refs are the same as before"
-          no_git_hook_installed: "the repository's hooks directory holds no blocking hook"
           clone_is_shared_from_base: "the clone was made with --shared from the recorded base commit"
           no_remote_fetch: "no remote fetch happened"
           conflict_names_item: "the conflict message names the item"
@@ -768,34 +653,6 @@ then:
           path_in_plan_commit: "the plan commit adds or changes a file matching `path`"
       path: {type: string, required: false, doc: "required for path_in_plan_commit: a glob or placeholder"}
     passes_when: The named property holds, read from git plumbing (rev-list, show-ref, config, alternates, reflog, hooks dir); path_in_plan_commit = the plan commit adds or changes a file matching path.
-
-  api_call:
-    meaning: Requests the program made to a recorded service.
-    after: [bh, program_step]
-    needs_given: [recorded_api]
-    params:
-      service: {type: enum, ref: recorded_api.service}
-      operation: {type: string, doc: "e.g. createIssue, addSubIssue, updateIssue"}
-      count: {type: integer}
-      with: {type: string, required: false, doc: "substring of the request body"}
-    passes_when: The request log holds exactly count requests of operation, each containing with when given.
-
-  file_contains:
-    meaning: A file of the repo fixture, read after `when`, contains a text.
-    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
-    params:
-      path: {type: string}
-      text: {type: string, doc: "literal; or a regex when regex is true"}
-      regex: {type: boolean, required: false}
-      negate: {type: boolean, required: false, doc: "true: the file does not contain text"}
-    passes_when: The file at path exists after `when` and contains text (does not, with negate true).
-
-  questions_asked:
-    meaning: The number of questions or approval prompts the program put to the owner during `when`.
-    after: [bh, program_step]
-    params:
-      count: {type: integer, minimum: 0}
-    passes_when: The prompts answered from recorded_answer (plus any unanswered prompt) number exactly count.
 
   needs_keyword:
     meaning: "The part of the criterion that no catalog entry expresses. build.py reports every use as an error: add a key instead."

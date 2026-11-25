@@ -452,7 +452,7 @@ ROW = {
     "id": "a-AC1",
     "scenario": "s",
     "given": [{"repo": {"name": "toy", "state": "base"}}],
-    "when": {"entry_point": {"entry": "project_test"}},
+    "when": {"entry_point": {"entry": "plugin_pytest"}},
     "then": [{"exit_code": {"code": 0}}],
     "traces_to": ["R3"],
     "verification": "test",

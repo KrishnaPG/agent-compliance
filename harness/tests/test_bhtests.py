@@ -25,10 +25,10 @@ def test_a_keyword_the_library_has_but_cannot_read_the_when_is_not_implemented()
     row = packet("valid")["acceptance"][0]
     row = {
         **row,
-        "then": [{"questions_asked": {"count": 0}}],
-    }  # after: bh, program_step; the when is entry_point
+        "then": [{"scan_count": {"op": "eq", "value": 0}}],
+    }  # after: scan; the when is entry_point
     assert bhtests.unimplemented([row]) == {
-        "toy_item-AC1": [("then after entry_point", "questions_asked")]
+        "toy_item-AC1": [("then after entry_point", "scan_count")]
     }
     assert bhtests.unimplemented(packet("valid")["acceptance"]) == {}
 

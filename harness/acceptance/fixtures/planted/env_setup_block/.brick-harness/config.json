@@ -1,7 +1,0 @@
-{
-  "commands": {
-    "env_setup": {
-      "run": "exit 1"
-    }
-  }
-}

@@ -1,6 +1,0 @@
-{
-  "env": {"ATDD_PROBE_NEEDS": "allowAllUnixSockets"},
-  "stubs": {
-    "bwrap": {"exit": 0}
-  }
-}

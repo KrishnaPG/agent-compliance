@@ -35,7 +35,7 @@ acceptance:
     deterministic: true
 
   - id: d0-AC3
-    scenario: The tier of a mechanical item is derived by the program, and the goal states intent and why
+    scenario: The packet's tier is mechanical or design-affecting, and the goal states intent and why
     covers: [4, 5]
     spec_ref: [L2.goal-without-method]
     given:
@@ -290,41 +290,6 @@ acceptance:
     deterministic: true
 
   # ---------------------------------------------------------------- d2
-  - id: d2-AC1
-    scenario: With no agent job, the program fills acceptance, verifier and paved_road and the packet validates
-    covers: [0]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-    when:
-      program_step: {step: assemble_packet, item: toy_item}
-    then:
-      - jobs: {assert: absent, values: [planner, judge, test_author, builder, reviewer]}
-      - field: {source: packet, path: acceptance, op: present}
-      - field: {source: packet, path: verifier, op: present}
-      - field: {source: packet, path: paved_road, op: present}
-      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
-    traces_to: [G3, R5, QBC-24, QBC-38]
-    verification: test
-    deterministic: true
-
-  - id: d2-AC2
-    scenario: The rendered packet sits in the clone's packet directory, which the builder cannot write
-    covers: [0]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - host: {condition: builder_sandbox}
-    when:
-      builder_action: {tool: Write, action: write, target: clone_packet}
-    then:
-      - file_unchanged: {target: orchestrator_packet}
-      - refused: {by: sandbox, wrong: "write to the clone's packet directory", right: "the orchestrator writes the packet; ask to be relaunched with a changed one", prevent: "the packet directory is read-only in the clone"}
-    traces_to: [R5, QBC-24, QBC-49]
-    verification: test
-    deterministic: true
-    plan_gap: "the plan gives no refusal text for a write into the packet directory; substrings are best guesses from the packet's read-only role"
-
   - id: d2-AC3
     scenario: "The packet shows the acceptance test paths and the targets with numbers"
     covers: [1]
@@ -344,40 +309,6 @@ acceptance:
     traces_to: ["G3", "R5", "QBC-24", "QBC-38"]
     verification: test
     deterministic: true
-  - id: d2-AC4
-    scenario: "On the toy with presets applied the packet carries the enabled rules with their teaching messages and the ratchet baselines"
-    covers: [2]
-    given:
-      - repo: {name: "toy", state: "presets_applied"}
-      - packet: {fixture: "toy_item", variant: "valid"}
-    when:
-      program_step: {step: "render_packet", item: "toy_item"}
-    then:
-      - output_contains: {channel: "packet_markdown", text: "DTZ"}
-      - output_contains: {channel: "packet_markdown", text: "baseline"}
-      - lines: {channel: "stdout", pattern: "DTZ", op: "ge", count: 1}
-      - field: {source: "packet", path: "verifier.rules[*].message", op: "present"}
-      - field: {source: "packet", path: "verifier.baselines[*]", op: "present"}
-    traces_to: ["G3", "QBC-38", "QBC-54"]
-    verification: test
-    deterministic: true
-    plan_gap: "the plan gives no right-way text for the DTZ rule; the row asserts the rule code in the rendering and that each rule carries a message"
-  - id: d2-AC5
-    scenario: The packet holds the text of every cited rule and decision line
-    covers: [3]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-    when:
-      program_step: {step: assemble_packet, item: toy_item}
-    then:
-      - field: {source: packet, path: applies, op: present}
-      - field: {source: packet, path: "constraints.decisions[*].text", op: in_file, value: docs/adr/toy_item.md}
-    traces_to: [R5, QBC-24, QBC-38]
-    verification: test
-    plan_gap: "the toy fixture decision record path docs/adr/toy_item.md is assumed"
-    deterministic: true
-
   - id: d2-AC6
     scenario: "The paved road names bh check"
     covers: [4]
@@ -405,50 +336,6 @@ acceptance:
     traces_to: ["G3", "P7", "QBC-24", "QBC-38"]
     verification: test
     deterministic: true
-  - id: d2-AC8
-    scenario: The packet names the tier-trigger paths
-    covers: [6]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-    when:
-      program_step: {step: render_packet, item: toy_item}
-    then:
-      - output_contains: {channel: packet_markdown, text: tiers.triggers}
-    traces_to: [R5, QBC-24, QBC-38]
-    verification: test
-    deterministic: true
-    plan_gap: "the plan does not say how the trigger paths are shown; the limits key tiers.triggers from d9 is used as the marker"
-
-  - id: d2-AC9
-    scenario: The packet says that the program commits
-    covers: [7]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-    when:
-      program_step: {step: render_packet, item: toy_item}
-    then:
-      - output_contains: {channel: packet_markdown, text: program commits}
-    traces_to: [R5, QBC-24, QBC-57]
-    verification: test
-    deterministic: true
-    plan_gap: "wording of the statement is not given; the row uses the plan's own phrase"
-
-  - id: d2-AC10
-    scenario: The packet says how to ask for a config change
-    covers: [8]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: config_change}
-    when:
-      program_step: {step: render_packet, item: toy_item}
-    then:
-      - output_contains: {channel: packet_markdown, text: final report}
-    traces_to: [G3, R5, QBC-24, QBC-54]
-    verification: test
-    deterministic: true
-
   # ---------------------------------------------------------------- d3
   - id: d3-AC1
     scenario: bh check reports a planted violation in the clone working tree through the same checks as the measurer
@@ -647,140 +534,6 @@ acceptance:
       - field: {source: hooks_json, path: hooks.SessionStart, op: present}
     traces_to: [R5, QBC-49]
     verification: lint
-    deterministic: true
-
-  # ---------------------------------------------------------------- d5
-  - id: d5-AC1
-    scenario: "The trigger list is data, each trigger carries the fresh-stack flag"
-    covers: [1]
-    given:
-      - repo: {name: "plugin", state: "candidate"}
-      - config: {state: "absent"}
-    when:
-      bh: {sub: "owners", args: ["--config"]}
-    then:
-      - field: {source: "config_effective", path: "tiers.triggers", op: "present"}
-      - field: {source: "config_effective", path: "tiers.triggers[*].fresh_stack", op: "present"}
-      - field: {source: "config_effective", path: "tiers.triggers[*].paths", op: "present"}
-      - field: {source: "config_effective", path: "tiers.triggers[*].tier", op: "eq", value: "design-affecting"}
-    traces_to: ["R6", "P8", "QBC-25", "QBC-27"]
-    verification: test
-    deterministic: true
-  - id: d5-AC2
-    scenario: An override of the trigger list changes the tier
-    covers: [1]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - config: {state: override, key: tiers.triggers, value: []}
-      - planted: {plant: compose_file_change, class: diff, where: candidate_commit}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: config_effective, path: tiers.triggers, op: eq, value: []}
-      - no_fact: {kind: re_queue}
-    traces_to: [R6, P8, QBC-27]
-    verification: test
-    deterministic: true
-
-  - id: d5-AC3
-    scenario: A minor version bump in a lockfile and manifest diff stays mechanical
-    covers: [2, 5]
-    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: mechanical}
-      - planted: {plant: minor_bump, class: bump, where: candidate_commit}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: result_json, path: "items[*].tier", op: eq, value: mechanical}
-      - no_fact: {kind: re_queue}
-    traces_to: [R6, P6, QBC-30]
-    verification: test
-    deterministic: true
-
-  - id: d5-AC4
-    scenario: A patch version bump stays mechanical
-    covers: [2]
-    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: mechanical}
-      - planted: {plant: patch_bump, class: bump, where: candidate_commit}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: result_json, path: "items[*].tier", op: eq, value: mechanical}
-      - no_fact: {kind: re_queue}
-    traces_to: [R6, QBC-30]
-    verification: test
-    deterministic: true
-
-  - id: d5-AC5
-    scenario: A major version bump re-tiers the item as design-affecting
-    covers: [2, 4, 5]
-    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: mechanical}
-      - planted: {plant: major_bump, class: bump, where: candidate_commit}
-    when:
-      bh: {sub: run}
-    then:
-      - fact: {kind: re_queue, detail: "from paths"}
-      - fact: {kind: tier, detail: design-affecting}
-    traces_to: [R6, P6, QBC-25, QBC-30]
-    verification: test
-    deterministic: true
-    plan_gap: "the re-queue fact is \"tier X from paths Y\"; tier names are taken from the plan heading (design-affecting, mechanical)"
-
-  - id: d5-AC6
-    scenario: A major bump in an npm manifest is read by semver and re-tiers
-    covers: [2]
-    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
-    given:
-      - repo: {name: node_toy, state: base}
-      - packet: {fixture: node_item, variant: mechanical}
-      - planted: {plant: major_bump, class: bump, where: candidate_commit}
-    when:
-      bh: {sub: run}
-    then:
-      - fact: {kind: tier, detail: design-affecting}
-    traces_to: [R6, QBC-30]
-    verification: test
-    deterministic: true
-
-  - id: d5-AC7
-    scenario: The tier is set from declared paths at launch
-    covers: [3]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: config_change}
-    when:
-      program_step: {step: derive_tier, item: toy_item}
-    then:
-      - fact: {kind: tier, detail: "from paths"}
-      - field: {source: packet, path: tier, op: present}
-    traces_to: [R6, QBC-25]
-    verification: test
-    deterministic: true
-    plan_gap: "which declared path hits a trigger is a fixture choice; the plan gives no example"
-
-  - id: d5-AC8
-    scenario: A docs-only packet whose diff touches a compose file is re-queued with the fact
-    covers: [3, 4, 5]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: mechanical}
-      - planted: {plant: docs_only_touching_compose, class: diff, where: candidate_commit}
-    when:
-      bh: {sub: run}
-    then:
-      - fact: {kind: re_queue, detail: "from paths"}
-      - fact: {kind: tier}
-    traces_to: [R6, P6, QBC-25, QBC-27]
-    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d6
@@ -1037,92 +790,6 @@ acceptance:
     verification: test
     deterministic: true
     plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
-  # ---------------------------------------------------------------- d7
-  - id: d7-AC1
-    scenario: The planner's contract, schema or role delta is a declared file in the plan commit
-    covers: [1]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: design_item, variant: valid}
-      - recorded_model: {fixture: planner_judge_author_builder}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: packet, path: constraints, op: present}
-      - git: {assert: path_in_plan_commit, path: $packet.constraints.declared_paths}
-    traces_to: [P6, QBC-26]
-    verification: test
-    deterministic: true
-    plan_gap: "the delta file's name and the declared-paths field are not named"
-
-  - id: d7-AC2
-    scenario: A fresh judge job returns objections and falsifying calls
-    covers: [2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: design_item, variant: valid}
-      - recorded_model: {fixture: judge_two_objections}
-    when:
-      bh: {sub: run}
-    then:
-      - jobs: {assert: present, values: [judge]}
-      - field: {source: result_json, path: "jobs[*].objections", op: present}
-      - field: {source: result_json, path: "jobs[*].falsifying_calls", op: present}
-    traces_to: [P6, QBC-26, QBC-69]
-    verification: test
-    deterministic: true
-
-  - id: d7-AC3
-    scenario: Each falsifying call becomes a target and each objection a fact
-    covers: [3]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: design_item, variant: valid}
-      - recorded_model: {fixture: judge_two_objections}
-    when:
-      bh: {sub: run}
-    then:
-      - fact: {kind: judge_objection, count: 2}
-      - same_result: {a: judge_falsifying_calls, b: item_new_targets, compare: equal}
-    traces_to: [P4, QBC-26, QBC-41]
-    verification: test
-    deterministic: true
-    plan_gap: "item_new_targets is the targets added by the judge, not all targets; \"shown to the approver\" is read as listed in the run report"
-
-  - id: d7-AC4
-    scenario: Objections never stop the item
-    covers: [4]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: design_item, variant: valid}
-      - recorded_model: {fixture: judge_two_objections}
-    when:
-      bh: {sub: run}
-    then:
-      - no_fact: {kind: stuck}
-      - no_fact: {kind: launch_refused}
-      - jobs: {assert: present, values: [builder]}
-      - exit_code: {code: 0}
-    traces_to: [P4, G1, QBC-69]
-    verification: test
-    deterministic: true
-
-  - id: d7-AC5
-    scenario: Planner, judge, test author and builder are distinct jobs in order
-    covers: [5]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: design_item, variant: valid}
-      - recorded_model: {fixture: planner_judge_author_builder}
-    when:
-      bh: {sub: run}
-    then:
-      - jobs: {assert: order, values: [planner, judge, test_author, builder]}
-      - jobs: {assert: distinct, values: [planner, judge, test_author, builder]}
-    traces_to: [P6, QBC-26, QBC-41]
-    verification: test
-    deterministic: true
-
   # ---------------------------------------------------------------- d8
   - id: d8-AC1
     scenario: Every hook handler fails closed with onFailure block, so a guard that cannot run never lets the call through
@@ -1140,7 +807,7 @@ acceptance:
 
   - id: d8-AC2
     scenario: H0 refuses a builder's Edit when no packet is registered
-    covers: [2, 7]
+    covers: [2, 6]
     given:
       - repo: {name: toy, state: base}
       - hook_input: {event: PreToolUse, tool: Edit, agent_type: builder, packet: absent, target: inside_packet_paths, touch: first}
@@ -1154,7 +821,7 @@ acceptance:
 
   - id: d8-AC3
     scenario: H0 refuses a builder's Write when no packet is registered
-    covers: [2, 7]
+    covers: [2, 6]
     given:
       - repo: {name: toy, state: base}
       - hook_input: {event: PreToolUse, tool: Write, agent_type: builder, packet: absent, target: outside_packet_paths, touch: first}
@@ -1168,7 +835,7 @@ acceptance:
 
   - id: d8-AC4
     scenario: H0 lets a builder with a registered packet edit inside its paths
-    covers: [2, 7]
+    covers: [2, 6]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1183,7 +850,7 @@ acceptance:
 
   - id: d8-AC5
     scenario: A builder's Bash call with no packet gets the note and records the H0-bypass fact
-    covers: [3, 7]
+    covers: [3, 6]
     given:
       - repo: {name: toy, state: base}
       - hook_input: {event: PostToolUse, tool: Bash, agent_type: builder, packet: absent, target: none, touch: first}
@@ -1214,60 +881,9 @@ acceptance:
     verification: test
     deterministic: true
 
-  - id: d8-AC7
-    scenario: H2 shows one owner line at the first touch outside the packet's paths and never blocks
-    covers: [4, 7]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - hook_input: {event: PreToolUse, tool: Edit, agent_type: builder, packet: registered, target: outside_packet_paths, touch: first}
-    when:
-      hook: {hook: H2}
-    then:
-      - output_contains: {channel: additional_context, text: belongs to owner, max_chars: 200}
-      - fact: {kind: scope}
-      - exit_code: {code: 0}
-    traces_to: [R5, P5, P4, QBC-29, QBC-50]
-    verification: test
-    deterministic: true
-    plan_gap: "\"written through the scope-fact writer\" prescribes a mechanism; the observable consequence is the recorded scope fact"
-
-  - id: d8-AC8
-    scenario: H2 says nothing on a repeat touch of the same path
-    covers: [4, 7]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - hook_input: {event: PreToolUse, tool: Edit, agent_type: builder, packet: registered, target: outside_packet_paths, touch: repeat}
-    when:
-      hook: {hook: H2}
-    then:
-      - field: {source: hook_output, path: additionalContext, op: absent}
-      - exit_code: {code: 0}
-    traces_to: [P5, QBC-50]
-    verification: test
-    deterministic: true
-
-  - id: d8-AC9
-    scenario: H2 says nothing inside the packet's paths
-    covers: [4, 7]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - hook_input: {event: PreToolUse, tool: Edit, agent_type: builder, packet: registered, target: inside_packet_paths, touch: first}
-    when:
-      hook: {hook: H2}
-    then:
-      - field: {source: hook_output, path: additionalContext, op: absent}
-      - no_fact: {kind: scope}
-      - exit_code: {code: 0}
-    traces_to: [P5, QBC-29, QBC-50]
-    verification: test
-    deterministic: true
-
   - id: d8-AC10
     scenario: No hook reads file contents for patterns
-    covers: [5]
+    covers: [4]
     given:
       - repo: {name: plugin, state: candidate}
     when:
@@ -1282,7 +898,7 @@ acceptance:
 
   - id: d8-AC11
     scenario: The main session's Edit is never refused
-    covers: [6, 7]
+    covers: [5, 6]
     given:
       - repo: {name: toy, state: base}
       - hook_input: {event: PreToolUse, tool: Edit, agent_type: main, packet: absent, target: outside_packet_paths, touch: first}
@@ -1296,139 +912,18 @@ acceptance:
     deterministic: true
 
   - id: d8-AC12
-    scenario: A human session's Edit is never refused and H2 stays silent
-    covers: [6, 7]
+    scenario: A human session's Edit is never refused
+    covers: [5, 6]
     given:
       - repo: {name: toy, state: base}
       - hook_input: {event: PreToolUse, tool: Edit, agent_type: human, packet: absent, target: outside_packet_paths, touch: first}
     when:
-      hook: {hook: H2}
+      hook: {hook: H0}
     then:
       - exit_code: {code: 0}
       - field: {source: hook_output, path: additionalContext, op: absent}
     traces_to: [R5, QBC-46]
     verification: test
-    deterministic: true
-
-  # ---------------------------------------------------------------- d9
-  - id: d9-AC1
-    scenario: With no override file every limit is read from the one table and an override replaces it
-    covers: [0]
-    given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: override, key: limits.message_chars, value: 120}
-    when:
-      bh: {sub: owners, args: ["--config"]}
-    then:
-      - field: {source: config_effective, path: limits.message_chars, op: eq, value: 120}
-      - field: {source: config_effective, path: limits.findings_shown, op: eq, value: 10}
-    traces_to: [P8, QBC-13, QBC-27, QBC-32]
-    verification: test
-    deterministic: true
-    plan_gap: "\"one table\" prescribes design; the row asserts the effective value of an overridden key and an untouched key"
-
-  - id: d9-AC2
-    scenario: Default concurrency, packet size, message and display limits
-    covers: [1, 2, 3, 4, 5]
-    given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: absent}
-    when:
-      bh: {sub: owners, args: ["--config"]}
-    then:
-      - field: {source: config_effective, path: concurrency, op: eq, value: 5}
-      - field: {source: config_effective, path: sizing.packet_tokens, op: eq, value: 1600}
-      - field: {source: config_effective, path: limits.message_chars, op: eq, value: 300}
-      - field: {source: config_effective, path: limits.findings_shown, op: eq, value: 10}
-      - field: {source: config_effective, path: limits.h2_chars, op: eq, value: 200}
-    traces_to: [P8, QBC-13, QBC-33]
-    verification: test
-    deterministic: true
-
-  - id: d9-AC3
-    scenario: Default record, round, timeout, flaky, idle and known-issue limits
-    covers: [6, 7, 8, 9, 10, 11]
-    given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: absent}
-    when:
-      bh: {sub: owners, args: ["--config"]}
-    then:
-      - field: {source: config_effective, path: limits.record_chars, op: eq, value: 6000}
-      - field: {source: config_effective, path: max_rounds, op: eq, value: 3}
-      - field: {source: config_effective, path: commands.timeout_s, op: eq, value: 600}
-      - field: {source: config_effective, path: limits.flaky_reruns, op: eq, value: 0}
-      - field: {source: config_effective, path: limits.idle_days, op: eq, value: 14}
-      - field: {source: config_effective, path: limits.known_issues, op: eq, value: 100}
-    traces_to: [P8, QBC-27, QBC-32, QBC-90]
-    verification: test
-    deterministic: true
-
-  - id: d9-AC4
-    scenario: "Default overhead, socket, eval, model and tier-trigger settings"
-    covers: [12, 13, 14, 15, 16, 17]
-    given:
-      - repo: {name: "plugin", state: "candidate"}
-      - config: {state: "absent"}
-    when:
-      bh: {sub: "owners", args: ["--config"]}
-    then:
-      - field: {source: "config_effective", path: "limits.measure_overhead_s", op: "eq", value: 2}
-      - field: {source: "config_effective", path: "limits.socket_groups", op: "contains", value: "docker"}
-      - field: {source: "config_effective", path: "sandbox.network.allowAllUnixSockets", op: "eq", value: false}
-      - field: {source: "config_effective", path: "evals.runs", op: "eq", value: 3}
-      - field: {source: "config_effective", path: "tiers.triggers", op: "present"}
-      - field: {source: "config_effective", path: "models.planner", op: "present"}
-      - field: {source: "config_effective", path: "models.judge", op: "present"}
-      - field: {source: "config_effective", path: "models.test_author", op: "present"}
-      - field: {source: "config_effective", path: "models.builder", op: "present"}
-      - field: {source: "config_effective", path: "models.reviewer", op: "present"}
-    traces_to: ["P8", "QBC-27", "QBC-32", "QBC-55"]
-    verification: test
-    deterministic: true
-  - id: d9-AC5
-    scenario: "An override changes behaviour: a lower H2 limit shortens the hook line"
-    covers: [20]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - config: {state: override, key: limits.h2_chars, value: 60}
-      - hook_input: {event: PreToolUse, tool: Edit, agent_type: builder, packet: registered, target: outside_packet_paths, touch: first}
-    when:
-      hook: {hook: H2}
-    then:
-      - output_contains: {channel: additional_context, text: owner, max_chars: 60}
-    traces_to: [P8, QBC-13, QBC-27]
-    verification: test
-    deterministic: true
-
-  - id: d9-AC6
-    scenario: With six ready items at most five agents run at once
-    covers: [21]
-    given:
-      - repo: {name: project, state: six_ready_items}
-      - config: {state: absent}
-    when:
-      bh: {sub: run}
-    then:
-      - threshold: {metric: concurrent_agents, op: le, bound: concurrency, default: 5}
-      - fact: {kind: tier}
-    traces_to: [P8, QBC-27, QBC-33]
-    verification: measure
-    deterministic: true
-
-  - id: d9-AC7
-    scenario: ruff PLR2004 is clean over harness
-    covers: [22]
-    given:
-      - repo: {name: plugin, state: candidate}
-    when:
-      scan: {paths: [harness/], kind: lint_rule, pattern: PLR2004}
-    then:
-      - scan_count: {op: eq, value: 0}
-    traces_to: [P8, QBC-27, QBC-90]
-    verification: lint
-    red_on_main: "scan_count eq 0 fails on main: harness/ holds 79 PLR2004 findings"
     deterministic: true
 
   # ---------------------------------------------------------------- d10
@@ -1446,49 +941,6 @@ acceptance:
       - field: {source: skill_md, path: body, op: contains, value: bh check}
     traces_to: [G3, QBC-82]
     verification: lint
-    deterministic: true
-
-  - id: d9-AC8
-    scenario: With no override file the job budget is 20 and the run budget is the job budget times the concurrency
-    covers: [18, 19]
-    given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: absent}
-    when:
-      bh: {sub: owners, args: ["--config"]}
-    then:
-      - field: {source: config_effective, path: budgets.job_usd, op: eq, value: 20}
-      - field: {source: config_effective, path: budgets.run_usd, op: eq, value: 100}
-    traces_to: [P8, QBC-13, QBC-33]
-    verification: test
-    deterministic: true
-
-  - id: d9-AC9
-    scenario: An overridden job budget scales the computed run budget
-    covers: [19]
-    given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: override, key: budgets.job_usd, value: 10}
-    when:
-      bh: {sub: owners, args: ["--config"]}
-    then:
-      - field: {source: config_effective, path: budgets.run_usd, op: eq, value: 50}
-    traces_to: [P8, QBC-13]
-    verification: test
-    deterministic: true
-
-  - id: d9-AC10
-    scenario: An overridden concurrency scales the computed run budget
-    covers: [19]
-    given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: override, key: concurrency, value: 2}
-    when:
-      bh: {sub: owners, args: ["--config"]}
-    then:
-      - field: {source: config_effective, path: budgets.run_usd, op: eq, value: 40}
-    traces_to: [P8, QBC-13]
-    verification: test
     deterministic: true
 
   - id: d10-AC2
@@ -1519,128 +971,6 @@ acceptance:
     verification: measure
     deterministic: true
 
-  # ---------------------------------------------------------------- d11
-  - id: d11-AC1
-    scenario: A diff touching a security-sensitive path launches a fresh reviewer job
-    covers: [1]
-    spec_ref: [review.trigger, L2.security-review-trigger]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: auth_path_change, class: diff, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_one_finding}
-    when:
-      bh: {sub: run}
-    then:
-      - jobs: {assert: present, values: [reviewer]}
-      - jobs: {assert: distinct, values: [planner, test_author, builder, reviewer]}
-    traces_to: [P6, G1, QBC-31, QBC-36]
-    verification: test
-    deterministic: true
-
-  - id: d11-AC2
-    scenario: A diff outside the security-sensitive paths launches no reviewer
-    covers: [3]
-    spec_ref: [review.trigger]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: docs_change, class: honest, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_one_finding}
-    when:
-      bh: {sub: run}
-    then:
-      - jobs: {assert: absent, values: [reviewer]}
-      - jobs: {assert: order, values: [test_author, generator, builder, measurer]}
-    traces_to: [P8, QBC-36]
-    verification: test
-    deterministic: true
-
-  - id: d11-AC3
-    scenario: A diff split across rounds still triggers the review
-    covers: [3, 1]
-    spec_ref: [review.trigger]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: split_auth_diff, class: diff, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_one_finding}
-    when:
-      bh: {sub: run}
-    then:
-      - jobs: {assert: present, values: [reviewer]}
-    traces_to: [P6, G1, QBC-36]
-    verification: test
-    deterministic: true
-
-  - id: d11-AC4
-    scenario: Sensitive paths are inferred from standard files
-    covers: [2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - config: {state: absent}
-    when:
-      bh: {sub: owners, args: ["--review-paths"]}
-    then:
-      - fact: {kind: inferred, detail: securitySchemes}
-      - field: {source: config_effective, path: review.triggers, op: present}
-    traces_to: [P4, QBC-36]
-    verification: test
-    deterministic: true
-    plan_gap: "how inferred paths are listed is not stated; the row reads the inferred fact and an effective review.triggers"
-
-  - id: d11-AC5
-    scenario: review.triggers can be overridden
-    covers: [2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - config: {state: override, key: review.triggers, value: ["docs/**"]}
-    when:
-      bh: {sub: owners, args: ["--review-paths"]}
-    then:
-      - field: {source: config_effective, path: review.triggers, op: eq, value: ["docs/**"]}
-    traces_to: [P8, QBC-36]
-    verification: test
-    deterministic: true
-
-  - id: d11-AC6
-    scenario: AUTH_RE is gone
-    covers: [2]
-    given:
-      - repo: {name: plugin, state: candidate}
-    when:
-      scan: {paths: [harness/, bin/], kind: symbol, pattern: AUTH_RE}
-    then:
-      - scan_count: {op: eq, value: 0}
-    traces_to: [P4, QBC-36]
-    verification: lint
-    red_on_main: "scan_count eq 0 fails on main: harness/lib/bhorch.py holds AUTH_RE"
-    deterministic: true
-
-  - id: d11-AC7
-    scenario: Review findings are facts and never change the verdict or block the merge
-    covers: [4]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: auth_path_change, class: diff, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_critical_finding}
-    when:
-      bh: {sub: run}
-    then:
-      - fact: {kind: review_finding}
-      - met: {status: met}
-      - no_fact: {kind: launch_refused}
-      - git: {assert: merge_is_one_commit}
-    traces_to: [P6, P8, QBC-31, QBC-36]
-    verification: test
-    deterministic: true
-    plan_gap: "\"handed to e5\" is checked only by e5's own rows; here the finding fact is recorded"
-
-
-  # ---------------------------------------------------------------- stage outputs and enforcement (packet-standards.md)
   - id: d0-AC13
     scenario: The L2 packet is schema-valid and its acceptance rows use only closed catalog values
     spec_ref: [L2.schema-and-validation, L2.acceptance-criteria]
@@ -1753,45 +1083,6 @@ acceptance:
     deterministic: true
     plan_gap: "assumes the delivered context is exactly the rendering, with nothing added by the hook"
 
-  - id: d11-AC8
-    scenario: Review findings are a valid SARIF 2.1.0 log with severity mapped to level
-    spec_ref: [review.findings]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: auth_path_change, class: diff, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_mixed_findings}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: sarif, path: version, op: eq, value: "2.1.0"}
-      - field: {source: sarif, path: "runs[*].results[*].level", op: contains, value: error}
-      - field: {source: sarif, path: "runs[*].results[*].level", op: contains, value: warning}
-      - schema_valid: {valid: true, instance: sarif, schema: sarif-2.1.0}
-    traces_to: [P6, QBC-36]
-    verification: test
-    deterministic: true
-    plan_gap: "the mapping Critical or Major to error and Minor to warning needs a fixture whose findings have known severities; assumed in reviewer_mixed_findings"
-
-  - id: d11-AC9
-    scenario: Each review finding cites the packet sha256 and never changes met
-    spec_ref: [review.findings, common.reference-to-the-contract]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: auth_path_change, class: diff, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_critical_finding}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: sarif, path: "runs[*].results[*].properties.packet_sha256", op: present}
-      - fact: {kind: review_finding}
-      - met: {status: met}
-    traces_to: [P6, G1, QBC-36]
-    verification: test
-    deterministic: true
-    plan_gap: "the property name for the sha256 is not given; packet_sha256 is assumed"
-
   - id: d2-AC11
     scenario: A schema check confirms the parts the program filled for a toy item
     covers: [0]
@@ -1808,20 +1099,3 @@ acceptance:
     traces_to: [G3, R5, QBC-24]
     verification: test
     deterministic: true
-
-  - id: d11-AC10
-    scenario: A vulnerability finding carries a CVSS 4.0 vector
-    spec_ref: [review.severity]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: auth_path_change, class: diff, where: candidate_commit}
-      - recorded_model: {fixture: reviewer_vulnerability_finding}
-    when:
-      bh: {sub: run}
-    then:
-      - field: {source: sarif, path: "runs[*].results[*].properties.cvss_vector", op: matches, value: "^CVSS:4\\.0/"}
-    traces_to: [P6, QBC-36]
-    verification: test
-    deterministic: true
-    plan_gap: "the property name for the vector is not given; cvss_vector is assumed"

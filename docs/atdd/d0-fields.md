@@ -14,17 +14,17 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `kind` | enum: slice, defect | slice, or defect for a fix of a recorded defect (a sub-issue under parent) | - |
 | `parent` | integer | defect packets only: the GitHub issue number of the slice or decision the defect sits under (intake I2) | - |
 | `found_by` | enum: planner, judge, proposer, test_author, builder, reviewer, person | defect packets only: who found the defect, a jobs[*].role or person; the regression row is written by that agent when it is not the builder, otherwise by the test_author job | - |
-| `tier` | enum: mechanical, design-affecting | the tier derived from declared paths and the diff (d5) | d0-AC3, d5-AC7 |
-| `goal` | string | the intent and why, with no design | d0-AC3, d1-AC2, d4-AC2, e4-AC1 |
+| `tier` | enum: mechanical, design-affecting | the tier derived from declared paths and the diff (d5) | d0-AC3 |
+| `goal` | string | the intent and why, with no design | d0-AC3, d1-AC2, d4-AC2 |
 | `applies[*].id` | string | a G, P, R or QBC id from spec section 0; every principle is always included | d0-AC4, d0-AC15 |
 | `applies[*].text` | string | that item's text, copied verbatim from spec section 0 | d0-AC4 |
 | `constraints.decisions[*].id` | string | id of a cited decision line | d0-AC5 |
-| `constraints.decisions[*].text` | string | the cited decision line's text, verbatim | d0-AC5, d2-AC5 |
+| `constraints.decisions[*].text` | string | the cited decision line's text, verbatim | d0-AC5 |
 | `constraints.owners[*]` | string | an owner whose paths the item touches | d0-AC5 |
 | `constraints.interfaces[*]` | string | a published interface of a touched owner | d0-AC5 |
-| `constraints.declared_paths[*]` | string | a path the builder may change | d0-AC5, d7-AC1 |
+| `constraints.declared_paths[*]` | string | a path the builder may change | d0-AC5 |
 | `constraints.limits` | object | the limits that bind the item, key to effective value | d0-AC5 |
-| `acceptance[*].id` | string | the acceptance criterion id, e.g. d0-AC1 | b9-AC13, d0-AC6, d2-AC3, f1-AC13 |
+| `acceptance[*].id` | string | the acceptance criterion id, e.g. d0-AC1 | b9-AC13, d0-AC6, d2-AC3 |
 | `acceptance[*].scenario` | string | the criterion's one-line scenario title | d0-AC17 |
 | `acceptance[*].given` | array | the criterion's given steps, keys of docs/atdd/catalog.yaml | d0-AC17 |
 | `acceptance[*].when` | object | the criterion's when step, a key of docs/atdd/catalog.yaml | d0-AC17 |
@@ -32,10 +32,10 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `acceptance[*].traces_to` | array of string | the G, P, R or QBC ids the criterion proves | d0-AC6 |
 | `acceptance[*].verification` | enum: test, lint, fitness, measure | how the criterion is verified (ISO/IEC/IEEE 29148) | d0-AC6, d0-AC13, d6-AC1 |
 | `verifier.checks[*]` | string | an exact check the measurer and bh check run | d0-AC5 |
-| `verifier.rules[*].id` | string | a rule id from the standards data (g1) that binds the touched files | g2-AC3 |
-| `verifier.rules[*].message` | string | that rule's teaching message | d2-AC4 |
-| `verifier.baselines[*]` | string | a ratchet baseline file present at the plan commit | d2-AC4 |
-| `verifier.targets[*].id` | string | a measurer target's id | f1-AC4 |
+| `verifier.rules[*].id` | string | a rule id from the standards data (g1) that binds the touched files | - |
+| `verifier.rules[*].message` | string | that rule's teaching message | - |
+| `verifier.baselines[*]` | string | a ratchet baseline file present at the plan commit | - |
+| `verifier.targets[*].id` | string | a measurer target's id | - |
 | `verifier.targets[*].item` | string | the item the target measures | d2-AC3 |
 | `verifier.targets[*].metric` | string | the measured metric | d2-AC3 |
 | `verifier.targets[*].op` | string | the comparison, as in harness/schema/targets.schema.json | d2-AC3 |
@@ -58,39 +58,39 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `command` | enum: run, measure, check, step, intake, merge, decide, gaps, owners, metrics, vet, map | the bh command or program step that printed the result | b1-AC20, b2-AC18 |
 | `step` | string | the program step that printed the result, when command is step (assemble_packet, validate_packet, render_packet, ...) | - |
 | `packet_sha256` | string | sha256 of the packet a run, measure or check read | b1-AC22, b2-AC12, b2-AC15, b2-AC16 |
-| `items[*].id` | string | the item id | b13-AC1, e4-AC6 |
-| `items[*].status` | enum: met, unmet, stuck, not_checked | the measurer's verdict for the item | b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC18, b2-AC19, b7-AC4, b8-AC2, b8-AC3, b13-AC1, b14-AC1, c8-AC8, c8-AC9, d11-AC7, d11-AC9, e4-AC6 |
-| `items[*].tier` | enum: mechanical, design-affecting | the tier the item ran at | d5-AC3, d5-AC4 |
+| `items[*].id` | string | the item id | - |
+| `items[*].status` | enum: met, unmet, stuck, not_checked | the measurer's verdict for the item | b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC18, b2-AC19 |
+| `items[*].tier` | enum: mechanical, design-affecting | the tier the item ran at | - |
 | `items[*].out` | string | the item's output dir <measure_out>/<item>/<sha12>-<slot> | b2-AC1 |
 | `items[*].acceptance[*].id` | string | an acceptance criterion id of the item | b2-AC18 |
 | `items[*].acceptance[*].status` | enum: met, unmet | the measurer's verdict for that criterion | b2-AC18, b2-AC19 |
 | `checks_run[*]` | string | an exact check a measure or check command ran (command measure, check) | - |
 | `checks_missed[*]` | string | a planted defect the checks ran and did not report (command measure, check) | - |
-| `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b4-AC10, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b7-AC3, b7-AC4, b7-AC5, b7-AC6, b7-AC7, b7-AC8, b7-AC9, b7-AC10, b7-AC11, b7-AC12, b8-AC6, b8-AC7, b9-AC14, b10-AC1, b10-AC2, b10-AC3, b10-AC4, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC6, b13-AC1, b14-AC1, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c3-AC12, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c5-AC1, c5-AC2, c5-AC3, c6-AC3, c7-AC9, c7-AC10, c8-AC7, c8-AC8, c8-AC9, c9-AC1, c9-AC2, c9-AC3, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d5-AC2, d5-AC3, d5-AC4, d5-AC5, d5-AC6, d5-AC7, d5-AC8, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC14, d6-AC15, d7-AC3, d7-AC4, d8-AC5, d8-AC6, d8-AC7, d8-AC9, d9-AC6, d11-AC4, d11-AC7, d11-AC9, e2-AC2, e2-AC4, e3-AC6, e5-AC1, e5-AC4, e5-AC8, e5-AC9, e5-AC10, f1-AC2, f1-AC10, f1-AC11, f1-AC12, f2-AC1, f3-AC5, f3-AC6, f3-AC7, f3-AC8, g1-AC2, g1-AC5, g1-AC6, g2-AC1, g2-AC3, g2-AC6 |
-| `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, b10-AC4, b12-AC1, b12-AC2, b12-AC4, b12-AC6, b13-AC1, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c3-AC12, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c5-AC1, c5-AC2, c5-AC3, c6-AC3, c7-AC9, c7-AC10, c8-AC7, c8-AC8, c8-AC9, c9-AC1, c9-AC2, d5-AC5, d5-AC6, d5-AC7, d5-AC8, d6-AC7, d6-AC10, d6-AC11, d11-AC4, e2-AC4, e5-AC4, f1-AC11, f1-AC12, f3-AC6, g1-AC2, g1-AC5, g1-AC6 |
+| `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC14, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC14, d6-AC15, d8-AC5, d8-AC6 |
+| `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, d6-AC7, d6-AC10, d6-AC11 |
 | `facts[*].item` | string | the item the fact belongs to | b2-AC19 |
-| `gaps[*].id` | string | a gap id, unique in the run (command gaps) | b12-AC3 |
+| `gaps[*].id` | string | a gap id, unique in the run (command gaps) | - |
 | `unmerged[*]` | string | an item left unmerged (command merge) | b3-AC1 |
-| `admitted_total` | integer | items admitted (command intake) | e4-AC7 |
-| `options[*].id` | string | an option id (command decide) | f1-AC3 |
-| `options[*].targets` | array | the targets scored for the option (command decide) | f1-AC2 |
-| `options[*].rules[*].id` | string | a rule id scored for the option (command decide) | f1-AC3 |
-| `options[*].rules[*].verdict` | enum: pass, fail, unknown | the option's verdict on that rule (command decide) | f1-AC3 |
-| `recommended` | string | the option id the judge recommends (command decide) | f1-AC3 |
-| `skipped[*].number` | integer | an issue number intake skipped (command intake) | e4-AC4 |
-| `map[*].old_id` | string | an old catalog rule id that is mapped (command map) | g2-AC1 |
-| `map[*].new_id` | string | the standard or house-rule id that old_id maps to (command map) | g2-AC1 |
-| `owner` | string | the owner of the asked path or topic (command owners) | c7-AC1, c7-AC2 |
-| `package` | string | the owner's package (command owners) | c7-AC1, c7-AC2, c7-AC6, c7-AC8 |
-| `database_roles[*]` | string | the owner's database roles (command owners) | c7-AC1, c7-AC2, c7-AC5, c7-AC11 |
-| `operations[*]` | string | the owner's published operations (command owners) | c7-AC1, c7-AC2, c7-AC7 |
-| `sources[*]` | string | the standard files the answer was read from (command owners) | c7-AC3, c7-AC4, c7-AC6, c7-AC7, c7-AC8 |
-| `metrics[*].id` | enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds | the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (summed from jobs[*].rounds) (command metrics) | h1-AC3, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC8 |
-| `metrics[*].window` | enum: current, baseline | the history the metric is computed over: the current history, or the baseline written before the change (command metrics) | h1-AC3, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC8 |
-| `metrics[*].value` | number | the metric value; change_failure_rate is merged slices that later get a defect sub-issue as a share, lead_time_for_changes is slice sub-issue opening to merge (command metrics) | h1-AC3, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC8 |
-| `metrics[*].unit` | enum: ratio, hours, tokens, count | the value's unit: ratio for change_failure_rate, hours for lead_time_for_changes, tokens for tokens_per_met_slice, count for measurer_rounds (command metrics) | h1-AC3, h3-AC2, h3-AC4, h3-AC5 |
-| `api_results[*].id` | enum: scorecard, deps.dev, osv | the service whose response is recorded (command vet) | f2-AC2 |
-| `api_results[*].body` | object | that service's recorded response object, with no verdict added (command vet) | f2-AC2 |
+| `admitted_total` | integer | items admitted (command intake) | - |
+| `options[*].id` | string | an option id (command decide) | - |
+| `options[*].targets` | array | the targets scored for the option (command decide) | - |
+| `options[*].rules[*].id` | string | a rule id scored for the option (command decide) | - |
+| `options[*].rules[*].verdict` | enum: pass, fail, unknown | the option's verdict on that rule (command decide) | - |
+| `recommended` | string | the option id the judge recommends (command decide) | - |
+| `skipped[*].number` | integer | an issue number intake skipped (command intake) | - |
+| `map[*].old_id` | string | an old catalog rule id that is mapped (command map) | - |
+| `map[*].new_id` | string | the standard or house-rule id that old_id maps to (command map) | - |
+| `owner` | string | the owner of the asked path or topic (command owners) | - |
+| `package` | string | the owner's package (command owners) | - |
+| `database_roles[*]` | string | the owner's database roles (command owners) | - |
+| `operations[*]` | string | the owner's published operations (command owners) | - |
+| `sources[*]` | string | the standard files the answer was read from (command owners) | - |
+| `metrics[*].id` | enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds | the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (summed from jobs[*].rounds) (command metrics) | - |
+| `metrics[*].window` | enum: current, baseline | the history the metric is computed over: the current history, or the baseline written before the change (command metrics) | - |
+| `metrics[*].value` | number | the metric value; change_failure_rate is merged slices that later get a defect sub-issue as a share, lead_time_for_changes is slice sub-issue opening to merge (command metrics) | - |
+| `metrics[*].unit` | enum: ratio, hours, tokens, count | the value's unit: ratio for change_failure_rate, hours for lead_time_for_changes, tokens for tokens_per_met_slice, count for measurer_rounds (command metrics) | - |
+| `api_results[*].id` | enum: scorecard, deps.dev, osv | the service whose response is recorded (command vet) | - |
+| `api_results[*].body` | object | that service's recorded response object, with no verdict added (command vet) | - |
 
 ## jobs
 
@@ -98,21 +98,21 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 
 | path | type | meaning | rows |
 |---|---|---|---|
-| `jobs[*].id` | string | the job id, unique in the run | b14-AC5 |
-| `jobs[*].kind` | enum: agent, program_step | whether an agent or a program step ran the job | b14-AC2, b14-AC5, d6-AC3, d6-AC12, f2-AC1 |
-| `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | b14-AC2, d2-AC1, d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d7-AC2, d7-AC4, d7-AC5, d11-AC1, d11-AC2, d11-AC3, e5-AC2, e5-AC10, f1-AC1, f1-AC5, f2-AC1 |
-| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | b14-AC2, d2-AC1, d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d7-AC2, d7-AC4, d7-AC5, d11-AC1, d11-AC2, d11-AC3, e5-AC2, e5-AC10, f1-AC1, f1-AC5, f2-AC1 |
-| `jobs[*].item` | string | the item the job worked on | b14-AC3, b14-AC5 |
-| `jobs[*].started_at` | string | start time, RFC 3339 | b14-AC5 |
-| `jobs[*].exit_code` | integer | the job's exit code | b14-AC5 |
+| `jobs[*].id` | string | the job id, unique in the run | - |
+| `jobs[*].kind` | enum: agent, program_step | whether an agent or a program step ran the job | d6-AC3, d6-AC12 |
+| `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
+| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
+| `jobs[*].item` | string | the item the job worked on | - |
+| `jobs[*].started_at` | string | start time, RFC 3339 | - |
+| `jobs[*].exit_code` | integer | the job's exit code | - |
 | `jobs[*].ended_at` | string | end time, RFC 3339 | - |
 | `jobs[*].cost_usd` | number | Claude CLI total_cost_usd of the job; 0 for a program step | - |
-| `jobs[*].tokens` | integer | Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums | b14-AC3 |
-| `jobs[*].cached` | boolean | true when a cached job result was reused | b13-AC4, b13-AC5 |
+| `jobs[*].tokens` | integer | Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums | - |
+| `jobs[*].cached` | boolean | true when a cached job result was reused | - |
 | `jobs[*].packet_sha256` | string | sha256 of the packet the job read | d0-AC16, d4-AC1, d4-AC5 |
-| `jobs[*].objections[*]` | string | a judge objection, shown to the approver | d7-AC2 |
-| `jobs[*].falsifying_calls[*]` | string | a judge call that would falsify the design; becomes a target | d7-AC2 |
-| `jobs[*].rounds` | integer | measurer rounds the job's item took | h1-AC3 |
+| `jobs[*].objections[*]` | string | a judge objection, shown to the approver | - |
+| `jobs[*].falsifying_calls[*]` | string | a judge call that would falsify the design; becomes a target | - |
+| `jobs[*].rounds` | integer | measurer rounds the job's item took | - |
 
 ## config
 
@@ -120,33 +120,33 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 
 | path | type | default | meaning | rows |
 |---|---|---|---|---|
-| `concurrency` | integer | 5 | agents running at once | d9-AC2, d9-AC10 |
-| `sizing.packet_tokens` | integer | 1600 | cap on planner-written packet tokens, as bytes/4 | d1-AC4, d9-AC2 |
-| `limits.message_chars` | integer | 300 | longest teaching message per finding | b6-AC3, d9-AC1, d9-AC2 |
-| `limits.findings_shown` | integer | 10 | findings printed before the count of the rest | b6-AC2, d9-AC1, d9-AC2 |
-| `limits.h2_chars` | integer | 200 | longest H2 hook line | d9-AC2, d9-AC5 |
-| `limits.record_chars` | integer | 6000 | longest decision record (two pages) | d9-AC3, f1-AC5 |
-| `max_rounds` | integer | 3 | builder rounds before the item is stuck | b7-AC4, d9-AC3 |
-| `commands.timeout_s` | number | 600 | seconds before a command is killed | d9-AC3 |
-| `limits.flaky_reruns` | integer | 0 | reruns of a failing test | d9-AC3 |
-| `limits.idle_days` | integer | 14 | days without a sub-issue event before the idle_tracking fact | d9-AC3, e5-AC8, e5-AC9, e5-AC10 |
-| `limits.known_issues` | integer | 100 | lines the Known issues list may hold | d9-AC3, e3-AC5 |
-| `limits.measure_overhead_s` | number | 2 | measurer overhead on the toy, without the test command | d9-AC4 |
-| `limits.socket_groups[*]` | string | ["docker"] | groups whose members refuse a builder launch | b10-AC3, d9-AC4 |
+| `concurrency` | integer | 5 | agents running at once | - |
+| `sizing.packet_tokens` | integer | 1600 | cap on planner-written packet tokens, as bytes/4 | d1-AC4 |
+| `limits.message_chars` | integer | 300 | longest teaching message per finding | - |
+| `limits.findings_shown` | integer | 10 | findings printed before the count of the rest | - |
+| `limits.h2_chars` | integer | 200 | longest H2 hook line | - |
+| `limits.record_chars` | integer | 6000 | longest decision record (two pages) | - |
+| `max_rounds` | integer | 3 | builder rounds before the item is stuck | - |
+| `commands.timeout_s` | number | 600 | seconds before a command is killed | - |
+| `limits.flaky_reruns` | integer | 0 | reruns of a failing test | - |
+| `limits.idle_days` | integer | 14 | days without a sub-issue event before the idle_tracking fact | - |
+| `limits.known_issues` | integer | 100 | lines the Known issues list may hold | - |
+| `limits.measure_overhead_s` | number | 2 | measurer overhead on the toy, without the test command | - |
+| `limits.socket_groups[*]` | string | ["docker"] | groups whose members refuse a builder launch | - |
 | `sandbox` | object | the plan states none | the Claude Code sandbox settings object, passed verbatim into the builder's settings | b9-AC15 |
-| `sandbox.network.allowAllUnixSockets` | boolean | false | the host's key; set only when the sandbox probe passes with it and fails without it | d9-AC4 |
-| `evals.runs` | integer | 3 | runs per eval arm | d9-AC4, h1-AC1 |
-| `models.*` | string | the plugin's preset per role | the model per job role (planner, judge, test_author, builder, reviewer...) | d9-AC4 |
-| `tiers.triggers[*].paths` | array of string | the plugin's trigger list | path patterns that make an item design-affecting | d5-AC1 |
-| `tiers.triggers[*].tier` | string | the plugin's trigger list | the tier a trigger sets | d5-AC1 |
-| `tiers.triggers[*].fresh_stack` | boolean | the plugin's trigger list | the trigger needs a fresh-stack run | d5-AC1 |
-| `review.triggers[*]` | string | inferred from standard files | path patterns whose change launches a reviewer job | d11-AC4, d11-AC5 |
+| `sandbox.network.allowAllUnixSockets` | boolean | false | the host's key; set only when the sandbox probe passes with it and fails without it | - |
+| `evals.runs` | integer | 3 | runs per eval arm | - |
+| `models.*` | string | the plugin's preset per role | the model per job role (planner, judge, test_author, builder, reviewer...) | - |
+| `tiers.triggers[*].paths` | array of string | the plugin's trigger list | path patterns that make an item design-affecting | - |
+| `tiers.triggers[*].tier` | string | the plugin's trigger list | the tier a trigger sets | - |
+| `tiers.triggers[*].fresh_stack` | boolean | the plugin's trigger list | the trigger needs a fresh-stack run | - |
+| `review.triggers[*]` | string | inferred from standard files | path patterns whose change launches a reviewer job | - |
 | `protected[*]` | string | the tests, test and lint config sections, recipe and ratchet files | paths the measurer lays over the build from the plan commit | b1-AC12, b1-AC13 |
-| `budgets.job_usd` | number | 20 | spend cap per job launch (--max-budget-usd) | b13-AC2, b13-AC11, d9-AC8, d9-AC9 |
-| `budgets.run_usd` | number | budgets.job_usd x concurrency, computed when absent (100 by default) | spend cap per run | b13-AC3, b13-AC11, d9-AC8, d9-AC9, d9-AC10 |
-| `paved_road.test_paths[*]` | string | inferred from pytest testpaths or the JS test runner config | where the builder puts its own tests; copied to the packet | c1-AC8, c1-AC9 |
-| `paved_road.dependency_command` | string | inferred from the lockfile | how a builder adds a dependency; copied to the packet | c1-AC6, c1-AC7 |
-| `right_way.*` | string | the plugin's preset text per enabled rule code | the right-way line for a fixed-message linter rule, keyed by rule code | c6-AC2 |
+| `budgets.job_usd` | number | 20 | spend cap per job launch (--max-budget-usd) | - |
+| `budgets.run_usd` | number | budgets.job_usd x concurrency, computed when absent (100 by default) | spend cap per run | - |
+| `paved_road.test_paths[*]` | string | inferred from pytest testpaths or the JS test runner config | where the builder puts its own tests; copied to the packet | - |
+| `paved_road.dependency_command` | string | inferred from the lockfile | how a builder adds a dependency; copied to the packet | - |
+| `right_way.*` | string | the plugin's preset text per enabled rule code | the right-way line for a fixed-message linter rule, keyed by rule code | - |
 
 
 ## Gaps
@@ -156,8 +156,68 @@ Each line is a d0 field that no acceptance criterion tests, or a config key with
 - packet `kind` (enum: slice, defect) is a d0 field that no acceptance criterion reads yet.
 - packet `parent` (integer) is a d0 field that no acceptance criterion reads yet.
 - packet `found_by` (enum: planner, judge, proposer, test_author, builder, reviewer, person) is a d0 field that no acceptance criterion reads yet.
+- packet `verifier.rules[*].id` (string) is a d0 field that no acceptance criterion reads yet.
+- packet `verifier.rules[*].message` (string) is a d0 field that no acceptance criterion reads yet.
+- packet `verifier.baselines[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- packet `verifier.targets[*].id` (string) is a d0 field that no acceptance criterion reads yet.
 - result `step` (string) is a d0 field that no acceptance criterion reads yet.
+- result `items[*].id` (string) is a d0 field that no acceptance criterion reads yet.
+- result `items[*].tier` (enum: mechanical, design-affecting) is a d0 field that no acceptance criterion reads yet.
 - result `checks_run[*]` (string) is a d0 field that no acceptance criterion reads yet.
 - result `checks_missed[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- result `gaps[*].id` (string) is a d0 field that no acceptance criterion reads yet.
+- result `admitted_total` (integer) is a d0 field that no acceptance criterion reads yet.
+- result `options[*].id` (string) is a d0 field that no acceptance criterion reads yet.
+- result `options[*].targets` (array) is a d0 field that no acceptance criterion reads yet.
+- result `options[*].rules[*].id` (string) is a d0 field that no acceptance criterion reads yet.
+- result `options[*].rules[*].verdict` (enum: pass, fail, unknown) is a d0 field that no acceptance criterion reads yet.
+- result `recommended` (string) is a d0 field that no acceptance criterion reads yet.
+- result `skipped[*].number` (integer) is a d0 field that no acceptance criterion reads yet.
+- result `map[*].old_id` (string) is a d0 field that no acceptance criterion reads yet.
+- result `map[*].new_id` (string) is a d0 field that no acceptance criterion reads yet.
+- result `owner` (string) is a d0 field that no acceptance criterion reads yet.
+- result `package` (string) is a d0 field that no acceptance criterion reads yet.
+- result `database_roles[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- result `operations[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- result `sources[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- result `metrics[*].id` (enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds) is a d0 field that no acceptance criterion reads yet.
+- result `metrics[*].window` (enum: current, baseline) is a d0 field that no acceptance criterion reads yet.
+- result `metrics[*].value` (number) is a d0 field that no acceptance criterion reads yet.
+- result `metrics[*].unit` (enum: ratio, hours, tokens, count) is a d0 field that no acceptance criterion reads yet.
+- result `api_results[*].id` (enum: scorecard, deps.dev, osv) is a d0 field that no acceptance criterion reads yet.
+- result `api_results[*].body` (object) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].id` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].item` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].started_at` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].exit_code` (integer) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].ended_at` (string) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].cost_usd` (number) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].tokens` (integer) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].cached` (boolean) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].objections[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].falsifying_calls[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].rounds` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `concurrency` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.message_chars` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.findings_shown` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.h2_chars` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.record_chars` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `max_rounds` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `commands.timeout_s` (number) is a d0 field that no acceptance criterion reads yet.
+- config `limits.flaky_reruns` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.idle_days` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.known_issues` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `limits.measure_overhead_s` (number) is a d0 field that no acceptance criterion reads yet.
+- config `limits.socket_groups[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- config `sandbox.network.allowAllUnixSockets` (boolean) is a d0 field that no acceptance criterion reads yet.
+- config `evals.runs` (integer) is a d0 field that no acceptance criterion reads yet.
+- config `models.*` (string) is a d0 field that no acceptance criterion reads yet.
+- config `tiers.triggers[*].paths` (array of string) is a d0 field that no acceptance criterion reads yet.
+- config `tiers.triggers[*].tier` (string) is a d0 field that no acceptance criterion reads yet.
+- config `tiers.triggers[*].fresh_stack` (boolean) is a d0 field that no acceptance criterion reads yet.
+- config `review.triggers[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- config `budgets.job_usd` (number) is a d0 field that no acceptance criterion reads yet.
+- config `budgets.run_usd` (number) is a d0 field that no acceptance criterion reads yet.
+- config `paved_road.test_paths[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- config `paved_road.dependency_command` (string) is a d0 field that no acceptance criterion reads yet.
+- config `right_way.*` (string) is a d0 field that no acceptance criterion reads yet.

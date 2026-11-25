@@ -1,3 +1,5 @@
+The catalog is frozen: new work adds one small plain pytest file per task under harness/tests, never a new key.
+
 # Fixture format
 
 One directory per given key. A row names a fixture; its file is found by the rule below. A missing or malformed fixture is an error in the run (not a red test). Fixtures need no network, CI, bot account or paid model call. All JSON files may be written as YAML.

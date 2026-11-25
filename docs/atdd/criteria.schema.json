@@ -13,12 +13,7 @@
       "enum": [
         "a",
         "b",
-        "c",
-        "d",
-        "e",
-        "f",
-        "g",
-        "h"
+        "d"
       ]
     },
     "acceptance": {
@@ -315,24 +310,13 @@
       ],
       "properties": {
         "id": {
-          "pattern": "^[a-h]\\d+-AC\\d+$"
+          "pattern": "^[abd]\\d+-AC\\d+$"
         },
         "scenario": {
           "maxLength": 160
-        }
-      },
-      "if": {
-        "properties": {
-          "id": {
-            "pattern": "^h"
-          }
-        }
-      },
-      "else": {
-        "properties": {
-          "deterministic": {
-            "const": true
-          }
+        },
+        "deterministic": {
+          "const": true
         }
       }
     },
@@ -344,13 +328,10 @@
       "propertyNames": {
         "enum": [
           "config",
-          "history",
           "hook_input",
           "host",
           "packet",
           "planted",
-          "recorded_answer",
-          "recorded_api",
           "recorded_model",
           "repo"
         ]
@@ -368,9 +349,7 @@
             "name": {
               "enum": [
                 "toy",
-                "node_toy",
-                "plugin",
-                "project"
+                "plugin"
               ]
             },
             "state": {
@@ -396,7 +375,6 @@
               "enum": [
                 "gaming",
                 "violation",
-                "bump",
                 "diff",
                 "defect",
                 "wiring",
@@ -405,7 +383,6 @@
             },
             "where": {
               "enum": [
-                "candidate_commit",
                 "working_tree",
                 "plan_commit"
               ]
@@ -420,29 +397,6 @@
             "fixture"
           ],
           "properties": {
-            "fixture": {
-              "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
-            }
-          }
-        },
-        "recorded_api": {
-          "description": "Recorded HTTP responses stand in for an external service; the network is off.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "service",
-            "fixture"
-          ],
-          "properties": {
-            "service": {
-              "enum": [
-                "github",
-                "scorecard",
-                "deps_dev",
-                "osv"
-              ]
-            },
             "fixture": {
               "type": "string",
               "pattern": "^[a-z0-9][a-z0-9_.-]*$"
@@ -583,63 +537,10 @@
           "properties": {
             "condition": {
               "enum": [
-                "probe_passes",
-                "probe_fails",
-                "probe_passes_only_with_unix_sockets",
-                "account_in_socket_group",
-                "claude_code_absent",
                 "network_off",
                 "caches_prewarmed",
-                "no_database",
-                "database_available",
-                "database_via_pg_env",
-                "database_via_url",
-                "unsupported_stack",
                 "run_in_progress",
                 "builder_sandbox"
-              ]
-            }
-          }
-        },
-        "recorded_answer": {
-          "description": "A recorded owner answer to a one-time question or an approval request; never a live human or account.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "question",
-            "answer"
-          ],
-          "properties": {
-            "question": {
-              "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
-            },
-            "answer": {
-              "enum": [
-                "approve",
-                "decline"
-              ]
-            }
-          }
-        },
-        "history": {
-          "description": "A recorded history fixture of git commits, issues with sub-issue events, and bh job records.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "fixture",
-            "period"
-          ],
-          "properties": {
-            "fixture": {
-              "type": "string",
-              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
-            },
-            "period": {
-              "enum": [
-                "pre_v2",
-                "v2",
-                "both"
               ]
             }
           }
@@ -657,7 +558,6 @@
           "builder_action",
           "entry_point",
           "hook",
-          "plugin_eval",
           "program_step",
           "scan",
           "validate"
@@ -676,11 +576,7 @@
               "enum": [
                 "run",
                 "measure",
-                "check",
-                "owners",
-                "vet",
-                "metrics",
-                "intake"
+                "check"
               ]
             },
             "args": {
@@ -711,7 +607,6 @@
                 },
                 "where": {
                   "enum": [
-                    "candidate_commit",
                     "working_tree",
                     "plan_commit"
                   ]
@@ -744,7 +639,6 @@
           "properties": {
             "entry": {
               "enum": [
-                "project_test",
                 "plugin_pytest"
               ]
             },
@@ -769,24 +663,8 @@
                 "render_packet",
                 "validate_packet",
                 "launch_builder",
-                "derive_tier",
                 "merge",
                 "gap_review",
-                "rank_findings",
-                "render_gaps",
-                "generate_baselines",
-                "generate_register",
-                "infer_config",
-                "ask_once",
-                "apply_presets",
-                "write_forms",
-                "file_issue",
-                "intake_issue",
-                "add_known_issue",
-                "reopen_from_review",
-                "close_tracking",
-                "relay_miss",
-                "map_catalog_ids",
                 "generate_tests",
                 "commit_build"
               ]
@@ -812,7 +690,6 @@
               "enum": [
                 "H0",
                 "H1",
-                "H2",
                 "bash_note"
               ]
             }
@@ -883,9 +760,7 @@
                 "references",
                 "dangling_references",
                 "version_strings",
-                "untaught_exits",
-                "undefined_names",
-                "lint_rule"
+                "undefined_names"
               ]
             },
             "pattern": {
@@ -912,24 +787,6 @@
               "minLength": 1
             }
           }
-        },
-        "plugin_eval": {
-          "description": "Run `claude plugin eval` with the given arguments (slice h only; may make live model calls).",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "args"
-          ],
-          "properties": {
-            "args": {
-              "type": "array",
-              "minItems": 1,
-              "items": {
-                "type": "string",
-                "minLength": 1
-              }
-            }
-          }
         }
       }
     },
@@ -940,11 +797,9 @@
       "maxProperties": 1,
       "propertyNames": {
         "enum": [
-          "api_call",
           "exit_code",
           "fact",
           "field",
-          "file_contains",
           "file_unchanged",
           "git",
           "jobs",
@@ -955,7 +810,6 @@
           "no_fact",
           "output_contains",
           "paths",
-          "questions_asked",
           "refused",
           "same_result",
           "scan_count",
@@ -990,9 +844,7 @@
             "status": {
               "enum": [
                 "met",
-                "unmet",
-                "stuck",
-                "not_checked"
+                "unmet"
               ]
             },
             "item": {
@@ -1013,7 +865,6 @@
               "enum": [
                 "diff",
                 "scope",
-                "flaky",
                 "red",
                 "red_by_error",
                 "regression_recorded",
@@ -1022,28 +873,11 @@
                 "skipped_growth",
                 "suppression_growth",
                 "ts_comment_growth",
-                "ratchet_growth",
                 "launch_refused",
                 "stuck",
-                "inferred",
-                "not_declared",
-                "not_checked",
-                "re_queue",
-                "tier",
                 "h0_bypass",
                 "over_cap",
-                "unmapped_rule_code",
-                "unwired",
-                "sandbox_choice",
-                "judge_objection",
-                "review_finding",
-                "idle_tracking",
-                "second_known_list",
                 "gap",
-                "parity",
-                "commitlint",
-                "vet_result",
-                "unknown_rule",
                 "packet_mismatch"
               ]
             },
@@ -1068,7 +902,6 @@
               "enum": [
                 "diff",
                 "scope",
-                "flaky",
                 "red",
                 "red_by_error",
                 "regression_recorded",
@@ -1077,28 +910,11 @@
                 "skipped_growth",
                 "suppression_growth",
                 "ts_comment_growth",
-                "ratchet_growth",
                 "launch_refused",
                 "stuck",
-                "inferred",
-                "not_declared",
-                "not_checked",
-                "re_queue",
-                "tier",
                 "h0_bypass",
                 "over_cap",
-                "unmapped_rule_code",
-                "unwired",
-                "sandbox_choice",
-                "judge_objection",
-                "review_finding",
-                "idle_tracking",
-                "second_known_list",
                 "gap",
-                "parity",
-                "commitlint",
-                "vet_result",
-                "unknown_rule",
                 "packet_mismatch"
               ]
             }
@@ -1120,8 +936,7 @@
                 "hook",
                 "sandbox",
                 "file_tools",
-                "program",
-                "launch"
+                "program"
               ]
             },
             "wrong": {
@@ -1155,8 +970,6 @@
                 "stderr",
                 "hook_output",
                 "fact",
-                "run_report",
-                "issue_comment",
                 "tool_result",
                 "sarif"
               ]
@@ -1248,10 +1061,7 @@
               "enum": [
                 "stdout",
                 "stderr",
-                "run_report",
-                "packet_markdown",
-                "additional_context",
-                "issue_comment"
+                "additional_context"
               ]
             },
             "text": {
@@ -1285,14 +1095,10 @@
                 "hook_output",
                 "hooks_json",
                 "skill_md",
-                "eval_report",
-                "register",
-                "baseline_file",
                 "launch_args",
                 "commit_message",
                 "sarif",
-                "manifest",
-                "decision_record"
+                "manifest"
               ]
             },
             "path": {
@@ -1334,8 +1140,6 @@
               "enum": [
                 "order",
                 "distinct",
-                "present",
-                "absent",
                 "program_only"
               ]
             },
@@ -1363,10 +1167,7 @@
                 "source_refs",
                 "outside_checkout",
                 "acceptance_tests",
-                "project_config",
-                "plugin_files",
-                "base_recipe",
-                "baseline_file"
+                "base_recipe"
               ]
             }
           }
@@ -1562,7 +1363,6 @@
                 "candidate_not_in_head",
                 "merge_is_one_commit",
                 "source_refs_unchanged",
-                "no_git_hook_installed",
                 "clone_is_shared_from_base",
                 "no_remote_fetch",
                 "conflict_names_item",
@@ -1595,76 +1395,6 @@
               }
             }
           ]
-        },
-        "api_call": {
-          "description": "Requests the program made to a recorded service.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "service",
-            "operation",
-            "count"
-          ],
-          "properties": {
-            "service": {
-              "enum": [
-                "github",
-                "scorecard",
-                "deps_dev",
-                "osv"
-              ]
-            },
-            "operation": {
-              "type": "string",
-              "minLength": 1
-            },
-            "count": {
-              "type": "integer"
-            },
-            "with": {
-              "type": "string",
-              "minLength": 1
-            }
-          }
-        },
-        "file_contains": {
-          "description": "A file of the repo fixture, read after `when`, contains a text.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "path",
-            "text"
-          ],
-          "properties": {
-            "path": {
-              "type": "string",
-              "minLength": 1
-            },
-            "text": {
-              "type": "string",
-              "minLength": 1
-            },
-            "regex": {
-              "type": "boolean"
-            },
-            "negate": {
-              "type": "boolean"
-            }
-          }
-        },
-        "questions_asked": {
-          "description": "The number of questions or approval prompts the program put to the owner during `when`.",
-          "type": "object",
-          "additionalProperties": false,
-          "required": [
-            "count"
-          ],
-          "properties": {
-            "count": {
-              "type": "integer",
-              "minimum": 0
-            }
-          }
         },
         "needs_keyword": {
           "description": "The part of the criterion that no catalog entry expresses. build.py reports every use as an error: add a key instead.",

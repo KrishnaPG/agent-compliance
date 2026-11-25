@@ -1,5 +1,0 @@
-{
-  "stubs": {
-    "bwrap": {"exit": 1, "stderr": "bwrap: setting up uid map: Permission denied"}
-  }
-}

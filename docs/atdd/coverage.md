@@ -10,7 +10,7 @@ uv run --script docs/atdd/build.py --check
 
 Result: 0 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
 
-Teaching parts: 336; 132 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (41): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b4-AC10, b6-AC4, b6-AC7, b6-AC8, b8-AC4, b8-AC7, b9-AC12, b9-AC14, b11-AC1, b11-AC2, b12-AC2, b12-AC6, c9-AC1, c9-AC2, d0-AC8, d0-AC16, d6-AC6, d6-AC14, d6-AC15, d8-AC2, d8-AC3, e2-AC3, e3-AC3, f2-AC3, f3-AC6.
+Teaching parts: 153; 43 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (25): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d6-AC14, d6-AC15, d8-AC2, d8-AC3.
 
 
 ## Counts
@@ -18,61 +18,55 @@ Teaching parts: 336; 132 name at least one identifier token that the message mus
 | Slice | Tasks | Tasks with rows | Criteria |
 |---|---|---|---|
 | a | 5 | 5 | 19 |
-| b | 14 | 14 | 139 |
-| c | 9 | 9 | 72 |
-| d | 12 | 12 | 110 |
-| e | 6 | 6 | 47 |
-| f | 3 | 3 | 25 |
-| g | 2 | 2 | 12 |
-| h | 3 | 3 | 21 |
-| all | 54 | 54 | 445 |
+| b | 6 | 6 | 77 |
+| d | 8 | 8 | 67 |
+| all | 19 | 19 | 163 |
 
 | Catalog | Entries |
 |---|---|
-| given | 10 |
-| when | 8 |
-| then | 23 |
+| given | 7 |
+| when | 7 |
+| then | 20 |
 
-Verification: fitness 8, lint 72, measure 10, test 355.
-Non-deterministic rows (slice h only): h1-AC1, h1-AC2.
+Verification: fitness 1, lint 25, measure 4, test 133.
 
 ## §0 items × criteria
 
-| Item | a | b | c | d | e | f | g | h | Total | Criteria |
-|---|---|---|---|---|---|---|---|---|---|---|
-| G1 | 0 | 3 | 0 | 9 | 0 | 0 | 0 | 0 | 12 | b7-AC1, b7-AC2, b7-AC4, d2-AC6, d3-AC1, d3-AC2, d3-AC5, d3-AC7, d7-AC4, d11-AC1, d11-AC3, d11-AC9 |
-| G2 | 0 | 0 | 23 | 0 | 0 | 0 | 0 | 0 | 23 | c3-AC1, c3-AC2, c3-AC3, c3-AC4, c3-AC5, c3-AC6, c3-AC7, c3-AC8, c3-AC10, c3-AC11, c3-AC12, c8-AC1, c8-AC2, c8-AC3, c8-AC4, c8-AC5, c8-AC6, c8-AC7, c8-AC8, c8-AC9, c9-AC1, c9-AC2, c9-AC3 |
-| G3 | 0 | 3 | 3 | 13 | 0 | 0 | 0 | 0 | 19 | b6-AC4, b6-AC5, b6-AC6, c1-AC12, c1-AC13, c1-AC14, d0-AC5, d0-AC11, d2-AC1, d2-AC3, d2-AC4, d2-AC6, d2-AC7, d2-AC10, d2-AC11, d3-AC3, d3-AC4, d3-AC5, d10-AC1 |
-| G4 | 0 | 0 | 0 | 0 | 23 | 0 | 0 | 0 | 23 | e1-AC10, e1-AC11, e1-AC12, e2-AC1, e2-AC2, e2-AC4, e2-AC5, e2-AC6, e3-AC1, e3-AC2, e3-AC3, e3-AC6, e5-AC1, e5-AC2, e5-AC3, e5-AC4, e5-AC5, e5-AC6, e5-AC7, e5-AC8, e5-AC9, e6-AC2, e6-AC3 |
-| G5 | 8 | 16 | 0 | 0 | 1 | 0 | 0 | 10 | 35 | a1-AC3, a2-AC2, a2-AC3, a2-AC4, a2-AC5, a4-AC1, a4-AC2, a4-AC3, b1-AC21, b5-AC1, b5-AC2, b11-AC1, b11-AC2, b11-AC3, b11-AC4, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC5, b12-AC6, b13-AC4, b13-AC5, b13-AC7, e5-AC10, h1-AC1, h1-AC3, h1-AC6, h1-AC7, h2-AC1, h2-AC2, h2-AC4, h2-AC5, h3-AC5, h3-AC9 |
-| G6 | 3 | 0 | 29 | 0 | 7 | 0 | 0 | 0 | 39 | a5-AC1, a5-AC2, a5-AC3, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC2, c2-AC3, c2-AC4, c7-AC1, c7-AC2, c7-AC3, c7-AC4, c7-AC5, c7-AC6, c7-AC7, c7-AC8, c7-AC9, c7-AC10, c7-AC11, e4-AC1, e4-AC2, e4-AC3, e4-AC4, e4-AC5, e4-AC6, e4-AC7 |
-| P1 | 0 | 0 | 0 | 4 | 0 | 0 | 6 | 0 | 10 | d0-AC4, d0-AC8, d0-AC15, d0-AC17, g1-AC1, g1-AC2, g1-AC3, g1-AC4, g1-AC5, g1-AC6 |
-| P2 | 0 | 3 | 0 | 0 | 0 | 5 | 0 | 1 | 9 | b5-AC2, b5-AC3, b5-AC4, f1-AC2, f1-AC3, f1-AC5, f2-AC1, f2-AC2, h1-AC2 |
-| P3 | 0 | 2 | 0 | 2 | 2 | 0 | 0 | 0 | 6 | b14-AC2, b14-AC5, d6-AC2, d6-AC3, e5-AC1, e5-AC2 |
-| P4 | 1 | 18 | 3 | 8 | 0 | 5 | 0 | 0 | 35 | a3-AC3, b4-AC1, b4-AC3, b4-AC5, b4-AC7, b4-AC10, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b7-AC3, b7-AC5, b7-AC6, b7-AC7, b7-AC8, b7-AC9, b7-AC10, b7-AC11, b7-AC12, c3-AC6, c3-AC9, c3-AC10, d1-AC2, d1-AC5, d7-AC3, d7-AC4, d8-AC7, d8-AC10, d11-AC4, d11-AC6, f3-AC2, f3-AC4, f3-AC5, f3-AC7, f3-AC8 |
-| P5 | 1 | 7 | 2 | 7 | 6 | 4 | 3 | 0 | 30 | a5-AC1, b2-AC13, b2-AC16, b6-AC1, b6-AC8, b9-AC14, b10-AC2, b10-AC3, c6-AC1, c6-AC3, d8-AC1, d8-AC2, d8-AC3, d8-AC5, d8-AC7, d8-AC8, d8-AC9, e1-AC4, e1-AC7, e1-AC8, e3-AC3, e4-AC3, e4-AC6, f1-AC11, f1-AC12, f2-AC3, f3-AC6, g1-AC2, g1-AC5, g1-AC6 |
-| P6 | 0 | 20 | 0 | 21 | 0 | 3 | 0 | 0 | 44 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b8-AC1, b8-AC4, b8-AC6, b8-AC8, d0-AC3, d0-AC16, d4-AC5, d5-AC3, d5-AC5, d5-AC8, d6-AC1, d6-AC7, d6-AC9, d6-AC12, d6-AC14, d6-AC15, d7-AC1, d7-AC2, d7-AC5, d11-AC1, d11-AC3, d11-AC7, d11-AC8, d11-AC9, d11-AC10, f1-AC1, f1-AC4, f1-AC13 |
-| P7 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 2 | b9-AC6, d2-AC7 |
-| P8 | 0 | 2 | 0 | 17 | 2 | 0 | 0 | 0 | 21 | b9-AC15, b13-AC11, d1-AC3, d1-AC4, d5-AC1, d5-AC2, d9-AC1, d9-AC2, d9-AC3, d9-AC4, d9-AC5, d9-AC6, d9-AC7, d9-AC8, d9-AC9, d9-AC10, d11-AC2, d11-AC5, d11-AC7, e3-AC4, e3-AC5 |
-| P9 | 0 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 22 | c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC1, c2-AC2, c2-AC5, c7-AC1, c7-AC2, c7-AC9, c7-AC10 |
-| P10 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | a2-AC1, a2-AC3, a2-AC4, a2-AC5 |
-| P11 | 0 | 2 | 9 | 0 | 0 | 0 | 6 | 0 | 17 | b4-AC10, b4-AC11, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c5-AC1, c5-AC2, c5-AC3, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6 |
-| P12 | 0 | 0 | 0 | 0 | 1 | 0 | 0 | 0 | 1 | e2-AC7 |
-| R1 | 0 | 11 | 0 | 0 | 0 | 0 | 0 | 0 | 11 | b1-AC20, b11-AC1, b11-AC2, b11-AC3, b11-AC4, b13-AC1, b13-AC2, b13-AC3, b13-AC11, b14-AC1, b14-AC5 |
-| R2 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | b9-AC1, b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
-| R3 | 0 | 5 | 0 | 16 | 0 | 0 | 0 | 0 | 21 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC3, d6-AC4, d6-AC5, d6-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13, d6-AC14, d6-AC15 |
-| R4 | 0 | 58 | 0 | 0 | 0 | 0 | 0 | 0 | 58 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b8-AC2, b9-AC4, b9-AC5, b9-AC7, b9-AC8, b9-AC9, b9-AC13, b9-AC14, b9-AC15, b10-AC6 |
-| R5 | 0 | 0 | 2 | 48 | 0 | 0 | 0 | 0 | 50 | c4-AC1, c6-AC2, d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d0-AC17, d1-AC1, d1-AC2, d2-AC1, d2-AC2, d2-AC3, d2-AC5, d2-AC8, d2-AC9, d2-AC10, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC7, d8-AC11, d8-AC12 |
-| R6 | 0 | 0 | 0 | 8 | 0 | 0 | 0 | 0 | 8 | d5-AC1, d5-AC2, d5-AC3, d5-AC4, d5-AC5, d5-AC6, d5-AC7, d5-AC8 |
-| R7 | 0 | 0 | 23 | 0 | 0 | 0 | 0 | 0 | 23 | c3-AC1, c3-AC2, c3-AC3, c3-AC4, c3-AC5, c3-AC6, c3-AC7, c3-AC8, c3-AC10, c3-AC11, c5-AC1, c5-AC2, c5-AC3, c5-AC6, c5-AC7, c8-AC2, c8-AC3, c8-AC4, c8-AC5, c8-AC6, c8-AC7, c8-AC8, c8-AC9 |
-| R8 | 0 | 0 | 0 | 0 | 46 | 0 | 0 | 0 | 46 | e1-AC1, e1-AC2, e1-AC3, e1-AC4, e1-AC5, e1-AC6, e1-AC7, e1-AC8, e1-AC9, e1-AC10, e1-AC11, e1-AC12, e1-AC13, e2-AC1, e2-AC2, e2-AC3, e2-AC4, e2-AC5, e2-AC6, e2-AC7, e2-AC8, e3-AC1, e3-AC2, e3-AC3, e3-AC5, e3-AC6, e4-AC1, e4-AC2, e4-AC3, e4-AC4, e4-AC5, e4-AC6, e4-AC7, e5-AC1, e5-AC2, e5-AC3, e5-AC4, e5-AC5, e5-AC6, e5-AC7, e5-AC8, e5-AC9, e5-AC10, e6-AC1, e6-AC2, e6-AC3 |
-| R9 | 8 | 6 | 3 | 5 | 0 | 24 | 12 | 7 | 65 | a1-AC1, a1-AC2, a1-AC3, a1-AC4, a3-AC1, a3-AC2, a3-AC3, a3-AC4, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC5, b12-AC6, c5-AC4, c5-AC5, c5-AC6, d6-AC10, d6-AC11, d6-AC13, d10-AC2, d10-AC3, f1-AC1, f1-AC2, f1-AC3, f1-AC4, f1-AC5, f1-AC6, f1-AC7, f1-AC8, f1-AC9, f1-AC10, f1-AC11, f1-AC12, f1-AC13, f2-AC1, f2-AC2, f2-AC3, f2-AC4, f3-AC1, f3-AC2, f3-AC3, f3-AC4, f3-AC5, f3-AC7, f3-AC8, g1-AC1, g1-AC2, g1-AC3, g1-AC4, g1-AC5, g1-AC6, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6, h1-AC1, h1-AC4, h2-AC1, h2-AC2, h2-AC3, h2-AC4, h2-AC5 |
-| R10 | 0 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | b10-AC1, b10-AC3, b10-AC4, b10-AC5 |
-| R11 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 13 | h1-AC1, h1-AC2, h1-AC3, h1-AC5, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC6, h3-AC7, h3-AC8, h3-AC9 |
+| Item | a | b | d | Total | Criteria |
+|---|---|---|---|---|---|
+| G1 | 0 | 0 | 5 | 5 | d2-AC6, d3-AC1, d3-AC2, d3-AC5, d3-AC7 |
+| G2 | 0 | 0 | 0 | 0 |  |
+| G3 | 0 | 0 | 10 | 10 | d0-AC5, d0-AC11, d2-AC3, d2-AC6, d2-AC7, d2-AC11, d3-AC3, d3-AC4, d3-AC5, d10-AC1 |
+| G4 | 0 | 0 | 0 | 0 |  |
+| G5 | 8 | 3 | 0 | 11 | a1-AC3, a2-AC2, a2-AC3, a2-AC4, a2-AC5, a4-AC1, a4-AC2, a4-AC3, b1-AC21, b5-AC1, b5-AC2 |
+| G6 | 3 | 0 | 0 | 3 | a5-AC1, a5-AC2, a5-AC3 |
+| P1 | 0 | 0 | 4 | 4 | d0-AC4, d0-AC8, d0-AC15, d0-AC17 |
+| P2 | 0 | 3 | 0 | 3 | b5-AC2, b5-AC3, b5-AC4 |
+| P3 | 0 | 0 | 2 | 2 | d6-AC2, d6-AC3 |
+| P4 | 1 | 4 | 3 | 8 | a3-AC3, b4-AC1, b4-AC3, b4-AC5, b4-AC7, d1-AC2, d1-AC5, d8-AC10 |
+| P5 | 1 | 3 | 4 | 8 | a5-AC1, b2-AC13, b2-AC16, b9-AC14, d8-AC1, d8-AC2, d8-AC3, d8-AC5 |
+| P6 | 0 | 16 | 9 | 25 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, d0-AC3, d0-AC16, d4-AC5, d6-AC1, d6-AC7, d6-AC9, d6-AC12, d6-AC14, d6-AC15 |
+| P7 | 0 | 1 | 1 | 2 | b9-AC6, d2-AC7 |
+| P8 | 0 | 1 | 2 | 3 | b9-AC15, d1-AC3, d1-AC4 |
+| P9 | 0 | 0 | 0 | 0 |  |
+| P10 | 4 | 0 | 0 | 4 | a2-AC1, a2-AC3, a2-AC4, a2-AC5 |
+| P11 | 0 | 1 | 0 | 1 | b4-AC11 |
+| P12 | 0 | 0 | 0 | 0 |  |
+| R1 | 0 | 1 | 0 | 1 | b1-AC20 |
+| R2 | 0 | 6 | 0 | 6 | b9-AC1, b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
+| R3 | 0 | 5 | 16 | 21 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC3, d6-AC4, d6-AC5, d6-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13, d6-AC14, d6-AC15 |
+| R4 | 0 | 56 | 0 | 56 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC4, b9-AC5, b9-AC7, b9-AC8, b9-AC9, b9-AC13, b9-AC14, b9-AC15 |
+| R5 | 0 | 0 | 41 | 41 | d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d0-AC17, d1-AC1, d1-AC2, d2-AC3, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC11, d8-AC12 |
+| R6 | 0 | 0 | 0 | 0 |  |
+| R7 | 0 | 0 | 0 | 0 |  |
+| R8 | 0 | 0 | 0 | 0 |  |
+| R9 | 8 | 0 | 5 | 13 | a1-AC1, a1-AC2, a1-AC3, a1-AC4, a3-AC1, a3-AC2, a3-AC3, a3-AC4, d6-AC10, d6-AC11, d6-AC13, d10-AC2, d10-AC3 |
+| R10 | 0 | 0 | 0 | 0 |  |
+| R11 | 0 | 0 | 0 | 0 |  |
 
-§0 items traced by no criterion: none.
+Gaps, §0 items traced by no criterion (their rows left the release scope): G2, G4, P9, P12, R6, R7, R8, R10, R11.
 
-QBC ids traced by no criterion: QBC-1, QBC-6, QBC-7, QBC-14, QBC-64, QBC-95, QBC-96, QBC-97, QBC-99, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
+QBC ids traced by no criterion: QBC-1, QBC-2, QBC-3, QBC-4, QBC-5, QBC-6, QBC-7, QBC-9, QBC-10, QBC-14, QBC-18, QBC-19, QBC-20, QBC-21, QBC-22, QBC-23, QBC-25, QBC-26, QBC-27, QBC-28, QBC-29, QBC-30, QBC-32, QBC-36, QBC-50, QBC-54, QBC-56, QBC-57, QBC-58, QBC-60, QBC-61, QBC-62, QBC-63, QBC-64, QBC-67, QBC-68, QBC-69, QBC-70, QBC-72, QBC-73, QBC-74, QBC-75, QBC-78, QBC-81, QBC-83, QBC-84, QBC-85, QBC-86, QBC-87, QBC-88, QBC-89, QBC-90, QBC-91, QBC-92, QBC-93, QBC-94, QBC-95, QBC-96, QBC-97, QBC-98, QBC-99, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
 
 ## Tasks whose "done when" has no row
 
@@ -82,7 +76,7 @@ None.
 
 Leaves are numbered by `build.py --bullets`.
 
-None.
+- d2: leaves 2, 3, 6, 7
 
 ## packet-standards.md stage outputs and enforcement × criteria
 
@@ -91,14 +85,14 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 | spec_ref | Criteria |
 |---|---|
 | common.any-json-output | b2-AC12, b2-AC18, d0-AC1, d0-AC17 |
-| common.every-refusal-finding-or-note | b6-AC8, b6-AC9 |
-| common.reference-to-the-contract | b2-AC15, b2-AC16, b9-AC13, d0-AC2, d11-AC9 |
-| L1.decision-record | f1-AC9 |
-| L1.lineage-and-size | f1-AC5 |
-| L1.front-matter | f1-AC8, f1-AC11 |
-| L1.option-judgement | f1-AC1 |
-| L1.link-to-the-work | e2-AC8 |
-| L1.hand-off-to-l2 | f1-AC10, f1-AC12, f1-AC13 |
+| common.every-refusal-finding-or-note | NONE |
+| common.reference-to-the-contract | b2-AC15, b2-AC16, b9-AC13, d0-AC2 |
+| L1.decision-record | NONE |
+| L1.lineage-and-size | NONE |
+| L1.front-matter | NONE |
+| L1.option-judgement | NONE |
+| L1.link-to-the-work | NONE |
+| L1.hand-off-to-l2 | NONE |
 | L2.schema-and-validation | d0-AC1, d0-AC13 |
 | L2.requirement-wording-in-the-spec | exempt: RFC 2119 wording applies to the spec text, not to any output the plugin produces. |
 | L2.ids-traceability-verification-method-per-acceptance-item | d0-AC6, d0-AC9, d0-AC10, d0-AC15 |
@@ -106,32 +100,32 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 | L2.goal-without-method | d0-AC3, d0-AC8 |
 | L2.definition-of-done | d0-AC5 |
 | L2.slice-size | exempt: INVEST is the planner's judgement of a slice; it has no mechanical pass condition. |
-| L2.tier-of-a-pin-change | d5-AC3, d5-AC4, d5-AC5, d5-AC6 |
-| L2.architecture-checks-in-the-verifier-list | c8-AC2, c8-AC3, c8-AC4, c8-AC5, c8-AC6 |
-| L2.teaching-messages | b6-AC1, b6-AC9 |
+| L2.tier-of-a-pin-change | NONE |
+| L2.architecture-checks-in-the-verifier-list | NONE |
+| L2.teaching-messages | NONE |
 | L2.measured-results | b2-AC17 |
-| L2.security-review-trigger | d11-AC1 |
+| L2.security-review-trigger | NONE |
 | L2.isolation-of-the-measuring-run | b1-AC7, b1-AC17 |
-| L2.commit-messages-as-facts | f3-AC4, f3-AC5, f3-AC6 |
-| L2.success-of-the-whole-flow | h3-AC1, h3-AC8 |
-| L2.ratchet-baselines | c4-AC1, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7 |
+| L2.commit-messages-as-facts | NONE |
+| L2.success-of-the-whole-flow | NONE |
+| L2.ratchet-baselines | NONE |
 | L3.acceptance-criteria-to-tests | d6-AC3, d6-AC7 |
 | L3.test-code | d6-AC4 |
 | L3.results | d6-AC8 |
 | L3.traceability | d6-AC3 |
-| L3.model-calls-in-tests | b14-AC1 |
+| L3.model-calls-in-tests | NONE |
 | L3.messages-and-renderings | d0-AC12 |
 | L4.commit-message | b9-AC13 |
 | L4.contract-reference | b9-AC13, b9-AC14 |
-| L4.tier-of-version-changes | d5-AC3, d5-AC4, d5-AC5, d5-AC6 |
+| L4.tier-of-version-changes | NONE |
 | L5.test-results | b2-AC12, b2-AC17 |
 | L5.lint-and-fitness-findings | b2-AC12, b2-AC13 |
 | L5.verdict-for-each-acceptance-id-and-facts | b2-AC12, b2-AC14, b2-AC18, b2-AC19 |
 | L5.isolation-of-the-run | b1-AC7, b1-AC8, b1-AC17 |
-| L5.success-of-the-flow | h3-AC1 |
-| review.trigger | d11-AC1, d11-AC2, d11-AC3 |
-| review.findings | d11-AC8, d11-AC9 |
-| review.severity | d11-AC10 |
+| L5.success-of-the-flow | NONE |
+| review.trigger | NONE |
+| review.findings | NONE |
+| review.severity | NONE |
 | enforce.1 | d0-AC16 |
 | enforce.2 | d6-AC3, d6-AC14, d6-AC15 |
 | enforce.3 | d3-AC7, d4-AC7 |
@@ -148,13 +142,10 @@ None.
 
 Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.
 
-- history.fixture: dora_900k_tokens_three_met (1), dora_both (2), dora_defect_before_merge (1), dora_four_merged_one_later_defect (1), dora_pre_v2 (2), dora_slice_opened_to_merged_48h (1), dora_v2 (1), tracking_issue_active_2_days (1), tracking_issue_idle_20_days (2)
-- packet.fixture: decision_item (10), decision_item_oss_vs_existing (1), design_item (5), node_item (1), toy_item (89)
-- planted.plant: added_dependency (1), added_pytest_ini (1), auth_path_change (5), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), baselines_shrunk_and_include_list_grown (1), bash_edit_without_packet (1), broken_link_in_document (1), builder_git_failure (1), builder_never_ran_check (1), catalogue_schema_merge_refusal (1), check_not_run (1), cited_test_failed (1), commit_gate_on_targets (1), compose_file_change (1), conflicting_candidates (1), criterion_without_test (1), docs_change (1), docs_only_touching_compose (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), endless_retries (1), env_setup_block (1), fifteen_repeated_findings (1), finding_without_file_line (1), fix_commit_with_issue_ref (1), fix_commit_without_issue_ref (1), flaky_test (1), forged_result_file (1), forging_conftest (1), form_without_body_type (1), gap_violating_ignored_keyword (1), gutted_other_test (1), gutted_test (3), hand_launch (1), hand_set_status (1), honest_change (8), honest_commit (1), house_rule_without_rung (1), ignore_imports_grown (1), import_ignore_list_grown (1), import_past_published_part (1), junit_error (2), junit_failure (1), junit_ids_added (1), junit_ids_missing (2), kind_added_to_schema_only (1), lint_violation (1), linter_config_not_run (1), magic_value (2), major_bump (2), malformed_junit (1), merge_guard_removed (1), minor_bump (1), missing_est_loc (1), missing_junit (1), naive_datetime (4), nan_sample (1), network_call (1), never_met (1), nonconforming_commit_message (4), one_criterion_failing (1), out_of_scope_edit (3), overlong_message_source (1), parity_fails (1), parity_passes (1), passing_canary (2), patch_bump (1), per_file_ignores_grown (1), pinned_test_hash_changed (1), pipe_in_summary (1), planned_config_change (1), probe_fails (1), ratchet_grown (1), reads_holdout (1), report_patch_writes_outside (1), review_omits_open_gap (1), same_text_two_documents (1), skill_changed (1), skipped_grown (1), skipped_shrunk (1), sleep_in_harness (1), split_auth_diff (1), sqlfluffignore_grown (1), standards_changed (1), standards_entry_cites_only_convention (1), standards_entry_without_version (1), step_out_of_order (1), strict_include_list_shrunk (1), suppressions_grown (2), suppressions_removed (1), test_errors_on_main (1), test_without_criterion (1), timezone_aware_datetime (1), tracker_sha_pin (1), two_declared_owners (1), unimplemented_keyword_row (1), unreadable_target (1), vacuous_test (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_grant (1), wrong_object_owner (1), wrong_packet_trailer (1)
-- recorded_answer.question: create_hierarchy (3), owner_of_unowned_paths (4), write_issue_forms (4), write_pre_commit_hooks (3), write_presets (5)
-- recorded_api.fixture: create_issue_with_parent (2), empty_repository (2), five_issues_three_filtered_out (1), form_issue_with_parent_field (1), hierarchy_already_set_up (1), human_closed_issue (1), issue_list_for_origin (1), issue_with_long_body (1), known_list_by_label (5), maintenance_issue_exists (1), no_maintenance_issue (1), package_ok (6), parentless_issue (3), three_claims_one_malformed (1), tracking_issue_last_sub_issue_closed (1), tracking_issue_one_sub_issue_open (1), tracking_issue_with_checklist (8), two_known_lists (1), two_ready_issues (1)
-- recorded_model.fixture: any_job (1), decision_proposer_then_judge (5), defect_inside_packet_paths (1), defect_outside_packet_paths (1), finder_regression_row (1), judge_oss_option_unverified_rule (1), judge_two_objections (3), judge_with_falsifying_call (2), planner_judge_author_builder (2), proposer_record_800_chars (1), proposer_record_uncited_constraint (1), proposer_record_without_front_matter (1), reviewer_critical_finding (2), reviewer_mixed_findings (1), reviewer_one_critical_finding (1), reviewer_one_finding (3), reviewer_one_minor_finding (1), reviewer_two_major_findings (1), reviewer_vulnerability_finding (1), test_author_regression (1), test_author_rows (5), toy_ablation_arm (1), toy_e2e (5), toy_flaky_test (1), toy_honest (15), toy_junit_error (1), toy_junit_ids_missing (1), toy_never_met (2), toy_out_of_scope_edit (1), toy_passing_canary (1), toy_probe_fails (1), toy_scope (2), toy_suppressions_grown (1), toy_two_items (2), trigger_cases (1)
-- repo.state: node_toy:base (1), node_toy:baselines_adopted (1), node_toy:mixed_python_typescript (1), node_toy:no_harness_config (1), node_toy:no_presets (2), node_toy:package_exports_only (1), node_toy:package_json_scripts (2), node_toy:pnpm_lockfile (1), node_toy:runner_config (1), node_toy:workspace_members_only (1), plugin:candidate (101), project:codeowners_only (1), project:database_roles_only (2), project:decision_record_written (1), project:defect_without_tracking_issue (2), project:fitness_clean (8), project:fresh_github_repo (3), project:known_list_with_100_lines (1), project:known_list_with_three_lines (1), project:known_list_with_two_lines (3), project:no_codeowners (1), project:no_issue_forms (4), project:openapi_tags_only (1), project:owners_fixture (3), project:pre_v2_history (2), project:room_for_one (1), project:six_ready_items (1), project:slice_in_progress (2), project:slice_merged_checklist_ticked (3), project:tracking_issue_open (14), project:two_labelled_lists (1), project:v2_history (7), toy:base (231), toy:baselines_adopted (5), toy:codeowners_present (1), toy:codeowners_written_by_answer (1), toy:dunder_all_only (1), toy:justfile_recipes (1), toy:makefile_targets (1), toy:no_codeowners (2), toy:no_harness_config (1), toy:no_origin_remote (1), toy:no_presets (5), toy:openapi_tags (1), toy:openapi_without_owner_tag (1), toy:origin_remote_set (1), toy:presets_applied (11), toy:pyproject_only (1), toy:pytest_testpaths (1), toy:recipe_without_owner_line (1), toy:rule_enabled_without_entry (1), toy:sql_files_no_presets (1), toy:uv_lockfile (1)
+- packet.fixture: toy_item (62)
+- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), criterion_without_test (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gap_violating_ignored_keyword (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), test_without_criterion (1), unimplemented_keyword_row (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
+- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (5), toy_honest (9), toy_scope (1)
+- repo.state: plugin:candidate (35), toy:base (128)
 
 ## needs-keyword
 
@@ -206,34 +197,9 @@ None.
 - b4-AC5: plan omits the teaching text
 - b4-AC7: plan omits the teaching text
 - b4-AC9: the paths entry fails on main, which writes no <measure_out>/<item>/<sha12>-<slot> directory
-- b4-AC10: the writer belongs to c4; the row asserts only that the fact appears in the result JSON and run report; plan omits the teaching text
 - b4-AC11: the title says "without pattern lists"; the row asserts the flag-based comparison that replaces them
 - b5-AC2: "kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted
 - b5-AC3: plan does not name the keyword; fixture must use one the old validator ignored; plan omits the teaching
-- b6-AC1: plan prescribes a signature; the row asserts the definition has exactly the four required parameters
-- b6-AC2: the plan names no wording for the count line; the row matches the one non-teaching line holding the remaining count
-- b6-AC4: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
-- b6-AC5: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
-- b6-AC6: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
-- b6-AC7: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
-- b6-AC8: plan names no sample message; the row asserts a refusal that teaches
-- b7-AC1: plan does not name the table's file; the row scans docs and the harness skill
-- b7-AC2: holds only after c1, c4, c8, d5 and d8 land
-- b7-AC4: plan omits the teaching text
-- b7-AC5: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC6: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC7: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC8: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC9: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC10: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC11: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b7-AC12: the table's action text is not named in the plan; the row asserts the fact appears in the run report
-- b8-AC2: plan omits the teaching text
-- b8-AC3: plan omits the teaching text
-- b8-AC4: wording from QBC-47
-- b8-AC6: plan names no status values
-- b8-AC7: plan omits the teaching text
-- b8-AC8: "no hand-kept field" is a data-shape claim; the present entry fails on main, which keeps status by hand
 - b9-AC5: plan names the locations in prose; the row matches each by a short substring of the path
 - b9-AC7: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
 - b9-AC8: plan gives no SG-01 line text
@@ -241,59 +207,6 @@ None.
 - b9-AC12: plan omits the teaching text
 - b9-AC13: the commit_message field names are not fixed by the spec
 - b9-AC14: plan omits the teaching text
-- b10-AC1: "runs one probe" is observed through the one sandbox_choice fact
-- b10-AC2: the right-way wording follows the bullet: set network.allowAllUnixSockets true, run under an account outside socket-granting groups, or fix the profile
-- b11-AC1: bullet prescribes a flock; the row asserts a concurrent run is refused; the plan omits the teaching text
-- b11-AC2: plan omits the teaching text
-- b12-AC1: plan omits the teaching text and names no status value
-- b12-AC2: plan omits the teaching text and the rank's wording
-- b12-AC4: plan omits the teaching text
-- b12-AC5: "renders from a template" is a design claim; the snapshot asserts the output
-- b12-AC6: the plan names lychee, not the fact's wording
-- b13-AC1: plan omits the teaching text
-- b13-AC6: the plan names no test; the row scans for one marker per minor
-- b13-AC7: one home each is read as one definition each
-- b13-AC9: one module is read as one occurrence of the literal
-- b13-AC11: the plan states no default for the budgets; the row asserts only that a default exists
-- b14-AC1: the stuck item must exist in the fixture so the facts are shown
-- c1-AC5: the leaf names the mapping source (the linters' own mappings) but no file; the row asserts the fact names the tracked-file listing
-- c1-AC9: the JS test runner is not named; the fixture picks one and the row follows it
-- c1-AC15: docs/plan and docs/atdd name bh-init as history; the scan scope needs them excluded or the count can never reach 0
-- c3-AC2: the bullet prescribes where the fragments go (file content); the row asserts the file exists and flags the content part
-- c3-AC3: the bullet prescribes file content; the row cannot name the ESLint or oxlint file because the plan leaves the choice open
-- c3-AC4: the bullet prescribes file content
-- c3-AC5: the bullet prescribes file content
-- c3-AC8: assumes the recipe echoes its command; no other observable names the pre-commit invocation
-- c3-AC10: the plan states no teaching text for the DTZ miss; the substrings follow ruff's own message
-- c3-AC12: the bullet prescribes who runs checks; the row asserts the observable consequence, that the finding comes from the recipe's ruff rule and the measurer changes no config
-- c4-AC1: the baseline file's field names are not named by the plan; the row uses the names the leaf lists
-- c4-AC2: b4's fact kind is taken to be ratchet_growth; its teaching text is not stated
-- c4-AC3: the plan states no teaching text for the ratchet fact
-- c4-AC4: the plan states no teaching text for the ratchet fact
-- c4-AC5: the plan states no teaching text for the ratchet fact
-- c4-AC6: the plan states no teaching text for the ratchet fact; leaf 2 gives no direction for pinned hashes
-- c5-AC1: the parity command is assumed to be a check argument; the per-rule caught-case listing is asserted as parity facts naming each case file
-- c5-AC2: the fact's detail wording for retired is not stated
-- c5-AC3: the plan states no teaching text for a failed parity
-- c5-AC7: the plan states no TID251 msg text for waiting; it follows the repo's no-waiting rule (react to events)
-- c6-AC1: the right-way line's wording is not stated; the substring follows the repo rule that business values are policy
-- c6-AC3: the plan states no teaching text for the fact; the fixture's enabled code is a stand-in
-- c7-AC1: the output's field names are not named by the plan
-- c7-AC2: the output's field names are not named by the plan
-- c7-AC3: the output's field naming the sources read is not named by the plan
-- c7-AC4: the output's field naming the sources read is not named by the plan
-- c7-AC9: the plan states no teaching text for the fact beyond naming the file to add
-- c7-AC10: the leaf says the fact names a file to add; a missing database has no file, so the row names the connection setting instead
-- c8-AC2: the four checks have no ids in the plan; the row asserts at least four passing tests
-- c8-AC3: the plan states no teaching text for the check
-- c8-AC4: the plan states no teaching text for the check
-- c8-AC5: the plan states no teaching text for the check
-- c8-AC6: the plan states no teaching text for the check
-- c8-AC7: the plan states no teaching text for the ratchet fact
-- c8-AC8: the plan states no teaching text for the not-checked fact
-- c8-AC9: the plan states no teaching text for the not-checked fact
-- c9-AC1: the plan states no teaching text for the wiring fact; the fixture's linter is a stand-in
-- c9-AC2: the plan states no teaching text for the wiring fact
 - d0-AC1: the bullet prescribes one contract read by three roles; the row asserts the observable half (the instance validates against the one schema); the enforce rows prove the shared reading
 - d0-AC3: "the intent and why, with no design" is checked only through the design-field rejection in d0-AC11
 - d0-AC7: overflow[*].path awaits the owner's decision (docs/atdd/fields.yaml); the plan names no field for the moved text
@@ -304,19 +217,12 @@ None.
 - d1-AC1: "cited by id" names no id format, so only the presence of constraints is asserted
 - d1-AC3: the fixture must hold large program-written fields and small planner-written fields; the plan names no fixture
 - d1-AC4: overflow[*].path awaits the owner's decision (docs/atdd/fields.yaml); the plan names no field for the moved text
-- d2-AC2: the plan gives no refusal text for a write into the packet directory; substrings are best guesses from the packet's read-only role
-- d2-AC4: the plan gives no right-way text for the DTZ rule; the row asserts the rule code in the rendering and that each rule carries a message
-- d2-AC5: the toy fixture decision record path docs/adr/toy_item.md is assumed
-- d2-AC8: the plan does not say how the trigger paths are shown; the limits key tiers.triggers from d9 is used as the marker
-- d2-AC9: wording of the statement is not given; the row uses the plan's own phrase
 - d3-AC1: the plan prescribes how the check runs (temp dir, shared code); the observable consequence is the teaching output and the equality in d3-AC5
 - d3-AC3: "tools pinned and installed at setup" prescribes setup; the row asserts the observable result (a full offline run)
 - d4-AC1: the bullet prescribes the storage mechanism; the row asserts the digest of the orchestrator copy is stable across a launch
 - d4-AC3: "arrives once" does not say what a repeat looks like; the row treats a repeat touch as absent context
 - d4-AC4: the fixed line's text is not given; the row asserts it is present and that it holds no goal text
 - d4-AC7: assumes the delivered context is exactly the rendering, with nothing added by the hook
-- d5-AC5: the re-queue fact is "tier X from paths Y"; tier names are taken from the plan heading (design-affecting, mechanical)
-- d5-AC7: which declared path hits a trigger is a fixture choice; the plan gives no example
 - d6-AC1: "writes no test code" has no observable output named in the plan; it is proven only by the generator rows that produce every test
 - d6-AC3: one test per row is asserted as equal id lists and distinct test node ids
 - d6-AC4: the marker form is not named; the manifest node id is asserted to carry the criterion id
@@ -326,62 +232,5 @@ None.
 - d6-AC13: the bootstrap's manifest location is not named; the row checks the manifest holds a criterion of slice a
 - d6-AC14: no message text is given; substrings follow the enforcement paragraph's wording
 - d6-AC15: no message text is given; substrings follow the enforcement paragraph's wording
-- d7-AC1: the delta file's name and the declared-paths field are not named
-- d7-AC3: item_new_targets is the targets added by the judge, not all targets; "shown to the approver" is read as listed in the run report
 - d8-AC5: "adds QBC-47's line" does not say whether the builder or the orchestrator message; the builder text is asserted
-- d8-AC7: "written through the scope-fact writer" prescribes a mechanism; the observable consequence is the recorded scope fact
 - d8-AC10: the plan states the rule, not the scan pattern; the pattern approximates reading contents
-- d9-AC1: "one table" prescribes design; the row asserts the effective value of an overridden key and an untouched key
-- d11-AC4: how inferred paths are listed is not stated; the row reads the inferred fact and an effective review.triggers
-- d11-AC7: "handed to e5" is checked only by e5's own rows; here the finding fact is recorded
-- d11-AC8: the mapping Critical or Major to error and Minor to warning needs a fixture whose findings have known severities; assumed in reviewer_mixed_findings
-- d11-AC9: the property name for the sha256 is not given; packet_sha256 is assumed
-- d11-AC10: the property name for the vector is not given; cvss_vector is assumed
-- e1-AC4: the plan states no message for an invalid form; the row asserts the validator's error names the body path and teaches
-- e1-AC7: the plan does not give the right-way wording for the goal and acceptance descriptions; the row pins only the parent wording from QBC-88
-- e1-AC8: the wording of each description is not stated; the row asserts a description exists on each of the nine required fields
-- e2-AC1: the plan prescribes the GraphQL createIssue(parentIssueId) mechanism; the row asserts the observable result, one create request carrying the parent and no later link request
-- e2-AC5: the plan does not give the wording naming the maintenance issue; the row requires the message to name it and its CODEOWNERS source
-- e2-AC8: the plan does not describe the record-to-issue link; the row asserts the created issue body names the record path and the record names the issue
-- e3-AC1: the label name is not stated; the row asserts the lookup request carries a label filter and no issue title
-- e3-AC3: the plan states only that each line names its parent, not that a parentless line is refused; the row applies QBC-88's no-parent rule to the list
-- e3-AC4: the plan gives the right way (fix and remove one first) but not the wrong and prevent wording; limits.known_issues is named as the prevention
-- e4-AC3: the plan does not say what happens without an origin remote; the row asserts a teaching refusal rather than a silent default
-- e4-AC4: the plan names no output shape for skipped issues; the row asserts the human-closed issue number is listed as skipped
-- e4-AC5: the plan names no list command or output shape; the row asserts through stdout that both matching issues appear although non-matching issues come first
-- e4-AC6: the plan does not say how the bad claim is reported; the row requires a teaching line naming it
-- e4-AC7: the plan states a mechanism (room read under the lock); the row asserts the observable result
-- e5-AC4: the plan does not name how the in-slice fix is reported; the row asserts a review_finding fact marked in scope and no filed issue
-- e5-AC8: the plan states a fact only; the teaching wording for the idle report line is not given
-- e6-AC1: the plan names no argument for the setup run and not the label names; the row counts three labels (decision, slice, defect) and uses the arg setup
-- f1-AC1: the plan names no launch-argument shape; the row asserts the judge job's inputs are exactly the record and the evidence
-- f1-AC5: the plan gives no teaching wording; the row requires the report line to name the limit and say to shorten the record
-- f1-AC8: the decision_record field paths are the row's choice; the spec names only the three front matter keys
-- f1-AC11: the spec gives no wording; the row requires the report to name the missing front matter and the keys to add
-- f1-AC12: the spec gives no wording; the row requires the report to say to cite an id
-- f2-AC1: the plan names the three tools, not their request operations; the row uses one operation per service as the recorded fixtures' names
-- f2-AC3: the plan states the call shape, not a refusal; the row asserts a teaching refusal that repeats the shape
-- f3-AC1: the exact trigger wording is not stated; the row requires the phrase recording a defect and no mention of commits
-- f3-AC6: the plan says fact with teaching but gives no wording; the row requires wrong, right and prevent parts and that the commit is not blocked
-- g1-AC1: the plan names new standards/ data and schema without file names; the row uses standards/data/*.json and standards/schema.json
-- g1-AC2: the plan gives no refusal wording for an invalid entry
-- g1-AC4: the plan names no file names for the house-rule list; the row uses standards/house-rules.json and its schema
-- g1-AC5: the plan gives no refusal wording; the row asserts the right way names the judgement alternative
-- g1-AC6: the plan states the property, not how a violation is reported; the row asserts a gap fact with teaching from bh check
-- g2-AC1: the 'only' half (ids nobody reads are not mapped) has no output shape in the plan; the next row covers it through the changelog
-- g2-AC2: the changelog wording is not stated; the row fixes the phrase catalog ids dropped
-- g2-AC3: g1's id format is not fixed by the plan; the row's regex stands for g1 ids and the no unknown_rule fact is the authoritative check
-- h1-AC1: the plan names no report field names; the row uses arms[*].name and cost_usd, and the budget and run count come from policy values in the fixture
-- h1-AC2: the plan names the quantities, not the field names; the row fixes them
-- h1-AC3: the plan does not say which command reports measurer rounds; the row reads them through bh metrics
-- h1-AC4: the evidence location is not named; the row uses evals/evidence/toy-ablation*.json
-- h1-AC5: no report schema is named in the plan; the row assumes evals/report.schema.json
-- h1-AC7: the ablation suite location is not named; the row uses evals/ablation/
-- h2-AC1: the grader locations are not listed in the plan; the row names the graders directories of the existing accuracy suites
-- h2-AC2: stale results are not located in the plan; the row names evals/results and the evals/_gen generator directory
-- h2-AC4: the count of kept skills from a4 is not in the plan; the row cannot assert one case per skill and asserts at least one
-- h2-AC5: the plan names no report field names; with the stub claude on PATH the eval run makes no live call
-- h3-AC1: the plan does not state the lead-time unit; the metrics[*] entries carry it in unit
-- h3-AC3: the plan says later defects count; the row reads before-merge defects as not counting
-- h3-AC5: the plan does not say whether tokens of unmet slices count; the row counts all job-record tokens
-- h3-AC6: the plan names no argument for writing the baseline; the row uses --baseline

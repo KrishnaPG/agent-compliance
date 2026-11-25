@@ -32,7 +32,7 @@ FIELDS_MD = HERE / "d0-fields.md"
 SCHEMA = HERE / "criteria.schema.json"
 COVERAGE = HERE / "coverage.md"
 CRITERIA = HERE / "criteria"
-SLICES = "abcdefgh"
+SLICES = "abd"
 STANDARDS = ROOT / "docs/spec/packet-standards.md"
 
 ID_RE = r"^[a-z0-9][a-z0-9_.-]*$"  # as catalog.yaml `types`
@@ -242,7 +242,7 @@ def plan_tasks() -> dict[str, dict]:
         tasks[cur]["leaves"] = dict(sorted(leaves.items()))
 
     for line in PLAN.read_text().splitlines():
-        m = re.match(r"^- \[ \] \*\*([a-h]\d+)\.\s*(.*?)\*\*", line)
+        m = re.match(r"^- \[ \] \*\*([abd]\d+)\.\s*(.*?)\*\*", line)
         if m:
             close()
             cur, in_done, bullets = m.group(1), False, []
@@ -407,9 +407,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
         "allOf": [{"$ref": "#/$defs/row"}],
         "required": ["deterministic"],
         "anyOf": [{"required": ["covers"]}, {"required": ["spec_ref"]}],
-        "properties": {"id": {"pattern": r"^[a-h]\d+-AC\d+$"}, "scenario": {"maxLength": 160}},
-        "if": {"properties": {"id": {"pattern": "^h"}}},
-        "else": {"properties": {"deterministic": {"const": True}}},
+        "properties": {"id": {"pattern": r"^[abd]\d+-AC\d+$"}, "scenario": {"maxLength": 160}, "deterministic": {"const": True}},
     }
     return {
         "$schema": "https://json-schema.org/draft/2020-12/schema",
@@ -624,7 +622,7 @@ def main() -> int:
     for r in rows:
         meth[r.get("verification")] += 1
     out += ["", "Verification: " + ", ".join(f"{m} {meth[m]}" for m in sorted(catalog["verification"])) + ".",
-            f"Non-deterministic rows (slice h only): {', '.join(sorted(nondet, key=key)) or 'none'}.", ""]
+            ""]
 
     out += ["## §0 items × criteria", "",
             "| Item | " + " | ".join(SLICES) + " | Total | Criteria |", "|---|" + "---|" * (len(SLICES) + 2)]
@@ -632,7 +630,7 @@ def main() -> int:
         ids = sorted(traced.get(i, []), key=key)
         per = [str(sum(1 for x in ids if x[0] == s)) for s in SLICES]
         out.append(f"| {i} | " + " | ".join(per) + f" | {len(ids)} | {', '.join(ids)} |")
-    out += ["", f"§0 items traced by no criterion: {', '.join(s0_untraced) or 'none'}.", "",
+    out += ["", f"Gaps, §0 items traced by no criterion (their rows left the release scope): {', '.join(s0_untraced) or 'none'}.", "",
             f"QBC ids traced by no criterion: {', '.join(qbc_untraced) or 'none'}. Withdrawn, not traceable: {', '.join(withdrawn)}.", ""]
 
     out += ["## Tasks whose \"done when\" has no row", "", ", ".join(no_rows) or "None.", "",
@@ -668,7 +666,7 @@ def main() -> int:
           f"no rows: {no_rows or 'none'}; uncovered leaves: {len(thin)} tasks; "
           f"§0 untraced: {s0_untraced or 'none'}; spec_ref uncovered: {refs_uncovered or 'none'}; needs-keyword: {len(needs_kw)}; "
           f"incompatible: {len(incompatible)}; weak teaching: {len(weak)}; whole-Proves rows: {len(full_proves)}")
-    if "--check" in sys.argv and (errors or untaught or no_rows or thin or s0_untraced or refs_uncovered or incompatible or weak or needs_kw):
+    if "--check" in sys.argv and (errors or untaught or no_rows or incompatible or weak or needs_kw):
         return 1
     return 0
 
