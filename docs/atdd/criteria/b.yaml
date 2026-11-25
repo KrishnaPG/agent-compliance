@@ -583,6 +583,11 @@ acceptance:
     bh:
       sub: measure
   then:
+  - field:
+      source: result_json
+      path: command
+      op: eq
+      value: measure
   - threshold:
       metric: measure_overhead_s
       op: le

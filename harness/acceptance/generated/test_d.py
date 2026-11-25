@@ -113,6 +113,17 @@ def test_d0_AC10(ctx):
     ctx.then('teaching', {'channel': 'stderr', 'wrong': 'scenario without verification', 'right': 'verification is one of test, lint, fitness, measure', 'prevent': 'give every acceptance scenario a verification (ISO/IEC/IEEE 29148) before the packet is accepted'})
 
 
+@pytest.mark.criterion('d0-AC11')
+def test_d0_AC11(ctx):
+    # The measurer and bh check run exactly the packet's verifier list
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('host', {'condition': 'builder_sandbox'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('same_result', {'a': 'check_run_checks', 'b': 'measure_run_checks', 'compare': 'equal'})
+    ctx.then('same_result', {'a': 'check_run_checks', 'b': 'packet_verifier_list', 'compare': 'equal'})
+
+
 @pytest.mark.criterion('d0-AC12')
 def test_d0_AC12(ctx):
     # Rendering the fixture packet gives the golden Markdown
@@ -141,6 +152,16 @@ def test_d1_AC2(ctx):
     ctx.then('field', {'source': 'packet', 'path': 'goal', 'op': 'present'})
     ctx.then('no_fact', {'kind': 'launch_refused'})
     ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
+
+
+@pytest.mark.criterion('d1-AC3')
+def test_d1_AC3(ctx):
+    # Program-written fields do not count toward the packet token limit
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('threshold', {'metric': 'planner_fields_tokens', 'op': 'le', 'bound': 'sizing.packet_tokens', 'default': 1600})
+    ctx.then('no_fact', {'kind': 'over_cap'})
 
 
 @pytest.mark.criterion('d1-AC4')
@@ -320,6 +341,17 @@ def test_d3_AC4(ctx):
     ctx.then('teaching', {'channel': 'stdout', 'wrong': 'naive datetime without a timezone', 'right': 'use a timezone-aware datetime', 'prevent': 'run bh check before finishing so the lint rule reports it'})
     ctx.then('output_contains', {'channel': 'stdout', 'text': 'fresh-stack'})
     ctx.then('lines', {'channel': 'stdout', 'pattern': '@teaching_shape|fresh-stack', 'every': True})
+
+
+@pytest.mark.criterion('d3-AC5')
+def test_d3_AC5(ctx):
+    # On planted trees inside the sandbox, the missed checks equal the measurer's
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'gutted_test', 'class': 'gaming', 'where': 'working_tree'})
+    ctx.given('host', {'condition': 'builder_sandbox'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('same_result', {'a': 'check_missed_checks', 'b': 'measure_missed_checks', 'compare': 'equal'})
 
 
 @pytest.mark.criterion('d3-AC6')
@@ -505,6 +537,17 @@ def test_d6_AC2(ctx):
     ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'docs/atdd/criteria.schema.json'})
 
 
+@pytest.mark.criterion('d6-AC3')
+def test_d6_AC3(ctx):
+    # The generator, with no agent, turns each row into exactly one test and a manifest entry
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
+    ctx.then('jobs', {'assert': 'program_only', 'values': ['generator']})
+    ctx.then('same_result', {'a': 'manifest_criterion_ids', 'b': 'packet_criterion_ids', 'compare': 'equal'})
+    ctx.then('same_result', {'a': 'manifest_test_node_ids', 'b': 'manifest_test_node_ids_distinct', 'compare': 'equal'})
+
+
 @pytest.mark.criterion('d6-AC4')
 def test_d6_AC4(ctx):
     # Each generated test is marked by its criterion id in the project's framework
@@ -658,6 +701,17 @@ def test_d7_AC2(ctx):
     ctx.then('jobs', {'assert': 'present', 'values': ['judge']})
     ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].objections', 'op': 'present'})
     ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].falsifying_calls', 'op': 'present'})
+
+
+@pytest.mark.criterion('d7-AC3')
+def test_d7_AC3(ctx):
+    # Each falsifying call becomes a target and each objection a fact
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'design_item', 'variant': 'valid'})
+    ctx.given('recorded_model', {'fixture': 'judge_two_objections'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('fact', {'kind': 'judge_objection', 'count': 2})
+    ctx.then('same_result', {'a': 'judge_falsifying_calls', 'b': 'item_new_targets', 'compare': 'equal'})
 
 
 @pytest.mark.criterion('d7-AC4')
@@ -871,6 +925,16 @@ def test_d9_AC5(ctx):
     ctx.then('output_contains', {'channel': 'additional_context', 'text': 'owner', 'max_chars': 60})
 
 
+@pytest.mark.criterion('d9-AC6')
+def test_d9_AC6(ctx):
+    # With six ready items at most five agents run at once
+    ctx.given('repo', {'name': 'project', 'state': 'six_ready_items'})
+    ctx.given('config', {'state': 'absent'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('threshold', {'metric': 'concurrent_agents', 'op': 'le', 'bound': 'concurrency', 'default': 5})
+    ctx.then('fact', {'kind': 'tier'})
+
+
 @pytest.mark.criterion('d9-AC7')
 def test_d9_AC7(ctx):
     # ruff PLR2004 is clean over harness
@@ -1065,6 +1129,17 @@ def test_d0_AC17(ctx):
     ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].when', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].then', 'op': 'present'})
     ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
+
+
+@pytest.mark.criterion('d3-AC7')
+def test_d3_AC7(ctx):
+    # bh check reads the same packet and runs the same verifier list as the measurer
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('host', {'condition': 'builder_sandbox'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('same_result', {'a': 'check_packet_sha256', 'b': 'measure_packet_sha256', 'compare': 'equal'})
+    ctx.then('same_result', {'a': 'check_run_checks', 'b': 'measure_run_checks', 'compare': 'equal'})
 
 
 @pytest.mark.criterion('d4-AC7')

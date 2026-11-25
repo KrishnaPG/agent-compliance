@@ -76,6 +76,10 @@
       "node": "test_a.py::test_a5_AC3",
       "slice": "a"
     },
+    "b1-AC1": {
+      "node": "test_b.py::test_b1_AC1",
+      "slice": "b"
+    },
     "b1-AC10": {
       "node": "test_b.py::test_b1_AC10",
       "slice": "b"
@@ -244,6 +248,10 @@
       "node": "test_b.py::test_b13_AC2",
       "slice": "b"
     },
+    "b13-AC3": {
+      "node": "test_b.py::test_b13_AC3",
+      "slice": "b"
+    },
     "b13-AC4": {
       "node": "test_b.py::test_b13_AC4",
       "slice": "b"
@@ -296,6 +304,10 @@
       "node": "test_b.py::test_b2_AC10",
       "slice": "b"
     },
+    "b2-AC11": {
+      "node": "test_b.py::test_b2_AC11",
+      "slice": "b"
+    },
     "b2-AC12": {
       "node": "test_b.py::test_b2_AC12",
       "slice": "b"
@@ -328,6 +340,10 @@
       "node": "test_b.py::test_b2_AC19",
       "slice": "b"
     },
+    "b2-AC2": {
+      "node": "test_b.py::test_b2_AC2",
+      "slice": "b"
+    },
     "b2-AC3": {
       "node": "test_b.py::test_b2_AC3",
       "slice": "b"
@@ -350,6 +366,10 @@
     },
     "b2-AC8": {
       "node": "test_b.py::test_b2_AC8",
+      "slice": "b"
+    },
+    "b2-AC9": {
+      "node": "test_b.py::test_b2_AC9",
       "slice": "b"
     },
     "b3-AC1": {
@@ -908,6 +928,10 @@
       "node": "test_d.py::test_d0_AC10",
       "slice": "d"
     },
+    "d0-AC11": {
+      "node": "test_d.py::test_d0_AC11",
+      "slice": "d"
+    },
     "d0-AC12": {
       "node": "test_d.py::test_d0_AC12",
       "slice": "d"
@@ -970,6 +994,10 @@
     },
     "d1-AC2": {
       "node": "test_d.py::test_d1_AC2",
+      "slice": "d"
+    },
+    "d1-AC3": {
+      "node": "test_d.py::test_d1_AC3",
       "slice": "d"
     },
     "d1-AC4": {
@@ -1092,8 +1120,16 @@
       "node": "test_d.py::test_d3_AC4",
       "slice": "d"
     },
+    "d3-AC5": {
+      "node": "test_d.py::test_d3_AC5",
+      "slice": "d"
+    },
     "d3-AC6": {
       "node": "test_d.py::test_d3_AC6",
+      "slice": "d"
+    },
+    "d3-AC7": {
+      "node": "test_d.py::test_d3_AC7",
       "slice": "d"
     },
     "d4-AC1": {
@@ -1188,6 +1224,10 @@
       "node": "test_d.py::test_d6_AC2",
       "slice": "d"
     },
+    "d6-AC3": {
+      "node": "test_d.py::test_d6_AC3",
+      "slice": "d"
+    },
     "d6-AC4": {
       "node": "test_d.py::test_d6_AC4",
       "slice": "d"
@@ -1218,6 +1258,10 @@
     },
     "d7-AC2": {
       "node": "test_d.py::test_d7_AC2",
+      "slice": "d"
+    },
+    "d7-AC3": {
+      "node": "test_d.py::test_d7_AC3",
       "slice": "d"
     },
     "d7-AC4": {
@@ -1298,6 +1342,10 @@
     },
     "d9-AC5": {
       "node": "test_d.py::test_d9_AC5",
+      "slice": "d"
+    },
+    "d9-AC6": {
+      "node": "test_d.py::test_d9_AC6",
       "slice": "d"
     },
     "d9-AC7": {

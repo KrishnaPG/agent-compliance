@@ -2,6 +2,17 @@
 import pytest
 
 
+@pytest.mark.criterion('b1-AC1')
+def test_b1_AC1(ctx):
+    # Each (ref, mode) is measured in its own shared clone, and two measured at once do not share one
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('recorded_model', {'fixture': 'toy_honest'})
+    ctx.when('bh', {'sub': 'measure', 'parallel': 2})
+    ctx.then('git', {'assert': 'clone_is_shared_from_base'})
+    ctx.then('git', {'assert': 'no_remote_fetch'})
+    ctx.then('same_result', {'a': 'result_ref_a', 'b': 'result_ref_b', 'compare': 'separate'})
+
+
 @pytest.mark.criterion('b1-AC2')
 def test_b1_AC2(ctx):
     # A gutted test that is not the item's own test still makes the candidate unmet (all tests are overlaid)
@@ -200,6 +211,7 @@ def test_b1_AC20(ctx):
     # The measurer's own overhead is within the limit on the toy
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.when('bh', {'sub': 'measure'})
+    ctx.then('field', {'source': 'result_json', 'path': 'command', 'op': 'eq', 'value': 'measure'})
     ctx.then('threshold', {'metric': 'measure_overhead_s', 'op': 'le', 'bound': 'limits.measure_overhead_s', 'default': 2})
 
 
@@ -219,6 +231,15 @@ def test_b2_AC1(ctx):
     ctx.when('bh', {'sub': 'measure'})
     ctx.then('paths', {'paths': ['out/*/*-*'], 'exist': True})
     ctx.then('field', {'source': 'result_json', 'path': 'items[*].out', 'op': 'matches', 'value': 'out/[^/]+/[0-9a-f]{12}-[^/]+'})
+
+
+@pytest.mark.criterion('b2-AC2')
+def test_b2_AC2(ctx):
+    # A repeated (ref, mode) pair is deduped
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.when('bh', {'sub': 'measure', 'rerun': True})
+    ctx.then('same_result', {'a': 'first_run', 'b': 'second_run', 'compare': 'equal'})
+    ctx.then('paths', {'paths': ['out/*/*-*'], 'exist': True})
 
 
 @pytest.mark.criterion('b2-AC3')
@@ -288,6 +309,15 @@ def test_b2_AC8(ctx):
     ctx.then('teaching', {'channel': 'fact', 'wrong': 'a test errored (red-by-error)', 'right': 'fix the error so the test runs and asserts', 'prevent': "run the item's tests before finishing"})
 
 
+@pytest.mark.criterion('b2-AC9')
+def test_b2_AC9(ctx):
+    # A change to a plan file changes the measurement key, so an earlier result is not reused
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('planted', {'plant': 'plan_file_changed', 'class': 'diff', 'where': 'plan_commit'})
+    ctx.when('bh', {'sub': 'measure', 'rerun': True})
+    ctx.then('same_result', {'a': 'before_plan_change', 'b': 'after_plan_change', 'compare': 'separate'})
+
+
 @pytest.mark.criterion('b2-AC10')
 def test_b2_AC10(ctx):
     # A test whose background child holds stdout is not recorded as a timeout
@@ -296,6 +326,14 @@ def test_b2_AC10(ctx):
     ctx.when('bh', {'sub': 'measure'})
     ctx.then('met', {'status': 'met'})
     ctx.then('no_fact', {'kind': 'stuck'})
+
+
+@pytest.mark.criterion('b2-AC11')
+def test_b2_AC11(ctx):
+    # Two refs measured at the same time keep separate results
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.when('bh', {'sub': 'measure', 'parallel': 2})
+    ctx.then('same_result', {'a': 'result_ref_a', 'b': 'result_ref_b', 'compare': 'separate'})
 
 
 @pytest.mark.criterion('b3-AC1')
@@ -1114,6 +1152,16 @@ def test_b13_AC2(ctx):
     ctx.given('recorded_model', {'fixture': 'toy_honest'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('field', {'source': 'launch_args', 'path': '--max-budget-usd', 'op': 'eq', 'value': 0.5})
+
+
+@pytest.mark.criterion('b13-AC3')
+def test_b13_AC3(ctx):
+    # A round cannot exceed budgets.run_usd
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('config', {'state': 'override', 'key': 'budgets.run_usd', 'value': 1})
+    ctx.given('recorded_model', {'fixture': 'toy_two_items'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('threshold', {'metric': 'round_spend_usd', 'op': 'le', 'bound': 'budgets.run_usd'})
 
 
 @pytest.mark.criterion('b13-AC4')

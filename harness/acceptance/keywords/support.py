@@ -19,6 +19,12 @@ import yaml
 
 HERE = Path(__file__).resolve().parent
 CONTRACT = json.loads((HERE / "contract.json").read_text())
+
+
+def catalog_entry(kind: str, key: str) -> dict:
+    """One catalog entry; the named results of same_result and the metrics of threshold are defined there."""
+    import yaml
+    return yaml.safe_load((HERE.parents[2] / "docs/atdd/catalog.yaml").read_text())[kind][key]
 sys.path.insert(0, str(HERE.parent.parent / "lib"))
 from atdd_engine.runtime import FixtureError, Missing, say  # noqa: E402
 

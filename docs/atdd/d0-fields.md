@@ -52,7 +52,7 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | path | type | meaning | rows |
 |---|---|---|---|
 | `schema_version` | string | version of the result schema the JSON follows | b2-AC18 |
-| `command` | enum: run, measure, check, intake, merge, decide, gaps, owners, metrics, vet, map | the bh command or program step that printed the result | b2-AC18 |
+| `command` | enum: run, measure, check, intake, merge, decide, gaps, owners, metrics, vet, map | the bh command or program step that printed the result | b1-AC20, b2-AC18 |
 | `packet_sha256` | string | sha256 of the packet a run, measure or check read | b1-AC22, b2-AC12, b2-AC15, b2-AC16 |
 | `items[*].id` | string | the item id | b13-AC1, e4-AC6 |
 | `items[*].status` | enum: met, unmet, stuck, not_checked | the measurer's verdict for the item | b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC18, b2-AC19, b7-AC4, b8-AC2, b8-AC3, b13-AC1, b14-AC1, c8-AC8, c8-AC9, d11-AC7, d11-AC9, e4-AC6 |
@@ -60,6 +60,8 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `items[*].out` | string | the item's output dir out/<item>/<sha12>-<slot> | b2-AC1 |
 | `items[*].acceptance[*].id` | string | an acceptance criterion id of the item | b2-AC18 |
 | `items[*].acceptance[*].status` | enum: met, unmet | the measurer's verdict for that criterion | b2-AC18, b2-AC19 |
+| `checks_run[*]` | string | an exact check a measure or check command ran (command measure, check) | - |
+| `checks_missed[*]` | string | a planted defect the checks ran and did not report (command measure, check) | - |
 | `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b4-AC10, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b7-AC3, b7-AC4, b7-AC5, b7-AC6, b7-AC7, b7-AC8, b7-AC9, b7-AC10, b7-AC11, b7-AC12, b8-AC6, b8-AC7, b9-AC14, b10-AC1, b10-AC2, b10-AC3, b10-AC4, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC6, b13-AC1, b14-AC1, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c3-AC12, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c5-AC1, c5-AC2, c5-AC3, c6-AC3, c7-AC9, c7-AC10, c8-AC7, c8-AC8, c8-AC9, c9-AC1, c9-AC2, c9-AC3, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d5-AC2, d5-AC3, d5-AC4, d5-AC5, d5-AC6, d5-AC7, d5-AC8, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC14, d6-AC15, d7-AC3, d7-AC4, d8-AC5, d8-AC6, d8-AC7, d8-AC9, d9-AC6, d11-AC4, d11-AC7, d11-AC9, e2-AC2, e2-AC4, e3-AC6, e5-AC1, e5-AC4, e5-AC8, e5-AC9, e5-AC10, f1-AC2, f1-AC10, f1-AC11, f1-AC12, f2-AC1, f3-AC5, f3-AC6, f3-AC7, f3-AC8, g1-AC2, g1-AC5, g1-AC6, g2-AC1, g2-AC3, g2-AC6 |
 | `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, b10-AC4, b12-AC1, b12-AC2, b12-AC4, b12-AC6, b13-AC1, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c3-AC12, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c5-AC1, c5-AC2, c5-AC3, c6-AC3, c7-AC9, c7-AC10, c8-AC7, c8-AC8, c8-AC9, c9-AC1, c9-AC2, d5-AC5, d5-AC6, d5-AC7, d5-AC8, d6-AC7, d6-AC10, d6-AC11, d11-AC4, e2-AC4, e5-AC4, f1-AC11, f1-AC12, f3-AC6, g1-AC2, g1-AC5, g1-AC6 |
 | `facts[*].item` | string | the item the fact belongs to | b2-AC19 |
@@ -99,6 +101,8 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `jobs[*].item` | string | the item the job worked on | b14-AC3, b14-AC5 |
 | `jobs[*].started_at` | string | start time, RFC 3339 | b14-AC5 |
 | `jobs[*].exit_code` | integer | the job's exit code | b14-AC5 |
+| `jobs[*].ended_at` | string | end time, RFC 3339 | - |
+| `jobs[*].cost_usd` | number | Claude CLI total_cost_usd of the job; 0 for a program step | - |
 | `jobs[*].tokens` | integer | Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums | b14-AC3 |
 | `jobs[*].cached` | boolean | true when a cached job result was reused | b13-AC4, b13-AC5 |
 | `jobs[*].packet_sha256` | string | sha256 of the packet the job read | d0-AC16, d4-AC1, d4-AC5 |
@@ -145,4 +149,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 
 Each line is a d0 field that no acceptance criterion tests, or a config key with no stated default.
 
-None.
+- result `checks_run[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- result `checks_missed[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].ended_at` (string) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].cost_usd` (number) is a d0 field that no acceptance criterion reads yet.

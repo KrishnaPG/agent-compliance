@@ -672,7 +672,16 @@ then:
           gt: "greater than"
       bound: {type: string, doc: "a limits key (e.g. limits.measure_overhead_s) or ref:<state> for the value at that fixture state"}
       default: {type: number, required: false, doc: "the default of the limits key"}
-    passes_when: metric op bound is true, where bound is the effective limit (override or default) or the metric at the reference state.
+    metrics:
+      measure_overhead_s: "wall time in seconds of the `bh measure` run"
+      longest_message_chars: "longest string among the result JSON facts"
+      skill_description_chars: "scan description_chars (largest)"
+      skill_chars: "scan file_chars (largest)"
+      skill_md_chars: "scan file_chars (largest)"
+      round_spend_usd: "the sum of the result JSON's jobs[*].cost_usd"
+      planner_fields_tokens: "the packet's planner-written fields (goal, applies[*].id, constraints.decisions[*].id, constraints.declared_paths[*]) as JSON, UTF-8 bytes divided by 4 (the unit of sizing.packet_tokens)"
+      concurrent_agents: "the most jobs[*] of kind agent whose [started_at, ended_at] intervals overlap at one instant"
+    passes_when: metric op bound is true, where bound is the effective limit (override or default) or the metric at the reference state. The metric is measured as `metrics` defines it; a metric not listed there is not generated.
 
   snapshot:
     meaning: An output equals a committed golden file.
@@ -704,7 +713,28 @@ then:
         values:
           equal: "the two results are equal"
           separate: "neither result holds any entry of the other"
-    passes_when: equal = the two lists or JSON values are equal; separate = neither result holds any entry of the other.
+    results:
+      doc: "a and b name an entry here. `run` picks the run read: this (the when step's run), first or second (a `rerun` pair), parallel_1 or parallel_2 (the runs of `parallel: 2`), or {bh: <sub>} (one more run of that bh subcommand on the same tree). `source` instead names a file: packet or manifest. `read` is a field path of docs/atdd/fields.yaml in that run's result JSON or that file; for the manifest, keys or values; distinct drops repeated entries."
+      result_ref_a: {run: parallel_1, read: "items[*].out"}
+      result_ref_b: {run: parallel_2, read: "items[*].out"}
+      first_run: {run: first, read: "items[*].out"}
+      second_run: {run: second, read: "items[*].out"}
+      before_plan_change: {run: first, read: "items[*].out"}
+      after_plan_change: {run: second, read: "items[*].out"}
+      check_run_checks: {run: this, read: "checks_run[*]"}
+      measure_run_checks: {run: {bh: measure}, read: "checks_run[*]"}
+      check_missed_checks: {run: this, read: "checks_missed[*]"}
+      measure_missed_checks: {run: {bh: measure}, read: "checks_missed[*]"}
+      check_packet_sha256: {run: this, read: packet_sha256}
+      measure_packet_sha256: {run: {bh: measure}, read: packet_sha256}
+      packet_verifier_list: {source: packet, read: "verifier.checks[*]"}
+      packet_criterion_ids: {source: packet, read: "acceptance[*].id"}
+      manifest_criterion_ids: {source: manifest, read: keys}
+      manifest_test_node_ids: {source: manifest, read: values}
+      manifest_test_node_ids_distinct: {source: manifest, read: values, distinct: true}
+      judge_falsifying_calls: {run: this, read: "jobs[*].falsifying_calls[*]"}
+      item_new_targets: {source: packet, read: "verifier.targets[*].metric"}
+    passes_when: equal = the two lists or JSON values are equal; separate = neither result holds any entry of the other (both are read and non-empty).
 
   git:
     meaning: A git property of the repo after `when`.

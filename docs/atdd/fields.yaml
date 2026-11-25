@@ -59,6 +59,8 @@ fields:
   - {schema: result, path: "items[*].out", type: string, meaning: "the item's output dir out/<item>/<sha12>-<slot>"}
   - {schema: result, path: "items[*].acceptance[*].id", type: string, meaning: "an acceptance criterion id of the item"}
   - {schema: result, path: "items[*].acceptance[*].status", type: "enum: met, unmet", meaning: "the measurer's verdict for that criterion"}
+  - {schema: result, path: "checks_run[*]", type: string, meaning: "an exact check a measure or check command ran (command measure, check)"}
+  - {schema: result, path: "checks_missed[*]", type: string, meaning: "a planted defect the checks ran and did not report (command measure, check)"}
   - {schema: result, path: "facts[*].kind", type: string, meaning: "one of the catalog's fact kinds"}
   - {schema: result, path: "facts[*].detail", type: string, meaning: "text naming the file, key or value the fact is about"}
   - {schema: result, path: "facts[*].item", type: string, meaning: "the item the fact belongs to"}
@@ -92,6 +94,8 @@ fields:
   - {schema: jobs, path: "jobs[*].item", type: string, meaning: "the item the job worked on"}
   - {schema: jobs, path: "jobs[*].started_at", type: string, meaning: "start time, RFC 3339"}
   - {schema: jobs, path: "jobs[*].exit_code", type: integer, meaning: "the job's exit code"}
+  - {schema: jobs, path: "jobs[*].ended_at", type: string, meaning: "end time, RFC 3339"}
+  - {schema: jobs, path: "jobs[*].cost_usd", type: number, meaning: "Claude CLI total_cost_usd of the job; 0 for a program step"}
   - {schema: jobs, path: "jobs[*].tokens", type: integer, meaning: "Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums"}
   - {schema: jobs, path: "jobs[*].cached", type: boolean, meaning: "true when a cached job result was reused"}
   - {schema: jobs, path: "jobs[*].packet_sha256", type: string, meaning: "sha256 of the packet the job read"}

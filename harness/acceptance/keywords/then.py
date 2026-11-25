@@ -15,7 +15,7 @@ import yaml
 
 import atdd_engine.teaching as teaching
 from atdd_engine.runtime import KeywordError
-from support import CONTRACT, FixtureError, REF, apply_op, get_path, git, globs, missing, need, nonempty, repo, say
+from support import CONTRACT, catalog_entry, execute, sut_argv, FixtureError, REF, apply_op, get_path, git, globs, missing, need, nonempty, repo, say
 from when import BEFORE_WHEN, digests, load_instance, load_schema, run_validation, _front, when_scan
 
 P = CONTRACT["paths"]
@@ -515,7 +515,34 @@ def metric_value(ctx, metric):
         return max([len(s) for f in facts(ctx) for s in fact_texts(f)] or [0])
     if metric in ("skill_description_chars", "skill_chars", "skill_md_chars"):
         return run.extra["number"]
+    if metric == "round_spend_usd":
+        return sum(get_path_or_missing(result(ctx), "jobs[*].cost_usd"))
+    if metric == "planner_fields_tokens":
+        pk = source(ctx, "packet")
+        mine = [get_path_or_missing(pk, p) for p in ("goal", "applies[*].id", "constraints.decisions[*].id", "constraints.declared_paths[*]")]
+        return len(json.dumps(mine, ensure_ascii=False).encode()) / 4
+    if metric == "concurrent_agents":
+        from datetime import datetime
+        agent_jobs = [j for j in _jobs_list(ctx) if j.get("kind") == "agent"]
+        ev = []
+        for j in agent_jobs:
+            for k in ("started_at", "ended_at"):
+                if k not in j:
+                    missing(f"a job has no {k}", f"record {k} on every job")
+            ev += [(datetime.fromisoformat(j["started_at"].replace("Z", "+00:00")), 1), (datetime.fromisoformat(j["ended_at"].replace("Z", "+00:00")), -1)]
+        cur = top = 0
+        for _, d in sorted(ev, key=lambda e: (e[0], e[1])):
+            cur += d
+            top = max(top, cur)
+        return top
     raise KeywordError(f"metric {metric} is not defined")
+
+
+def get_path_or_missing(obj, path):
+    try:
+        return get_path(obj, path)
+    except KeyError:
+        missing(f"no field {path}", f"add {path} to the result")
 
 
 def _config_limit(ctx, key, default):
@@ -570,8 +597,37 @@ def then_schema_valid(ctx, valid, error_path=None, instance=None, schema=None):
         need(any(e["dotted"] == ep or e["dotted"].startswith(ep) or e["path"].endswith(error_path) for e in errs), f"no error points at {error_path}", "report the error at that path")
 
 
+def _named_result(ctx, name):
+    spec = catalog_entry("then", "same_result")["results"][name]
+    if "source" in spec:
+        obj = source(ctx, spec["source"])
+        if spec["source"] == "manifest":
+            vals = list(obj) if spec["read"] == "keys" else list(obj.values())
+        else:
+            vals = get_path_or_missing(obj, spec["read"])
+    else:
+        r, run = spec["run"], last(ctx)
+        if r == "first":
+            run = run.first or missing("there is no first run: the row has no rerun", "run the step twice")
+        elif r.startswith("parallel_") if isinstance(r, str) else False:
+            n = int(r.split("_")[1])
+            run = run.runs[n - 1] if len(run.runs) >= n else missing(f"the step ran {len(run.runs)} time(s), not {n}", "run it with parallel: 2")
+        elif isinstance(r, dict):
+            run = execute(ctx, sut_argv(ctx, CONTRACT["argv"]["bh"]) + [r["bh"]])
+        j = run.json
+        if j is None:
+            missing(f"{' '.join(run.argv[-2:])} printed no result JSON on stdout (exit {run.exit_code})", "print the result JSON on stdout")
+        vals = get_path_or_missing(j, spec["read"])
+    return list(dict.fromkeys(json.dumps(v, sort_keys=True) for v in vals)) if spec.get("distinct") else [json.dumps(v, sort_keys=True) for v in vals]
+
+
 def then_same_result(ctx, a, b, compare):
-    raise KeywordError(say("ATDD-AMBIGUOUS", f"same_result names results {a} and {b} that the catalog does not define", "define the named results in the catalog", "docs/atdd/catalog.yaml"))
+    x, y = _named_result(ctx, a), _named_result(ctx, b)
+    if compare == "equal":
+        need(x == y, f"{a} is {x}, {b} is {y}", f"make {a} and {b} equal")
+    else:
+        need(x and y, f"{a} or {b} holds no entry to compare", f"record entries in {a} and {b}")
+        need(not set(x) & set(y), f"{a} and {b} share {sorted(set(x) & set(y))}", f"keep {a} and {b} separate")
 
 
 def then_git(ctx, **kw):
