@@ -1,0 +1,313 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "packet.schema.json",
+  "title": "work packet",
+  "description": "The one contract for L3 (tests), L4 (build) and L5 (measure). Field names follow docs/atdd/fields.yaml. Planner-written fields state the goal and why, never the design: a field not listed here, such as a design field, is refused.",
+  "type": "object",
+  "required": [
+    "schema_version",
+    "id",
+    "parent_issue",
+    "tier",
+    "goal",
+    "applies",
+    "constraints",
+    "acceptance",
+    "verifier",
+    "paved_road",
+    "definition_of_done"
+  ],
+  "additionalProperties": false,
+  "properties": {
+    "schema_version": {
+      "type": "string",
+      "pattern": "^[0-9]+\\.[0-9]+\\.[0-9]+$",
+      "description": "version of this schema (Semantic Versioning 2.0.0)"
+    },
+    "id": {
+      "type": "string",
+      "minLength": 1,
+      "description": "the item id; names the packet file"
+    },
+    "parent_issue": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "tracker issue number of the item's parent"
+    },
+    "tier": {
+      "enum": [
+        "mechanical",
+        "design-affecting"
+      ],
+      "description": "derived from declared paths and the diff (d5), never typed by a person"
+    },
+    "goal": {
+      "type": "string",
+      "minLength": 1,
+      "description": "commander's intent: the intent and why, with no design"
+    },
+    "applies": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "text"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "pattern": "^([GPR][0-9]+|QBC-[0-9]+)$"
+          },
+          "text": {
+            "type": "string",
+            "minLength": 1,
+            "description": "copied verbatim from spec section 0"
+          }
+        }
+      }
+    },
+    "constraints": {
+      "type": "object",
+      "required": [
+        "declared_paths"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "decisions": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "text"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "text": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "owners": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "interfaces": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "declared_paths": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "string"
+          }
+        },
+        "limits": {
+          "type": "object"
+        }
+      }
+    },
+    "acceptance": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "type": "object",
+        "required": [
+          "id",
+          "scenario",
+          "given",
+          "when",
+          "then",
+          "traces_to",
+          "verification"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "type": "string",
+            "minLength": 1
+          },
+          "scenario": {
+            "type": "string",
+            "minLength": 1
+          },
+          "given": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "when": {
+            "type": "object"
+          },
+          "then": {
+            "type": "array",
+            "items": {
+              "type": "object"
+            }
+          },
+          "traces_to": {
+            "type": "array",
+            "minItems": 1,
+            "items": {
+              "type": "string",
+              "pattern": "^([GPR][0-9]+|QBC-[0-9]+)$"
+            }
+          },
+          "verification": {
+            "enum": [
+              "test",
+              "lint",
+              "fitness",
+              "measure"
+            ],
+            "description": "ISO/IEC/IEEE 29148 verification method"
+          }
+        }
+      }
+    },
+    "verifier": {
+      "type": "object",
+      "required": [
+        "acceptance_paths"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "checks": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "rules": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "message"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "message": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "baselines": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "targets": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "required": [
+              "id",
+              "item",
+              "metric",
+              "op",
+              "value"
+            ],
+            "additionalProperties": false,
+            "properties": {
+              "id": {
+                "type": "string"
+              },
+              "item": {
+                "type": "string"
+              },
+              "metric": {
+                "type": "string"
+              },
+              "op": {
+                "enum": [
+                  ">=",
+                  "<=",
+                  "==",
+                  "!=",
+                  ">",
+                  "<"
+                ]
+              },
+              "value": {
+                "type": "number"
+              },
+              "unit": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "acceptance_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "paved_road": {
+      "type": "object",
+      "required": [
+        "test_paths",
+        "dependency_command",
+        "check_command"
+      ],
+      "additionalProperties": false,
+      "properties": {
+        "test_paths": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "dependency_command": {
+          "type": "string"
+        },
+        "check_command": {
+          "type": "string"
+        }
+      }
+    },
+    "definition_of_done": {
+      "type": "string",
+      "minLength": 1
+    },
+    "overflow": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": [
+          "path"
+        ],
+        "additionalProperties": false,
+        "properties": {
+          "path": {
+            "type": "string",
+            "minLength": 1,
+            "description": "file in the packet directory holding text moved out over the size cap"
+          }
+        }
+      }
+    }
+  }
+}

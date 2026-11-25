@@ -1357,6 +1357,11 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
 
 
 def main(argv: list[str] | None = None) -> int:
+    args = sys.argv[1:] if argv is None else argv
+    if args[:1] == ["step"]:  # a program step needs no orchestrator and no config (d0)
+        import bhpacket
+
+        return bhpacket.main(args[1:])
     ap = argparse.ArgumentParser(prog="bh", description="Run the build harness (orchestrator).")
     common = argparse.ArgumentParser(add_help=False)  # accepted before or after the subcommand
     for p, dflt in ((ap, None), (common, argparse.SUPPRESS)):
