@@ -100,7 +100,7 @@ def test_findings_are_recorded_in_gaps_json_apart_from_spec_gaps(toy):
     assert [f["severity"] for f in r["findings"]] == ["S2", "S4"]
     assert not (toy / ".brick-harness" / "findings.json").exists()  # one place, no second file
     doc = json.loads((toy / ".brick-harness" / "gaps.json").read_text())
-    assert bhcore.validate(doc, bhcore.load_schema("gaps")) == []
+    assert bhcore.schema_errors(doc, bhcore.load_schema("gaps")) == []
     stored = [g for g in doc["gaps"] if g["source"] == "finding"]
     assert (
         len(stored) == 2
@@ -153,8 +153,8 @@ def test_findings_schema_agrees_with_jsonschema():
         "findings": [{"summary": "x", "severity": "S1", "evidence": "trigger", "impact": ["t"]}]
     }
     bad = {"findings": [{"summary": "x", "evidence": "sure"}]}
-    assert jsonschema.Draft202012Validator(s).is_valid(good) and bhcore.validate(good, s) == []
-    assert not jsonschema.Draft202012Validator(s).is_valid(bad) and bhcore.validate(bad, s)
+    assert jsonschema.Draft202012Validator(s).is_valid(good) and bhcore.schema_errors(good, s) == []
+    assert not jsonschema.Draft202012Validator(s).is_valid(bad) and bhcore.schema_errors(bad, s)
 
 
 def test_build_rounds_work_only_on_items_with_unmet_measured_targets(toy):
@@ -290,7 +290,7 @@ def test_gaps_report_lists_every_gap_in_rank_order(toy):
     assert order == sorted(order)
     assert all(g["summary"] in md for g in r["gaps"])  # nothing dropped
     on_disk = json.loads((toy / ".brick-harness" / "gaps.json").read_text())
-    assert bhcore.validate(on_disk, bhcore.load_schema("gaps")) == []
+    assert bhcore.schema_errors(on_disk, bhcore.load_schema("gaps")) == []
 
 
 # ---------------------------------------------------------------- SG-03: settled decisions
@@ -335,7 +335,7 @@ def test_config_standards_decisions_validate():
     s = bhcore.load_schema("harness.config")
     c = json.loads((ROOT / "examples" / "toy" / ".brick-harness" / "config.json").read_text())
     c["standards"] = {"decisions": ["docs/adr/0001.md"]}
-    assert jsonschema.Draft202012Validator(s).is_valid(c) and bhcore.validate(c, s) == []
+    assert jsonschema.Draft202012Validator(s).is_valid(c) and bhcore.schema_errors(c, s) == []
     c["standards"] = {"decisions": "docs/adr"}
     assert not jsonschema.Draft202012Validator(s).is_valid(c)
 
@@ -366,9 +366,9 @@ def test_bricks_schema_sizing_fields_are_optional_and_typed():
             }
         ]
     }
-    assert jsonschema.Draft202012Validator(s).is_valid(ok) and bhcore.validate(ok, s) == []
+    assert jsonschema.Draft202012Validator(s).is_valid(ok) and bhcore.schema_errors(ok, s) == []
     ok["bricks"][0]["est_loc"] = -1
-    assert not jsonschema.Draft202012Validator(s).is_valid(ok) and bhcore.validate(ok, s)
+    assert not jsonschema.Draft202012Validator(s).is_valid(ok) and bhcore.schema_errors(ok, s)
 
 
 # ---------------------------------------------------------------- SG-04: target history
@@ -498,7 +498,7 @@ def test_config_budgets_and_sizing_validate():
             "sizing": {"min_loc": 100, "max_loc": 3000},
         }
     )
-    assert jsonschema.Draft202012Validator(s).is_valid(c) and bhcore.validate(c, s) == []
+    assert jsonschema.Draft202012Validator(s).is_valid(c) and bhcore.schema_errors(c, s) == []
     for bad in (
         {"budgets": {"run_tokens": 0}},
         {"budgets": {"x": 1}},
@@ -506,7 +506,7 @@ def test_config_budgets_and_sizing_validate():
         {"sizing": {"max_loc": 0}},
     ):
         d = {**c, **bad}
-        assert not jsonschema.Draft202012Validator(s).is_valid(d) and bhcore.validate(d, s), bad
+        assert not jsonschema.Draft202012Validator(s).is_valid(d) and bhcore.schema_errors(d, s), bad
 
 
 def test_a_stuck_reason_reaches_the_unmet_gap(toy):

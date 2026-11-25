@@ -183,8 +183,8 @@ def test_decision_schema_and_config_accept_the_new_fields():
     schema = bhcore.load_schema("decision")
     rec = {"id": "D-1", "gap": "g", "question": "q", "answer": "a", "source": "f:1", "kinds": ["other"],
            "areas": ["x"], "date": "2026-11-19"}  # fmt: skip
-    assert bhcore.validate(rec, schema) == []
-    assert bhcore.validate({**rec, "id": "1", "kinds": []}, schema)
+    assert bhcore.schema_errors(rec, schema) == []
+    assert bhcore.schema_errors({**rec, "id": "1", "kinds": []}, schema)
 
 
 def test_missing_context_is_a_finding_kind_that_bh_rank_records(toy):
@@ -294,12 +294,12 @@ def test_the_default_packet_limit_is_1600_tokens(toy):
 def test_bricks_schema_context_and_rules_are_optional_and_typed():
     schema = bhcore.load_schema("bricks")
     one = {"id": "a", "job": "j"}
-    assert bhcore.validate({"bricks": [one]}, schema) == []
+    assert bhcore.schema_errors({"bricks": [one]}, schema) == []
     ok = {**one, "context": [{"path": "p.md", "lines": "1-9"}], "rules": ["RL-01"]}
-    assert bhcore.validate({"bricks": [ok]}, schema) == []
-    assert bhcore.validate(
+    assert bhcore.schema_errors({"bricks": [ok]}, schema) == []
+    assert bhcore.schema_errors(
         {"bricks": [{**one, "context": [{"path": "p.md", "lines": "1"}]}]}, schema
     )
-    assert bhcore.validate(
+    assert bhcore.schema_errors(
         {"bricks": [{**one, "context": [{"path": "p.md", "lines": "1-2", "text": "x"}]}]}, schema
     )

@@ -87,4 +87,4 @@ def test_gap_kinds_agree_everywhere():
     schema = bhcore.load_schema("gaps")["$defs"]["gap"]["properties"]["kind"]["enum"]
     jobs = json.loads((ROOT / "schema" / "jobs.schema.json").read_text())
     job = jobs["$defs"]["gap"]["properties"]["kind"]["enum"]
-    assert list(bhcore.GAP_KINDS) == schema == job
+    assert bhcore.gap_kinds() == schema == job

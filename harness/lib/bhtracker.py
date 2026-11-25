@@ -56,7 +56,7 @@ from bhcore import (
     load_json,
     load_schema,
     loads,
-    validate,
+    schema_errors,
 )
 
 ADAPTER_DIR = HARNESS_DIR / "adapters"
@@ -201,7 +201,7 @@ def load_adapter(cfg: Config) -> dict[str, Any]:
         raise HarnessError(f"tracker adapter {name!r} not found ({path})")
     doc: dict[str, Any] = load_json(path)
     schema = load_schema("tracker")
-    errs = validate(doc, schema["$defs"]["adapter"], schema, "$")
+    errs = schema_errors(doc, schema["$defs"]["adapter"], schema, "$")
     if errs:
         raise HarnessError(f"{path} fails the adapter schema: " + "; ".join(errs[:5]))
     doc["commands"] = {**doc["commands"], **conf.get("commands", {})}
@@ -299,7 +299,7 @@ class Tracker:
             raise TrackerError(f"tracker.{op} printed neither a list nor an entry")
         out = [entry_of(self.ad, op, r) for r in doc if isinstance(r, dict)]
         schema = load_schema("tracker")
-        errs = validate(out, schema["$defs"]["entries"], schema, "$")
+        errs = schema_errors(out, schema["$defs"]["entries"], schema, "$")
         if errs:
             raise TrackerError(
                 f"tracker.{op} output fails the entry schema: " + "; ".join(errs[:5])

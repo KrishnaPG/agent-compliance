@@ -550,7 +550,7 @@ class Orchestrator:
                 output = None
         if not isinstance(output, dict):
             return False, "no structured output in the result", None
-        errs = bhcore.validate(output, schema)
+        errs = bhcore.schema_errors(output, schema)
         if errs:
             return False, "output fails its schema: " + "; ".join(errs[:5]), None
         return True, None, output

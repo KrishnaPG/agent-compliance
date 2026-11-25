@@ -212,13 +212,13 @@ def test_unknown_template_braces_left_alone():
 
 
 def test_validator_rejects_bad_config():
-    errs = bhcore.validate(
+    errs = bhcore.schema_errors(
         {"paths": {}, "commands": {}, "ecosystems": [], "bogus": 1},
         bhcore.load_schema("harness.config"),
     )
     assert any("bogus" in e for e in errs)
     assert any("test" in e for e in errs)  # commands.test is required
-    assert any("fewer than 1" in e for e in errs)
+    assert any("non-empty" in e for e in errs)
 
 
 @pytest.mark.parametrize("op,a,b,ok", [(">=", 2, 2, True), ("<", 2, 2, False), ("!=", 1, 2, True)])

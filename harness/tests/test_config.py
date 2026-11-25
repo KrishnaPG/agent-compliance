@@ -25,7 +25,7 @@ def test_valid(schema, path):
     jsonschema.Draft202012Validator.check_schema(s)
     data = json.loads(path.read_text())
     jsonschema.Draft202012Validator(s).validate(data)
-    assert bhcore.validate(data, s) == []
+    assert bhcore.schema_errors(data, s) == []
 
 
 @pytest.mark.parametrize(
@@ -47,7 +47,7 @@ def test_invalid_rejected_by_both(mutate):
     c = json.loads((ROOT / "examples" / "sample.config.json").read_text())
     mutate(c)
     assert not jsonschema.Draft202012Validator(s).is_valid(c)
-    assert bhcore.validate(c, s) != []
+    assert bhcore.schema_errors(c, s) != []
 
 
 def test_toy_state_has_no_problems():

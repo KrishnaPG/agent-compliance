@@ -185,10 +185,10 @@ def test_change_items_refs_and_split_from_are_optional_and_validated():
     item = change("gh-1", refs=["#1"], split_from="gh-0", path="src/a.py")
     plain = {"id": "a", "job": "j"}
     ok = {"bricks": [item, plain]}
-    assert jsonschema.Draft202012Validator(s).is_valid(ok) and bhcore.validate(ok, s) == []
+    assert jsonschema.Draft202012Validator(s).is_valid(ok) and bhcore.schema_errors(ok, s) == []
     for bad in ({**item, "kind": "epic"}, {**item, "refs": "#1"}, {**item, "split_from": 3}):
         d = {"bricks": [bad]}
-        assert not jsonschema.Draft202012Validator(s).is_valid(d) and bhcore.validate(d, s), bad
+        assert not jsonschema.Draft202012Validator(s).is_valid(d) and bhcore.schema_errors(d, s), bad
 
 
 def test_a_split_parent_waits_for_its_children_and_is_measured_after_them(toy):

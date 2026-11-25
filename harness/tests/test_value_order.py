@@ -218,6 +218,6 @@ def test_features_schema_requires_acceptance_and_types_slice_and_value():
             {"id": "a", "title": "t", "acceptance": "x", "slice": 1, "value": 2.5, "source": "f:1"}
         ]
     }
-    assert bhcore.validate(ok, schema) == []
+    assert bhcore.schema_errors(ok, schema) == []
     bad = {"features": [{"id": "a", "title": "t", "slice": 0, "value": "x"}]}
-    assert len(bhcore.validate(bad, schema)) == 3
+    assert len(bhcore.schema_errors(bad, schema)) == 3

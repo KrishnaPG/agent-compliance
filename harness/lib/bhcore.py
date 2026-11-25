@@ -1,12 +1,11 @@
 """Core of the brick harness: config loading, state derivation, gap checks and the deterministic measurer.
 
-Python 3.12 standard library only, so the plugin's ``bin/`` tools run on any machine
-without installing anything.
+Runs under the interpreter and pinned packages each entry point declares in its PEP 723 header
+(``uv run --script``); nothing is installed by hand.
 
 OSS checked before writing this module:
-- jsonschema 4.26.0: full JSON Schema validator; not stdlib, so ``bin/`` cannot depend on
-  it. The small subset validator below covers the keywords the harness schemas use; the
-  tests cross-check the schemas with jsonschema itself.
+- jsonschema 4.26.0: the full JSON Schema validator, adopted (it replaced a hand-written subset
+  validator that silently ignored every keyword it did not list).
 - pytest 9.0.2 ``--junitxml`` / JUnit XML: adopted as the test-result format (parsed here
   with ``xml.etree``), not reimplemented.
 - pytest-benchmark 5.3.1, hyperfine 2.0.0, asv 0.6.6 (latest releases, looked up 2026-11-19): produce bench numbers but do not
@@ -162,79 +161,18 @@ LIMIT_DEFAULTS = {"packet_rules": 8, "tracker_read": 200}
 # ---------------------------------------------------------------- schema validation
 
 
-def validate(
+def schema_errors(
     instance: Any, schema: dict[str, Any], root: dict[str, Any] | None = None, at: str = "$"
 ) -> list[str]:
-    """Validate with the JSON Schema subset the harness schemas use; return error strings."""
-    root = root or schema
-    if "$ref" in schema:
-        ref = schema["$ref"]
-        if not ref.startswith("#/"):
-            raise HarnessError(f"unsupported $ref {ref}")
-        target: Any = root
-        for part in ref[2:].split("/"):
-            target = target[part]
-        return validate(instance, target, root, at)
-    errs: list[str] = []
-    types = schema.get("type")
-    if types is not None:
-        tlist = types if isinstance(types, list) else [types]
-        if not any(_is_type(instance, t) for t in tlist):
-            return [f"{at}: expected {types}, got {type(instance).__name__}"]
-    if "enum" in schema and instance not in schema["enum"]:
-        errs.append(f"{at}: {instance!r} not in {schema['enum']}")
-    if (
-        isinstance(instance, str)
-        and "pattern" in schema
-        and not re.search(schema["pattern"], instance)
-    ):
-        errs.append(f"{at}: {instance!r} does not match {schema['pattern']}")
-    if _is_type(instance, "number"):
-        if "minimum" in schema and instance < schema["minimum"]:
-            errs.append(f"{at}: {instance} < {schema['minimum']}")
-        if "maximum" in schema and instance > schema["maximum"]:
-            errs.append(f"{at}: {instance} > {schema['maximum']}")
-    if isinstance(instance, list):
-        if len(instance) < schema.get("minItems", 0):
-            errs.append(f"{at}: fewer than {schema['minItems']} items")
-        if "items" in schema:
-            for i, v in enumerate(instance):
-                errs += validate(v, schema["items"], root, f"{at}[{i}]")
-    if isinstance(instance, dict):
-        for key in schema.get("required", []):
-            if key not in instance:
-                errs.append(f"{at}: missing {key!r}")
-        props = schema.get("properties", {})
-        extra = schema.get("additionalProperties", True)
-        names = schema.get("propertyNames")
-        for key, val in instance.items():
-            if names is not None:
-                errs += validate(key, names, root, f"{at}.{key}(name)")
-            if key in props:
-                errs += validate(val, props[key], root, f"{at}.{key}")
-            elif extra is False:
-                errs.append(f"{at}: unexpected key {key!r}")
-            elif isinstance(extra, dict):
-                errs += validate(val, extra, root, f"{at}.{key}")
-    return errs
+    """Validate with jsonschema (Draft 2020-12, the schemas' own ``$schema``); return error strings.
 
-
-def _is_type(v: Any, t: str) -> bool:
-    if t == "object":
-        return isinstance(v, dict)
-    if t == "array":
-        return isinstance(v, list)
-    if t == "string":
-        return isinstance(v, str)
-    if t == "boolean":
-        return isinstance(v, bool)
-    if t == "integer":
-        return isinstance(v, int) and not isinstance(v, bool)
-    if t == "number":
-        return isinstance(v, int | float) and not isinstance(v, bool)
-    if t == "null":
-        return v is None
-    raise HarnessError(f"unsupported type {t}")
+    ``schema`` is the whole schema, or a subschema of ``root`` (its ``$ref`` and ``$defs`` resolve
+    against ``root``). ``at`` prefixes each error's path.
+    """
+    whole = validator_for(root or schema, Draft202012Validator)(root or schema)
+    validator = whole if root is None else whole.evolve(schema=schema)
+    errs = sorted(validator.iter_errors(instance), key=lambda e: [str(x) for x in e.absolute_path])
+    return [f"{at}{e.json_path[1:]}: {e.message}" for e in errs]
 
 
 def load_schema(name: str) -> dict[str, Any]:
@@ -257,7 +195,7 @@ def load_json(path: Path, schema: str | None = None) -> Any:
     except (OSError, ValueError) as e:
         raise HarnessError(f"{path}: {e}") from e
     if schema:
-        errs = validate(data, load_schema(schema))
+        errs = schema_errors(data, load_schema(schema))
         if errs:
             raise HarnessError(f"{path} fails {schema} schema: " + "; ".join(errs[:10]))
     return data
@@ -297,7 +235,7 @@ class Config:
         self.na: dict[str, str] = self.data.get("na", {})
         if self.data.get("tracker"):
             ts = load_schema("tracker")
-            errs = validate(self.data["tracker"], ts["$defs"]["config"], ts, "$.tracker")
+            errs = schema_errors(self.data["tracker"], ts["$defs"]["config"], ts, "$.tracker")
             if errs:
                 raise HarnessError(f"{self.path} fails tracker schema: " + "; ".join(errs[:10]))
 
@@ -1715,7 +1653,7 @@ def union_catalogue(ours: dict[str, Any], theirs: dict[str, Any]) -> dict[str, A
     union is done on parsed documents and validated against the catalogue schema.
     """
     for side in (ours, theirs):
-        errs = validate(side, load_schema("catalogue"))
+        errs = schema_errors(side, load_schema("catalogue"))
         if errs:
             raise HarnessError("a catalogue side fails its schema: " + "; ".join(errs[:5]))
     out: dict[tuple[str, str, str], dict[str, Any]] = {}
@@ -1728,7 +1666,7 @@ def union_catalogue(ours: dict[str, Any], theirs: dict[str, Any]) -> dict[str, A
         else:
             out[k] = {**e, "used_by": list(e["used_by"])}
     doc = {"entries": list(out.values())}
-    errs = validate(doc, load_schema("catalogue"))
+    errs = schema_errors(doc, load_schema("catalogue"))
     if errs:
         raise HarnessError("merged catalogue fails its schema: " + "; ".join(errs[:5]))
     return doc
@@ -2360,27 +2298,12 @@ def _uncommitted(cfg: Config, top: Path | None, scoreboard: bool = False) -> lis
 
 # ---------------------------------------------------------------- gaps (report, never decide)
 
-GAP_KINDS = (
-    "missing-document",
-    "dangling-reference",
-    "no-acceptance",
-    "no-numeric-target",
-    "target-without-source",
-    "target-without-command",
-    "target-on-unknown-item",
-    "duplicate-item",
-    "no-contract",
-    "missing-dependency",
-    "item-without-source",
-    "contradiction",
-    "untracked-open-item",
-    "helper-without-library",
-    "unsettled-area",
-    "unmet-after-rounds",
-    "not-derivable",
-    "missing-context",
-    "other",
-)
+def gap_kinds() -> list[str]:
+    """The gap kinds: the enum in gaps.schema.json is their only definition."""
+    kinds: list[str] = load_schema("gaps")["$defs"]["gap"]["properties"]["kind"]["enum"]
+    return kinds
+
+
 DOC_KEYS = (
     "features",
     "acceptance",
@@ -2873,7 +2796,7 @@ def _squash(s: str) -> str:
 
 def _bad_evidence(cfg: Config, g: dict[str, Any]) -> str | None:
     item_schema = load_schema("gaps")["$defs"]["gap"]
-    errs = validate(g, item_schema, load_schema("gaps"))
+    errs = schema_errors(g, item_schema, load_schema("gaps"))
     if errs:
         return "; ".join(errs[:3])
     if not g["evidence"] and not (g["kind"] == "unsettled-area" and g.get("looked_in")):
@@ -3345,7 +3268,7 @@ def add_findings(
     schema = load_schema("finding")
     errs: list[str] = []
     for i, f in enumerate(added):
-        errs += validate(f, schema["$defs"]["finding"], schema, f"$[{i}]")
+        errs += schema_errors(f, schema["$defs"]["finding"], schema, f"$[{i}]")
     if errs:
         raise HarnessError("findings fail the finding schema: " + "; ".join(errs[:10]))
     new = [_finding_gap(f) for f in added]
@@ -3837,7 +3760,7 @@ def record_answer(
     why = _cite_problem(cfg, source)
     if why:
         raise HarnessError(f"answer {why}")
-    bad = [k for k in kinds if k not in GAP_KINDS]
+    bad = [k for k in kinds if k not in gap_kinds()]
     if bad or not kinds or not areas:
         raise HarnessError(f"kinds must be gap kinds (got {bad or kinds}) and areas must be given")
     base = cfg.file("answers")
@@ -3858,7 +3781,7 @@ def record_answer(
             return {"decision": same, "created": False, "written": [], "dry_run": not write}
         nxt = max((int(d["id"][2:]) for d in have), default=0) + 1
         out = {"id": f"D-{nxt}", **rec}
-        errs = validate(out, load_schema("decision"))
+        errs = schema_errors(out, load_schema("decision"))
         if errs:
             raise HarnessError("decision fails its schema: " + "; ".join(errs[:5]))
         written = []

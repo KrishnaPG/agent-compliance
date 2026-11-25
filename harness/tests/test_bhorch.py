@@ -473,11 +473,11 @@ def test_job_schemas_are_self_contained_and_check_outputs():
     assert set(ok) == set(bhorch.JOBS)
     for job, out in ok.items():
         s = bhorch.job_schema(job)
-        assert "$ref" not in json.dumps(s) and bhcore.validate(out, s) == [], job
-    assert bhcore.validate(
+        assert "$ref" not in json.dumps(s) and bhcore.schema_errors(out, s) == [], job
+    assert bhcore.schema_errors(
         {"item": "a", "ref": "short", "catalogue_added": []}, bhorch.job_schema("build")
     )
-    assert bhcore.validate({"gaps": [{"kind": "nope"}]}, bhorch.job_schema("gaps"))
+    assert bhcore.schema_errors({"gaps": [{"kind": "nope"}]}, bhorch.job_schema("gaps"))
 
 
 def test_the_workflow_path_is_gone():
