@@ -42,6 +42,7 @@ Owner, 2026-11-25. This section governs: where a later section conflicts with it
 - [ ] **R9.** The owner's 8 verdicts: delete compliance-review and compliance-catalog; vetted-decision slimmer with a fresh judge; vet-oss replaced by Scorecard, deps.dev and OSV; bug-analysis narrowed; catalog replaced by standards plus house rules; pattern checks replaced by ruff and ESLint; evals on outcomes and cost; harness skill kept with a test-author step.
 - [ ] **R10.** Host caveat: on Ubuntu 26.04 the sandbox needs `allowAllUnixSockets`, so the builder account stays outside the docker group.
 - [ ] **R11.** Measured success (DORA): change-failure rate, lead time per slice and tokens per met slice, compared with the pre-v2 baseline.
+- [ ] **R12.** Rules reach each item by facts, not by an agent's judgment (section 6.6). Each item gets only the rules that apply to it, so no project pays for the whole catalog, and no item misses a rule its change needs. A measured miss corrects the mapping.
 
 ## 1. Purpose and scope
 
@@ -256,6 +257,18 @@ These are the mechanisms outside the levels table above.
 
 - QBC-58. Each mechanism MUST have the kind and counter listed. A new agent-side mechanism MUST be added to this table with its kind and gaming route.
 - QBC-59. The project's agent rules file SHOULD shrink to judgement: cite a standard; adopted tool first; measure before optimising; search before adding. At L2 these become packet constraints.
+
+### 6.6 Rule selection: who decides which rules apply, and how
+
+Industry practice adopted: static analysers turn rule packs on by the languages and frameworks they detect (Semgrep, CodeQL), and ISTQB risk-based testing picks checks from what a change touches. So facts decide, never an agent's judgment, and each measured miss corrects the mapping. Every catalog rule is kept: v1's rows are all present, with `embodied_by` naming the mechanism for a row a v2 mechanism enforces. Each rule is explained from the repo itself (`text`, `why`, `right`, `question`, with `cites` as a provenance label only).
+
+- QBC-103. Core and tags. A small core, tagged `always` (at most 15 rules), MUST apply to every item. Every other rule MUST carry `applies` tags from one closed set: messaging, network-client, http-server, database, auth, deploy, concurrency, money, time, config, dependency-change, defect. A tag outside the set is a catalog error.
+- QBC-104. Facts decide, at 0 tokens. The program MUST derive an item's tags without any agent, from (a) the project stack (lock-file dependencies through a capability table, plus the project's `stack` declarations), (b) the item's contract (declared interfaces and owned paths), and (c) the actual diff (imports added, file kinds). The packet MUST carry core + (a) + (b), one line per rule and at most `limits.packet_rules` lines. The same inputs MUST give the same selection. Inclusion leans toward recall.
+- QBC-105. Nobody is left without a rule. (i) `bh rules --diff [BASE [REF]]` MUST print, at 0 tokens, the rules that the change's facts (c) add, and the packet MUST name this command as the builder's self-check. (ii) The review MUST judge the packet's rules plus the rules (c) adds on the item's actual diff. (iii) `bh rule <id>` MUST print a rule's full text from the repo.
+- QBC-106. Agents add, owners remove. The planner MAY add rules to an item, each with a one-line reason, and MUST NOT remove any. Only the project's overlay MAY remove a rule, and only with a reason. No agent's input MAY hold the whole catalog.
+- QBC-107. Same rules for every author (G2). `bh review BASE..HEAD [--item X]` MUST judge any author's diff against the rules selected for it by QBC-104 and QBC-105, and MUST be the one review entry point for humans and agents (QBC-16).
+- QBC-108. Misses are measured and corrected. A finding, or a later defect, whose rule was not selected MUST be recorded as a fact `selector_miss {rule, missing_tag}` in the run result. The mapping is fixed from these facts (a ratchet). Release acceptance: on a held-out replay of real history, the covering rule is selected in at least 90% of cases, and the median packet is at most 15 rule lines.
+- QBC-109. Release check. Each of QBC-103 to QBC-108 MUST have a plain pytest in `harness/tests` named for its id. The full harness pytest is the release bar, so a release cannot ship with a QBC-103 to QBC-108 check red.
 
 ## 7. A self-sustained plugin
 
