@@ -143,9 +143,22 @@ def test_findings_are_sarif_with_triage_levels_teaching_and_the_packet():
 # ---------------------------------------------------------------- the flow: before the merge, back to the builder
 
 
+STRICT = {  # json-writer's acceptance test runs the code, so a wrong build misses
+    **ACCEPT,
+    "json-writer": {
+        **ACCEPT["json-writer"],
+        "test_code": ACCEPT["json-writer"]["test_code"].replace(
+            "importlib.util.find_spec('json_writer') is not None",
+            "importlib.import_module('json_writer').write_rows([]) == '[]'",
+        ),
+    },
+}
+WRONG = JSON_WRITER.replace("return json.dumps(rows, ensure_ascii=False)", "return 'x'")
+
+
 def spec_for(fake, reviews, builds):
     fake.spec(
-        outputs_by_item={"harness-test-author": ACCEPT},
+        outputs_by_item={"harness-test-author": STRICT},
         outputs_seq={"harness-reviewer": [{"findings": f} for f in reviews]},
         files_seq={"harness-builder": [{"src/json_writer.py": b} for b in builds]},
     )
@@ -203,3 +216,34 @@ def test_a_mechanical_item_whose_diff_triggers_nothing_starts_no_reviewer(toy, f
     res = run(orch(toy).run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
     assert [c for c in fake.calls() if c["agent"] == "harness-reviewer"] == []
+
+
+def test_a_later_round_that_misses_never_undoes_the_met_build(toy, fake):
+    """Round 1 is met with a major finding, round 2's build misses: the round-1 commit merges."""
+    first = JSON_WRITER.replace("import json\n", "import hmac\nimport json\n")
+    spec_for(fake, [[MAJOR]], [first, WRONG])
+    o = orch(toy)
+    res = run(o.run())
+    assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
+    assert (toy / "src" / "json_writer.py").read_text() == first  # the met build is on main
+    assert len([c for c in fake.calls() if c["agent"] == "harness-reviewer"]) == 1
+
+
+def test_a_measurer_miss_goes_back_with_only_the_missed_checks(toy, fake):
+    spec_for(fake, [[]], [WRONG, JSON_WRITER])
+    res = run(orch(toy).run())
+    assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
+    builders = [c for c in fake.calls() if c["agent"] == "harness-builder"]
+    assert len(builders) == 2
+    retry = builders[1]["stdin"].removeprefix(bhpacket.LAUNCH_PROMPT)
+    lines = [ln for ln in retry.splitlines() if ln.startswith("- ")]
+    assert lines and any("json-writer-AC1" in ln for ln in lines)
+    assert all("[red" in ln or "[json-writer-AC1]" in ln for ln in lines), lines
+
+
+def test_an_item_unmet_at_the_round_limit_is_stuck(toy, fake):
+    spec_for(fake, [[]], [WRONG])
+    res = run(orch(toy).run())
+    rnd = next(r for r in res["phases"]["rounds"] if r["item"] == "json-writer")
+    assert rnd["status"] == "unmet" and "stuck" in [f["kind"] for f in rnd["facts"]]
+    assert len([c for c in fake.calls() if c["agent"] == "harness-builder"]) == 3  # max_rounds default

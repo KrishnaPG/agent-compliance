@@ -96,6 +96,7 @@ ROLE = {  # job -> jobs[*].role
 READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)"]
 REMEASURE = ("unmeasured", "stale", "conflict", "met-uncommitted")  # no current measurement
 DEFAULT_JOB_USD = 2.0
+MISSED = ("red", "red_by_error")  # the measurer facts of a missed check
 FACTS_SHOWN = 20  # facts of one item kept in the run result; the run report has them all
 DEFAULT_JOB_TIMEOUT_S = 1800
 KILL_GRACE_S = 10
@@ -974,8 +975,8 @@ class Orchestrator:
         # L4 then L5, in rounds (QBC-51): a measurer miss, or a critical or major review finding of a
         # met build, goes back to the same builder in its clone with those messages only.
         feedback: list[str] = []
-        status, base = "unmet", git(root, "rev-parse", "HEAD").stdout.strip()  # the plan commit
-        for rnd in rounds:
+        met_sha, base = None, git(root, "rev-parse", "HEAD").stdout.strip()  # the plan commit
+        for _ in rounds:
             code, out, err = bhpacket.launch_builder(root, item, self.job_usd("build"), feedback, base)
             built = (
                 json.loads(out)
@@ -988,14 +989,18 @@ class Orchestrator:
                 self.spent["tokens"] += b.get("tokens", 0)
             self.records += built["jobs"]
             if code:
-                return "unmet"
-            status, feedback = await self.measure_packet(root, packet, facts, last=rnd == rounds[-1])
+                break
+            sha, feedback = await self.measure_packet(root, packet, facts)
+            met_sha = sha or met_sha  # a later round that misses never undoes a met build
             if not feedback:
-                return status
-        facts.append(
-            {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds"}
-        )
-        return status
+                break
+        if met_sha:  # findings left at the round limit never change met (P4)
+            return await self.merge_item(root, packet, met_sha, facts)
+        if feedback:
+            facts.append(
+                {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds"}
+            )
+        return "unmet"
 
     def red_on_main(
         self, packet: dict[str, Any], facts: list[dict[str, Any]]
@@ -1030,40 +1035,44 @@ class Orchestrator:
         return feedback, False
 
     async def measure_packet(
-        self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]], last: bool = True
-    ) -> tuple[str, list[str]]:
+        self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
+    ) -> tuple[str | None, list[str]]:
         """The measurer step for a packet: the builder's commit is fetched into the repository (a ref
         the builder cannot move) and measured by the one measurer, ``bhcore.measure_ref``, against the
-        packet kept in custody. Met: the triggered review runs on the item's whole diff and its
-        findings are recorded; then it merges into the default branch (``bhcore.merge_refs``) and the
-        item is re-measured at HEAD, which records it in the scoreboard. Returns the status and the
-        builder's feedback for another round: the missed checks' messages, or the critical and major
-        findings while rounds are left (``last`` is the final round). Findings never change met."""
+        packet kept in custody; a met build gets the triggered review of its whole diff, recorded
+        before any merge. Returns the met commit (None when unmet) and the builder's feedback for
+        another round: the missed checks' messages, or the critical and major findings."""
         item, t0 = packet["id"], datetime.now(UTC)
         clones = sorted(
             (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
         )
         digest = bhpacket.custody_digest(root, item) or ""  # identity comes from custody alone
-        met, missed = False, []
-        if clones:
-            ref = f"refs/bh/{item}"
-            git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
-            res = bhcore.measure_ref(self.cfg, ref, orch=root)
-            facts += res["facts"]
-            met = res["items"][0]["status"] == "met"
-            missed = [f["message"] for f in res["facts"] if f.get("message")]
+        if not clones:
+            self.program_step("measurer", item, t0, digest)
+            return None, []
+        ref = f"refs/bh/{item}"
+        git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
+        res = bhcore.measure_ref(self.cfg, ref, orch=root)
+        facts += res["facts"]
+        self.program_step("measurer", item, t0, digest)
+        if res["items"][0]["status"] != "met":  # only the missed checks' messages (QBC-55)
+            missed = [f["message"] for f in res["facts"] if f["kind"] in MISSED and f.get("message")]
             missed += [
                 f"[{a['id']}] the acceptance criterion is unmet -> make its test pass . {bhpacket.SPEC}"
                 for a in res["items"][0].get("acceptance", [])
                 if a["status"] != "met"
             ]
-        self.program_step("measurer", item, t0, digest)
-        if not met:
-            return "unmet", ([] if last or not clones else self.shown(missed))
+            return None, self.shown(missed)
         sha = git(root, "rev-parse", ref).stdout.strip()
-        found = await self.review_item(packet, digest, sha, facts)
-        if found and not last:
-            return "met", self.shown(found)
+        return sha, self.shown(await self.review_item(packet, digest, sha, facts))
+
+    async def merge_item(
+        self, root: Path, packet: dict[str, Any], sha: str, facts: list[dict[str, Any]]
+    ) -> str:
+        """Merge the item's met commit into the default branch (``bhcore.merge_refs``) and re-measure
+        it at HEAD, which records it in the scoreboard."""
+        item, t0 = packet["id"], datetime.now(UTC)
+        digest = bhpacket.custody_digest(root, item) or ""
         if packet.get("kind") == "defect":
             facts.append(
                 {
@@ -1075,11 +1084,11 @@ class Orchestrator:
         merged, conflicts = bhcore.merge_refs(self.cfg, root, [{"item": item, "ref": sha}])
         if conflicts:
             facts += [{"kind": "conflict", "item": item, "detail": ", ".join(c["paths"])} for c in conflicts]
-            return "unmet", []
+            return "unmet"
         self.program_step("merge", item, t0, digest)
         await self.measure_all([(item, "HEAD")])
         self.commit("scoreboard")
-        return "met", []
+        return "met"
 
     def shown(self, lines: list[str]) -> list[str]:
         """The first ``limits.findings_shown`` messages, then the count of the rest (QBC-55)."""
