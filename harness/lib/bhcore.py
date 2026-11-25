@@ -1051,11 +1051,6 @@ def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[st
 
 RESULT_VERSION = "1"
 CANARY = HARNESS_DIR / "canary" / "test_bh_canary.py"
-AUTORUN = (
-    "conftest.py",
-    "sitecustomize.py",
-    "usercustomize.py",
-)  # run by Python/pytest before a test
 RECIPES = ("justfile", "Makefile")
 
 
@@ -1176,14 +1171,6 @@ def _protected_changes(cfg: Config, top: Path, base: str, sha: str) -> list[tupl
     return out
 
 
-def _works(tool: str) -> bool:
-    """True when ``tool`` is installed and runs (a version-manager shim without a version does not)."""
-    return (
-        bool(shutil.which(tool))
-        and subprocess.run([tool, "--version"], capture_output=True).returncode == 0
-    )
-
-
 def merge_sarif(logs: list[Path]) -> dict[str, Any]:
     """One SARIF 2.1.0 log holding the runs of the tools' own logs (ruff, semgrep emit SARIF),
     checked against the official schema; HarnessError names the first violation."""
@@ -1198,7 +1185,7 @@ def merge_sarif(logs: list[Path]) -> dict[str, Any]:
 
 def _lint_sarif(co: Path, env: dict[str, str], out: Path, hide: list[Path]) -> None:
     """Lint the checkout with ruff (its own SARIF output, sealed like the tests) when it has a ruff config."""
-    if not _works("ruff") or not any(
+    if not shutil.which("ruff") or not any(
         (co / f).is_file() for f in ("ruff.toml", ".ruff.toml", "pyproject.toml")
     ):
         return
@@ -1278,7 +1265,7 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
         )
         cmd = (
             "just test"
-            if (co / "justfile").is_file() and _works("just")
+            if (co / "justfile").is_file() and shutil.which("just")
             else f"{shlex.quote(sys.executable)} -m pytest -q"
         )
         r = _run(
