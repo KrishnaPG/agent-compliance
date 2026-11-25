@@ -234,7 +234,7 @@ End of build, measurer retry, no hook.
 
 This contract covers every message from both planes: build checks, fitness functions, linters, hooks, and the measurer's retry.
 
-- QBC-53. Shape: `[rule] what is wrong -> the right way, and how to prevent it next time . ref`.
+- QBC-53. Shape: `[rule] what is wrong -> the right way, and how to prevent it next time . ref`. Where this spec quotes a message (QBC-47, QBC-50, QBC-88), the quoted sentences fill the wrong and right parts of this shape, and a check matches each quoted sentence on its own.
 - QBC-54. A message MUST name the right way concretely (a command, an API, a file or a published operation), never only "don't". For example: `[policy] 30 is a business value in plan.py:88 -> read it with policy.resolve('plan.window_days'); new values go in policy.sql . ref`.
 - QBC-55. A message MUST be at most about 300 characters per finding by default. Repeats MUST be grouped: the first 10 by default are shown, then a count. Both are defaults with overrides (QBC-13). The measurer's retry MUST send only the missed checks' messages.
 - QBC-56. Every project check, fitness function and hook MUST report through one helper whose arguments are all required, `teach(rule, wrong, right, ref)`, so a bare rejection can't be written (kind: structure).

@@ -42,7 +42,7 @@ These bind every task. They come from §0 and the owner, and are not re-argued.
 - **No hard-coding** (P8). Every limit is a default with an override in `.brick-harness/config.json`, under the config's existing keys. The file is optional: absent means defaults, and nothing generates it.
 - **Nothing depends on CI or on accounts we cannot create** (P12). QBC-17 and QBC-52 are withdrawn.
 - **Rules apply forward** (P11). Nothing is retrofitted: no sweeps, and no edits to old decision records.
-- **Bootstrap.** b1 (the new measurer) is built first and accepted by the plugin's plain pytest entry point. Every later task, including the rest of slices a and b, is measured by b1's measurer, never the 1.5.2 one (PC-M1).
+- **Bootstrap.** b1 (the new measurer) and d6's test generator are built first and accepted by the plugin's plain pytest entry point. Every later task, including the rest of slices a and b, is measured by b1's measurer on tests the generator made from its rows, never by the 1.5.2 measurer (PC-M1).
 - **Deterministic acceptance tests.** Model responses come from recorded fixtures, through a stub `claude` on PATH that replays recorded stream-json. Live, paid model runs happen only in slice h's evals (PC-M18).
 
 Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 and L5). No other owner question is open.
@@ -178,7 +178,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 
 ## 3. Order and dependencies
 
-1. **b1, the measurer.** It is accepted by the plain pytest entry point and measures everything after it.
+1. **b1, the measurer, and d6's test generator.** Both are accepted by the plain pytest entry point; the generator turns every later task's rows into tests, and b1 measures them.
 2. In parallel:
    - **a and g**;
    - **b2-b8 and b11-b14**;
@@ -222,7 +222,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Done when:
     - `templates/` holds `plan-dry-run.md` and `bug-record.md` (removed in e1);
     - `catalog-audit.md`, `compliance-bindings.md` and `review-brief.md` are gone and nothing references them;
-    - `plan-dry-run.md` reports guesses as a count, with no BROKEN or PASS/FAIL word.
+    - `plan-dry-run.md` asks for the guesses as a count, in a line `Guesses: <n>`, and contains none of the words BROKEN, PASS or FAIL.
   - Size: S.
 - [ ] **a4. Trim skill descriptions** (RS-F5).
   - Proves: G5. QBC: 71, 79.
@@ -393,7 +393,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
     - every launch carries `--max-budget-usd` from `budgets.job_usd`, so a round cannot exceed `budgets.run_usd`;
     - job cache keys include content digests of the skill and the standards data;
     - each of these has a test;
-    - `item_key`, `bhorch.git`, `bhorch.fill`, the restated targets and `_waves` (replaced by `graphlib`) have one home each.
+    - `harness/lib/` defines one git runner (today `bhcore._git` and `bhorch.git`), one `item_key` and one `fill`; the `rules.violations` target literal is written in one module (today `bhcore.py` and `bhrules.py`); `_waves` is gone and item order comes from `graphlib.TopologicalSorter`.
   - Size: S.
 - [ ] **b14. End-to-end run on recorded fixtures.**
   - Proves: R1, P3. QBC: 9, 10, 78, 80.
@@ -455,7 +455,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Proves: R7, R9, P11. QBC: 8, 23, 73, 81.
   - Files: `checks/`, `harness/checkers.json`, `harness/lib/bhrules.py`, `harness/tests/test_no_waiting.py`, `harness/tests/test_no_project_terms.py`.
   - Done when:
-    - a parity report runs old and new on the existing planted snapshots (HO-02, ID-15, RL-08 in Python and TypeScript);
+    - a parity report runs the old ast-grep rule and the new linter configuration on every `valid` and `invalid` case of `checks/tests/{HO-02,ID-15,RL-08}.{python,typescript}-test.yml`, and lists, per rule, the cases each one catches;
     - only rules that pass parity are retired, and a failed parity keeps the old check, recorded;
     - no download code and no `rules.violations` target remain;
     - `test_no_waiting.py` is replaced by ruff TID251 over `harness/`.
@@ -480,7 +480,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Proves: G2, R7. QBC: 18, 19, 62.
   - Files: new `fitness/`, `presets/` (recipe line).
   - Done when:
-    - pgTAP is vetted first;
+    - a vet record for pgTAP at its pinned version (its OpenSSF Scorecard, deps.dev and OSV results, and the decision to use it or not) is committed at `docs/design/evidence/vet-pgtap.md`;
     - the project's test recipe runs four checks: one owner per object, each database object's owner equals its declared owner, grants match the declared roles, and import boundaries from published parts (generated import-linter or dependency-cruiser config, with the ignore list as a ratchet);
     - a planted wrong owner, grant and import are each reported with teaching;
     - an unsupported stack, or no database, gives "not checked", never met.
@@ -532,7 +532,7 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Files: `harness/lib/bhcore.py` (packet assembly), `harness/schema/`.
   - Done when, for a toy item, the program (no agent) fills d0's `acceptance`, `verifier` and `paved_road` fields and writes the rendered packet into the clone's read-only packet directory, and a schema check confirms each part:
     - the acceptance test paths (visible) and the targets with numbers;
-    - the lint and fitness rules for the touched files with their teaching messages (from c3, c6 and c8 as they land), and the ratchet baselines (c4);
+    - the lint and fitness rules enabled at the plan commit for the touched files, each with its teaching message (c3, c6, c8), and the ratchet baselines present at the plan commit (c4); on the toy with presets applied this includes ruff DTZ with its right-way line;
     - the text of every cited rule and decision line;
     - `bh check` (d3);
     - where the builder's own tests go and the dependency command (c1);
@@ -570,14 +570,17 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
     - a diff hit re-queues the item, with the fact "tier X from paths Y";
     - planted cases come out as stated: a minor bump stays mechanical, a major bump re-tiers, and a docs-only packet whose diff touches compose is re-queued.
   - Size: M.
-- [ ] **d6. Test author first (L3)** (RH-M2, IR-M2, IR-M4).
-  - Proves: R3, P6, R9. QBC: 31, 34, 41, 82.
-  - Files: new `agents/harness-test-author.md`, `harness/lib/bhorch.py`.
+- [ ] **d6. Test author first (L3): rows, then generated tests** (RH-M2, IR-M2, IR-M4; keyword-driven testing, `docs/spec/packet-standards.md` L3).
+  - Proves: R3, P6, P3, R9. QBC: 31, 34, 41, 82.
+  - Files: new `agents/harness-test-author.md`, new test generator under `harness/lib/`, `harness/lib/bhorch.py`.
   - Done when, with recorded fixtures:
-    - the program launches the test author before the builder, as another job, and it writes visible acceptance tests into protected paths in the plan commit;
-    - red on main is recorded as red or red-by-error, and a red-by-error test goes back to the test author;
-    - for a defect, the finder or test author writes the regression test, and "fails at the parent, passes at the fix" is recorded;
-    - the job record shows the test-author, builder, measurer order.
+    - the program launches the test author before the builder, as another job; it writes acceptance rows from the closed catalogs of `docs/atdd/catalog.yaml` into the packet's `acceptance`, valid against the criteria schema, and writes no test code;
+    - the generator, a program with no agent, turns each row into exactly one test in the project's framework, marked with its criterion id, plus a manifest from criterion id to test node id, and both are committed in protected paths in the plan commit;
+    - a row whose keyword the generator does not implement is a fact with teaching naming the keyword, never a skipped or empty test;
+    - every generated test is red on main: a test that fails by an assertion is recorded red, one that errors is recorded red-by-error and its row goes back to the test author;
+    - for a defect, the regression row is written by the test author, or by the finder when the finder is not the builder, and "fails at the parent, passes at the fix" is recorded;
+    - the job record shows test author, generator (no agent), builder and measurer, in that order;
+    - the generator's bootstrap, which generates the plugin's own v2 acceptance tests from `docs/atdd/criteria/`, is accepted by the plugin's plain pytest entry point, as b1 is.
   - Size: L.
 - [ ] **d7. Design step for design-affecting items, with a judge whose outcome is defined** (IR-M3, PC-M9).
   - Proves: P6, P4, G1. QBC: 26, 41, 69.
@@ -732,7 +735,7 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Files: `skills/bug-analysis/SKILL.md`, `presets/commitlint`.
   - Done when:
     - the description triggers only on recording a defect;
-    - per-typo issues, sibling sweeps, the termination block and the vetted-decision chain are gone;
+    - SKILL.md no longer says a bug is any defect "however small", and has no `Siblings:` line, no termination paragraph ("touches a termination", "termination tier") and no `vetted-decision` step;
     - the record is e1's defect form;
     - commitlint runs in the test recipe and in `bh check` over the item's commits;
     - a `fix:` commit without an issue ref becomes a fact with teaching;
@@ -797,12 +800,12 @@ Task counts: a 5, b 14, c 9, d 12, e 6, f 3, g 2, h 3 (54).
 
 ## 5. How ATDD follows
 
-- A test author who is not the task's builder writes each task's acceptance tests from its "done when", into protected paths, before the build. Each test names its task id and the §0 and QBC ids it proves, for example `test_b1_g2_forging_conftest_unmet  # R4, QBC-65`.
+- A test author who is not the task's builder writes each task's acceptance criteria from its "done when" as keyword rows (`docs/atdd/criteria/<slice>.yaml`, closed catalogs in `docs/atdd/catalog.yaml`), before the build. No agent writes test code: d6's generator turns each row into one test in protected paths, marked with its criterion id and the §0 and QBC ids it proves, for example `test_b1_AC15  # R4, QBC-65`.
 - The tests are deterministic:
   - model output comes from recorded fixtures through the stub `claude`;
   - GitHub and registry responses come from recorded fixtures;
   - there is no network.
-- A task is done when b1's measurer says met for its tests. b1 itself is accepted by the plain pytest entry point. The checkbox is crossed then, and not before.
+- A task is done when b1's measurer says met for its generated tests. b1 and the generator's bootstrap are accepted by the plain pytest entry point. The checkbox is crossed then, and not before.
 - A slice is done when every §0 item its tasks cite is proven (§0, line 9).
 - QBC ids cited on no task, because no single task tests them:
   - 1, 6, 7 and 14 are principles that the tasks carry out;
