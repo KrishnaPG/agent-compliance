@@ -61,9 +61,9 @@ acceptance:
     when:
       program_step: {step: assemble_packet, item: toy_item}
     then:
-      - field: {source: packet, path: applies, op: contains, value: P1}
-      - field: {source: packet, path: applies, op: contains, value: P12}
-      - field: {source: packet, path: applies, op: contains, value: QBC-24}
+      - field: {source: packet, path: "applies[*].id", op: contains, value: P1}
+      - field: {source: packet, path: "applies[*].id", op: contains, value: P12}
+      - field: {source: packet, path: "applies[*].id", op: contains, value: QBC-24}
       - field: {source: packet, path: "applies[*].text", op: in_file, value: docs/spec/quality-by-construction.md}
     traces_to: [R5, P1, QBC-38]
     verification: test

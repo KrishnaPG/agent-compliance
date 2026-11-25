@@ -51,7 +51,8 @@ fields:
   - {schema: packet, path: "overflow[*].path", type: string, meaning: "a file in the packet directory holding text moved out over the size cap"}
   # result
   - {schema: result, path: schema_version, type: string, meaning: "version of the result schema the JSON follows"}
-  - {schema: result, path: command, type: "enum: run, measure, check, intake, merge, decide, gaps, owners, metrics, vet, map", meaning: "the bh command or program step that printed the result"}
+  - {schema: result, path: command, type: "enum: run, measure, check, step, intake, merge, decide, gaps, owners, metrics, vet, map", meaning: "the bh command or program step that printed the result"}
+  - {schema: result, path: step, type: string, meaning: "the program step that printed the result, when command is step (assemble_packet, validate_packet, render_packet, ...)"}
   - {schema: result, path: packet_sha256, type: string, meaning: "sha256 of the packet a run, measure or check read"}
   - {schema: result, path: "items[*].id", type: string, meaning: "the item id"}
   - {schema: result, path: "items[*].status", type: "enum: met, unmet, stuck, not_checked", meaning: "the measurer's verdict for the item"}

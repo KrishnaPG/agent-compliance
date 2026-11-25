@@ -13,7 +13,7 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `parent_issue` | integer | tracker issue number of the item's parent | d0-AC2 |
 | `tier` | enum: mechanical, design-affecting | the tier derived from declared paths and the diff (d5) | d0-AC3, d5-AC7 |
 | `goal` | string | the intent and why, with no design | d0-AC3, d1-AC2, e4-AC1 |
-| `applies[*].id` | string | a G, P, R or QBC id from spec section 0; every principle is always included | d0-AC15 |
+| `applies[*].id` | string | a G, P, R or QBC id from spec section 0; every principle is always included | d0-AC4, d0-AC15 |
 | `applies[*].text` | string | that item's text, copied verbatim from spec section 0 | d0-AC4 |
 | `constraints.decisions[*].id` | string | id of a cited decision line | d0-AC5 |
 | `constraints.decisions[*].text` | string | the cited decision line's text, verbatim | d0-AC5, d2-AC5 |
@@ -52,7 +52,8 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | path | type | meaning | rows |
 |---|---|---|---|
 | `schema_version` | string | version of the result schema the JSON follows | b2-AC18 |
-| `command` | enum: run, measure, check, intake, merge, decide, gaps, owners, metrics, vet, map | the bh command or program step that printed the result | b1-AC20, b2-AC18 |
+| `command` | enum: run, measure, check, step, intake, merge, decide, gaps, owners, metrics, vet, map | the bh command or program step that printed the result | b1-AC20, b2-AC18 |
+| `step` | string | the program step that printed the result, when command is step (assemble_packet, validate_packet, render_packet, ...) | - |
 | `packet_sha256` | string | sha256 of the packet a run, measure or check read | b1-AC22, b2-AC12, b2-AC15, b2-AC16 |
 | `items[*].id` | string | the item id | b13-AC1, e4-AC6 |
 | `items[*].status` | enum: met, unmet, stuck, not_checked | the measurer's verdict for the item | b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC18, b2-AC19, b7-AC4, b8-AC2, b8-AC3, b13-AC1, b14-AC1, c8-AC8, c8-AC9, d11-AC7, d11-AC9, e4-AC6 |
@@ -149,6 +150,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 
 Each line is a d0 field that no acceptance criterion tests, or a config key with no stated default.
 
+- result `step` (string) is a d0 field that no acceptance criterion reads yet.
 - result `checks_run[*]` (string) is a d0 field that no acceptance criterion reads yet.
 - result `checks_missed[*]` (string) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].ended_at` (string) is a d0 field that no acceptance criterion reads yet.
