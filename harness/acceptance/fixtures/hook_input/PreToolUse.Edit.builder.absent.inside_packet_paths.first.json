@@ -1,0 +1,14 @@
+{
+  "session_id": "s1",
+  "transcript_path": "/tmp/t.jsonl",
+  "cwd": "/work/repo",
+  "hook_event_name": "PreToolUse",
+  "tool_name": "Edit",
+  "tool_input": {
+    "file_path": "src/calc.py",
+    "old_string": "a",
+    "new_string": "b"
+  },
+  "agent_type": "builder",
+  "agent_id": "agent-1"
+}
