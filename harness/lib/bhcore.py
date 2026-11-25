@@ -1981,10 +1981,14 @@ def measure_ref(
         raise HarnessError(f"result JSON invalid at {bad_result.json_path}: {bad_result.message}")
     (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
     (out / ".key").write_text(key)
-    # The clone is disposable once its result is recorded in out/; an unmet one is kept only when
-    # the project opts in (commands.keep_failed_clone) to debug it.
+    # The checkout is disposable once its result is recorded in out/: its files and installed
+    # toolchain go; its .git (a --shared clone's few KB: the measured commit and its alternates)
+    # stays as provenance. An unmet one is kept whole only when the project opts in
+    # (commands.keep_failed_clone) to debug it.
     if met or not cfg.data.get("commands", {}).get("keep_failed_clone", False):
-        shutil.rmtree(clone)
+        for p in clone.iterdir():
+            if p.name != ".git":
+                shutil.rmtree(p) if p.is_dir() and not p.is_symlink() else p.unlink()
     return result
 
 

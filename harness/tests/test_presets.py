@@ -1,7 +1,10 @@
 """Linter presets in the project's own files (QBC-62, QBC-63, R7, G2): ``bhpresets.apply`` writes
 them into pyproject.toml and .pre-commit-config.yaml, derives the import contracts from the owner
 map (QBC-19 rung 2), and baselines today's findings so the list only shrinks (P11, QBC-23). Each
-planted defect class is then the same fact for a human (the refused commit) and for the measurer."""
+planted defect class is then the same fact for a human (the refused commit) and for the measurer.
+
+Offline like every plugin test (UV_OFFLINE): the pinned tools come from uv's cache, and the
+project's own remote hook is a git repository on disk."""
 
 import shutil
 import subprocess
@@ -41,11 +44,15 @@ paths:
 """
 PRECOMMIT = """# the project's own hooks
 repos:
-  - repo: https://github.com/pre-commit/pre-commit-hooks
-    rev: v6.0.0
+  - repo: {repo}
+    rev: {rev}
     hooks:
       - id: check-toml
 """
+HOOK_REPO = {
+    ".pre-commit-hooks.yaml": "- id: check-toml\n  name: check toml\n  entry: check.sh\n  language: unsupported_script\n  files: \\.toml$\n",
+    "check.sh": "#!/bin/sh\nexit 0\n",
+}
 LEGACY = "import datetime\n\nSTAMP = datetime.datetime.now()\n"  # today's finding: the baseline
 
 
@@ -94,22 +101,43 @@ def measure(d: Path, ref: str = "HEAD") -> dict:
 
 
 def no_clones(d: Path) -> bool:
+    """Only each measured clone's .git is left: the checkout and its .venv are gone."""
     c = d / ".brick-harness" / "clones"
-    return not c.is_dir() or not list(c.iterdir())
+    return not c.is_dir() or all([p.name for p in x.iterdir()] == [".git"] for x in c.iterdir())
 
 
 @pytest.fixture(autouse=True)
-def _just(monkeypatch):
+def _env(monkeypatch):
     monkeypatch.setenv("MISE_GLOBAL_CONFIG_FILE", str(PLUGIN / ".tool-versions"))  # the recipe's just
+
+
+def hook_repo(d: Path) -> tuple[str, str]:
+    """A remote hook repository (pre-commit clones it like any URL), on disk."""
+    for f, text in HOOK_REPO.items():
+        (d / f).parent.mkdir(parents=True, exist_ok=True)
+        (d / f).write_text(text)
+    (d / "check.sh").chmod(0o755)
+    git(d, "init", "-q", "-b", "main")
+    git(d, "add", "-A")
+    git(d, "commit", "-qm", "hook")
+    return str(d), git(d, "rev-parse", "HEAD").stdout.strip()
+
+
+@pytest.fixture(scope="module", autouse=True)
+def _offline():
+    with pytest.MonkeyPatch.context() as m:  # the module fixture below runs uv too
+        m.setenv("UV_OFFLINE", "1")
+        yield
 
 
 @pytest.fixture(scope="module")
 def toy(tmp_path_factory):
     d = tmp_path_factory.mktemp("toy")
+    repo, rev = hook_repo(tmp_path_factory.mktemp("hooks"))
     for f, text in {
         "pyproject.toml": PYPROJECT,
         "openapi.yaml": OPENAPI,
-        ".pre-commit-config.yaml": PRECOMMIT,
+        ".pre-commit-config.yaml": PRECOMMIT.format(repo=repo, rev=rev),
         "src/toy/__init__.py": "",
         "src/toy/billing/__init__.py": "from toy.billing._ledger import post\n\n__all__ = ['post']\n",
         "src/toy/billing/_ledger.py": "def post(x: int) -> int:\n    return x\n",
@@ -232,7 +260,8 @@ def test_a_planted_defect_is_the_same_fact_for_a_human_and_the_measurer(toy, cls
     said = " ".join(x["message"] for x in res["facts"]) + (sarif.read_text() if sarif.is_file() else "")
     assert names in said
     if hook == "uv-lock":  # the locked install says it, open, before the seal (no network inside)
-        assert [x["detail"] for x in res["facts"]] == ["env_setup"]
+        details = [x["detail"] for x in res["facts"]]
+        assert details[0] == "env_setup" and not [x for x in details if x.startswith("lint:")]
     else:
         assert [x["detail"] for x in res["facts"]] == [f"lint:{hook}"]
 

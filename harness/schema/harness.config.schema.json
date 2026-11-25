@@ -120,7 +120,7 @@
         "keep_failed_clone": {
           "type": "boolean",
           "default": false,
-          "description": "Keep the measured clone of an unmet ref under .brick-harness/clones/ for debugging; by default every clone is deleted once its result is in out/."
+          "description": "Keep the whole measured clone of an unmet ref under .brick-harness/clones/ for debugging; by default only its .git stays once its result is in out/."
         },
         "timeout_s": {
           "type": "number",
