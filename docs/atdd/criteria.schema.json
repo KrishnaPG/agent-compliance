@@ -667,7 +667,6 @@
                 "validate_packet",
                 "launch_builder",
                 "merge",
-                "generate_tests",
                 "commit_build"
               ]
             },

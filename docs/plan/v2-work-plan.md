@@ -314,12 +314,13 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4, d6, d8 and d10 come afte
   - Proves: R3, P6, P3, R9, G6. QBC: 31, 34, 41, 82.
   - Files: `agents/harness-test-author.md`, `harness/lib/bhorch.py`, `harness/schema/packet.schema.json`.
   - Done when, with recorded fixtures:
-    - `bh run` takes each ready item from the plan to a packet the program writes (no agent), then the test author, then the builder, the measurer and the merge, in one run;
-    - the test author, another job launched before the builder, returns the packet's `acceptance` criteria (`id`, `scenario`, `traces_to`, `verification`) and one test file in the project's own framework; the program writes it at `verifier.acceptance_paths[0]` (protected) and commits it with the packet, the plan commit; each test's name carries its criterion id;
+    - the test author, another job launched before the builder, returns the packet's `acceptance` criteria (`id`, `scenario`, `traces_to`, `verification`) and one test file in the project's own framework, each test's name carrying its criterion id;
+    - the program writes that file at `verifier.acceptance_paths` (protected) and commits it with the packet, the plan commit, whose `Packet:` trailer names the kept packet;
+    - `bh run` takes each ready item from the plan to a packet the program writes (no agent), then the test author, the builder, the measurer and the merge, in one run;
     - the red run on main is the one measurer's run of the project's own test command (JUnit XML): every criterion has a test that fails by an assertion, and no test of the file errors (an import or collection error is not red); otherwise the file goes back to the test author, at most `max_rounds` times; criteria whose tests already pass on main make the item met with no build;
     - a defect packet carries `kind` `defect`, `parent` and `found_by`; its regression test is written by the `found_by` agent when that agent is not the builder, and otherwise by the `test_author` job; "passes at the fix" is recorded only when the measurer observes it green at the builder's result;
     - `jobs[*]` shows test author, red run (a `program_step`), builder and measurer (a `program_step`), in that order;
-    - the keyword catalog and the row engine stay the plugin's own test tooling; a user project never needs them (G6).
+    - the bootstrap of the plugin's own rows is accepted by the plugin's plain pytest entry point, as b1 is; the keyword catalog and the row engine stay the plugin's own test tooling, and a user project never needs them (G6).
   - Size: L.
 - [ ] **d8. Hook H0; a note for hand-launched Bash** (IR-M1, IR-E2, PC-M10).
   - Proves: R5, P5, P4. QBC: 29, 43, 44, 45, 46, 47, 50.

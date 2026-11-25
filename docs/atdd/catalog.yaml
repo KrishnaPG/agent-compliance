@@ -264,7 +264,6 @@ when:
           validate_packet: "validate a packet file against the packet schema"
           launch_builder: "launch the builder job for an item: preconditions checked, packet registered, clone created"
           merge: "merge a candidate into HEAD"
-          generate_tests: "generate tests from the packet's acceptance rows and write the manifest"
           commit_build: "stage and commit the builder's change as the program, with Packet and Criteria trailers"
       item: {type: id, required: false}
       rerun: {type: boolean, required: false, doc: "as bh.rerun"}

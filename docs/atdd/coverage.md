@@ -8,12 +8,10 @@ Validation command (JSON Schema draft 2020-12, `check-jsonschema`), from the rep
 uv run --script docs/atdd/build.py --check
 ```
 
-Result: 2 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
+Result: 0 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
 
 Teaching parts: 138; 38 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (23): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d8-AC2, d8-AC3.
 
-- ERROR d6-AC13: covers 7, but d6 has 6 leaves
-- ERROR catalog value no row uses: when.program_step.step.generate_tests
 
 ## Counts
 
