@@ -4,6 +4,45 @@ Status: v9 design, decided items marked in section 13. Rationale for the decisio
 
 Requirement words follow RFC 2119 (MUST, MUST NOT, SHOULD, MAY). Each requirement has a stable ID, QBC-n, which acceptance tests cite. Evidence files are in `docs/design/evidence/`.
 
+## 0. Goals, principles and requirements (acceptance checklist)
+
+Owner, 2026-11-25. This section governs: where a later section conflicts with it, this section wins, and the conflict is a defect to fix in the later section. Every slice's acceptance criteria cite the items they prove (G*, P*, R*) as well as the QBC ids, and a slice is done only when its cited items are proven.
+
+### Goals
+- [ ] **G1.** Code quality is caught before and during writing, not by review loops or CI after the fact.
+- [ ] **G2.** The same quality rules apply to every author, human or agent, enforced in the build.
+- [ ] **G3.** Agents are guided by the paved road: the right way is the easy way, and success criteria and rules are handed over upfront.
+- [ ] **G4.** Work enters in a structured way: decisions first, then slices; nothing free-floating; the backlog is bounded.
+- [ ] **G5.** Low cost and fast flow: low tokens, low maintenance, no step that slows the whole process.
+- [ ] **G6.** A self-sustained, reusable plugin that works in any project on day one.
+
+### Principles
+- [ ] **P1.** Industry standards and best practices for every choice; no invented processes.
+- [ ] **P2.** OSS and code reuse before new code. Host first: use what Claude Code, git and GitHub already do.
+- [ ] **P3.** No agent in the mechanical path. Period. A program runs git, tests, measuring and ordering.
+- [ ] **P4.** No pass/fail gates on quality. Facts are recorded, limits cap rounds, and only measured targets move work on. Refusals are used only for order.
+- [ ] **P5.** Every rejection teaches what is wrong, the right way, and how to prevent it, concisely.
+- [ ] **P6.** Nobody grades themselves.
+- [ ] **P7.** Paved road over restriction. Keep a restriction only when it is cheap and protects measurement.
+- [ ] **P8.** No hard-coding. Every limit is a default with an override in a standard place (the plugin's project-local folder).
+- [ ] **P9.** Convention over configuration: presets, inference, ask once, and answers stored in standard files.
+- [ ] **P10.** No excess: build only for a measured need; low cost, clear, extensible.
+- [ ] **P11.** Rules apply forward: ratchets, no retrofit sweeps, no reopening old decision records.
+- [ ] **P12.** Don't plan around things we can't control (for example CI, or accounts we can't create).
+
+### Requirements
+- [ ] **R1.** Order engine: a program launching `claude -p`. Measuring costs 0 tokens.
+- [ ] **R2.** Builders work in a `git clone --shared` of the local base commit. No remote fetch is required.
+- [ ] **R3.** Acceptance tests are visible (ATDD) and written by someone other than the builder. "Red" means a failed assertion.
+- [ ] **R4.** Integrity: the measurer lays the planner's tests and config over the build, checks a canary, and records tampering as a fact. Kept cheap restrictions: the Bash sandbox and scoped Edit/Write.
+- [ ] **R5.** The packet is written only by the orchestrator or planner, and arrives at session start. A builder that edits without one gets a teaching refusal (order). It carries the goal, tier, constraints, visible tests, the rules with their teaching messages, the ratchet baselines and a self-check command (`bh check`).
+- [ ] **R6.** The tier is derived mechanically from the declared paths and the actual diff. Semantic Versioning: a patch or minor pin bump is mechanical; a major bump is design-affecting.
+- [ ] **R7.** Linter presets (ruff, ESLint, oxlint, sqlfluff) are written into the project's standard config files and pre-commit, so a human's build runs them. Old pattern checks are retired only after parity.
+- [ ] **R8.** Intake (GitHub-native): milestone (goal), decision tracking issue, slice sub-issues, defect sub-issues. Minors go in one Known issues list, bounded at a default of 100 set as policy. Issue forms with required fields; a parent check that teaches.
+- [ ] **R9.** The owner's 8 verdicts: delete compliance-review and compliance-catalog; vetted-decision slimmer with a fresh judge; vet-oss replaced by Scorecard, deps.dev and OSV; bug-analysis narrowed; catalog replaced by standards plus house rules; pattern checks replaced by ruff and ESLint; evals on outcomes and cost; harness skill kept with a test-author step.
+- [ ] **R10.** Host caveat: on Ubuntu 26.04 the sandbox needs `allowAllUnixSockets`, so the builder account stays outside the docker group.
+- [ ] **R11.** Measured success (DORA): change-failure rate, lead time per slice and tokens per met slice, compared with the pre-v2 baseline.
+
 ## 1. Purpose and scope
 
 How code quality is enforced for every author, human or agent, and how coding agents are guided before and during writing. Architecture, design and coding-standard rules live in the build. Agents get order and just-in-time context only, scaled by how much design the work carries.
