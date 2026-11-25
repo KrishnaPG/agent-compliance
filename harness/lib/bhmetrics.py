@@ -9,8 +9,9 @@ builder rounds).
   lead_time_for_changes   slice opening to merge, median (hours; DORA reports the median)
   tokens_per_met_slice    tokens of the met slices' jobs, over the met slices (tokens)
   measurer_rounds         builder rounds of the met slices: per slice its highest jobs[*].round, summed (count)
-  selector_misses         review findings whose rule the slice's selection missed (jobs[*].selector_misses,
-                          QBC-108), summed over the window's met slices (count): the tag mapping's ratchet
+  selector_misses         review findings whose rule the item's selection missed in the last ``bh run``:
+                          the ``selector_miss`` facts of its run result (QBC-108, counted per run, one
+                          source), current window only (count): the tag mapping's ratchet
 
 The baseline is the pre-v2 history, written once as ``.brick-harness/metrics-baseline.json``
 (created exclusively: a second run never rewrites it). Its window ends at the commit time of HEAD
@@ -70,11 +71,20 @@ def job_totals(out_dir: Path) -> dict[str, dict[str, float]]:
         if not j.get("item"):
             continue
         tok = j.get("tokens") or 0
-        t = totals.setdefault(j["item"], {"tokens": 0, "rounds": 0, "selector_misses": 0})
+        t = totals.setdefault(j["item"], {"tokens": 0, "rounds": 0})
         t["tokens"] += sum(tok.values()) if isinstance(tok, dict) else tok
         t["rounds"] = max(t["rounds"], j.get("round") or 0)
-        t["selector_misses"] += len(j.get("selector_misses") or [])
     return totals
+
+
+def run_misses(out_dir: Path) -> int | None:
+    """The ``selector_miss`` facts of the last ``bh run``'s result (``run-result.json``, the run
+    result's own facts: QBC-108's single source); None when no run result is kept."""
+    path = out_dir / "run-result.json"
+    if not path.is_file():
+        return None
+    rounds = (json.loads(path.read_text()).get("phases") or {}).get("rounds") or []
+    return sum(f.get("kind") == "selector_miss" for r in rounds for f in r.get("facts", []))
 
 
 def slices(tr: Tracker, merged: dict[str, float], jobs: dict[str, dict[str, float]]) -> list[dict[str, Any]]:
@@ -97,7 +107,7 @@ def slices(tr: Tracker, merged: dict[str, float], jobs: dict[str, dict[str, floa
             "merged": at,
             "hours": (at - _ts(i["created_at"])) / 3600,
             "failed": bool(later),
-            **jobs.get(item, {"tokens": 0, "rounds": 0, "selector_misses": 0}),
+            **jobs.get(item, {"tokens": 0, "rounds": 0}),
         })
     return out
 
@@ -112,7 +122,6 @@ def compute(window: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "lead_time_for_changes": statistics.median(r["hours"] for r in rows),
         "tokens_per_met_slice": sum(r["tokens"] for r in rows) / n,
         "measurer_rounds": sum(r["rounds"] for r in rows),
-        "selector_misses": sum(r.get("selector_misses", 0) for r in rows),
     }
     return [{"id": k, "window": window, "value": v, "unit": UNITS[k]} for k, v in value.items()]
 
@@ -138,4 +147,7 @@ def metrics(cfg: Config, tr: Tracker | None = None) -> dict[str, Any]:
     except ValueError as e:
         raise HarnessError(f"{path} is not JSON: {e}") from e
     current = compute("current", [r for r in rows if r["merged"] > base["as_of"]])
+    misses = run_misses(out_dir) if out_dir else None
+    if misses is not None:  # per run, from the run result: the pre-v2 baseline has no run to count
+        current.append({"id": "selector_misses", "window": "current", "value": misses, "unit": UNITS["selector_misses"]})
     return {"schema_version": RESULT_VERSION, "command": "metrics", "metrics": [*base["metrics"], *current]}

@@ -362,6 +362,14 @@ def write_precommit(root: Path, preset: dict[str, Any]) -> list[str]:
             local = {"repo": "local", "hooks": []}
             repos.append(local)
         local["hooks"].extend(add)
+        # `pre-commit install` installs the git hook types listed here: a hook staged for pre-push
+        # (bh review of the pushed range) needs its type named, or it never runs
+        types = list(doc.get("default_install_hook_types") or ["pre-commit"])
+        types += [t for h in add for t in h.get("stages", []) if t not in types]
+        if types != ["pre-commit"]:
+            doc["default_install_hook_types"] = types
+            # a hook with no stages runs at every installed type: the lint stays at commit time
+            doc.setdefault("default_stages", ["pre-commit"])
         with path.open("w") as fh:
             yaml.dump(doc, fh)
     return [h["id"] for h in add]

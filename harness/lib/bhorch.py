@@ -1426,7 +1426,8 @@ class Orchestrator:
         misses = self.selector_misses(item, [r["id"] for r in selected], j["output"]["findings"], base)
         facts += misses
         # the review rounds of a packet are counted from the state; bh metrics counts the misses
-        self.stamp(j, packet_sha256=digest, selector_misses=[{"rule": m["rule"], "missing_tag": m["missing_tag"]} for m in misses])
+        # from the run result's facts (QBC-108: one source)
+        self.stamp(j, packet_sha256=digest)
         chars = bhreview.limits(self.cfg.data)["message_chars"]
         log = bhreview.sarif(j["output"]["findings"], item, digest, chars)
         log["runs"][0]["properties"]["rules"] = [r["id"] for r in rules]  # what the review judged
@@ -1727,8 +1728,7 @@ def result_doc(cmd: str, r: dict[str, Any]) -> dict[str, Any]:
         ],
         "facts": [
             {k: str(f[k]) for k in ("kind", "detail", "item", "message") if f.get(k) is not None}
-            for x in rounds
-            for f in x.get("facts", [])
+            for f in [*(f for x in rounds for f in x.get("facts", [])), *(phases.get("review") or {}).get("facts", [])]
         ],
         "jobs": jobs,
     }
@@ -1763,7 +1763,15 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
     for x in st["stuck"][:10]:
         lines.append(f"  stuck: {x.get('item') or x.get('id') or x}: {x.get('reason', '')}")
     lines.append(f"  gaps: {st['gaps']}")
-    misses = [f for x in (r.get("phases") or {}).get("rounds") or [] for f in x.get("facts", []) if f.get("kind") == "selector_miss"]
+    review = (r.get("phases") or {}).get("review")
+    if review is not None:  # bh review: its findings in teach form; it never blocks (P4)
+        lines.append(f"REVIEW {review['item']} ({review['tier']}): " + (f"{len(review['findings'])} findings" if review["reviewed"] else "no review ran (no trigger, 0 tokens)"))
+        lines += [f"  {f}" for f in review["findings"][:20]]
+    misses = [
+        f
+        for f in [*(f for x in (r.get("phases") or {}).get("rounds") or [] for f in x.get("facts", [])), *(review or {}).get("facts", [])]
+        if f.get("kind") == "selector_miss"
+    ]
     if misses:  # QBC-108: each miss teaches which mapping entry would have selected its rule
         lines.append(f"SELECTOR MISSES ({len(misses)})")
         lines += [f"  {m['message']}" for m in misses[:20]]

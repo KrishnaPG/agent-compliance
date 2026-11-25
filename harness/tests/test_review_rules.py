@@ -8,6 +8,7 @@ import json
 import tomllib
 
 import bhcore
+import bhmetrics
 import bhorch
 import bhpacket
 import bhrules
@@ -193,7 +194,7 @@ def test_qbc_108_a_finding_whose_rule_was_not_selected_is_a_selector_miss(toy, f
     assert miss["rule"] == net and "network-client" in miss["missing_tag"]
     assert miss["message"].startswith(f"[selector_miss] rule {net} judged a finding but was not in json-writer's packet ->")
     (rec,) = [j for j in o.recorded("json-writer") if j.get("job") == "review"]
-    assert rec["selector_misses"] == [{"rule": net, "missing_tag": miss["missing_tag"]}]  # bh metrics counts these
+    assert "selector_misses" not in rec  # one source: bh metrics counts the run result's facts
     selected = [r["id"] for r in packet["verifier"]["rules"]]
     assert o.selector_misses("json-writer", selected, [MAJOR]) == []  # negative control: a selected rule's finding
 
@@ -205,9 +206,16 @@ def test_qbc_108_bh_run_reports_each_miss_in_teach_form(toy, fake):  # noqa: F81
     net = next(r for r, tags in RULE_TAGS.items() if "network-client" in tags and r not in planned)
     unplanned = {**MAJOR, "rule": net, "summary": "urlopen has no timeout -> set a timeout and a circuit breaker"}
     spec_for(fake, [[unplanned]], [NETWORK])
-    res = run(orch(toy).run())
+    cfg = str(toy / ".brick-harness" / "config.json")
+    bhorch.main(["run", "--config", cfg])  # the run result is the file bh run writes
+    kept = toy / ".brick-harness" / "out" / "run-result.json"
+    res = json.loads(kept.read_text())
     misses = [f for r in res["phases"]["rounds"] if r["item"] == "json-writer" for f in r["facts"] if f["kind"] == "selector_miss"]
     assert misses and {m["rule"] for m in misses} == {net}
+    assert bhmetrics.run_misses(kept.parent) == len(misses)  # bh metrics counts this run's misses
+    clean = [{**r, "facts": [f for f in r["facts"] if f["kind"] != "selector_miss"]} for r in res["phases"]["rounds"]]
+    kept.write_text(json.dumps({**res, "phases": {**res["phases"], "rounds": clean}}))
+    assert bhmetrics.run_misses(kept.parent) == 0  # negative control: the same run result without its misses
     text = bhorch.summary_text(res, None)
     assert "SELECTOR MISSES" in text and f"[selector_miss] rule {net} judged a finding" in text
     assert "SELECTOR MISSES" not in bhorch.summary_text({**res, "phases": {**res["phases"], "rounds": []}}, None)  # negative control

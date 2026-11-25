@@ -1,12 +1,17 @@
 """A human author's change gets what an agent's gets (section 0 G1, G2; QBC-16): measured after a
 merge, a clean tree after setup, and a failure message that says what failed. One case per defect
-found on the human path; the toy and the fake ``claude`` come from test_toy and test_bhorch."""
+found on the human path, and the pre-push review; the toy and the fake ``claude`` come from test_toy and test_bhorch."""
 
 import json
+import os
+import subprocess
 
 import bhorch
+import bhpresets
+from ruamel.yaml import YAML
 from bhcore import Config
 from test_bhorch import ACCEPT, fake, orch, run  # noqa: F401  (fake is a fixture)
+from test_review_rules import MAJOR, network_build, reviews
 from test_toy import JSON_WRITER, commit_all, git
 
 
@@ -80,3 +85,34 @@ def test_a_failed_assertion_is_quoted_in_the_teaching(toy, fake, capsys):  # noq
     assert "failed an assertion: AssertionError: assert [] == [{'a': '1'}]" in line, line
     assert " -> make csv-reader-AC1 pass without editing tests/ . run bh check before finishing" in line
     assert len(line) <= 300
+
+
+def test_a_push_is_reviewed_only_when_design_affecting_and_never_blocked(tmp_path, toy, fake):  # noqa: F811
+    """The preset's pre-push hook runs ``bh review`` on the pushed range: a design-affecting range
+    gets one review whose findings print in teach form, a docs-only range none (0 tokens), and the
+    push is never blocked (exit 0)."""
+    app = tmp_path / "app"
+    app.mkdir()
+    (app / "pyproject.toml").write_text('[project]\nname = "app"\nversion = "0.1.0"\n')
+    bhpresets.write_precommit(app, bhpresets.presets()["python"])
+    doc = YAML(typ="safe").load((app / ".pre-commit-config.yaml").read_text())
+    (hook,) = [h for r in doc["repos"] for h in r["hooks"] if h["id"] == "bh-review"]
+    assert hook["stages"] == ["pre-push"] and "pre-push" in doc["default_install_hook_types"]
+    assert doc["default_stages"] == ["pre-commit"]  # the lint hooks stay at commit time
+    _, base, sha = network_build(toy)
+    git(toy, "checkout", "-q", "build")
+    (toy / "README.md").write_text("docs only\n")
+    docs = commit_all(toy, "docs: a human's note", "README.md")
+    fake.spec(outputs_seq={"harness-reviewer": [{"findings": [MAJOR]}]})
+    env = dict(os.environ, PATH=f"{bhpresets.CHECKERS.parent.parent / 'bin'}{os.pathsep}{os.environ['PATH']}")
+
+    def push(frm, to):  # what pre-commit's pre-push stage runs: the entry, with the pushed range
+        r = subprocess.run(hook["entry"], shell=True, cwd=toy, capture_output=True, text=True, env={**env, "PRE_COMMIT_FROM_REF": frm, "PRE_COMMIT_TO_REF": to})
+        return r.returncode, r.stdout
+
+    code, out = push(base, sha)
+    assert code == 0 and len(reviews(fake)) == 1, out  # findings never block the push
+    assert "[ID-15] json_writer re-checks the token" in out
+    code, out = push(sha, docs)
+    assert code == 0 and len(reviews(fake)) == 1, out  # mechanical: no review job, 0 tokens
+    assert "no review ran" in out

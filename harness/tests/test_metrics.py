@@ -46,7 +46,7 @@ def test_metrics_from_a_recorded_history_with_a_baseline_written_once(tmp_path, 
         {"id": "a2", "item": "gh-1", "role": "builder", "tokens": 40, "round": 2},  # two rounds: rounds is the highest
         {"id": "b", "item": "gh-2", "role": "builder", "tokens": {"input": 250, "output": 50}, "round": 1},
         {"id": "c", "item": "gh-3", "role": "builder", "tokens": 500, "round": 3},
-        {"id": "r", "item": "gh-3", "role": "reviewer", "tokens": 0, "selector_misses": [{"rule": "HO-07", "missing_tag": "network-client"}]},
+        {"id": "r", "item": "gh-3", "role": "reviewer", "tokens": 0, "selector_misses": [{"rule": "HO-07", "missing_tag": "network-client"}]},  # not a source
     ):
         (jobs / f"{rec['id']}.json").write_text(json.dumps({"record": rec, "output": None}))
     (jobs / "b.input.json").write_text(json.dumps({"item": "gh-2", "tokens": 900}))  # a job's input is no record
@@ -68,10 +68,11 @@ def test_metrics_from_a_recorded_history_with_a_baseline_written_once(tmp_path, 
             "lead_time_for_changes": (20.0, "hours", "baseline"),
             "tokens_per_met_slice": (200.0, "tokens", "baseline"),
             "measurer_rounds": (3, "count", "baseline"),
-            "selector_misses": (0, "count", "baseline"),
         }
         stored = (proj / ".brick-harness" / "metrics-baseline.json").read_text()
         merge(proj, "gh-3", T0 + 45 * H)
+        rounds = [{"item": "gh-3", "status": "met", "facts": [{"kind": "selector_miss", "rule": "HO-07"}, {"kind": "red"}]}]
+        (proj / ".brick-harness" / "out" / "run-result.json").write_text(json.dumps({"phases": {"rounds": rounds}}))
         assert bhorch.main(["metrics", "--config", str(cfgfile)]) == 0
         second = json.loads(capsys.readouterr().out)
         jsonschema.validate(second, bhcore.load_schema("result"))
