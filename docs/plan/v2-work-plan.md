@@ -21,9 +21,9 @@ These bind every task. They come from §0 and the owner, and are not re-argued.
 
 - **The order engine is a program** (P3, R1). `bh` runs git, tests, measuring, ordering, staging and merging. Agents launch as `claude -p` jobs only for judgement. Measuring costs 0 tokens.
 - **Paved road before restriction** (G3, P7, R5). Before any builder restriction ships, the program assembles the builder's packet with no agent, holding:
-  - the visible tests, read-only, and the targets;
-  - the rules with their teaching messages, and the ratchet baselines;
-  - where the builder's own tests go, and how to add a dependency;
+  - the visible acceptance tests (`verifier.acceptance_paths`), read-only, and the targets (`verifier.targets[*]`);
+  - the rules with their teaching messages (`verifier.rules[*]`), and the ratchet baselines;
+  - where the builder's own tests go (`paved_road.test_paths`), and how to add a dependency (`paved_road.dependency_command`);
   - one self-check command, `bh check`.
   
   Generators come later, once shapes recur (P10, QBC-95 step 6).
@@ -67,7 +67,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 | PC-M6 generators have no producer | Dropped from d2 (P10). c1 instead infers the test location and the dependency command |
 | PC-M7 what the builder still guesses | d2: the packet names where its own tests go, how to add a dependency, how to ask for a config change, the rule and decision text it cites, and that the program commits. b1 overlays test and lint config sections, not dependency declarations |
 | PC-M8 commit hooks refuse commits | c3 and f3: pre-commit and commitlint run in the test recipe and in `bh check`, and their results are facts with teaching. No blocking git hook is installed |
-| PC-M9 d7's judge has no outcome | d7: the judge returns objections and falsifying calls. Calls become targets; objections become facts for the approver. It never stops the item |
+| PC-M9 d7's judge has no outcome | d7: the judge's `jobs[*]` entry carries `objections` and `falsifying_calls`. Calls become `verifier.targets[*]`; objections become facts for the approver. It never stops the item |
 | PC-M10 hand-launched builder's Bash edits pass H0 | d8: a PostToolUse teaching note on Bash for the builder agent type with no packet, plus the H0-bypass fact. The measurer's scope fact also records it |
 | PC-M11 measurer checkout unspecified | b1: a `git clone --shared` checkout. Its overhead target is stated on the toy repository as a default |
 | PC-M12 docker group only a fact; `allowAllUnixSockets` default | b10: a builder account in a socket-granting group refuses the launch, with teaching to the orchestrator. `allowAllUnixSockets` defaults to false and is set only when the self-test needs it. Socket deny rules are not added (P10) |
@@ -324,7 +324,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Done when:
     - a table (fact, reader, action, channel) lists the facts slice b produces: scope, flaky, red-by-error, tampered, dropped tests, suppression growth, launch refused and stuck;
     - later tasks add their own rows (c1 inferred, c4 ratchet growth, c8 not checked, d5 re-queue, d8 H0 bypass);
-    - the channel is `bh run`'s result JSON plus one line per item in its run report;
+    - the channel is `bh run`'s result JSON (`command` `run`) plus one line per item in its run report;
     - at `max_rounds` (default 3) an item is "stuck", reported for a re-plan;
     - each fact, planted on the toy with the stub `claude`, appears in the run report with its action.
   - Size: M.
@@ -398,9 +398,9 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 - [ ] **b14. End-to-end run on recorded fixtures.**
   - Proves: R1, P3. QBC: 9, 10, 78, 80.
   - Files: `harness/tests/fixtures/`, `harness/tests/test_e2e.py`.
-  - Done when `bh run` on the toy, with the stub `claude` replaying recorded jobs, ends with every item met or stuck with facts, and the job record shows:
-    - no agent job for state, measure, merge, commit or ordering;
-    - tokens counted per item;
+  - Done when `bh run` on the toy, with the stub `claude` replaying recorded jobs, ends with every item met or stuck with facts, and `jobs[*]` shows:
+    - no `jobs[*]` entry with `kind` `agent` for state, measure, merge, commit or ordering;
+    - `jobs[*].tokens` (Claude CLI usage, input plus output) is the only stored token count; item and run totals are sums computed from it;
     - no `Workflow` in any builder's `--tools`.
   - Size: M.
 
@@ -508,15 +508,15 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
       - `applies`: the G, P and R items copied verbatim from spec §0, with all principles always included, and their QBC ids;
       - `constraints`: cited decision lines, owners and published interfaces, declared paths, and limits as defaults;
       - `acceptance`: Gherkin scenarios, each with `id`, `traces_to` (G, P, R or QBC ids) and `verification` (one of test, lint, fitness, measure; ISO/IEC/IEEE 29148);
-      - `verifier`: the exact checks, the rules with their teaching messages, the ratchet baselines and the target thresholds the measurer runs;
-      - `paved_road`: where tests go, how to add a dependency, and the self-check command;
-      - `definition_of_done`: every acceptance criterion met by the measurer;
+      - `verifier`: the exact checks the measurer runs: `acceptance_paths` (the visible acceptance tests, protected), `targets[*]` (items of {id, item, metric, op, value, unit}), `rules[*]` (each with `id` and its teaching message; the packet's `applies` holds only G, P, R and QBC ids) and the ratchet baselines;
+      - `paved_road`: `test_paths` (where the builder's own tests go), `dependency_command` (how to add a dependency) and the self-check command, with the same names in the project config and the packet, copied with no mapping;
+      - `definition_of_done`: every `acceptance[*]` item met by the measurer;
     - content over the size cap is referenced by path;
     - a design field fails validation, and so does a scenario without `traces_to` or `verification`;
     - the measurer runs exactly the `verifier` list, and `bh check` (d3) runs the same list;
     - rendering a fixture packet gives stable Markdown (a golden-file test).
   - Size: M.
-  - Also d0: each stage's output format and the single-contract enforcement, per `docs/spec/packet-standards.md` ("Every stage's output format"): MADR (L1), packet JSON (L2), generated tests with a manifest and JUnit XML (L3), Conventional Commits with `Packet:`/`Criteria:` trailers (L4), JUnit XML, SARIF 2.1.0 and a result JSON (L5), SARIF (review). Every output names the packet sha256.
+  - Also d0: each stage's output format and the single-contract enforcement, per `docs/spec/packet-standards.md` ("Every stage's output format"): MADR (L1), packet JSON (L2), generated tests with a manifest and JUnit XML (L3), Conventional Commits with `Packet:`/`Acceptance:` trailers (L4), JUnit XML, SARIF 2.1.0 and a result JSON (L5), SARIF (review). Every output names the packet sha256.
 - [ ] **d1. Packet assembly against d0; size is never refused** (IR-E3, RH-M10, PC-M3, IR-m1).
   - Proves: R5, P4, P8. QBC: 24, 33, 37, 38, 39, 40, 42.
   - Files: `harness/lib/bhcore.py` (packet assembly).
@@ -531,11 +531,11 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Proves: G3, G1, R5, P7. QBC: 24, 38, 49, 54, 57.
   - Files: `harness/lib/bhcore.py` (packet assembly), `harness/schema/`.
   - Done when, for a toy item, the program (no agent) fills d0's `acceptance`, `verifier` and `paved_road` fields and writes the rendered packet into the clone's read-only packet directory, and a schema check confirms each part:
-    - the acceptance test paths (visible) and the targets with numbers;
-    - the lint and fitness rules enabled at the plan commit for the touched files, each with its teaching message (c3, c6, c8), and the ratchet baselines present at the plan commit (c4); on the toy with presets applied this includes ruff DTZ with its right-way line;
+    - `verifier.acceptance_paths` (the visible acceptance tests) and `verifier.targets[*]` with numbers;
+    - `verifier.rules[*]`: the lint and fitness rules enabled at the plan commit for the touched files, each with its teaching message (c3, c6, c8), and the ratchet baselines present at the plan commit (c4); on the toy with presets applied this includes ruff DTZ with its right-way line;
     - the text of every cited rule and decision line;
     - `bh check` (d3);
-    - where the builder's own tests go and the dependency command (c1);
+    - `paved_road.test_paths` and `paved_road.dependency_command` (c1);
     - the tier-trigger paths (d5);
     - that the program commits;
     - how to ask for a config change: say so in the final report.
@@ -574,12 +574,12 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Proves: R3, P6, P3, R9. QBC: 31, 34, 41, 82.
   - Files: new `agents/harness-test-author.md`, new test generator under `harness/lib/`, `harness/lib/bhorch.py`.
   - Done when, with recorded fixtures:
-    - the program launches the test author before the builder, as another job; it writes acceptance rows from the closed catalogs of `docs/atdd/catalog.yaml` into the packet's `acceptance`, valid against the criteria schema, and writes no test code;
-    - the generator, a program with no agent, turns each row into exactly one test in the project's framework, marked with its criterion id, plus a manifest from criterion id to test node id, and both are committed in protected paths in the plan commit;
+    - the program launches the test author before the builder, as another job; it writes acceptance rows from the closed catalogs of `docs/atdd/catalog.yaml` into the packet's `acceptance`, valid against the acceptance criteria schema, and writes no test code;
+    - the generator, a program with no agent, turns each row into exactly one test in the project's framework, marked with its acceptance id, plus a manifest from acceptance id to test node id, and both are committed in protected paths in the plan commit;
     - a row whose keyword the generator does not implement is a fact with teaching naming the keyword, never a skipped or empty test;
     - every generated test is red on main: a test that fails by an assertion is recorded red, one that errors is recorded red-by-error and its row goes back to the test author;
     - for a defect, the regression row is written by the test author, or by the finder when the finder is not the builder, and "fails at the parent, passes at the fix" is recorded;
-    - the job record shows test author, generator (no agent), builder and measurer, in that order;
+    - `jobs[*]` shows test author, generator (a `program_step`), builder and measurer (a `program_step`), in that order;
     - the generator's bootstrap, which generates the plugin's own v2 acceptance tests from `docs/atdd/criteria/`, is accepted by the plugin's plain pytest entry point, as b1 is.
   - Size: L.
 - [ ] **d7. Design step for design-affecting items, with a judge whose outcome is defined** (IR-M3, PC-M9).
@@ -587,10 +587,10 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Files: `agents/harness-planner.md`, `harness/lib/bhorch.py`, `harness/schema/jobs.schema.json`.
   - Done when, with recorded fixtures:
     - the planner writes the contract, schema or role delta as a declared file in the plan commit;
-    - a fresh judge job returns `{objections[], falsifying_calls[]}`;
-    - each falsifying call becomes a target on the item, and each objection becomes a fact shown to the approver;
+    - a fresh judge job (`jobs[*].kind` `agent`, `role` `judge`) records `objections` and `falsifying_calls` in its `jobs[*]` entry;
+    - each falsifying call becomes an item in `verifier.targets[*]`, and each objection becomes a fact shown to the approver;
     - the item is never stopped by the judge;
-    - the job record shows planner, judge, test author and builder as distinct jobs.
+    - `jobs[*]` shows planner, judge, test author and builder as distinct entries, each with `kind` `agent` and its `role`.
   - Size: M.
 - [ ] **d8. Hooks H0 and H2; a note for hand-launched Bash** (IR-M1, IR-E2, PC-M10).
   - Proves: R5, P5, P4. QBC: 29, 43, 44, 45, 46, 47, 50.
@@ -621,13 +621,13 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
     - `limits.known_issues` 100;
     - `limits.measure_overhead_s` 2;
     - `limits.socket_groups` [docker];
-    - `sandbox.allow_all_unix_sockets` false;
+    - `sandbox`, the Claude Code `sandbox` settings object passed verbatim into the builder's settings, with `sandbox.network.allowAllUnixSockets` false;
     - `evals.runs` 3;
-    - `models` per role;
+    - `models.<role>` for each agent role (planner, judge, test_author, builder, reviewer);
     - `tiers.triggers`.
     
   Also:
-    - an override changes behaviour in a test;
+    - an override that differs from the default (for example `limits.idle_days` 7, `evals.runs` 5) changes behaviour in a test;
     - with 6 ready items, at most 5 agents run;
     - ruff PLR2004 is clean over `harness/`.
   - Size: M.
@@ -771,7 +771,7 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Files: `evals/` (rebuilt as `claude plugin eval` suites).
   - Done when:
     - `claude plugin eval --ablation --runs <evals.runs> --max-cost-usd <budget>` runs the toy item set with and without the plugin;
-    - the report gives, per arm, met, measurer rounds (from `bh` job records), tokens and USD, with spread;
+    - the report gives, per arm, met, measurer rounds (from `bh` `jobs[*]` entries), tokens (summed from `jobs[*].tokens`) and USD, with spread;
     - the paid toy run is committed as evidence;
     - this is the only task that makes live model calls.
   - Size: L.
@@ -786,7 +786,7 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
 - [ ] **h3. DORA metrics and the pre-v2 baseline** (PC-M14).
   - Proves: R11, G5. QBC: 3, 28.
   - Files: `bin/bh` (`metrics`), `harness/lib/bhtracker.py`.
-  - Done when `bh metrics` computes, from git, the issue history and the job records:
+  - Done when `bh metrics` computes, from git, the issue history and `jobs[*]` entries:
     - change-failure rate: merged slices that later get a defect sub-issue;
     - lead time: from the slice sub-issue opening to its merge;
     - tokens per met slice;

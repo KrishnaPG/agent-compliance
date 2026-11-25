@@ -11,7 +11,7 @@ Owner, 2026-11-25. This section governs: where a later section conflicts with it
 ### Goals
 - [ ] **G1.** Code quality is caught before and during writing, not by review loops or CI after the fact.
 - [ ] **G2.** The same quality rules apply to every author, human or agent, enforced in the build.
-- [ ] **G3.** Agents are guided by the paved road: the right way is the easy way, and success criteria and rules are handed over upfront.
+- [ ] **G3.** Agents are guided by the paved road: the right way is the easy way, and acceptance criteria and rules are handed over upfront.
 - [ ] **G4.** Work enters in a structured way: decisions first, then slices; nothing free-floating; the backlog is bounded.
 - [ ] **G5.** Low cost and fast flow: low tokens, low maintenance, no step that slows the whole process.
 - [ ] **G6.** A self-sustained, reusable plugin that works in any project on day one.
@@ -35,7 +35,7 @@ Owner, 2026-11-25. This section governs: where a later section conflicts with it
 - [ ] **R2.** Builders work in a `git clone --shared` of the local base commit. No remote fetch is required.
 - [ ] **R3.** Acceptance tests are visible (ATDD) and written by someone other than the builder. "Red" means a failed assertion.
 - [ ] **R4.** Integrity: the measurer lays the planner's tests and config over the build, checks a canary, and records tampering as a fact. Kept cheap restrictions: the Bash sandbox and scoped Edit/Write.
-- [ ] **R5.** The packet is written only by the orchestrator or planner, and arrives at session start. A builder that edits without one gets a teaching refusal (order). It carries the goal, tier, constraints, visible tests, the rules with their teaching messages, the ratchet baselines and a self-check command (`bh check`).
+- [ ] **R5.** The packet is written only by the orchestrator or planner, and arrives at session start. A builder that edits without one gets a teaching refusal (order). It carries the goal, tier, constraints, `acceptance[*]`, the visible acceptance tests (`verifier.acceptance_paths`), `verifier.targets[*]`, `verifier.rules[*]` with their teaching messages, the paved road (`paved_road.test_paths`, `paved_road.dependency_command`), the ratchet baselines and a self-check command (`bh check`).
 - [ ] **R6.** The tier is derived mechanically from the declared paths and the actual diff. Semantic Versioning: a patch or minor pin bump is mechanical; a major bump is design-affecting.
 - [ ] **R7.** Linter presets (ruff, ESLint, oxlint, sqlfluff) are written into the project's standard config files and pre-commit, so a human's build runs them. Old pattern checks are retired only after parity.
 - [ ] **R8.** Intake (GitHub-native): milestone (goal), decision tracking issue, slice sub-issues, defect sub-issues. Minors go in one Known issues list, bounded at a default of 100 set as policy. Issue forms with required fields; a parent check that teaches.
