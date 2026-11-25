@@ -68,21 +68,13 @@
     "prompt_log": "BH_PROMPT_LOG",
     "model_log": "ATDD_MODEL_LOG",
     "model_fixture": "ATDD_MODEL_FIXTURE",
-    "api_urls": {
-      "github": [
-        "GITHUB_API_URL",
-        "GH_API_URL"
-      ],
-      "scorecard": [
-        "SCORECARD_API_URL"
-      ],
-      "deps_dev": [
-        "DEPS_DEV_API_URL"
-      ],
-      "osv": [
-        "OSV_API_URL"
-      ]
-    }
+    "ca_bundles": [
+      "SSL_CERT_FILE",
+      "REQUESTS_CA_BUNDLE",
+      "CURL_CA_BUNDLE",
+      "NODE_EXTRA_CA_CERTS",
+      "GIT_SSL_CAINFO"
+    ]
   },
   "metrics": {
     "measure_overhead_s": "wall time in seconds of the `bh measure` run",

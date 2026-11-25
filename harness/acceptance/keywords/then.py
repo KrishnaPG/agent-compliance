@@ -15,7 +15,7 @@ import yaml
 
 import atdd_engine.teaching as teaching
 from atdd_engine.runtime import KeywordError
-from support import CONTRACT, catalog_entry, execute, sut_argv, FixtureError, REF, apply_op, get_path, git, globs, missing, need, nonempty, repo, say
+from support import CONTRACT, api_log, catalog_entry, execute, sut_argv, FixtureError, REF, apply_op, get_path, git, globs, missing, need, nonempty, repo, say
 from when import BEFORE_WHEN, digests, load_instance, load_schema, run_validation, _front, when_scan
 
 P = CONTRACT["paths"]
@@ -311,7 +311,7 @@ def channel_messages(ctx, channel) -> list:
         return _lines(report_text(ctx))
     if channel == "issue_comment":
         out = []
-        for e in ctx.state.get("api_log", []):
+        for e in api_log(ctx):
             if "comment" in e["operation"].lower():
                 try:
                     out.append(json.loads(e["body"]).get("body", e["body"]))
@@ -678,7 +678,7 @@ def then_git(ctx, **kw):
 
 
 def then_api_call(ctx, service, operation, count, **kw):
-    log = [e for e in ctx.state.get("api_log", []) if e["service"] == service and e["operation"] == operation]
+    log = [e for e in api_log(ctx) if e["service"] == service and e["operation"] == operation]
     w = kw.get("with")
     if w:
         log = [e for e in log if w in e["body"] or w in e["path"]]

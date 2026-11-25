@@ -4,9 +4,10 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
 import shutil
-import threading
-from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
+import subprocess
+import sys
 from pathlib import Path
 
 from support import CONTRACT, FixtureError, REF, fixture_data, fixture_path, git, init_env, overlay, repo, say, tree_files, writable_repo
@@ -97,55 +98,57 @@ def given_recorded_model(ctx, fixture):
     ctx.state["env"][CONTRACT["env"]["model_fixture"]] = str(p)
 
 
-class _Api(BaseHTTPRequestHandler):
-    def log_message(self, *a):
-        pass
+def _start_replay(ctx, flows):
+    """Serve every recorded flow offline through mitmproxy's server replay; returns the function that stops it."""
+    from mitmproxy import io
 
-    def _serve(self):
-        body = self.rfile.read(int(self.headers.get("Content-Length") or 0)).decode()
-        srv = self.server
-        with srv.lock:
-            hit = None
-            for i, ex in enumerate(srv.exchanges):
-                if i in srv.used:
-                    continue
-                if ex.get("method", self.command) != self.command:
-                    continue
-                if not self.path.startswith(ex.get("path", "")):
-                    continue
-                if ex.get("match_body", "") not in body:
-                    continue
-                hit = i
-                break
-            op = "unmatched"
-            status, payload = 404, {"message": "no recorded response"}
-            if hit is not None:
-                srv.used.add(hit)
-                ex = srv.exchanges[hit]
-                op, status, payload = ex.get("operation", "request"), ex.get("status", 200), ex.get("body", {})
-            srv.log.append({"service": srv.service, "operation": op, "method": self.command, "path": self.path, "body": body})
-        data = json.dumps(payload).encode()
-        self.send_response(status)
-        self.send_header("Content-Type", "application/json")
-        self.send_header("Content-Length", str(len(data)))
-        self.end_headers()
-        self.wfile.write(data)
+    hosts = {}
+    for service, path in flows:
+        try:
+            with path.open("rb") as f:
+                for flow in io.FlowReader(f).stream():
+                    hosts[flow.request.host] = service
+        except Exception as e:  # malformed fixture
+            raise FixtureError(say("ATDD-FIXTURE", f"fixture {path.relative_to(ctx.fixtures)} is not a mitmproxy flow file: {e}", "record it as the fixtures README describes", REF)) from e
+    confdir = ctx.work / "mitm"
+    cmd = [sys.executable, "-c", "from mitmproxy.tools.main import mitmdump; mitmdump()", "-q", "--listen-host", "127.0.0.1", "--listen-port", "0",
+           "--set", f"confdir={confdir}", "--set", "connection_strategy=lazy", "--set", "upstream_cert=false", "--set", "keepserving=true",
+           "-s", str(Path(__file__).with_name("mitm_addon.py"))]
+    for _, path in flows:
+        cmd += ["--server-replay", str(path)]
+    env = {**os.environ, "ATDD_API_LOG": str(ctx.work / "api.log.jsonl"), "ATDD_API_HOSTS": json.dumps(hosts)}
+    err = (ctx.work / "mitm.err").open("w")
+    proc = subprocess.Popen(cmd, env=env, stdin=subprocess.DEVNULL, stdout=subprocess.PIPE, stderr=err, text=True)
+    ready = proc.stdout.readline().split()  # the addon prints its port once the proxy listens: an event, no polling
+    if ready[:1] != ["ATDD-PROXY-READY"]:
+        proc.kill()
+        proc.wait()
+        raise FixtureError(say("ATDD-FIXTURE", f"the replay proxy did not start (it said {ready}): " + (ctx.work / "mitm.err").read_text()[-500:], "install the tools pinned in harness/acceptance/requirements.txt", REF))
+    url = f"http://127.0.0.1:{ready[1]}"
+    ca = str(confdir / "mitmproxy-ca-cert.pem")
+    for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):
+        ctx.state["env"][var] = url
+    for var in CONTRACT["env"]["ca_bundles"]:
+        ctx.state["env"][var] = ca
 
-    do_GET = do_POST = do_PATCH = do_PUT = do_DELETE = _serve
+    def stop():
+        proc.terminate()
+        proc.wait()
+        proc.stdout.close()
+        err.close()
+
+    return stop
 
 
 def given_recorded_api(ctx, service, fixture):
     _env(ctx)
-    data = fixture_data(ctx, "recorded_api", service, fixture + ".json")
-    srv = ThreadingHTTPServer(("127.0.0.1", 0), _Api)
-    srv.exchanges, srv.used, srv.lock, srv.service = data["exchanges"], set(), threading.Lock(), service
-    srv.log = ctx.state.setdefault("api_log", [])
-    t = threading.Thread(target=srv.serve_forever, daemon=True)
-    t.start()
-    ctx.finalizers.append(lambda: (srv.shutdown(), srv.server_close()))
-    url = f"http://127.0.0.1:{srv.server_address[1]}"
-    for var in CONTRACT["env"]["api_urls"][service]:
-        ctx.state["env"][var] = url
+    flows = ctx.state.setdefault("api_flows", [])
+    if not flows:
+        ctx.finalizers.append(lambda: ctx.state.pop("api_stop", lambda: None)())
+    path = fixture_path(ctx, "recorded_api", service, fixture + ".flows")
+    ctx.state.pop("api_stop", lambda: None)()  # one proxy serves every service of the row: restart it with all flows
+    flows.append((service, path))
+    ctx.state["api_stop"] = _start_replay(ctx, flows)
 
 
 def given_hook_input(ctx, event, tool, agent_type, packet, target, touch="first"):

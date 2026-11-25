@@ -59,6 +59,16 @@ def fixture_data(ctx, *parts: str):
         raise FixtureError(say("ATDD-FIXTURE", f"fixture {'/'.join(parts)} is malformed: {e}", "fix the file as the fixtures README describes", REF)) from e
 
 
+def api_log(ctx) -> list:
+    """Every request the replay proxy saw, in order: {service, operation, method, path, body}; operation is `unmatched` when no recording answered."""
+    p = ctx.work / "api.log.jsonl"
+    out = {}
+    for line in p.read_text().splitlines() if p.exists() else []:
+        e = json.loads(line)
+        out.setdefault(e["id"], {}).update(e)
+    return list(out.values())
+
+
 # ---------- processes ----------
 
 def base_env(ctx) -> dict:

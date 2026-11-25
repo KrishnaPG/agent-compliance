@@ -25,15 +25,13 @@ Tests a plant adds may use `$ATDD_OUTSIDE` (a directory outside the checkout, wi
 ```
 The stub `claude` (first on PATH) answers the Nth launch with reply N and logs every launch (`argv`, `cwd`, `stdin`) to `$ATDD_MODEL_LOG`. A launch past the last reply exits 3 with a teaching message. With no recorded_model given, every launch exits 3. Stream-json events use Claude Code's shapes (`system` init, `assistant`, `result` with `usage.input_tokens` and `output_tokens`).
 
-## recorded_api: `recorded_api/<service>/<fixture>.json`
+## recorded_api: `recorded_api/<service>/<fixture>.flows`
 
-`<service>` is `github`, `scorecard`, `deps_dev` or `osv`.
-```json
-{"exchanges": [ {"operation": "createIssue", "method": "POST", "path": "/repos/o/r/issues",
-                 "match_body": "optional substring of the request body",
-                 "status": 201, "body": {...response JSON...}} ]}
-```
-A local server answers each request with the first unused exchange whose `method`, `path` prefix and `match_body` fit; no match returns 404 and logs operation `unmatched`. Every request is logged; `api_call` counts by `operation`. The program is pointed at the server through the service's URL environment variables (see `contract.json`, `env.api_urls`); real hosts are unreachable (dead proxy).
+`<service>` is `github`, `scorecard`, `deps_dev` or `osv`. A fixture is one mitmproxy flow file: the requests the program makes and the responses to replay, recorded from the real service.
+
+Recording: `ATDD_REDACT=1 mitmdump -s keywords/mitm_addon.py -w <fixture>.flows`, then run the program once with `HTTPS_PROXY=http://127.0.0.1:8080` and `SSL_CERT_FILE=~/.mitmproxy/mitmproxy-ca-cert.pem`. The addon replaces `Authorization` and cookies before the flow is saved. To name the call for `api_call`, add the response header `X-Recorded-Operation: createIssue`; the proxy removes it before the program sees the response.
+
+Replay: mitmproxy (pinned in `requirements.txt`) answers from the flow files with `--server-replay`, `connection_strategy=lazy`, `upstream_cert=false` and `keepserving=true` (mitmdump otherwise exits once the recordings are replayed); the addon refuses every upstream connection (`server_connect`), because mitmproxy's own `server_replay_extra=kill` forwards again once the last recording is spent. Each recorded response answers one request whose method, URL and body equal the recorded request; a repeated request takes the next recording of it. A request with no recording is never forwarded: the proxy answers 502 and it is logged with operation `unmatched`. Every request is logged; `api_call` counts by `operation`. The program is unchanged: it reaches the real hosts through the proxy variables (`HTTP(S)_PROXY`) and trusts the proxy's CA through the variables in `contract.json`, `env.ca_bundles`. One proxy serves all services of a row.
 
 ## hook_input: `hook_input/<event>.<tool>.<agent_type>.<packet>.<target>.<touch>.json`
 
