@@ -452,16 +452,20 @@ def launch_builder(root: Path, item: str, usd: float | None = None) -> tuple[int
     packet, raw, facts, err = assemble(root, item)
     if err:
         return 1, "", err
+    cfg = root / ".brick-harness" / "config.json"
+    config = json.loads(cfg.read_bytes()) if cfg.is_file() else {}
+    policy = bhbuilder.launch_policy(config)
     digest = custody_store(root, raw)
     base = bhorch.git(root, "rev-parse", "HEAD").stdout.strip()  # the base commit the program records
     clone = root / CLONES_DIR / f"{item}-{digest[:12]}-{base[:12]}"  # one clone per packet and base
     bhbuilder.make_clone(root, clone, base)
     register(root, clone, digest)
-    cfg = root / ".brick-harness" / "config.json"
-    sandbox = json.loads(cfg.read_bytes()).get("sandbox") if cfg.is_file() else None
-    settings = bhbuilder.write_settings(
-        root, clone, bhbuilder.builder_settings(packet, root, clone, Path(__file__).resolve().parents[2], sandbox)
-    )
+    built = bhbuilder.builder_settings(packet, root, clone, Path(__file__).resolve().parents[2], config.get("sandbox"))
+    probed, refusal = bhbuilder.probe_host(built, clone, policy)
+    if refusal:
+        return 1, "", refusal + "\n"
+    facts = [*facts, *probed]
+    settings = bhbuilder.write_settings(root, clone, built)
     # A login-mode launch with the plugin: bare mode runs no hooks, and the packet arrives by a hook.
     argv = [
         os.environ.get("BH_CLAUDE", "claude"),

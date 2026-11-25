@@ -40,6 +40,8 @@ each feature that became sellable, `merge_gaps` with source `cycle` (every item 
 its reason: `build-failed`, `no-change`, `unmet`, `not-attempted`, `budget`, `oscillating`),
 harvest, measure.
 
+**Host check before a builder starts (R10).** `bhbuilder.probe_host` runs one command through a bubblewrap sandbox built from the builder's own settings and reads the account's groups with `id -nG`. A failed probe, or a group in `launch.refuse_groups` (default `docker`), refuses the launch with a teaching line. `sandbox.network.allowAllUnixSockets` is `true` only when `launch.unix_socket_probe` passes with `launch.unix_socket_paths` visible and fails with them hidden; the choice is the fact `sandbox_unix_sockets`.
+
 **The run result** (`<measure_out>/run-result.json`, and a short text print) leads with the
 product view: `product` (sellable at HEAD with slices, what became sellable this run, the
 current slice, the next feature and why: earliest slice, then value per remaining cost),

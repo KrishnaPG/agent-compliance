@@ -40,6 +40,7 @@ def make_repo(tmp_path):
     d = tmp_path / bhpacket.PACKETS_DIR
     d.mkdir(parents=True)
     (d / "toy_item.json").write_bytes(PACKET.read_bytes())
+    (tmp_path / ".brick-harness" / "config.json").write_text('{"launch": {"refuse_groups": []}}')  # R10 is tested in test_launch_probe
 
 
 def test_custody_is_read_by_digest_and_a_changed_file_is_refused(tmp_path):

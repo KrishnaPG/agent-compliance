@@ -53,6 +53,7 @@ def copy_toy(dest):
     conf = dest / ".brick-harness" / "config.json"
     data = json.loads(conf.read_text())
     data.setdefault("standards", {})["catalog"] = str(EMPTY_CATALOG)
+    data["launch"] = {"refuse_groups": []}  # the host check (R10) is tested in test_launch_probe, not by the host's groups
     conf.write_text(json.dumps(data, indent=2) + "\n")
 
 

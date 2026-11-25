@@ -36,6 +36,7 @@ from bhcore import (
     load_features,
     overlay_file,
     packet_context,
+    tool_cache,
 )
 
 EXT = {
@@ -212,7 +213,7 @@ def checker(cfg: Any) -> tuple[list[str] | None, str, str]:
     if own:
         return [str((cfg.dir / own).resolve())], "configured", ""
     spec = json.loads((HARNESS_DIR / "checkers.json").read_text())["ast-grep"]
-    cache = Path.home() / ".cache" / "brick-harness" / "bin" / f"ast-grep-{spec['version']}"
+    cache = tool_cache() / "bin" / f"ast-grep-{spec['version']}"
     try:
         return [str(ensure(spec, cache))], f"ast-grep {spec['version']}", ""
     except HarnessError as e:

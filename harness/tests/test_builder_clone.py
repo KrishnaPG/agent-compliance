@@ -116,7 +116,7 @@ def test_launch_uses_the_settings_file_and_no_add_dir_and_never_pre_approves_bas
     root = tmp_path / "r"
     root.mkdir()
     make_repo(root)
-    (root / ".brick-harness" / "config.json").write_text(json.dumps({"sandbox": {"excludedCommands": ["docker"]}}))
+    (root / ".brick-harness" / "config.json").write_text(json.dumps({"sandbox": {"excludedCommands": ["docker"]}, "launch": {"refuse_groups": []}}))
     bin_dir = tmp_path / "stubbin"
     bin_dir.mkdir()
     (bin_dir / "claude").write_text(STUB.read_text())

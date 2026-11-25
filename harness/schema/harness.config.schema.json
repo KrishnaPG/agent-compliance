@@ -354,6 +354,33 @@
         }
       }
     },
+    "launch": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The builder launch's host check (R10): one sandboxed probe and the builder account's groups, before any builder starts. A failure refuses the launch with a teaching message.",
+      "properties": {
+        "refuse_groups": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Groups the builder account must not be in (default [\"docker\"]: the group reaches the host outside the sandbox)."
+        },
+        "probe": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "The command run through the builder's sandbox that must succeed (default writes one file in the clone)."
+        },
+        "unix_socket_paths": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "Host sockets the sandbox hides when sockets are not allowed."
+        },
+        "unix_socket_probe": {
+          "type": "array",
+          "items": {"type": "string"},
+          "description": "A command that needs those sockets. sandbox.network.allowAllUnixSockets is set only when it passes with the sockets visible and fails with them hidden; default none, so the setting stays false. The choice is a fact."
+        }
+      }
+    },
     "sandbox": {
       "type": "object",
       "description": "The Claude Code sandbox settings object, merged verbatim into the builder's generated settings."

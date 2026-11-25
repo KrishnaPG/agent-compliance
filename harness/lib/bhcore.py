@@ -1348,11 +1348,18 @@ def diff_fact(facts: list[dict[str, Any]], item: str, kind: str, detail: str) ->
     )
 
 
+def tool_cache() -> Path:
+    """The pinned tools' cache root: ``$XDG_CACHE_HOME/brick-harness`` (XDG Base Directory spec),
+    else ``~/.cache/brick-harness``. One place, so a run whose HOME is empty finds the tools the
+    host already installed instead of installing them again (the sealed run has no network)."""
+    return Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache") / "brick-harness"
+
+
 def _npm_tools(spec: dict[str, Any]) -> Path:
     """The pinned npm packages installed once into a cache, outside any project (``npm install``
     checks each package against the registry's integrity hash); the sealed run has no network."""
     pins = spec["npm"]
-    cache = Path.home() / ".cache" / "brick-harness" / f"npm-{digest(pins)[:12]}"
+    cache = tool_cache() / f"npm-{digest(pins)[:12]}"
     if not (cache / "node_modules" / ".package-lock.json").is_file():
         cache.mkdir(parents=True, exist_ok=True)
         pkgs = [f"{n}@{v}" for n, v in sorted(pins.items())]

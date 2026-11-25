@@ -72,7 +72,7 @@ def read_facts(root: Path) -> list:
     out = []
     for f in sorted((root / ".brick-harness" / "hook-facts").glob("*.json")):
         try:
-            out.append(json.loads(f.read_text()))
+            out.append(json.loads(f.read_bytes()))  # JSON is UTF-8 bytes (RFC 8259): parsed as bytes, never as text
         except (OSError, ValueError):
             continue
     return out

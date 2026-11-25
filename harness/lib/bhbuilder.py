@@ -5,6 +5,11 @@ immutable; refs are the clone's own), and Claude Code's own settings schema (``p
 and ``sandbox``) in a file passed with ``claude --settings``. This module is configuration and
 glue: it names the paths to protect and writes them in that schema; the sandbox and the file
 tools enforce them.
+
+R10 (host caveat): before a builder starts, ``probe_host`` runs one command through a bubblewrap
+sandbox built from the same settings the builder gets, and reads the builder account's groups with
+``id -nG``. Nothing else is used. A failed probe or a listed group is an order refusal with its
+teaching text; ``allowAllUnixSockets`` is set only when the probe passes with it and fails without.
 """
 
 from __future__ import annotations
@@ -21,6 +26,20 @@ SG01 = "SG-01"  # the spec line for a protected acceptance test (packet-standard
 
 # Where the program keeps what a builder must not change, under the source repository.
 _STATE = ("custody", "packets", "out", "hook-facts", "run-report.txt", "config.json", "launch")
+
+
+# Launch policy defaults (P8): the config's ``launch`` object overrides any key.
+LAUNCH_DEFAULTS: dict[str, Any] = {
+    "refuse_groups": ["docker"],  # a builder in one of these groups can reach the host through it
+    "probe": ["sh", "-c", ": > .brick-harness/probe-ok"],  # what the sandboxed builder must manage to do
+    "unix_socket_paths": [],  # host sockets the project's builder needs
+    "unix_socket_probe": [],  # a command that needs those sockets; empty: none is needed
+}
+PROBE_RULE = "sandbox-probe"
+
+
+def launch_policy(config: dict[str, Any] | None) -> dict[str, Any]:
+    return {**LAUNCH_DEFAULTS, **((config or {}).get("launch") or {})}
 
 
 def _git(cwd: Path, *args: str, env: dict[str, str] | None = None) -> str:
@@ -87,6 +106,67 @@ def builder_settings(
         },
         "sandbox": sb,
     }
+
+
+def _bwrap(settings: dict[str, Any], clone: Path, hidden: list[str]) -> list[str]:
+    """The bubblewrap command line of the sandbox these settings describe: the filesystem
+    read-only, ``allowWrite`` paths writable, ``denyWrite`` paths read-only again, no network and no
+    shared IPC. ``hidden`` paths (host sockets) are replaced by /dev/null."""
+    fs = settings["sandbox"]["filesystem"]
+    argv = ["bwrap", "--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--unshare-net", "--unshare-ipc", "--die-with-parent"]
+    for p in fs["allowWrite"]:
+        argv += ["--bind", p, p]
+    for p in fs["denyWrite"]:
+        if os.path.exists(p):
+            argv += ["--ro-bind", p, p]
+    for p in hidden:
+        if os.path.exists(p):
+            argv += ["--bind", "/dev/null", p]
+    return [*argv, "--chdir", str(clone)]
+
+
+def _passes(argv: list[str]) -> bool:
+    try:
+        return subprocess.run(argv, capture_output=True).returncode == 0
+    except OSError:
+        return False
+
+
+def probe_host(
+    settings: dict[str, Any], clone: Path, policy: dict[str, Any], groups: list[str] | None = None
+) -> tuple[list[dict[str, str]], str]:
+    """(facts, refusal). The refusal is a teaching line for an order refusal (P4, P5), empty when
+    the builder may start; ``settings`` gets ``allowAllUnixSockets`` set only when the socket probe
+    passes with the sockets visible and fails with them hidden, and that choice is a fact."""
+    if groups is None:
+        groups = subprocess.run(["id", "-nG"], capture_output=True, text=True).stdout.split()
+    bad = sorted(set(groups) & set(policy["refuse_groups"]))
+    if bad:
+        return [], (
+            f"[{PROBE_RULE}] the builder account is in group {', '.join(bad)}, which reaches the host outside the sandbox "
+            "-> launch builders from an account outside launch.refuse_groups . docs/spec/packet-standards.md"
+        )
+    (clone / ".brick-harness").mkdir(parents=True, exist_ok=True)
+    if not _passes([*_bwrap(settings, clone, []), *policy["probe"]]):
+        return [], (
+            f"[{PROBE_RULE}] the sandbox probe failed here (bwrap with the builder's settings) "
+            "-> make bubblewrap work on this host (user namespaces) before launching a builder . docs/spec/packet-standards.md"
+        )
+    facts: list[dict[str, str]] = []
+    sock = policy["unix_socket_probe"]
+    allow = False
+    if sock:
+        with_it = _passes([*_bwrap(settings, clone, []), *sock])
+        without = _passes([*_bwrap(settings, clone, policy["unix_socket_paths"]), *sock])
+        allow = with_it and not without
+        facts.append(
+            {
+                "kind": "sandbox_unix_sockets",
+                "detail": f"allowAllUnixSockets={str(allow).lower()}: probe with sockets {'passed' if with_it else 'failed'}, without {'passed' if without else 'failed'}",
+            }
+        )
+    settings["sandbox"].setdefault("network", {})["allowAllUnixSockets"] = allow
+    return facts, ""
 
 
 def write_settings(root: Path, clone: Path, settings: dict[str, Any]) -> Path:
