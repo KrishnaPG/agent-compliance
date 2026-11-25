@@ -1876,8 +1876,6 @@ def measure_ref(
                 checks_missed.append(label)
                 if not any(type(x).__name__ in ("Failure", "Error") for c in found for x in c.result):
                     fact("red", label, _check_lesson(label, r, rules, out / f"check-{n}.txt"))
-        if len(reports):
-            reports.write(str(out / "junit.xml"))
         # lint runs on the installed toolchain and hooks; a failed install is the one fact, not every hook
         lint = {} if setup_error or hooks_error else _lint_sarif(co, env, out, seal, digest, timeout)
         if hooks_error:  # the checks could not start: a gap in the toolchain, not a red finding
@@ -1891,9 +1889,13 @@ def measure_ref(
             cmd, where = _canary_into(co, junit, flags("canary"))
             r = _run(cmd, co, where, env, timeout, seal)
             try:
-                canary_cases = _cases(read_junit(junit))
+                xml = read_junit(junit)
+                canary_cases = _cases(xml)
+                reports += xml  # the canary is one of the measurer's checks: its result is in the one report
             except HarnessError as e:
                 errors.append(f"{e}; the canary run said: {r['tail'][-300:]}")
+        if len(reports):
+            reports.write(str(out / "junit.xml"))
         bench = cfg.data.get("commands", {}).get("bench")
         for t in (t for t in targets_for(targets, item) if t["metric"].startswith("bench.")):
             name = t["metric"].removeprefix("bench.")
