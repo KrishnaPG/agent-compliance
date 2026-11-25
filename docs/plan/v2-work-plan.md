@@ -516,6 +516,7 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
     - the measurer runs exactly the `verifier` list, and `bh check` (d3) runs the same list;
     - rendering a fixture packet gives stable Markdown (a golden-file test).
   - Size: M.
+  - Also d0: each stage's output format and the single-contract enforcement, per `docs/spec/packet-standards.md` ("Every stage's output format"): MADR (L1), packet JSON (L2), generated tests with a manifest and JUnit XML (L3), Conventional Commits with `Packet:`/`Criteria:` trailers (L4), JUnit XML, SARIF 2.1.0 and a result JSON (L5), SARIF (review). Every output names the packet sha256.
 - [ ] **d1. Packet assembly against d0; size is never refused** (IR-E3, RH-M10, PC-M3, IR-m1).
   - Proves: R5, P4, P8. QBC: 24, 33, 37, 38, 39, 40, 42.
   - Files: `harness/lib/bhcore.py` (packet assembly).
