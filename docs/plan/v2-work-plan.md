@@ -596,8 +596,8 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Proves: R5, P5, P4. QBC: 29, 43, 44, 45, 46, 47, 50.
   - Files: `hooks/hooks.json`, `hooks/*.py`.
   - Done when:
-    - each guard has `onFailure: block`;
-    - H0 (PreToolUse on Edit and Write) refuses the builder agent type's edit when no packet is registered, with QBC-47's text;
+    - a guard blocks by two documented mechanisms, each with one job: a guard that crashes, times out or cannot start must not let the call through, so each hook handler in `hooks/hooks.json` has `onFailure: block` (the handler field of Claude Code v2.1.295 and later, under `hooks.<event>[*].hooks[*]`); a guard's own refusal is a PreToolUse `hookSpecificOutput.permissionDecision: deny` with a reason;
+    - H0 (PreToolUse on Edit and Write) refuses the builder agent type's edit when no packet is registered, with QBC-47's text, through `permissionDecision: deny`; a packet is registered when the program wrote its file under `.brick-harness/packets/` at launch (d4 custody), and the hooks read only Claude Code's hook-input fields (`session_id`, `agent_id`, `agent_type`, `cwd`, `tool_input`) plus that directory, never a packet id in the input;
     - a PostToolUse on Bash for that agent type with no packet adds QBC-47's line and records the H0-bypass fact, which the measurer's scope fact also records;
     - H2 (PreToolUse) shows one owner line from c7 on the first touch outside the packet's paths: at most `limits.h2_chars` (default 200), once per path, written through the scope-fact writer, never blocking;
     - no hook reads file contents for patterns;

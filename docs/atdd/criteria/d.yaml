@@ -1125,18 +1125,18 @@ acceptance:
 
   # ---------------------------------------------------------------- d8
   - id: d8-AC1
-    scenario: Every guard has onFailure block
+    scenario: Every hook handler fails closed with onFailure block, so a guard that cannot run never lets the call through
     covers: [1]
     given:
       - repo: {name: plugin, state: candidate}
     when:
       scan: {paths: [hooks/hooks.json], kind: text, pattern: onFailure}
     then:
-      - field: {source: hooks_json, path: "hooks[*].onFailure", op: eq, value: block}
+      - field: {source: hooks_json, path: "hooks.PreToolUse[*].hooks[*].onFailure", op: eq, value: block}
+      - field: {source: hooks_json, path: "hooks.PostToolUse[*].hooks[*].onFailure", op: eq, value: block}
     traces_to: [R5, P5, QBC-43, QBC-44]
     verification: lint
     deterministic: true
-    plan_gap: "the hooks.json layout is not given, so the path is a best guess"
 
   - id: d8-AC2
     scenario: H0 refuses a builder's Edit when no packet is registered
@@ -1171,6 +1171,7 @@ acceptance:
     covers: [2, 7]
     given:
       - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
       - hook_input: {event: PreToolUse, tool: Edit, agent_type: builder, packet: registered, target: inside_packet_paths, touch: first}
     when:
       hook: {hook: H0}

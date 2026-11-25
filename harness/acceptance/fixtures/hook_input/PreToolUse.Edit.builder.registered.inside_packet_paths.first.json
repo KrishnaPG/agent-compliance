@@ -10,6 +10,5 @@
     "new_string": "b"
   },
   "agent_type": "builder",
-  "agent_id": "agent-1",
-  "packet_id": "toy_item"
+  "agent_id": "agent-1"
 }

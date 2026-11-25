@@ -12,7 +12,7 @@ from when import when_scan  # noqa: E402
 def scan(tmp_path, pattern=None):
     d = tmp_path / "skills" / "x"
     d.mkdir(parents=True, exist_ok=True)
-    (d / "SKILL.md").write_text("---\nname: x\ndescription: use vet-oss before adoption\nmodel: sonnet\n---\nbody\n")
+    (d / "SKILL.md").write_text("---\nname: x\ndescription: use vet-oss before adoption\nlicense: MIT\n---\nbody\n")
     ctx = SimpleNamespace(state={"repo": tmp_path})
     out = when_scan(ctx, ["skills/*/SKILL.md"], "frontmatter", pattern)
     return out.extra["matches"]

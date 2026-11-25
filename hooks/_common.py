@@ -38,7 +38,7 @@ def packet_files(root: Path) -> list:
 
 
 def has_packet(data: dict, root: Path) -> bool:
-    return bool(packet_files(root)) or bool(data.get("packet_id"))
+    return bool(packet_files(root))
 
 
 def target_path(data: dict, root: Path) -> str:
