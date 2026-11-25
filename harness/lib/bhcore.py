@@ -2004,19 +2004,9 @@ def measure_ref(
     tier = None
     if pk.get("tier"):  # the tier from the actual diff (R6): a fact for the orchestrator, never a verdict (QBC-30)
         tier, why = diff_tier(cfg.data, top, base, sha, pk.get("kind", "slice"))
-        if bhpacket.TIER_RANK[tier] > bhpacket.TIER_RANK[pk["tier"]]:
-            fact(
-                "scope",
-                f"tier {tier} from paths {', '.join(why)}",
-                _teach(
-                    "tier",
-                    f"packet {item} is {pk['tier']} but its diff touches {', '.join(why)}",
-                    f"the orchestrator re-plans it as {tier}",
-                    "declare those paths in the packet, or keep the change inside its declared paths",
-                ),
-            )
-        else:
+        if bhpacket.TIER_RANK[tier] <= bhpacket.TIER_RANK[pk["tier"]]:
             tier = pk["tier"]
+        # a higher tier is announced once, by the L4 path comparison (bhpacket.publish_build)
     met = not (
         errors or tampered or changes or any(f["kind"] in ("red", "red_by_error") for f in facts)
     ) and all(a["status"] == "met" for a in acceptance)

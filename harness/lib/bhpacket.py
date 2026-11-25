@@ -478,6 +478,18 @@ def write_report(root: Path, facts: list[dict[str, str]]) -> None:
     write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
 
 
+def outside_paths(root: Path, packet: dict[str, Any]) -> list[str]:
+    """The paths of the item's build ref outside the packet's declared paths: the one L4 comparison
+    (publish_build reports it; a re-plan declares what it absorbs)."""
+    import bhcore
+
+    ref = BUILD_REF.format(item=packet["id"])
+    base = bhbuilder._git(root, "merge-base", "HEAD", ref)
+    paths = bhbuilder._git(root, "diff", "--name-only", "--no-renames", base, ref).splitlines()
+    declared = packet.get("constraints", {}).get("declared_paths", [])
+    return [p for p in paths if not bhcore._matches(p, declared)]
+
+
 def publish_build(root: Path, clone: Path, packet: dict[str, Any], digest: str) -> tuple[str, list[dict[str, str]]]:
     """L4 Build (packet-standards.md): the program commits the builder's change in its clone, brings
     that commit into the source repository as the item's build ref (the ref the measurer and the merge
@@ -489,9 +501,15 @@ def publish_build(root: Path, clone: Path, packet: dict[str, Any], digest: str) 
     ref = BUILD_REF.format(item=packet["id"])
     bhbuilder._git(root, "fetch", "-q", str(clone), f"+{sha}:{ref}")
     base = bhbuilder._git(root, "merge-base", "HEAD", ref)
-    paths = bhbuilder._git(root, "diff", "--name-only", "--no-renames", base, ref).splitlines()
-    declared = packet.get("constraints", {}).get("declared_paths", [])
-    outside = [p for p in paths if not bhcore._matches(p, declared)]
+    outside = outside_paths(root, packet)
+    cfg = root / ".brick-harness" / "config.json"
+    tier, why = bhcore.diff_tier(json.loads(cfg.read_text()) if cfg.is_file() else {}, root, base, ref, packet.get("kind", "slice"))
+    if packet.get("tier") and TIER_RANK[tier] > TIER_RANK[packet["tier"]]:  # the program re-plans: one fact says what it did (R6, QBC-30)
+        detail = f"tier {tier} from paths {', '.join(why)}"
+        wrong = f"packet {packet['id']} is {packet['tier']} but its diff touches {', '.join(why)}"
+        right = f"the orchestrator re-plans it as {tier}"
+        teach = bhcore._teach("tier", wrong, right, "declare those paths in the packet, or keep the change inside its declared paths")
+        return sha, [{"kind": "scope", "detail": detail, "message": teach}]
     if not outside:
         return sha, []
     wrong = f"diff path outside the packet's declared paths: {', '.join(outside[:20])}"

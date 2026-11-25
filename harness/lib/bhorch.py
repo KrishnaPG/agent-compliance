@@ -1370,7 +1370,9 @@ class Orchestrator:
         is built again from a packet at its real tier. Nothing is refused or merged."""
         root, item = self.top, packet["id"]
         path = bhpacket.packet_path(root, item)
-        write_atomic(path, json.dumps({**packet, "tier": tier}, indent=2) + "\n")
+        cons = packet.get("constraints", {})  # the re-plan declares the paths its tier absorbs (L4)
+        declared = [*cons.get("declared_paths", []), *bhpacket.outside_paths(root, packet)]
+        write_atomic(path, json.dumps({**packet, "tier": tier, "constraints": {**cons, "declared_paths": declared}}, indent=2) + "\n")
         digest = bhpacket.custody_store(root, path.read_bytes())
         new, _ = bhpacket.load_packet(root, item)
         self.commit(f"re-tier {item} as {tier}\n\nPacket: {bhpacket.trailer(new, digest)}")
