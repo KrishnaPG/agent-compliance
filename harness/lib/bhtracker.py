@@ -457,6 +457,16 @@ def append_items(cfg: Config, new: list[dict[str, Any]]) -> None:
     tmp.replace(p)
 
 
+def _breaks(cfg: Config, body: str | None) -> list[str]:
+    """The house rules a defect intake issue's Rule field names (QBC-108's source for a person's
+    defect), through the one issue-form parser; an id the catalog lacks is no rule."""
+    import bhintake
+    import bhrules
+
+    house = bhrules.rules_doc(cfg).get("house", {})
+    return [r for r in bhintake.rules_of_body(body) if r in house]
+
+
 def _issue_no(ref: str) -> int | str:
     """A tracker parent as the plan's ``parent``: its issue number when it is one, else its ref."""
     return int(ref) if str(ref).isdigit() else str(ref)
@@ -577,6 +587,7 @@ def admit(cfg: Config, write: bool = False, tr: Tracker | None = None) -> dict[s
                 {"id": a["id"], "job": e["title"], "kind": "change", "refs": [e["ref"]]}
                 | (
                     {"kind": "defect", "parent": _issue_no(e["parent"]), "found_by": "person", "evidence": [e["ref"]]}
+                    | ({"breaks": broke} if (broke := _breaks(cfg, e.get("body"))) else {})
                     if defect
                     else {}
                 )

@@ -27,14 +27,27 @@ NO_GOAL = (
     "No goal. A decision sits under a goal: set its milestone, or ask the owner "
     "which goal this capability serves."
 )
-_PARENT = re.compile(r"###\s+Parent\s*\n+\s*#?(\d+)")
 _LINE = re.compile(r"^\s*- \[[ xX]\] ", re.M)
+_RULE_ID = re.compile(r"\b[A-Z][A-Z0-9]*-\d+\b")
+
+
+def form_field(body: str | None, label: str) -> str:
+    """The value a GitHub issue form renders under its ``### <label>`` heading ("" when absent)."""
+    m = re.search(rf"^###\s+{re.escape(label)}\s*\n+(.*?)(?=^###\s|\Z)", body or "", re.M | re.S)
+    return m.group(1).strip() if m else ""
 
 
 def parent_of_body(body: str | None) -> int | None:
     """The #number a form's required Parent field holds."""
-    m = _PARENT.search(body or "")
+    m = re.match(r"#?(\d+)", form_field(body, "Parent"))
     return int(m.group(1)) if m else None
+
+
+def rules_of_body(body: str | None) -> list[str]:
+    """The rule ids a defect form's optional Rule field names (bug-analysis ``Rule:``); none for
+    "None: <why>", an empty field or GitHub's "_No response_"."""
+    value = form_field(body, "Rule")
+    return [] if value.lower().startswith("none") else list(dict.fromkeys(_RULE_ID.findall(value)))
 
 
 def check_parents(tr: Tracker) -> dict[str, list[Any]]:

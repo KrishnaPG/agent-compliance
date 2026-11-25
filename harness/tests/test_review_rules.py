@@ -328,6 +328,38 @@ def test_a_defect_intake_issue_is_admitted_as_a_defect_item_under_its_slice(toy,
     assert all(b["kind"] == "change" for b in items if b.get("refs") and b["refs"] != [bug])
 
 
+def test_qbc_108_an_intake_defect_names_its_rule_in_the_form_and_its_miss_is_recorded(toy, tmp_path):
+    """A person's defect (the intake form's optional Rule field) is a later defect too: intake
+    copies the field into ``breaks``, and a rule its slice's packet lacked is a selector_miss."""
+    from test_tracker import admit_setup, cli
+
+    plan(toy)  # the plugin's own rules file
+    s, goal, (slice_ref,) = admit_setup(toy, tmp_path, n=1, horizon=10)
+    ad = json.loads(s.adapter.read_text())
+    ad["types"]["defect"] = "bug"
+    ad["commands"]["ready"] += " --type {type}"
+    s.adapter.write_text(json.dumps(ad))
+    p = toy / ".brick-harness" / "bricks.json"  # the slice's plan item names its tracker issue
+    doc = json.loads(p.read_text())
+    doc["bricks"] = [{**b, "refs": [slice_ref]} if b["id"] == "json-writer" else b for b in doc["bricks"]]
+    p.write_text(json.dumps(doc, indent=2) + "\n")
+    cfg = Config(toy / ".brick-harness" / "config.json")
+    net = next(r for r, tags in RULE_TAGS.items() if "network-client" in tags and r not in {x["id"] for x in bhpacket.item_rules(cfg, "json-writer")})
+    form = "### Parent\n\n#1\n\n### Rule\n\n{r}\n\n### Severity\n\nMajor\n"
+    named = s.add("the writer hangs on a slow host", type="bug", parent=slice_ref, body=form.format(r=f"{net}, XX-999"))
+    none = s.add("a typo in a message", type="bug", parent=slice_ref, body=form.format(r="None: a wording slip"))
+    bare = s.add("a null name crashes the writer", type="bug", parent=slice_ref)  # no Rule field
+    cli("bh-admit", toy, "--write")
+    items = {b["refs"][0]: b for b in json.loads(p.read_text())["bricks"] if b.get("refs")}
+    parent = items[slice_ref]["id"]
+    assert items[named]["breaks"] == [net]  # an id the catalog lacks (XX-999) is no rule
+    assert "breaks" not in items[none] and "breaks" not in items[bare]  # "None: <why>" and no field name none
+    o = orch(toy)
+    (miss,) = o.defect_misses(items[named]["id"])
+    assert miss["item"] == parent and miss["rule"] == net and miss["message"].startswith(f"[selector_miss] rule {net} ")
+    assert o.defect_misses(items[bare]["id"]) == [] and o.defect_misses(items[none]["id"]) == []  # negative controls
+
+
 def test_qbc_36_requested_changes_follow_limits_review_rounds(toy, fake):  # noqa: F811
     """QBC-36: at most ``limits.review_rounds`` requested-change rounds per packet; the default 1 is
     the negative control in test_a_major_finding_gets_one_more_round_with_its_teaching_and_no_further."""

@@ -11,6 +11,14 @@ body:
       placeholder: "#34"
     validations:
       required: true
+  - type: input
+    id: rule
+    attributes:
+      label: Rule
+      description: 'Each catalog rule id the defect breaks (bh rule <id>), comma-separated, or "None: <why>" when none does. Never invent one.'
+      placeholder: "ID-15"
+    validations:
+      required: false
   - type: dropdown
     id: severity
     attributes:
