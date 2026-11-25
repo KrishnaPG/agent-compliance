@@ -1113,9 +1113,12 @@ class Orchestrator:
         A test that errors, or a criterion with no red test, goes back to the author; rounds are capped
         by ``max_rounds``."""
         root = self.top
+        planned = not bhpacket.packet_path(root, item).exists()
         bhpacket.write_plan_packet(self.cfg, item)
         packet, _ = bhpacket.load_packet(root, item)
         defect = packet.get("kind") == "defect"
+        if defect and planned:  # QBC-108: a later defect is measured once, when it is planned
+            facts += self.defect_misses(item)
         job = "regression_row" if defect and packet.get("found_by") == "reviewer" else "test_author"
         test_path = bhpacket.acceptance_file(packet)
         feedback: list[dict[str, str]] = []
@@ -1461,6 +1464,23 @@ class Orchestrator:
             out.append({**m, "item": item, "detail": f"{m['rule']}: {m['missing_tag']}", "message": bhcore._teach("selector_miss", wrong, right, "QBC-108")})
         return out
 
+    def defect_misses(self, item: str) -> list[dict[str, Any]]:
+        """A later defect whose broken rule its parent item's packet lacked, as ``selector_miss``
+        facts on the parent (QBC-108). The defect plan item is the one source: every creator (the
+        review's settle, the measurer at HEAD, tracker intake) records it there with ``breaks``. A
+        reviewer's defect is skipped: its finding was already measured at the review, once."""
+        bricks = bhcore.packet_context(self.cfg)["bricks"]
+        d = bricks.get(item) or {}
+        if d.get("found_by") == "reviewer" or not d.get("breaks"):
+            return []
+        parent = str(d.get("parent"))
+        owner = next((b for b in bricks.values() if b["id"] == parent or parent in map(str, b.get("refs", []))), None)
+        if owner is None:
+            return []
+        path = bhpacket.packet_path(self.top, owner["id"])  # the lines its builder was given, else its selection now
+        given = bhpacket.load_packet(self.top, owner["id"])[0]["verifier"]["rules"] if path.exists() else bhpacket.item_rules(self.cfg, owner["id"])
+        return self.selector_misses(owner["id"], [r["id"] for r in given], [{"rule": r} for r in d["breaks"]])
+
     async def phase_review(self, rng: str, item: str | None) -> dict[str, Any]:
         """``bh review BASE..HEAD [--item X]``: the same review job on any diff, a human's commits
         included (G2, QBC-16, QBC-107). With ``--item`` it judges that item's selection at BASE
@@ -1512,7 +1532,8 @@ class Orchestrator:
         major = bhreview.errors(log)
         minor = [r["message"]["text"] for r in log["runs"][0]["results"] if r["level"] != "error"]
         if major:
-            self.plan_defect(packet, "reviewer", major, sha, facts)
+            broke = [r["ruleId"] for r in log["runs"][0]["results"] if r["level"] == "error"]
+            self.plan_defect(packet, "reviewer", major, sha, facts, broke)
         ref, parent = (self.cfg.data.get("tracker") or {}).get("known_issues"), packet.get("parent_issue")
         for line in minor:
             added = False
@@ -1525,14 +1546,21 @@ class Orchestrator:
                 facts.append({"kind": "known_issue", "item": item, "detail": line})
 
     def plan_defect(
-        self, packet: dict[str, Any], found_by: str, evidence: list[str], sha: str, facts: list[dict[str, Any]]
+        self,
+        packet: dict[str, Any],
+        found_by: str,
+        evidence: list[str],
+        sha: str,
+        facts: list[dict[str, Any]],
+        breaks: list[str] | None = None,
     ) -> None:
-        """Record a defect found on ``packet``'s item as a plan item of kind defect under it (§0 R8).
-        A defect fix that still leaves one starts no chain of defects: it is stuck, for its owner."""
+        """Record a defect found on ``packet``'s item as a plan item of kind defect under it (§0 R8),
+        naming the rules it ``breaks`` as its findings cite them. A defect fix that still leaves one
+        starts no chain of defects: it is stuck, for its owner."""
         if packet.get("kind") == "defect":
             facts.append({"kind": "stuck", "item": packet["id"], "detail": f"the fix still leaves a defect found by the {found_by}: {evidence[0][:200]}"})
             return
-        d = bhpacket.defect_item(self.cfg, packet, found_by, self.shown(evidence), sha)
+        d = bhpacket.defect_item(self.cfg, packet, found_by, self.shown(evidence), sha, breaks)
         facts.append({"kind": "defect_planned", "item": packet["id"], "detail": f"{d['id']}, found by the {found_by}"})
         if self.dry:
             return

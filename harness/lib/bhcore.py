@@ -186,12 +186,18 @@ def schema_errors(
     """Validate with jsonschema (Draft 2020-12, the schemas' own ``$schema``); return error strings.
 
     ``schema`` is the whole schema, or a subschema of ``root`` (its ``$ref`` and ``$defs`` resolve
-    against ``root``). ``at`` prefixes each error's path.
+    against ``root``). ``at`` prefixes each error's path. Each error teaches (QBC-53): what is
+    wrong, then ``->`` the failing node's own ``description`` (JSON Schema's annotation for it),
+    so the schema is the one owner of both the rule and its right way.
     """
     whole = validator_for(root or schema, Draft202012Validator)(root or schema)
     validator = whole if root is None else whole.evolve(schema=schema)
     errs = sorted(validator.iter_errors(instance), key=lambda e: [str(x) for x in e.absolute_path])
-    return [f"{at}{e.json_path[1:]}: {e.message}" for e in errs]
+    return [f"{at}{e.json_path[1:]}: {e.message}{_right_way(e.schema)}" for e in errs]
+
+
+def _right_way(node: Any) -> str:
+    return f" -> {node['description']}" if isinstance(node, dict) and isinstance(node.get("description"), str) else ""
 
 
 def load_schema(name: str) -> dict[str, Any]:

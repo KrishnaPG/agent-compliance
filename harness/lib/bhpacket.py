@@ -448,13 +448,19 @@ def item_rules(cfg: Any, item: str, ctx: dict[str, Any] | None = None) -> list[d
     return [{"id": r["id"], "message": r["text"] or r["id"]} for r in bhcore.packet_rules(cfg, item, ctx)]
 
 
-def defect_item(cfg: Any, parent: dict[str, Any], found_by: str, evidence: list[str], tag: str) -> dict[str, Any]:
+def defect_item(
+    cfg: Any, parent: dict[str, Any], found_by: str, evidence: list[str], tag: str, breaks: list[str] | None = None
+) -> dict[str, Any]:
     """The plan item of a defect found on ``parent`` (its packet): kind ``defect`` under the parent's
     tracker issue, or the parent item when it has none, owning the parent's paths; ``tag`` names the
-    finding commit so the same defect is planned once."""
+    finding commit so the same defect is planned once; ``breaks`` the house rules it breaks, as the
+    findings cite them (never invented: none for a measurer's red check)."""
     import bhcore
+    import bhrules
 
     b = bhcore.packet_context(cfg)["bricks"].get(parent["id"]) or {}
+    house = bhrules.rules_doc(cfg).get("house", {})
+    known = [r for r in dict.fromkeys(breaks or []) if r in house]  # a triggered domain is no rule
     return {
         "id": f"{parent['id']}-defect-{tag[:8]}",
         "job": f"Fix the cause of the defect {found_by} found in {parent['id']} in the design element that allowed it.",
@@ -462,6 +468,7 @@ def defect_item(cfg: Any, parent: dict[str, Any], found_by: str, evidence: list[
         "parent": parent.get("parent_issue") or parent["id"],
         "found_by": found_by,
         "evidence": evidence,
+        **({"breaks": known} if known else {}),
         **{k: b[k] for k in ("path", "paths", "context") if k in b},
     }
 

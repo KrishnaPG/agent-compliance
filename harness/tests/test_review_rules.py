@@ -40,7 +40,7 @@ def plan(toy, **extra):
     doc = json.loads(p.read_text())
     for b in doc["bricks"]:
         if b["id"] == "json-writer":
-            b["rules"] = RULES
+            b["rules"] = [{"id": r, "reason": "the documents call for it"} for r in RULES]
     doc["bricks"] += list(extra.values())
     p.write_text(json.dumps(doc, indent=2) + "\n")
     commit_all(toy, "rules")
@@ -97,6 +97,7 @@ def test_a_major_finding_gets_one_more_round_with_its_teaching_and_no_further(to
     (defect,) = [b for b in items if b.get("kind") == "defect"]
     assert defect["parent"] == "json-writer" and defect["found_by"] == "reviewer"
     assert any("[ID-15]" in e for e in defect["evidence"])
+    assert defect["breaks"] == ["ID-15"]  # the defect names the rule its finding cites (QBC-108's source)
     # the next run builds it from a valid packet: kind defect under the item id, its parent's path
     p = bhpacket.plan_packet(Config(toy / ".brick-harness" / "config.json"), defect["id"])
     assert p["kind"] == "defect" and p["found_by"] == "reviewer" and p["constraints"]["declared_paths"] == ["src/json_writer.py"]
@@ -224,6 +225,34 @@ def test_qbc_108_bh_run_reports_each_miss_in_teach_form(toy, fake):  # noqa: F81
     assert "SELECTOR MISSES" not in bhorch.summary_text({**res, "phases": {**res["phases"], "rounds": []}}, None)  # negative control
 
 
+def test_qbc_108_a_later_defect_whose_rule_was_not_selected_is_a_selector_miss(toy, fake):  # noqa: F811
+    """A defect found after the review (here by a person) names the rules it breaks; when it is
+    planned, each one its parent's packet lacked is a selector_miss on the parent, recorded once."""
+    plan(toy)
+    cfg = Config(toy / ".brick-harness" / "config.json")
+    planned = {r["id"] for r in bhpacket.plan_packet(cfg, "json-writer")["verifier"]["rules"]}
+    net = next(r for r, tags in RULE_TAGS.items() if "network-client" in tags and r not in planned)
+    later = {"id": "json-writer-defect-2", "job": "urlopen hangs the writer.", "kind": "defect", "parent": 34, "found_by": "person",
+             "evidence": ["#35 the writer hangs on a slow host"], "breaks": [net, "ID-15"], "path": "src/json_writer.py"}
+    p = toy / ".brick-harness" / "bricks.json"
+    doc = json.loads(p.read_text())
+    doc["bricks"] = [{**b, "refs": ["34"]} if b["id"] == "json-writer" else b for b in doc["bricks"]] + [later]
+    p.write_text(json.dumps(doc, indent=2) + "\n")
+    commit_all(toy, "a later defect under the slice's issue")
+    spec_for(fake, [[]], [JSON_WRITER])
+    o, facts = orch(toy), []
+    run(o.packet_flow(later["id"], facts))
+    (miss,) = [f for f in facts if f["kind"] == "selector_miss"]  # ID-15 was in the packet: no miss (negative control)
+    assert miss["item"] == "json-writer" and miss["rule"] == net and "network-client" in miss["missing_tag"]
+    assert miss["message"].startswith(f"[selector_miss] rule {net} ") and "capability table" in miss["message"]
+    again = []
+    run(o.packet_flow(later["id"], again))
+    assert not [f for f in again if f["kind"] == "selector_miss"]  # negative control: its packet exists, measured once
+    doc["bricks"][-1] = {**later, "found_by": "reviewer"}
+    p.write_text(json.dumps(doc, indent=2) + "\n")
+    assert o.defect_misses(later["id"]) == []  # negative control: a reviewer's finding was measured at its review
+
+
 def test_qbc_107_review_any_author(toy, fake, capsys):  # noqa: F811
     """One entry point, `bh review BASE..HEAD [--item X]`, judges any author's diff: with --item
     against the item's selection at BASE plus the diff's rules, without against the core, the
@@ -276,6 +305,7 @@ def test_a_red_measure_on_merged_head_becomes_a_defect_item_and_a_minor_finding_
     items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
     (d,) = [b for b in items if b.get("kind") == "defect"]
     assert d["found_by"] == "measurer" and d["parent"] == "json-writer" and d["evidence"] == ["[red] test_rows failed"]
+    assert "breaks" not in d  # a red check cites no house rule: none is invented
     minor = {"summary": "a long name -> rename it", "rule": "ID-15", "severity": "S3", "where": "src/json_writer.py"}
     o.settle_findings(packet, bhreview.sarif([minor], "json-writer", "ab" * 32, 300), sha, facts)
     assert [f["kind"] for f in facts if f["kind"] == "known_issue"] == ["known_issue"]

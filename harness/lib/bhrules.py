@@ -450,7 +450,7 @@ def classes(cfg: Any, bricks: list[dict[str, Any]], root: Path) -> dict[str, set
 # imports, file kinds and code facts of its owned paths; (c) the diff, the imports a change adds
 # and the kinds of the files it touches. The packet gets the core, (a) and (b); ``bh rules
 # --diff`` and the review add (c). The planner only adds rules (``rules``, each with a reason);
-# only the overlay removes one, with a reason. A finding whose rule was not selected is a
+# only the overlay removes one, with a reason; a dependency's ``embodies`` only marks a line. A finding whose rule was not selected is a
 # ``selector_miss`` fact naming the missing tag, so the tag table is corrected from measurements.
 
 IMPORT = re.compile(
@@ -573,8 +573,8 @@ def diff_tags(cfg: Any, base: str = "HEAD", ref: str | None = None) -> dict[str,
 
 
 def _pins(brick: dict[str, Any]) -> dict[str, str]:
-    """The planner's added rules: ``{id: reason}`` (a bare id has no reason)."""
-    return {r if isinstance(r, str) else r["id"]: "" if isinstance(r, str) else r.get("reason", "") for r in brick.get("rules", [])}
+    """The planner's added rules: ``{id: reason}``; the plan schema refuses one with no reason."""
+    return {r["id"]: r["reason"] for r in brick.get("rules", [])}
 
 
 def select_rules(
@@ -586,9 +586,10 @@ def select_rules(
     base: str | None = None,
 ) -> dict[str, Any]:
     """Which rules apply to ``brick``, with no agent: ``{item, tags: {source: {tag: evidence}},
-    chosen, added_by_diff}``. Chosen: the planner's added rules, then the house rules one of
-    whose ``applies`` tags the core, the stack or the contract shows (and the diff, when given),
-    less overlay opt-outs and rules a brick it depends on ``embodies``. Order: added, then most
+    chosen, added_by_diff, embodied}``. Chosen: the planner's added rules, then the house rules one
+    of whose ``applies`` tags the core, the stack or the contract shows (and the diff, when given),
+    less overlay opt-outs: only the overlay removes a rule (QBC-106). A rule a brick it depends on
+    ``embodies`` stays, named in ``embodied`` with those bricks, so its line says so. Order: added, then most
     broken in findings, then round-robin over the core and the domains in catalog order, so each
     applying domain's first rules come first. ``chosen`` is the first ``limits.packet_rules``;
     ``more`` the rest, never dropped for size (QBC-105 (iv)); ``added_by_diff`` every rule the
@@ -599,12 +600,16 @@ def select_rules(
     if diff is not None:
         src["diff"] = diff
     off = set(_opt_outs(cfg))
-    used = {r for d in brick.get("depends_on", []) for x in bricks if x["id"] == d for r in x.get("embodies", [])}
+    used: dict[str, list[str]] = {}
+    for x in bricks:
+        if x["id"] in brick.get("depends_on", []):
+            for r in x.get("embodies", []):
+                used.setdefault(r, []).append(x["id"])
     pins = _pins(brick)
 
     def pick(tags: set[str]) -> list[str]:
         hit = [k for k, v in house.items() if set(v.get("applies", [])) & tags]
-        return [r for r in dict.fromkeys([*pins, *hit]) if r not in off and r not in used]
+        return [r for r in dict.fromkeys([*pins, *hit]) if r not in off]
 
     broken: dict[str, int] = {}
     for f in _findings(cfg):
@@ -632,6 +637,8 @@ def select_rules(
     out: dict[str, Any] = {"item": brick["id"], "tags": src, "chosen": chosen, "more": every[cap:]}
     if pins:
         out["added"] = pins
+    if used.keys() & set(every):
+        out["embodied"] = {r: used[r] for r in every if r in used}
     if diff is not None:
         planned = set(pick(base_tags))
         out["added_by_diff"] = [r for r in every if r not in planned]
@@ -673,10 +680,20 @@ def packet_rules(
 ) -> list[dict[str, str]]:
     """The packet's rules (``select_rules``): ``{id, text}``, the chosen with their one line and
     the rest by id and title only (``title``), to read with ``bh rule ID`` (QBC-105 (iv))."""
+    return lines(cfg, select_rules(cfg, brick, bricks, versions))
+
+
+def lines(cfg: Any, sel: dict[str, Any]) -> list[dict[str, str]]:
+    """A selection's packet lines: the chosen in full, the rest by title (QBC-105 (iv)); a rule a
+    dependency embodies keeps its line, marked with the bricks that embody it (QBC-106)."""
     rows = rule_rows(cfg)
-    sel = select_rules(cfg, brick, bricks, versions)
-    return [{"id": r, "text": rule_text(rows, r)} for r in sel["chosen"]] + [
-        {"id": r, "text": title(rows, r)} for r in sel["more"]
+    emb = sel.get("embodied", {})
+
+    def mark(r: str, text: str) -> str:
+        return f"{text} [embodied by {', '.join(emb[r])}]" if r in emb else text
+
+    return [{"id": r, "text": mark(r, rule_text(rows, r))} for r in sel["chosen"]] + [
+        {"id": r, "text": mark(r, title(rows, r))} for r in sel["more"]
     ]
 
 
@@ -714,9 +731,8 @@ def rules_cmd(config: str, item: str | None, at: str | None = None, diff: list[s
         dt = diff_tags(cfg, *(diff or ["HEAD"])) if diff is not None else None
         base = (diff or ["HEAD"])[0] if diff is not None else None
         sel = select_rules(cfg, b, list(ctx["bricks"].values()), lock_versions(cfg.files("lockfiles")), dt, base)
-        rows = rule_rows(cfg)
-        sel["chosen"] = [{"id": r, "text": rule_text(rows, r)} for r in sel["chosen"]]
-        sel["more"] = [{"id": r, "text": title(rows, r)} for r in sel["more"]]
+        ls = lines(cfg, sel)
+        sel["chosen"], sel["more"] = ls[: len(sel["chosen"])], ls[len(sel["chosen"]) :]
         return json.dumps(sel, indent=2) + "\n"
 
     conf = Path(config).resolve()

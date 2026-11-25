@@ -293,7 +293,7 @@ def tagged(repo, **extra):
         "bricks.json",
         lambda d: d["bricks"][0].update(
             paths=["src/queue_worker.py"],
-            rules=["NO-02", "HO-01", "HO-02", "RL-05", "RL-06"],
+            rules=[{"id": r, "reason": "the worker spec calls for it"} for r in ("NO-02", "HO-01", "HO-02", "RL-05", "RL-06")],
             **extra,
         ),
     )
@@ -314,7 +314,8 @@ def test_the_packet_has_the_items_own_rules_with_one_line_each(toy):
     assert got["RL-05"] == "A process waits on its dependency's native readiness."
     assert rules_of(toy, "json-writer") == []  # no rules of its own
     plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(depends_on=["json-writer"]))
-    assert "HO-02" not in {r["id"] for r in rules_of(toy)}  # embodied by a brick it uses
+    got = {r["id"]: r["text"] for r in rules_of(toy)}  # embodied by a brick it uses: kept, marked (QBC-106)
+    assert got["HO-02"].endswith("[embodied by json-writer]") and not got["HO-01"].endswith("]")
 
 
 def test_findings_rank_the_rules_and_the_limit_caps_them(toy):

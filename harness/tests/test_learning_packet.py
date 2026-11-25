@@ -213,7 +213,7 @@ def with_context(repo, rules=("RL-01",)):
         for b in d["bricks"]:
             if b["id"] == "csv-reader":
                 b["context"] = [{"path": "PLAN.md", "lines": "5-6"}]
-                b["rules"] = list(rules)
+                b["rules"] = [{"id": r, "reason": "the plan calls for it"} for r in rules]
 
     plan_edit(repo, "bricks.json", edit)
 
@@ -295,7 +295,7 @@ def test_bricks_schema_context_and_rules_are_optional_and_typed():
     schema = bhcore.load_schema("bricks")
     one = {"id": "a", "job": "j"}
     assert bhcore.schema_errors({"bricks": [one]}, schema) == []
-    ok = {**one, "context": [{"path": "p.md", "lines": "1-9"}], "rules": ["RL-01"]}
+    ok = {**one, "context": [{"path": "p.md", "lines": "1-9"}], "rules": [{"id": "RL-01", "reason": "the spec names it"}]}
     assert bhcore.schema_errors({"bricks": [ok]}, schema) == []
     assert bhcore.schema_errors(
         {"bricks": [{**one, "context": [{"path": "p.md", "lines": "1"}]}]}, schema

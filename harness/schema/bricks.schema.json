@@ -53,6 +53,11 @@
             },
             "description": "defect items only: the facts that found the defect (open review findings, the measurer's misses at HEAD or the intake issue), as their teaching lines."
           },
+          "breaks": {
+            "type": "array",
+            "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*-[0-9]+$"},
+            "description": "defect items only: each catalog rule id the defect breaks (bug-analysis Rule:), never invented; one its parent's packet lacked is a selector_miss (QBC-108)."
+          },
           "found_by": {
             "enum": [
               "planner",
@@ -205,17 +210,16 @@
           "rules": {
             "type": "array",
             "items": {
-              "anyOf": [
-                {"type": "string"},
-                {
-                  "type": "object",
-                  "required": ["id", "reason"],
-                  "additionalProperties": false,
-                  "properties": {"id": {"type": "string"}, "reason": {"type": "string", "description": "One line: why this rule applies though the item's facts do not select it."}}
-                }
-              ]
+              "type": "object",
+              "required": ["id", "reason"],
+              "additionalProperties": false,
+              "properties": {
+                "id": {"type": "string", "minLength": 1},
+                "reason": {"type": "string", "pattern": "^[^\\n]*\\S[^\\n]*$", "description": "A planner-added rule's reason is one non-empty line (QBC-106): write why this rule applies though the item's facts do not select it."}
+              },
+              "description": "A rule the planner adds carries a one-line reason (QBC-106): write {\"id\": \"<rule id>\", \"reason\": \"<one line>\"}, never a bare id."
             },
-            "description": "Rules the planner adds to those the item's facts select (never removes); printed in its work packet."
+            "description": "Rules the planner adds to those the item's facts select, each with a one-line reason (QBC-106); the planner never removes one (only the overlay does, with a reason). Printed in its work packet."
           },
           "split_from": {
             "type": "string",
@@ -239,7 +243,7 @@
             "items": {
               "type": "string"
             },
-            "description": "Catalog rule ids the item satisfies by being used (class embodied); judgment rules of its users leave them out."
+            "description": "Catalog rule ids the item satisfies by being used (class embodied). The packet line of such a rule in an item that depends on it says so; the rule is never left out (QBC-106: only the overlay removes a rule)."
           },
           "split_kind": {
             "enum": [

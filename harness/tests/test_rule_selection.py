@@ -160,9 +160,13 @@ def test_qbc_106_agents_add_owners_remove(toy, fake):  # noqa: F811
     schema = json.loads((PLUGIN / "harness" / "schema" / "bricks.schema.json").read_text())
     pin = {"$defs": schema.get("$defs", {}), **schema["properties"]["bricks"]["items"]["properties"]["rules"]["items"]}
     jsonschema.validate({"id": "DS-01", "reason": "r"}, pin)
-    for bad in ({"id": "DS-01"}, {"id": "HO-01", "reason": "r", "remove": True}):  # negative controls
-        with pytest.raises(jsonschema.ValidationError):
+    for bad in ("DS-01", {"id": "DS-01"}, {"id": "DS-01", "reason": " "}, {"id": "DS-01", "reason": "a\nb"}, {"id": "HO-01", "reason": "r", "remove": True}):
+        with pytest.raises(jsonschema.ValidationError):  # negative controls: no reason, an empty or two-line one, a removal
             jsonschema.validate(bad, pin)
+    plan_edit(toy, "bricks.json", lambda d: d["bricks"][1].update(rules=["DS-01"]))  # the plan's validator refuses, teaching
+    with pytest.raises(HarnessError, match=r"rules\[0\]: 'DS-01' is not of type 'object' -> A rule the planner adds carries a one-line reason \(QBC-106\)"):
+        bhcore.load_json(bhcore.Config(conf(toy)).file("bricks"), "bricks")
+    plan_edit(toy, "bricks.json", lambda d: d["bricks"][1].update(rules=[{"id": "DS-01", "reason": "it overwrites its output"}]))
     (toy / "docs" / "agents").mkdir(parents=True)
     (toy / "docs" / "agents" / "design-compliance.md").write_text(
         "# Overlay\n\n## Check opt-outs\n\n- HO-01 not-applicable: the worker is the broker's own bridge\n- HO-02 not-applicable:\n"
@@ -180,6 +184,24 @@ def test_qbc_106_agents_add_owners_remove(toy, fake):  # noqa: F811
     given = input_of(gaps)["rules"]  # the gaps job's actual input: the project's selection
     assert given == lines and {r["id"] for r in given} == CORE
     assert {r["id"] for r in given} != set(HOUSE)  # negative control: the whole catalog is not it
+
+
+def test_qbc_106_embodies_marks_a_rule_and_never_removes_it(toy):
+    """A dependency's ``embodies`` is a planner's word, not a fact, so it only marks the line: the
+    rule stays in the packet (a false inclusion costs one line, QBC-104) and only the overlay removes."""
+    worker = chosen(toy, "csv-reader")
+    rid = worker[-1]
+    plan_edit(toy, "bricks.json", lambda d: d["bricks"][1].update(embodies=[rid]))
+    assert chosen(toy, "csv-reader") == worker  # negative control: no dependency, no mark
+    assert not any(r["message"].endswith("[embodied by json-writer]") for r in rules_of(toy, "csv-reader"))
+    plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(depends_on=["json-writer"]))
+    assert chosen(toy, "csv-reader") == worker  # kept, in the same place
+    (line,) = [r for r in rules_of(toy, "csv-reader") if r["id"] == rid]
+    assert line["message"].endswith("[embodied by json-writer]")
+    cfg = bhcore.Config(conf(toy))
+    ctx = bhcore.packet_context(cfg)
+    sel = bhrules.select_rules(cfg, ctx["bricks"]["csv-reader"], list(ctx["bricks"].values()), ctx["versions"])
+    assert sel["embodied"] == {rid: ["json-writer"]}
 
 
 def no_rule_lost(house):
