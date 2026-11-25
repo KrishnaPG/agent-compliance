@@ -579,9 +579,7 @@ def then_threshold(ctx, metric, op, bound, default=None):
 
 
 def then_snapshot(ctx, name):
-    f = ctx.fixtures / "snapshots" / f"{name}.txt"
-    need(f.is_file(), f"approved snapshot {name} is missing (it is never recorded automatically)", f"review the output and commit fixtures/snapshots/{name}.txt")
-    need(last(ctx).primary.encode() == f.read_bytes(), f"the output differs from snapshot {name}", "fix the output or approve a new snapshot by hand")
+    assert ctx.snapshot(name=name) == last(ctx).primary.encode()  # syrupy: a missing approved snapshot fails; recording needs --snapshot-update
 
 
 def then_schema_valid(ctx, valid, error_path=None, instance=None, schema=None):

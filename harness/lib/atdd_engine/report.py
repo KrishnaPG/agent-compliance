@@ -1,4 +1,4 @@
-"""Per-row outcome of a run: JUnit XML joined to the manifest by the criterion property.
+"""Per-row outcome of a run: JUnit XML joined to the criteria rows by the criterion property.
 
 Outcomes: green (passed), red (an assertion failed), error (the test could not run), skipped, absent (no result).
 """
@@ -9,9 +9,11 @@ import json
 import xml.etree.ElementTree as ET
 from pathlib import Path
 
+import yaml
 
-def outcomes(junit: Path, manifest: Path) -> dict[str, dict]:
-    ids = json.loads(Path(manifest).read_text())["acceptance"]
+
+def outcomes(junit: Path, criteria: Path) -> dict[str, dict]:
+    ids = [r["id"] for f in sorted(Path(criteria).glob("*.yaml")) for r in yaml.safe_load(f.read_text())["acceptance"]]
     out = {i: {"outcome": "absent", "message": ""} for i in ids}
     for tc in ET.parse(junit).getroot().iter("testcase"):
         crit = next((p.get("value") for p in tc.iter("property") if p.get("name") == "criterion"), None)
@@ -29,3 +31,13 @@ def outcomes(junit: Path, manifest: Path) -> dict[str, dict]:
 
 def render(res: dict[str, dict]) -> str:
     return json.dumps(res, indent=2, sort_keys=True) + "\n"
+
+
+if __name__ == "__main__":
+    import argparse
+
+    ap = argparse.ArgumentParser(prog="python -m atdd_engine.report", description="print each row's outcome from a JUnit XML run")
+    ap.add_argument("--junit", required=True)
+    ap.add_argument("--criteria", required=True)
+    a = ap.parse_args()
+    print(render(outcomes(Path(a.junit), Path(a.criteria))), end="")

@@ -70,6 +70,10 @@ Any JSON object (extra fields allowed, `{}` is valid). The harness writes `{ "<q
 - `snapshots/<name>.txt`: an approved golden output for `snapshot`. A missing snapshot fails the test; snapshots are written by a person, never by the suite.
 - `schemas/<id>.json`: a pinned public schema named by a row (for example `sarif-2.1.0`), vendored once.
 
+## snapshot: `snapshots/<slice>/<row id>[<name>].txt`
+
+The approved output a `snapshot` row compares with, kept by syrupy (pinned in `harness/acceptance/requirements.txt`). A missing file makes the row red; nothing is recorded unless a person runs the rows with `--snapshot-update` and commits the reviewed file.
+
 ## Names outside the field list
 
 Field names are fixed in `docs/atdd/fields.yaml`; fixtures use only those. Everything else the keywords assume (where files are written, the `bh` and step command lines, hook selection, the program's git identity) is one line each in `../keywords/contract.json`. Fixtures that depend on it: `hook_input` files (the hook command names), builder settings (`.brick-harness/builder-settings.json`, Claude Code settings shape with `permissions.allow|deny`, `sandbox.filesystem.allowWrite|denyWrite` and an optional `messages.<Tool>` denial text), `host` file stubs such as the run lock, and `packet` variants whose declaration the packet schema does not name (`config_change` is written as `pyproject.toml` in `constraints.declared_paths`).

@@ -1,4 +1,4 @@
-"""Run-time side of a generated test: the context a row's steps share, and the three outcomes.
+"""Run-time side of a row test: the context a row's steps share, and the three outcomes.
 
 Missing (an AssertionError) = the system under test lacks something: the test is red.
 FixtureError, KeywordError = the test cannot be run as written: the test is an error.

@@ -1,7 +1,7 @@
 """The plugin's keyword library: one implementation per catalog key, written once from its passes_when.
 
 GIVEN, WHEN, THEN map a catalog key to callable(ctx, **params). AMBIGUOUS(kind, key, params) names a row part
-the catalog does not define well enough to implement without guessing; the generator then lists the row.
+the catalog does not define well enough to implement without guessing; the row is then skipped.
 """
 
 import sys

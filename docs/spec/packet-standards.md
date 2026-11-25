@@ -68,18 +68,18 @@ Every stage of the flow writes one output in a standard format. This file names,
 | SLSA provenance for packets and builds | No measured need yet. Kept as a later extension |
 | Formal verification of the order engine (TLA+) | Excess for a sequential program with tested steps (P10) |
 
-## L3 Tests: generated acceptance tests
+## L3 Tests: acceptance tests collected from the rows
 
 ### Applied
 
 | Part | Standard | Why |
 |---|---|---|
-| Acceptance criteria to tests | Keyword-driven testing (ISTQB; FIT/FitNesse tables): rows from closed catalogs, turned into tests by a generator | No agent judgement; consistent results |
+| Acceptance criteria to tests | Keyword-driven testing (ISTQB; FIT/FitNesse tables): rows from closed catalogs, collected as tests by pytest itself (a `pytest_collect_file` hook), with no generated code | No agent judgement; consistent results |
 | Test code | The project's own framework (pytest for the plugin), each test marked with its acceptance id | Convention over configuration (P9) |
 | Results | JUnit XML | Every runner emits it |
-| Traceability | A manifest from acceptance id to test node id (ISO/IEC/IEEE 29148) | One test per `acceptance[*]` item, one id per test |
+| Traceability | The acceptance id is the test's node id and its JUnit `criterion` property (ISO/IEC/IEEE 29148) | One test per `acceptance[*]` item, one id per test; no manifest to go stale |
 | Model calls in tests | Record and replay (the VCR pattern) | Deterministic and free (R3) |
-| Messages and renderings | Approval (snapshot) testing | Cheap checks on teaching messages and the rendered packet |
+| Messages and renderings | Approval (snapshot) testing (syrupy; never recorded without `--snapshot-update`) | Cheap checks on teaching messages and the rendered packet |
 
 ### Left out, and why
 
@@ -88,7 +88,7 @@ Every stage of the flow writes one output in a standard format. This file names,
 | TAP (Test Anything Protocol) | Less tool support than JUnit XML for structured attributes such as the acceptance id |
 | CTRF (Common Test Report Format) | Newer and less widely adopted; JUnit XML is the common denominator |
 | A Cucumber runtime | Adds a runtime in every stack; see the L2 section |
-| IEEE 829 / ISO/IEC/IEEE 29119-3 test documents | Heavyweight; the manifest and the acceptance criteria carry what is needed (P10) |
+| IEEE 829 / ISO/IEC/IEEE 29119-3 test documents | Heavyweight; the node ids and the acceptance criteria carry what is needed (P10) |
 | Allure and similar reporting tools | Presentation only; there is no measured need |
 
 ## L4 Build: the commit
@@ -154,7 +154,7 @@ Each stage writes one standard format. Every output carries the packet's id and 
 |---|---|---|---|
 | L1 Epic design | A decision record plus a tracking issue that links to it | MADR 4.0 (Markdown Architectural Decision Records, based on Nygard), with front matter for status, date and deciders. Its constraints cite the §0 items, and its falsifying calls become L2 acceptance criteria | The front matter and the required sections are present; every constraint cites a G, P, R or QBC id |
 | L2 Plan | The work packet (JSON) and its Markdown rendering | All the standards in the L2 section above (JSON Schema 2020-12 is only the container). Acceptance criteria are keyword-driven rows from `docs/atdd/catalog.yaml` | Schema-valid; closed catalogs as enums; every §0 item that applies is traced |
-| L3 Tests | Tests generated from the packet's rows, a manifest (acceptance id → test node id), and the red-on-main run | Generated pytest (or the project's own framework), with each test marked by its acceptance id; the run in JUnit XML | One test per `acceptance[*]` item and one id per test; every test fails on main with an assertion failure, not an error |
+| L3 Tests | Tests collected from the packet's rows (acceptance id in each node id), and the red-on-main run | pytest (or the project's own framework), with each test marked by its acceptance id; the run in JUnit XML | One test per `acceptance[*]` item and one id per test; every test fails on main with an assertion failure, not an error |
 | L4 Build | A commit on the builder's branch | Conventional Commits 1.0, with git trailers `Packet: <id>@<sha256>` and `Acceptance: <ids>` | The trailer's sha256 matches the packet; the diff's paths are compared with the packet's declared paths (a fact) |
 | L5 Verify | The measurement: met or unmet for each `acceptance[*]` id, plus facts | JUnit XML for tests; SARIF 2.1.0 (OASIS) for lint and fitness findings, with the teaching message in `message`, `help` and `fixes`; a result JSON (`command` `measure`), schema-validated, that names the packet sha256 | Only the measurer writes it; it reads the packet and tests from the base commit, never from the builder's copy |
 | Review (triggered) | Findings | SARIF 2.1.0, with triage severity mapped to `level` (error = Critical or Major, warning = Minor with value) | Findings are facts that never change "met"; each cites the packet sha256 |
@@ -163,7 +163,7 @@ Each stage writes one standard format. Every output carries the packet's id and 
 
 These are mechanisms, not agent discipline.
 1. **One file.** The packet is one schema-valid file at a path only the planner or orchestrator writes. Its sha256 identifies it.
-2. **L3 is generated from it.** Tests are produced by the generator from the packet's rows, so the tests can't differ from the acceptance criteria, and the manifest maps each one.
+2. **L3 is collected from it.** Tests are collected from the packet's rows by pytest, so the tests can't differ from the acceptance criteria, and each node id names its row.
 3. **L4 receives the same bytes.** The builder's session-start context is the packet's rendering. The builder's `bh check` reads the same packet and runs the same verifier list.
-4. **L5 reads it from the base.** The measurer takes the packet and the generated tests from the base commit by their sha256, never from the builder's clone. A packet or test that changed in the build is recorded as tampering and has no effect.
+4. **L5 reads it from the base.** The measurer takes the packet and the tests from the base commit by their sha256, never from the builder's clone. A packet or test that changed in the build is recorded as tampering and has no effect.
 5. **Every output names the sha256.** The commit trailer, the result JSON and the SARIF properties do. A mismatch is recorded as a fact and the item is re-run against the right packet; the outputs are never judged against two contracts.
