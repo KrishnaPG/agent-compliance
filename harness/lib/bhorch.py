@@ -98,6 +98,11 @@ READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)"]
 REMEASURE = ("unmeasured", "stale", "conflict", "met-uncommitted")  # no current measurement
 DEFAULT_JOB_USD = 2.0
 MISSED = ("red", "red_by_error")  # the measurer facts of a missed check
+SETUP_COMMIT = (  # Conventional Commits 1.0.0: build = build system and dev dependencies
+    "build(setup): add the files the harness setup wrote\n\n"
+    "The owner-approved standard files (presets, hooks, CODEOWNERS) and the harness config; "
+    "they are committed once, before any build, so a human's next commit starts from a clean tree."
+)
 FACTS_SHOWN = 20  # facts of one item kept in the run result; the run report has them all
 DEFAULT_JOB_TIMEOUT_S = 1800
 KILL_GRACE_S = 10
@@ -669,7 +674,7 @@ class Orchestrator:
             "item": item,
             "ref": ref,
             "status": it["status"] if it else "not measured",
-            "errors": (it or {}).get("errors") or [run.get("error", "no result")],
+            "errors": it.get("errors", []) if it else [run.get("error", "no result")],
         }
 
     async def measure_all(self, pairs: list[tuple[str, str]]) -> list[dict[str, Any]]:
@@ -696,11 +701,15 @@ class Orchestrator:
                 return {**out, "error": str(e)}
             out["merged"], out["conflicts"] = m["merged"], m["conflicts"]
             out["remeasured"] = await self.measure_all([(i, "HEAD") for i in m["remeasure"]])
-        if refs is None:  # standalone: whatever is ready at HEAD (e.g. work committed by hand)
+        if refs is None:  # standalone: every item with no current met result at HEAD
+            # Chosen by the item's own record, not by build readiness: a commit made by hand (a
+            # merge, a test edit) makes stale every item whose paths, dependencies' paths or
+            # protected tests it changed, and each of them is measured at HEAD now, dependents
+            # included, whatever a build queue would wait for (G2: same measurement for any author).
             done = {r["item"] for r in out["remeasured"]}
             s = self.state()
             out["remeasured"] += await self.measure_all(
-                [(b["id"], "HEAD") for b in s["bricks"] if b["ready"] and b["id"] not in done]
+                [(b["id"], "HEAD") for b in s["bricks"] if b["status"] in bhcore.READY_FROM and b["id"] not in done]
             )
         out["commit"] = self.commit("scoreboard")
         return out
@@ -918,6 +927,7 @@ class Orchestrator:
         root = self.cfg.dir
         facts = bhinfer.infer(root)
         out: dict[str, Any] = {"facts": bhinfer.facts_lines(facts), "written": {}, "questions": bhinfer.questions(facts)}
+        before = set(bhcore.dirty_paths(self.top))  # a human's uncommitted work: never committed here
         if not self.dry:
             bhcore.ignore_state(self.cfg)
         if decline and not self.dry:  # a "no" is kept like a "yes": asked again only when removed
@@ -948,6 +958,14 @@ class Orchestrator:
                     "evidence": ", ".join(p.split(" (")[0] for p in pending),
                 }
             )
+        if not self.dry:  # what setup wrote is one commit before any build (Conventional Commits 1.0.0)
+            wrote = sorted(set(bhcore.dirty_paths(self.top)) - before)
+            if wrote:
+                try:
+                    out["commit"] = bhcore.commit_harness(self.cfg, SETUP_COMMIT, paths=wrote)
+                except HarnessError as e:
+                    self.errors.append(f"commit setup: {e}")
+                    out["commit"] = {"committed": False, "error": str(e)}
         return out
 
     async def run(
@@ -1518,7 +1536,18 @@ def result_doc(cmd: str, r: dict[str, Any]) -> dict[str, Any]:
     """The result JSON a bh command prints as its last stdout line, made of d0's decided result and
     ``jobs[*]`` fields only (docs/atdd/fields.yaml); the whole run document stays in
     ``<command>-result.json`` and the summary text."""
-    rounds = [x for x in (r.get("phases") or {}).get("rounds") or [] if "status" in x]
+    phases = r.get("phases") or {}
+    measured = phases.get("measure") or {}
+    # every item a verdict was reached for: the build rounds and the measure phase's measurements
+    # (measured at their refs, then at HEAD; the last one is the item's verdict)
+    rounds = [x for x in phases.get("rounds") or [] if "status" in x]
+    rounds = list(
+        {
+            x["item"]: x
+            for x in [*rounds, *measured.get("measured", []), *measured.get("remeasured", [])]
+            if x.get("status") != "dry-run"
+        }.values()
+    )
     verdict = lambda st: st if st in ("met", "unmet", "stuck") else "unmet"  # noqa: E731
     jobs = []
     for j in r.get("jobs", []):

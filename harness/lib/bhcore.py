@@ -1066,7 +1066,11 @@ RECIPES = ("justfile", "Makefile")
 
 
 def _teach(rule: str, wrong: str, right: str, ref: str) -> str:
-    return f"[{rule}] {wrong} -> {right} . {ref}"[:300]
+    """The catalog's teaching shape, cut to the message cap with the wrong part cut first, so the
+    right way and how to prevent it are never lost (one owner: ``atdd_engine.teaching.teach``)."""
+    from atdd_engine.teaching import teach
+
+    return teach(rule, wrong, right, ref)
 
 
 def _lesson(status: str, path: str, accept: list[str]) -> tuple[str, str, str, str, bool]:
@@ -1199,7 +1203,9 @@ def snapshot_working_tree(top: Path) -> str:
             return p.stdout.strip()
 
         git("read-tree", "HEAD")
-        skip = [f":(exclude){HDIR}/{d}" for d in ("packets", "clones", "out")]
+        # what git ignores already (the state the harness's .gitignore lists) is never added; naming
+        # an ignored path, even to exclude it, is an error in git add, so only the others are named
+        skip = [f":(exclude){p}" for p in _not_ignored(top, [f"{HDIR}/{d}" for d in ("packets", "clones", "out")])]
         git("add", "-A", "--", ".", *skip)
         return git("commit-tree", git("write-tree"), "-p", "HEAD", "-m", "bh check snapshot")
     finally:
@@ -1971,8 +1977,9 @@ def measure_ref(
             if errored:
                 wrong = f"{who} errored (red-by-error), not an assertion failure"
                 right = "fix the error so the test runs and asserts"
-            else:
-                wrong = f"{who} failed an assertion"
+            else:  # the test's own assertion message (JUnit failure/@message, else its text) says what is wrong
+                said = " ".join((bad[0].message or bad[0].text or "").split())
+                wrong = f"{who} failed an assertion" + (f": {said}" if said else "")
                 right = f"make {who} pass without editing tests/"
             fact(
                 "red_by_error" if errored else "red",
@@ -2283,10 +2290,14 @@ def _merging(top: Path) -> bool:
     return _git_ok(top, "rev-parse", "-q", "--verify", "MERGE_HEAD")
 
 
-def commit_harness(cfg: Config, message: str, dry_run: bool = False) -> dict[str, Any]:
+def commit_harness(
+    cfg: Config, message: str, dry_run: bool = False, paths: list[str] | None = None
+) -> dict[str, Any]:
     """Commit the harness files (and only them) so a builder cloned from HEAD sees the plan.
 
-    Never stages the project's own documents. Refuses while a merge is in progress and when
+    ``paths`` (repository-relative) replaces the harness files: the setup step commits exactly
+    the files it wrote. Never stages anything else, so the project's own documents and a human's
+    uncommitted work stay as they are. Refuses while a merge is in progress and when
     the targets file drops or changes a target HEAD has (the owner commits such a change).
     """
     top = git_top(cfg.dir)
@@ -2303,7 +2314,7 @@ def commit_harness(cfg: Config, message: str, dry_run: bool = False) -> dict[str
             raise HarnessError(
                 f"targets dropped or changed vs HEAD (the owner commits that): {moved}"
             )
-        paths = _not_ignored(top, _plan_paths(cfg, top))
+        paths = _not_ignored(top, _plan_paths(cfg, top) if paths is None else paths)
         if paths:
             _git(top, "add", "-A", "--", *paths)
         staged = (
@@ -3296,9 +3307,15 @@ def _uncommitted(cfg: Config, top: Path | None, scoreboard: bool = False) -> lis
     paths = _plan_paths(cfg, top, scoreboard=scoreboard)
     if not paths:
         return []
-    cmd = ["git", "-C", str(top), "status", "--porcelain", "--untracked-files=all", "--", *paths]
-    out = subprocess.run(cmd, capture_output=True, text=True).stdout  # unstripped: XY<space>path
-    return [_rel(cfg, top / line[3:]) for line in out.splitlines()]
+    return [_rel(cfg, top / p) for p in dirty_paths(top, paths)]
+
+
+def dirty_paths(top: Path, paths: list[str] | None = None) -> list[str]:
+    """Repository-relative paths (of ``paths``, default all) whose working copy differs from HEAD
+    or that are untracked and not ignored: ``git status --porcelain -z`` (renames off)."""
+    cmd = ["git", "-C", str(top), "status", "--porcelain", "-z", "--no-renames", "--untracked-files=all"]
+    out = subprocess.run([*cmd, "--", *(paths or [])], capture_output=True, text=True).stdout
+    return [e[3:] for e in out.split("\0") if e]  # each entry: XY<space>path
 
 
 # ---------------------------------------------------------------- gaps (report, never decide)
