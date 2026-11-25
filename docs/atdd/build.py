@@ -33,7 +33,7 @@ CRITERIA = HERE / "criteria"
 SLICES = "abcdefgh"
 STANDARDS = ROOT / "docs/spec/packet-standards.md"
 
-ID_RE = r"^[a-z0-9][a-z0-9_.-]*$"
+ID_RE = r"^[a-z0-9][a-z0-9_.-]*$"  # as catalog.yaml `types`
 KEY_RE = r"^[A-Za-z0-9_.\[\]*-]+$"
 REJECTING = {
     "exit_code": lambda p: p.get("code", 0) != 0,
@@ -42,8 +42,16 @@ REJECTING = {
     "refused": lambda p: True,
 }
 TEACHING = {"teaching", "refused"}
-PLACEHOLDER = re.compile(r"\$(packet_sha256|packet_id|criteria_ids|acceptance_paths|declared_paths)\b")
 CODE_TOKEN = re.compile(r"[/._`=-]|\d|\b[A-Z]{2,}\b|--")
+
+
+IDENT = (re.compile(r"^(?=.*[/._=`\d-])\S+$"), re.compile(r"^[A-Z][A-Z0-9-]+$"))  # catalog terms.identifier token
+
+
+def identifiers(text: str) -> list[str]:
+    toks = [re.sub(r"\.$", "", w.strip(",;:()\"'")) for w in text.split()]
+    toks = [t.strip(",;:()\"'") for t in toks]
+    return [t for t in toks if t and (IDENT[0].match(t) or IDENT[1].match(t))]
 
 
 def weak_part(text: str) -> bool:
@@ -64,12 +72,38 @@ def catalog_lint(catalog: dict) -> list[str]:
     return out
 
 
+def unused_catalog(catalog: dict, rows: list[dict]) -> list[str]:
+    """Catalog keys and enum values no row uses (comparison operators excepted)."""
+    used = set()
+    for r in rows:
+        for sec, steps in (("given", r.get("given", [])), ("when", [r.get("when", {})]), ("then", r.get("then", []))):
+            for step in steps:
+                for k, v in step.items():
+                    used.add((sec, k))
+                    for p, val in (v or {}).items():
+                        if isinstance(val, str):
+                            used.add((sec, k, p, val))
+    out = []
+    for sec in ("given", "when", "then"):
+        for k, entry in catalog[sec].items():
+            if (sec, k) not in used:
+                out.append(f"{sec}.{k}")
+            for p, d in (entry.get("params") or {}).items():
+                if p == "op" or not isinstance(d.get("values"), dict):
+                    continue
+                users = [(sec, k, p)] + [(s2, k2, p2) for s2 in ("given", "when", "then") for k2, e2 in catalog[s2].items()
+                                         for p2, d2 in (e2.get("params") or {}).items() if d2.get("ref") == f"{k}.{p}"]
+                out += [f"{sec}.{k}.{p}.{v}" for v in d["values"] if not any((*u, v) in used for u in users)]
+    return out
+
+
 def row_lint(r: dict, catalog: dict) -> list[str]:
     """Compatibility of a row's then-entries with its when and givens (catalog `after`, `needs_given`, conditionals)."""
     out = []
     when = next(iter(r.get("when") or {}), None)
     givens = {k for g in r.get("given", []) for k in g}
-    if PLACEHOLDER.search(json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))) and "packet" not in givens:
+    placeholder = re.compile(r"\$(" + "|".join(catalog["placeholders"]) + r")\b")
+    if placeholder.search(json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))) and "packet" not in givens:
         out.append("uses a $packet/$criteria/$*_paths placeholder without a packet given")
     for step in r.get("then", []):
         for k, v in step.items():
@@ -251,8 +285,6 @@ def step_schema(section: dict, catalog: dict, title: str) -> dict:
         for c in entry.get("conditional", []):
             if "if" in c:
                 cond = {"properties": {k: {"const": v} for k, v in c["if"].items()}, "required": list(c["if"])}
-            elif "if_not" in c:
-                cond = {"properties": {k: {"not": {"const": v}} for k, v in c["if_not"].items()}}
             else:
                 cond = {"required": [c["if_present"]]}
             conds.append({"if": cond, "then": {"required": c["require"]}})
@@ -350,6 +382,8 @@ def main() -> int:
     seen = set()
     by_task: dict[str, list[dict]] = defaultdict(list)
     incompatible, weak, full_proves = [], [], []
+    bound_parts = [0, 0]  # teaching parts with identifier tokens, all teaching parts
+    unbound: list[str] = []  # rows with a teaching assertion that names no identifier token
     inventory: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     covered: dict[str, set[int]] = defaultdict(set)
     untaught, needs_kw, gaps, nondet = [], [], [], []
@@ -371,6 +405,12 @@ def main() -> int:
                 if k in TEACHING:
                     weak += [f"{rid}: {k}.{part} = {v[part]!r}" for part in ("wrong", "right", "prevent")
                              if isinstance((v or {}).get(part), str) and weak_part(v[part])]
+                    for part in ("wrong", "right", "prevent"):
+                        if isinstance((v or {}).get(part), str):
+                            bound_parts[1] += 1
+                            bound_parts[0] += bool(identifiers(v[part]))
+                    if not any(identifiers((v or {}).get(p) or "") for p in ("wrong", "right", "prevent")):
+                        unbound.append(rid)
         proves = set(tasks[task]["proves"])
         if len(proves) >= 4 and proves <= set(r.get("traces_to", [])):
             full_proves.append(rid)
@@ -396,6 +436,7 @@ def main() -> int:
     for r in rows:
         for ref in r.get("spec_ref", []):
             by_ref[ref].append(r["id"])
+    errors += [f"catalog value no row uses: {u}" for u in unused_catalog(catalog, rows)]
     exempt = catalog.get("spec_ref_exempt", {})
     errors += [f"catalog spec_ref_exempt {x}: no such spec_ref" for x in exempt if x not in refs]
     refs_uncovered = [x for x in refs if not by_ref.get(x) and x not in exempt]
@@ -422,7 +463,10 @@ def main() -> int:
            "```", "uv run --script docs/atdd/build.py --check", "```", "",
            f"Result: {len(errors)} schema, catalog or reference errors; {len(untaught)} rejections without teaching; "
            f"{len(incompatible)} then-entries that cannot read their when or lack a given; "
-           f"{len(weak)} one-word generic teaching parts.", ""]
+           f"{len(weak)} one-word generic teaching parts.", "",
+           f"Teaching parts: {bound_parts[1]}; {bound_parts[0]} name at least one identifier token that the message must contain "
+           f"(catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. "
+           f"Teaching assertions naming no identifier at all ({len(unbound)}): {', '.join(sorted(set(unbound), key=key)) or 'none'}.", ""]
     for e in errors:
         out.append(f"- ERROR {e}")
     for u in untaught:

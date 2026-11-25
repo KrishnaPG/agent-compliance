@@ -1471,15 +1471,13 @@ criteria:
   - repo:
       name: plugin
       state: candidate
+  - planted: {plant: gap_violating_ignored_keyword, class: defect, where: working_tree}
   when:
     program_step:
       step: gap_review
   then:
-  - refused:
-      by: program
-      wrong: gaps.schema.json rejects the input
-      right: fix the field the schema names in the error path
-      prevent: validate gaps against gaps.schema.json before writing them
+  - schema_valid: {valid: false, instance: planted gap record, schema: harness/schema/gaps.schema.json}
+  - teaching: {channel: stderr, wrong: gaps.schema.json rejects the input, right: fix the field the schema names in the error path, prevent: validate gaps against gaps.schema.json before writing them}
   traces_to:
   - P2
   - QBC-80

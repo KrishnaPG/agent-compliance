@@ -5,38 +5,51 @@
 # cannot drift from it. A test generator implements each key once, from `meaning`,
 # `params` and `passes_when`, with no judgement.
 #
-# Row shape (one row = one Gherkin scenario):
-#   id: <task>-AC<n>            covers: [leaf numbers of the task's "Done when" bullets]
-#   given: [ {key: params}, ... ]   when: {key: params}   then: [ {key: params}, ... ]
-#   traces_to: [G*, P*, R*, QBC-n]   method: test|lint|fitness|measure   deterministic: true
-#   spec_ref: [<stage>.<part>|enforce.<n>]  (optional) the docs/spec/packet-standards.md
-#             Applied-table row (stage = common, L1..L5 or review; part = the row's first
-#             cell, slugged) or enforcement mechanism the criterion proves; build.py prints
-#             the ids. A row needs covers, spec_ref or both
-#
-# Parameter types:
-#   id       lowercase identifier of a fixture, state or plant: ^[a-z0-9][a-z0-9_.-]*$
-#   key      dotted config key or field path: ^[A-Za-z0-9_.\[\]*-]+$
-#   string   literal text; where it is matched, the match is a case-insensitive substring
-#   integer, number, boolean, any, list(<type>), enum(<values>)
-#
-# Shared terms used by passes_when:
-#   result JSON   the JSON bh prints for run, measure and check (its `facts`, `items`, `jobs`)
-#   run report    the line-per-item report bh writes next to the result JSON
-#   teaching shape  `[rule] wrong -> right . ref`, with a non-empty right part, at most
-#                 limits.message_chars (default 300) characters per finding
-#   sarif         the SARIF 2.1.0 log a stage writes (field paths are SARIF JSON paths)
-#   manifest      the L3 manifest mapping criterion id -> test node id
-#   decision_record  the L1 MADR 4.0 record: its front matter and sections
-#   $packet_sha256, $packet_id, $criteria_ids, $acceptance_paths, $declared_paths   placeholders a value may use: the sha256 of
-#                 the given packet file, its id, and its acceptance row ids joined by ", ";
-#                 $acceptance_paths and $declared_paths: the packet's acceptance test paths
-#                 and declared paths (a match of any one satisfies a path parameter)
-#   quoted message  where the spec quotes a message (QBC-47, QBC-50, QBC-88), its sentences
-#                 fill the wrong and right parts of the teaching shape, so output_contains
-#                 matches each quoted sentence on its own, never one text across ` -> `
-#   fixture       committed under the plugin's test fixtures; it never needs network,
-#                 CI, a bot account or a live paid model call
+# Row shape (one row = one Gherkin scenario): see `row_fields` below.
+# Everything a generator needs is data in this file; comments only explain.
+
+row_fields:
+  id: "<task>-AC<n>, unique"
+  scenario: "one-line title of the scenario"
+  covers: "leaf numbers of the task's Done-when bullets (build.py --bullets prints them; 0 = an outcome stated on the Done-when line itself)"
+  given: "list of {given-key: params}"
+  when: "one {when-key: params}"
+  then: "list of {then-key: params}; all must pass"
+  traces_to: "the G, P, R and QBC ids the row proves"
+  method: "one of `methods`"
+  deterministic: "true; false only for slice h rows that need a live paid model call"
+  spec_ref: "the docs/spec/packet-standards.md Applied-table rows (<stage>.<part slug>, stage = common, L1..L5 or review) or enforcement mechanisms (enforce.<n>) the row proves; a row needs covers, spec_ref or both"
+  plan_gap: "one line: what the plan leaves open that the row had to assume"
+
+types:
+  id: "lowercase identifier of a fixture, state or plant, matching ^[a-z0-9][a-z0-9_.-]*$"
+  key: "dotted config key or field path, matching ^[A-Za-z0-9_.\\[\\]*-]+$; a segment [*] means every element"
+  string: "literal text; where it is matched against output, the match is a case-insensitive substring"
+  integer: "a JSON integer"
+  number: "a JSON number"
+  boolean: "true or false"
+  any: "any JSON value"
+  list: "a non-empty list of the named item type"
+  enum: "one of the keys of `values`; each key's text is its definition"
+
+terms:
+  result JSON: "the JSON bh prints for run, measure and check, with its `items` (per-item status), `facts` and `jobs`"
+  run report: "the line-per-item report bh writes next to the result JSON"
+  teaching shape: "`[rule] wrong -> right . ref`, with a non-empty right part, at most limits.message_chars (default 300) characters per finding"
+  identifier token: "a whitespace-separated token of a teaching part, stripped of leading and trailing , ; : ( ) quotes and a trailing period, that matches ^(?=.*[/._=`\\d-])\\S+$ (a path, key, file, command, rule code with a digit or dash) or ^[A-Z][A-Z0-9-]+$ (an all-caps code)"
+  teaching match: "the message has the teaching shape, with non-empty wrong and right segments; and every identifier token of the row's wrong, right and prevent appears in the message (case-insensitive). The prose around the tokens states intent and is not matched; the message's full wording is pinned by an approval snapshot when the generated test first passes (packet-standards L3, messages and renderings)"
+  quoted message: "where the spec quotes a message (QBC-47, QBC-50, QBC-88), its sentences fill the wrong and right parts of the teaching shape, so output_contains matches each quoted sentence on its own, never one text across ` -> `"
+  sarif: "the SARIF 2.1.0 log a stage writes; field paths are SARIF JSON paths"
+  manifest: "the L3 manifest mapping each criterion id to its test node id"
+  decision_record: "the L1 MADR 4.0 record: its front matter and sections"
+  fixture: "committed under the plugin's test fixtures; it never needs network, CI, a bot account or a live paid model call"
+
+placeholders:
+  packet_sha256: "the sha256 of the given packet file"
+  packet_id: "the id of the given packet"
+  criteria_ids: "the given packet's acceptance row ids, joined by \", \""
+  acceptance_paths: "the given packet's acceptance test paths; a match of any one satisfies a path parameter"
+  declared_paths: "the given packet's declared paths; a match of any one satisfies a path parameter"
 
 methods:
   test: An executable test drives the system (a command, hook or program step) on fixtures and asserts its outcome.
@@ -47,9 +60,10 @@ methods:
 compatibility: >-
   A then-entry's `after` lists the when-keys whose output it can read; `needs_given` lists
   given-keys the row must hold; `conditional` makes parameters required for a parameter value
-  (if / if_not) or when another parameter is present (if_present, which may widen `after`).
-  A value using a $packet_* , $criteria_ids, $acceptance_paths or $declared_paths placeholder
-  needs a `packet` given. build.py reports every row that breaks these.
+  (if) or when another parameter is present (if_present, which may widen `after`).
+  A value using a `$<placeholder>` (see `placeholders`) needs a `packet` given. build.py reports every row that breaks these, and every key or
+  enum value no row uses (comparison operators excepted), so the catalog stays the smallest
+  that covers the rows.
 
 spec_ref_exempt:
   L2.requirement-wording-in-the-spec: RFC 2119 wording applies to the spec text, not to any output the plugin produces.
@@ -96,7 +110,6 @@ given:
           candidate_commit: "the plant is committed as the candidate commit"
           working_tree: "the plant is applied to the working tree, uncommitted"
           plan_commit: "the plant is committed in the plan commit"
-          base: "the plant is committed in the base commit"
         required: false
         doc: "default candidate_commit"
     passes_when: Fixture setup; the plant is present at `where` before `when` runs.
@@ -140,7 +153,6 @@ given:
         type: enum
         values:
           builder: "a builder agent session"
-          test_author: "a test-author agent session"
           main: "the orchestrating main session"
           human: "a human-driven session"
       packet:
@@ -153,8 +165,6 @@ given:
         values:
           inside_packet_paths: "the tool call touches a path inside the packet's declared paths"
           outside_packet_paths: "the tool call touches a path outside the packet's declared paths"
-          acceptance_test: "the tool call touches an acceptance test file"
-          packet_file: "the tool call touches the packet file"
           none: "the tool call touches no path"
       touch:
         type: enum
@@ -225,8 +235,6 @@ given:
         values:
           approve: "the owner approves the question or approval request"
           decline: "the owner declines the question or approval request"
-          value: "the owner answers with the text in `value`"
-      value: {type: string, required: false}
     passes_when: Fixture setup; the program's question or approval prompt is answered from the record.
 
   history:
@@ -267,12 +275,10 @@ when:
         type: enum
         values:
           project_test: "the project's own test recipe"
-          project_verify: "the project's own verify recipe"
           plugin_pytest: "the plugin's plain pytest entry point"
       mode:
         type: enum
         values:
-          normal: "run the recipe as usual"
           uv_script_offline: "uv run --script from a pre-warmed cache with the network off"
         required: false
         doc: "uv_script_offline = uv run --script from a pre-warmed cache with the network off"
@@ -305,7 +311,6 @@ when:
           reopen_from_review: "reopen the slice's checklist line from a reviewer's structured finding"
           close_tracking: "close a tracking issue when its last sub-issue closes"
           relay_miss: "relay a linter rule miss with its right-way line"
-          validate_standards: "validate the standards data file"
           map_catalog_ids: "map the rule ids that checks, skills and packets read to catalog ids"
           generate_tests: "generate tests from the packet's acceptance rows and write the manifest"
           commit_build: "stage and commit the builder's change as the program, with Packet and Criteria trailers"
@@ -323,7 +328,6 @@ when:
           H1: "the SessionStart hook that delivers the packet as additionalContext"
           H2: "the PreToolUse hook that shows an owner line at a first touch outside the packet's paths"
           bash_note: "the PostToolUse hook that notes a builder's Bash call made with no packet"
-          test_guard: "the hook that guards acceptance test files"
     passes_when: The hook exits; its exit code, stdout JSON and any fact it wrote are captured.
 
   builder_action:
@@ -351,7 +355,6 @@ when:
           orchestrator_packet: "the orchestrator's authoritative packet outside the clone"
           outside_clone: "a path outside the builder's clone"
           source_repo: "the source repository's refs, from inside the clone"
-          clone_source_file: "a source file in the clone"
     passes_when: The action is attempted once; its tool result and the files and refs it targets are captured.
 
   scan:
@@ -423,7 +426,6 @@ then:
           flaky: "a measured test whose result differed between repeated runs"
           red: "a test failed by an assertion (JUnit failure)"
           red_by_error: "a test errored instead of failing by assertion (JUnit error)"
-          red_on_main: "a test is red on the base commit before the build"
           regression_recorded: "a regression test recorded as failing at the parent and passing at the fix"
           tampered: "the build altered a measurement input or a canary passed that must fail"
           dropped_tests: "a JUnit test id present at base is missing at the candidate"
@@ -465,7 +467,7 @@ then:
     passes_when: result JSON facts has no entry of kind.
 
   refused:
-    meaning: "An order refusal that teaches (P5): the step is not done and the message names what is wrong, the right way and the prevention."
+    meaning: "A refusal the spec allows (an order step, a launch precondition, a protected path, a bounded list or a lock) that teaches (P5): the step is not done and the message names what is wrong, the right way and the prevention. A failed validation is not a refusal: use schema_valid with valid false plus teaching."
     after: [bh, program_step, hook, builder_action]
     params:
       by:
@@ -476,17 +478,14 @@ then:
           file_tools: "the scoped Edit and Write tool permissions refused it"
           program: "bh refused the order step"
           launch: "a launch precondition refused the builder launch"
-          form: "an issue form refused the input"
-      wrong: {type: string}
-      right: {type: string}
-      prevent: {type: string}
-    passes_when: The attempted change did not happen, and the refusal message (hook output, tool result or stderr) contains wrong, right and prevent and has the teaching shape.
+      wrong: {type: string, doc: "what is wrong, in plain words; its identifier tokens bind (see terms.teaching match)"}
+      right: {type: string, doc: "the right way; its identifier tokens bind"}
+      prevent: {type: string, doc: "how to prevent it next time; its identifier tokens bind"}
+    passes_when: "The attempted change did not happen, and the refusal message (hook output, tool result or stderr) meets terms.teaching match for wrong, right and prevent."
 
   teaching:
     meaning: A message that is not a refusal (a fact, note, unmet result or report line) teaches what is wrong, the right way and the prevention.
     after: [bh, entry_point, program_step, hook, builder_action]
-    conditional:
-      - {if_not: {channel: form_description}, require: [prevent]}
     params:
       channel:
         type: enum
@@ -497,13 +496,12 @@ then:
           fact: "the text of a fact in the result JSON"
           run_report: "a line of the run report"
           issue_comment: "a comment on the issue"
-          form_description: "a form field's description"
           tool_result: "the tool result returned to the agent"
           sarif: "the SARIF log"
-      wrong: {type: string}
-      right: {type: string}
-      prevent: {type: string, required: false, doc: "required except for a form_description, which teaches the right way only"}
-    passes_when: "The message on channel contains wrong, right and prevent (when given) and has the teaching shape. form_description: contains right. sarif: a result's message.text, its rule's help.text and its fixes together contain wrong, right and prevent."
+      wrong: {type: string, doc: "what is wrong, in plain words; its identifier tokens bind (see terms.teaching match)"}
+      right: {type: string, doc: "the right way; its identifier tokens bind"}
+      prevent: {type: string, doc: "how to prevent it next time; its identifier tokens bind"}
+    passes_when: "The message on channel meets terms.teaching match for wrong, right and prevent. For sarif, the message is a result's message.text, its rule's help.text and its fixes taken together."
 
   output_contains:
     meaning: A channel carries an exact text.
@@ -514,7 +512,6 @@ then:
         values:
           stdout: "the process's standard output"
           stderr: "the process's standard error"
-          hook_output: "the hook's stdout JSON"
           run_report: "the run report"
           packet_markdown: "the rendered packet Markdown"
           additional_context: "the additionalContext of the hook's output"
@@ -541,16 +538,11 @@ then:
           builder_settings: "the generated builder settings JSON"
           hook_output: "the hook's stdout JSON"
           hooks_json: "hooks/hooks.json"
-          issue: "the fields of a filed issue"
-          gaps_md: "the rendered gaps.md"
           skill_md: "a SKILL.md file"
           eval_report: "the report of `claude plugin eval`"
           register: "the safeguard register"
-          parity_report: "the parity report"
           vet_output: "the output of `bh vet`"
           baseline_file: "a ratchet baseline file"
-          standards_data: "the standards data file"
-          changelog: "the changelog"
           launch_args: "the arguments of a `claude` job launch"
           commit_message: "a commit message"
           sarif: "the SARIF log"

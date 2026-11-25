@@ -50,7 +50,8 @@ criteria:
     when:
       program_step: {step: write_forms}
     then:
-      - refused: {by: program, wrong: "slice.yml fails GitHub's issue-form schema", right: "add a body of form fields to slice.yml", prevent: "validate every form against the issue-form schema before writing it"}
+      - schema_valid: {valid: false, instance: "templates/.github/ISSUE_TEMPLATE/slice.yml", schema: "github-issue-forms"}
+      - teaching: {channel: stderr, wrong: "slice.yml fails GitHub's issue-form schema", right: "add a body of form fields to slice.yml", prevent: "validate every form against the issue-form schema before writing it"}
       - paths: {paths: [.github/ISSUE_TEMPLATE/slice.yml], exist: false}
     traces_to: [R8, P5, QBC-83]
     method: lint

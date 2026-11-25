@@ -387,8 +387,7 @@
               "enum": [
                 "candidate_commit",
                 "working_tree",
-                "plan_commit",
-                "base"
+                "plan_commit"
               ]
             }
           }
@@ -460,7 +459,6 @@
             "agent_type": {
               "enum": [
                 "builder",
-                "test_author",
                 "main",
                 "human"
               ]
@@ -475,8 +473,6 @@
               "enum": [
                 "inside_packet_paths",
                 "outside_packet_paths",
-                "acceptance_test",
-                "packet_file",
                 "none"
               ]
             },
@@ -598,13 +594,8 @@
             "answer": {
               "enum": [
                 "approve",
-                "decline",
-                "value"
+                "decline"
               ]
-            },
-            "value": {
-              "type": "string",
-              "minLength": 1
             }
           }
         },
@@ -697,13 +688,11 @@
             "entry": {
               "enum": [
                 "project_test",
-                "project_verify",
                 "plugin_pytest"
               ]
             },
             "mode": {
               "enum": [
-                "normal",
                 "uv_script_offline"
               ]
             }
@@ -740,7 +729,6 @@
                 "reopen_from_review",
                 "close_tracking",
                 "relay_miss",
-                "validate_standards",
                 "map_catalog_ids",
                 "generate_tests",
                 "commit_build"
@@ -768,8 +756,7 @@
                 "H0",
                 "H1",
                 "H2",
-                "bash_note",
-                "test_guard"
+                "bash_note"
               ]
             }
           }
@@ -806,8 +793,7 @@
                 "clone_packet",
                 "orchestrator_packet",
                 "outside_clone",
-                "source_repo",
-                "clone_source_file"
+                "source_repo"
               ]
             }
           }
@@ -972,7 +958,6 @@
                 "flaky",
                 "red",
                 "red_by_error",
-                "red_on_main",
                 "regression_recorded",
                 "tampered",
                 "dropped_tests",
@@ -1028,7 +1013,6 @@
                 "flaky",
                 "red",
                 "red_by_error",
-                "red_on_main",
                 "regression_recorded",
                 "tampered",
                 "dropped_tests",
@@ -1063,7 +1047,7 @@
           }
         },
         "refused": {
-          "description": "An order refusal that teaches (P5): the step is not done and the message names what is wrong, the right way and the prevention.",
+          "description": "A refusal the spec allows (an order step, a launch precondition, a protected path, a bounded list or a lock) that teaches (P5): the step is not done and the message names what is wrong, the right way and the prevention. A failed validation is not a refusal: use schema_valid with valid false plus teaching.",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -1079,8 +1063,7 @@
                 "sandbox",
                 "file_tools",
                 "program",
-                "launch",
-                "form"
+                "launch"
               ]
             },
             "wrong": {
@@ -1104,7 +1087,8 @@
           "required": [
             "channel",
             "wrong",
-            "right"
+            "right",
+            "prevent"
           ],
           "properties": {
             "channel": {
@@ -1115,7 +1099,6 @@
                 "fact",
                 "run_report",
                 "issue_comment",
-                "form_description",
                 "tool_result",
                 "sarif"
               ]
@@ -1132,25 +1115,7 @@
               "type": "string",
               "minLength": 1
             }
-          },
-          "allOf": [
-            {
-              "if": {
-                "properties": {
-                  "channel": {
-                    "not": {
-                      "const": "form_description"
-                    }
-                  }
-                }
-              },
-              "then": {
-                "required": [
-                  "prevent"
-                ]
-              }
-            }
-          ]
+          }
         },
         "output_contains": {
           "description": "A channel carries an exact text.",
@@ -1165,7 +1130,6 @@
               "enum": [
                 "stdout",
                 "stderr",
-                "hook_output",
                 "run_report",
                 "packet_markdown",
                 "additional_context",
@@ -1206,16 +1170,11 @@
                 "builder_settings",
                 "hook_output",
                 "hooks_json",
-                "issue",
-                "gaps_md",
                 "skill_md",
                 "eval_report",
                 "register",
-                "parity_report",
                 "vet_output",
                 "baseline_file",
-                "standards_data",
-                "changelog",
                 "launch_args",
                 "commit_message",
                 "sarif",

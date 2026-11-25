@@ -47,6 +47,7 @@ criteria:
     then:
       - field: {source: packet, path: tier, op: eq, value: mechanical}
       - field: {source: packet, path: goal, op: present}
+      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, P6, QBC-24, QBC-42]
     method: test
     deterministic: true
@@ -116,6 +117,7 @@ criteria:
     then:
       - fact: {kind: over_cap}
       - needs_keyword: {reason: "the file name that carries the moved text is not named by the plan, so the path reference cannot be matched"}
+      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, QBC-33]
     method: test
     deterministic: true
@@ -130,7 +132,8 @@ criteria:
     when:
       program_step: {step: validate_packet, item: toy_item}
     then:
-      - refused: {by: program, wrong: "packet has a design field", right: "the goal states the intent and why, with no design", prevent: "put the design in the declared contract, schema or role delta file, not in the packet"}
+      - schema_valid: {valid: false, instance: "packet", schema: "harness/schema/packet.schema.json"}
+      - teaching: {channel: stderr, wrong: "packet has a design field", right: "the goal states the intent and why, with no design", prevent: "put the design in the declared contract, schema or role delta file, not in the packet"}
     traces_to: [R5, P1, QBC-42, QBC-37]
     method: test
     deterministic: true
@@ -146,7 +149,8 @@ criteria:
     when:
       program_step: {step: validate_packet, item: toy_item}
     then:
-      - refused: {by: program, wrong: "scenario without traces_to", right: "traces_to lists a G, P, R or QBC id", prevent: "give every acceptance scenario traces_to before the packet is accepted"}
+      - schema_valid: {valid: false, instance: "packet", schema: "harness/schema/packet.schema.json"}
+      - teaching: {channel: stderr, wrong: "scenario without traces_to", right: "traces_to lists a G, P, R or QBC id", prevent: "give every acceptance scenario traces_to before the packet is accepted"}
     traces_to: [R5, QBC-39]
     method: test
     deterministic: true
@@ -162,7 +166,8 @@ criteria:
     when:
       program_step: {step: validate_packet, item: toy_item}
     then:
-      - refused: {by: program, wrong: "scenario without verification", right: "verification is one of test, lint, fitness, measure", prevent: "give every acceptance scenario a verification (ISO/IEC/IEEE 29148) before the packet is accepted"}
+      - schema_valid: {valid: false, instance: "packet", schema: "harness/schema/packet.schema.json"}
+      - teaching: {channel: stderr, wrong: "scenario without verification", right: "verification is one of test, lint, fitness, measure", prevent: "give every acceptance scenario a verification (ISO/IEC/IEEE 29148) before the packet is accepted"}
     traces_to: [R5, QBC-39]
     method: test
     deterministic: true
@@ -227,6 +232,7 @@ criteria:
     then:
       - field: {source: packet, path: goal, op: present}
       - no_fact: {kind: launch_refused}
+      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, P4, QBC-42]
     method: test
     deterministic: true
@@ -259,6 +265,7 @@ criteria:
     then:
       - fact: {kind: over_cap}
       - needs_keyword: {reason: "the moved text's file and the reference to it in the packet are not named by the plan"}
+      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [P8, QBC-33, QBC-40]
     method: test
     deterministic: true
@@ -292,6 +299,7 @@ criteria:
       - field: {source: packet, path: acceptance, op: present}
       - field: {source: packet, path: verifier, op: present}
       - field: {source: packet, path: paved_road, op: present}
+      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [G3, R5, QBC-24, QBC-38]
     method: test
     deterministic: true

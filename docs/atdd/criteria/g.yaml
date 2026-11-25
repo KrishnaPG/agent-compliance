@@ -24,6 +24,7 @@ criteria:
     when:
       bh: {sub: check}
     then:
+      - schema_valid: {valid: false, instance: "standards data", schema: "standards schema"}
       - fact: {kind: gap, detail: standards}
       - teaching: {channel: fact, wrong: "a standards entry has no pinned version", right: "add the pinned version, control id and URL to the entry", prevent: "standards/schema.json validates every entry when bh check runs"}
     traces_to: [R9, P1, P5, QBC-13, QBC-85]
@@ -67,6 +68,7 @@ criteria:
     when:
       bh: {sub: check}
     then:
+      - schema_valid: {valid: false, instance: "standards data", schema: "standards schema"}
       - fact: {kind: gap, detail: standards}
       - teaching: {channel: fact, wrong: "a house rule names no ladder rung or mechanism", right: "name its ladder rung and mechanism, or write judgement", prevent: "standards/house-rules.schema.json validates every rule when bh check runs"}
     traces_to: [R9, P1, P5, QBC-18]
