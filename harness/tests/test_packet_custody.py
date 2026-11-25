@@ -75,3 +75,15 @@ def test_launch_registers_a_copy_and_a_clone_edit_changes_nothing_kept(tmp_path,
     assert bhpacket.custody_read(tmp_path, digest) == PACKET.read_bytes()
     prompt = json.loads(log.read_text().splitlines()[-1])["stdin"]
     assert prompt == bhpacket.LAUNCH_PROMPT and "goal" not in prompt.lower()
+
+
+def test_custody_is_the_one_identity_of_an_item_and_its_trailer(tmp_path):
+    old = PACKET.read_bytes()
+    new = json.dumps({**json.loads(old), "goal": "A changed goal."}).encode()
+    d_old = bhpacket.custody_store(tmp_path, old)
+    assert bhpacket.custody_digest(tmp_path, "toy_item") == d_old
+    os.utime(bhpacket.custody_path(tmp_path, d_old), ns=(1, 1))  # the first kept packet is the older one
+    d_new = bhpacket.custody_store(tmp_path, new)
+    assert bhpacket.custody_digest(tmp_path, "toy_item") == d_new != d_old
+    assert bhpacket.custody_digest(tmp_path, "other_item") is None
+    assert bhpacket.trailer(json.loads(new), d_new) == f"toy_item@{d_new}"

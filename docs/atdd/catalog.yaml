@@ -116,6 +116,7 @@ given:
         values:
           working_tree: "the plant is applied to the working tree, uncommitted"
           plan_commit: "the plant is committed in the plan commit"
+          main_commit: "the plant is committed on main after the candidate branched; the base tag and the candidate stay (a change on main that can diverge from the candidate)"
         required: false
         doc: "default candidate_commit"
     passes_when: Fixture setup; the plant is present at `where` before `when` runs.
@@ -178,6 +179,7 @@ given:
           valid: "a packet that passes the packet schema"
           mechanical: "a valid packet whose declared paths make it a mechanical item"
           design_field: "a packet that carries a forbidden design field"
+          empty_goal: "a packet whose goal is an empty string (breaks minLength, a schema keyword the old hand-written validator ignored)"
           scenario_without_traces_to: "a packet with a scenario that has no traces_to"
           scenario_without_verification: "a packet with a scenario that has no verification"
           over_cap: "a packet with content longer than its size cap"
@@ -262,7 +264,6 @@ when:
           validate_packet: "validate a packet file against the packet schema"
           launch_builder: "launch the builder job for an item: preconditions checked, packet registered, clone created"
           merge: "merge a candidate into HEAD"
-          gap_review: "run the spec-gap review over the project documents and update the gaps list"
           generate_tests: "generate tests from the packet's acceptance rows and write the manifest"
           commit_build: "stage and commit the builder's change as the program, with Packet and Criteria trailers"
       item: {type: id, required: false}

@@ -10,7 +10,7 @@ uv run --script docs/atdd/build.py --check
 
 Result: 0 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
 
-Teaching parts: 153; 43 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (25): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d6-AC14, d6-AC15, d8-AC2, d8-AC3.
+Teaching parts: 147; 40 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (25): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d6-AC14, d6-AC15, d8-AC2, d8-AC3.
 
 
 ## Counts
@@ -18,9 +18,9 @@ Teaching parts: 153; 43 name at least one identifier token that the message must
 | Slice | Tasks | Tasks with rows | Criteria |
 |---|---|---|---|
 | a | 5 | 5 | 19 |
-| b | 6 | 6 | 77 |
+| b | 6 | 6 | 73 |
 | d | 8 | 8 | 67 |
-| all | 19 | 19 | 163 |
+| all | 19 | 19 | 159 |
 
 | Catalog | Entries |
 |---|---|
@@ -28,7 +28,7 @@ Teaching parts: 153; 43 name at least one identifier token that the message must
 | when | 7 |
 | then | 20 |
 
-Verification: fitness 1, lint 25, measure 4, test 133.
+Verification: fitness 1, lint 25, measure 4, test 129.
 
 ## §0 items × criteria
 
@@ -76,6 +76,7 @@ None.
 
 Leaves are numbered by `build.py --bullets`.
 
+- b9: leaves 1, 7, 9
 - d2: leaves 2, 3, 6, 7
 
 ## packet-standards.md stage outputs and enforcement × criteria
@@ -142,10 +143,10 @@ None.
 
 Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.
 
-- packet.fixture: toy_item (62)
-- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), criterion_without_test (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gap_violating_ignored_keyword (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), test_without_criterion (1), unimplemented_keyword_row (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
-- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (5), toy_honest (9), toy_scope (1)
-- repo.state: plugin:candidate (35), toy:base (128)
+- packet.fixture: toy_item (63)
+- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), criterion_without_test (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), test_without_criterion (1), unimplemented_keyword_row (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
+- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (5), toy_honest (7), toy_scope (1)
+- repo.state: plugin:candidate (34), toy:base (125)
 
 ## needs-keyword
 
@@ -199,7 +200,7 @@ None.
 - b4-AC9: the paths entry fails on main, which writes no <measure_out>/<item>/<sha12>-<slot> directory
 - b4-AC11: the title says "without pattern lists"; the row asserts the flag-based comparison that replaces them
 - b5-AC2: "kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted
-- b5-AC3: plan does not name the keyword; fixture must use one the old validator ignored; plan omits the teaching
+- b5-AC3: the plan names no keyword; minLength is one the old hand-written validator ignored, and the packet fixture empty_goal breaks it
 - b9-AC8: plan gives no SG-01 line text
 - b9-AC12: plan omits the teaching text
 - b9-AC13: the commit_message field names are not fixed by the spec

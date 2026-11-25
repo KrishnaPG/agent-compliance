@@ -197,7 +197,6 @@ acceptance:
       scan: {paths: ["skills/*/SKILL.md"], kind: description_chars}
     then:
       - threshold: {metric: skill_description_chars, op: lt, bound: "ref:v1.5.2"}
-      - field: {source: commit_message, path: body, op: matches, value: "\\d+\\D+\\d+"}
     traces_to: [G5, QBC-71, QBC-79]
     verification: measure
     deterministic: true

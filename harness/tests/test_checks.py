@@ -1,12 +1,7 @@
 """Unit checks of the mechanical gap helpers and lockfile readers."""
 
-import json
-from pathlib import Path
-
 import bhcore
 import pytest
-
-ROOT = Path(__file__).resolve().parent.parent
 
 
 def test_line_of_never_fabricates_and_matches_whole_tokens(tmp_path):
@@ -82,9 +77,3 @@ def test_union_catalogue_validates():
     with pytest.raises(bhcore.HarnessError):
         bhcore.union_catalogue(a, {"entries": [{"job": "j", "ecosystem": "e", "library": "y"}]})
 
-
-def test_gap_kinds_agree_everywhere():
-    schema = bhcore.load_schema("gaps")["$defs"]["gap"]["properties"]["kind"]["enum"]
-    jobs = json.loads((ROOT / "schema" / "jobs.schema.json").read_text())
-    job = jobs["$defs"]["gap"]["properties"]["kind"]["enum"]
-    assert bhcore.gap_kinds() == schema == job

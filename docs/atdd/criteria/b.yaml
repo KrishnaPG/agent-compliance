@@ -1056,6 +1056,10 @@ acceptance:
   - planted:
       plant: conflicting_candidates
       class: defect
+  - planted:
+      plant: main_diverges
+      class: defect
+      where: main_commit
   when:
     program_step:
       step: merge
@@ -1447,31 +1451,31 @@ acceptance:
   - 2
   given:
   - repo:
-      name: plugin
-      state: candidate
-  - planted:
-      plant: gap_violating_ignored_keyword
-      class: defect
-      where: working_tree
+      name: toy
+      state: base
+  - packet:
+      fixture: toy_item
+      variant: empty_goal
   when:
     program_step:
-      step: gap_review
+      step: validate_packet
+      item: toy_item
   then:
   - schema_valid:
       valid: false
-      instance: planted gap record
-      schema: harness/schema/gaps.schema.json
+      instance: packet
+      schema: harness/schema/packet.schema.json
   - teaching:
       channel: stderr
-      wrong: gaps.schema.json rejects the input
-      right: fix the field the schema names in the error path
-      prevent: validate gaps against gaps.schema.json before writing them
+      wrong: packet goal is empty (a minLength violation of harness/schema/packet.schema.json)
+      right: write the goal as the intent and why
+      prevent: validate every packet with the schema's own keywords before it is accepted
   traces_to:
   - P2
   - QBC-80
   verification: test
   deterministic: true
-  plan_gap: plan does not name the keyword; fixture must use one the old validator ignored; plan omits the teaching
+  plan_gap: 'the plan names no keyword; minLength is one the old hand-written validator ignored, and the packet fixture empty_goal breaks it'
 - id: b5-AC4
   scenario: The suite passes under uv run --script from a pre-warmed cache with the network off
   covers:

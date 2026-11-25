@@ -13,27 +13,7 @@
       ],
       "properties": {
         "kind": {
-          "enum": [
-            "missing-document",
-            "dangling-reference",
-            "no-acceptance",
-            "no-numeric-target",
-            "target-without-source",
-            "target-without-command",
-            "target-on-unknown-item",
-            "duplicate-item",
-            "no-contract",
-            "missing-dependency",
-            "item-without-source",
-            "contradiction",
-            "untracked-open-item",
-            "helper-without-library",
-            "unsettled-area",
-            "unmet-after-rounds",
-            "not-derivable",
-            "missing-context",
-            "other"
-          ]
+          "$ref": "gaps.schema.json#/$defs/gap/properties/kind"
         },
         "summary": {
           "type": "string"

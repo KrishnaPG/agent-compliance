@@ -1501,18 +1501,16 @@ def diff_facts(
             diff_fact(facts, item, kind, f"{what} {old[key]} -> {cand[key]}")
 
 
-def measure_ref(
-    cfg: Config, ref: str = "HEAD", packet: str | None = None, orch: Path | None = None
-) -> dict[str, Any]:
+def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dict[str, Any]:
     """Measure ``ref`` of the repository against its plan commit (merge base with the default
     branch), without a plan or scoreboard: a ``git clone --shared`` checkout, the plan commit's
     protected paths laid over it, the project's test recipe and a canary run sealed by ``_jail``.
 
-    The orchestrator names the packet it measures against by ``packet`` (a sha256; the command line
-    passes ``$BH_PACKET_SHA256``) and the measurer reads it only through packet custody
-    (``bhpacket.custody_read``, in ``orch``, default ``$BH_ORCHESTRATOR_DIR``, else the repository):
-    the bytes must still hash to the digest.
-    No digest means one item named by the targets file, else after the repository.
+    The packet it measures against comes from packet custody alone (``bhpacket.custody_digest``,
+    in ``orch``, default ``$BH_ORCHESTRATOR_DIR``, else the repository): the item is the one the
+    commit's ``Packet`` trailer names, else the one named by the targets file, else the one
+    custody holds; the trailer's sha256 is only compared with the kept packet's. The kept bytes
+    must still hash to their digest. No kept packet for the item means no packet.
 
     Every input that cannot be read is a fact with its teaching and the item is unmet; nothing
     raises. A finished measurement with the same key is returned instead of measured again.
@@ -1525,23 +1523,25 @@ def measure_ref(
         (b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), "HEAD"
     )
     base = _git(top, "merge-base", sha, main)
-    digest = packet
+    trailer = _git(top, "log", "-1", "--format=%(trailers:key=Packet,valueonly)", sha).strip()
     pk: dict[str, Any] = {}
     errors: list[str] = []
     facts: list[dict[str, Any]] = []
-    if digest:
-        import bhpacket  # imports this module at load; the custody API is the one way to a packet
-
-        root = orch or Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top)
-        try:
-            pk = json.loads(bhpacket.custody_read(root, digest))
-        except (HarnessError, ValueError) as e:
-            errors.append(str(e))
     try:
         targets = load_json(cfg.file("targets"), "targets")["targets"]  # type: ignore[arg-type]
     except HarnessError:
         targets = []
     named = sorted({t["item"] for t in targets})
+    import bhpacket  # imports this module at load; the custody API is the one way to a packet
+
+    root = orch or Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top)
+    key = trailer.partition("@")[0] or (named[0] if len(named) == 1 else None)
+    digest = (key and bhpacket.custody_digest(root, key)) or bhpacket.custody_digest(root)
+    if digest:
+        try:
+            pk = json.loads(bhpacket.custody_read(root, digest))
+        except (HarnessError, ValueError) as e:
+            errors.append(str(e))
     accept = pk.get("verifier", {}).get("acceptance_paths") or ["tests/acceptance/"]
     item = pk.get("id") or (named[0] if len(named) == 1 else top.name)
     ids = [a["id"] for a in pk.get("acceptance", [])]
@@ -1555,8 +1555,7 @@ def measure_ref(
     done = _find_done(out_root / item, key) if (out_root / item).is_dir() else None
     if done is not None:
         return json.loads((done / "result.json").read_text())
-    trailer = _git(top, "log", "-1", "--format=%(trailers:key=Packet,valueonly)", sha).strip()
-    if digest and trailer and trailer != f"{item}@{digest}":
+    if digest and trailer and trailer != bhpacket.trailer(pk, digest):
         fact(
             "packet_mismatch",
             trailer,

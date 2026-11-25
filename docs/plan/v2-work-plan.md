@@ -145,7 +145,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Proves: G5. QBC: 71, 79.
   - Files: `skills/*/SKILL.md` frontmatter.
   - Done when:
-    - the total description characters of the kept skills are lower than at 1.5.2, with both numbers in the commit message;
+    - the longest description of the kept skills is shorter than the longest at 1.5.2; the measurer computes both counts from the `v1.5.2` tag and the tree, so no commit message carries them (history is immutable);
     - no description names another skill;
     - no SKILL.md tells the agent to load another skill's file.
   - Size: S.

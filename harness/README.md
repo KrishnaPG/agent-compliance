@@ -313,7 +313,7 @@ and run `bh gaps`, then `bh run` (`bh --dry-run run` first lists the agent jobs)
 
 Layout: `bin/` sits at the plugin root, the one place a plugin's executables are put on `PATH`;
 everything else of the harness is under `harness/`; the agents are at the plugin root (`agents/`).
-`uv run --script --managed-python run_tests.py` in `harness/` (the interpreter and the tools are pinned once, in that script's PEP 723 header; `.python-version` names the same interpreter) covers the measurer and its fail-closed cases, the scoring bypasses it guards against, the
+`uv run --script --managed-python run_tests.py` in `harness/` (the interpreter and the tools are pinned once, in that script's PEP 723 header; `.python-version` and `.tool-versions` name the same interpreter, and `.tool-versions` also pins the host tools, such as `just`, that a run finds through mise) covers the measurer and its fail-closed cases, the scoring bypasses it guards against, the
 status table, the toy end to end through the library calls and `bh-measure` (build on `bh/json-writer`, measure,
 merge, re-measure, commit, `all_met`), a project in a repo subdirectory, the gap checks,
 schemas, the orchestrator against a fake `claude`, a grep that bans sleep/poll loops, and project-term

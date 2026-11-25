@@ -64,3 +64,12 @@ def test_a_script_with_packages_has_its_lock(path):
     assert lock.is_file(), f"uv lock --script {path.name}"
     locked = tomllib.loads(lock.read_text())
     assert locked["requires-python"] == f"=={pinned()}.*"
+
+
+def test_one_toolchain_manifest_pins_the_interpreter_and_every_host_tool_exactly():
+    """`.tool-versions` (mise, asdf) is the plugin's one manifest of tool versions: its python is
+    the interpreter `.python-version` names, and each other tool is an exact version."""
+    tools = dict(line.split() for line in (PLUGIN / ".tool-versions").read_text().splitlines() if line.strip())
+    assert tools["python"] == pinned()
+    assert "just" in tools
+    assert all(re.fullmatch(r"[0-9]+(\.[0-9]+)*", v) for v in tools.values())

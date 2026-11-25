@@ -160,10 +160,20 @@ def job_schema(job: str) -> dict[str, Any]:
         **{k: rows[k] for k in ("row", "given", "when", "then")},  # the one row definition
     }
 
+    def target(ref: str) -> Any:
+        """A local ``#/$defs/x`` or another harness schema's ``name.schema.json#/json/pointer``."""
+        file, _, pointer = ref.partition("#")
+        if not file:
+            return defs[pointer.rsplit("/", 1)[-1]]
+        node: Any = bhcore.load_schema(file.removesuffix(".schema.json"))
+        for part in filter(None, pointer.split("/")):
+            node = node[part]
+        return node
+
     def inline(n: Any) -> Any:
         if isinstance(n, dict):
             if "$ref" in n:
-                return inline(defs[n["$ref"].rsplit("/", 1)[-1]])
+                return inline(target(n["$ref"]))
             return {k: inline(v) for k, v in n.items() if k != "description"}
         if isinstance(n, list):
             return [inline(v) for v in n]
@@ -1003,12 +1013,12 @@ class Orchestrator:
         clones = sorted(
             (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
         )
-        digest = bhpacket.hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest()
+        digest = bhpacket.custody_digest(root, item) or ""  # identity comes from custody alone
         met = False
         if clones:
             ref = f"refs/bh/{item}"
             git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
-            res = bhcore.measure_ref(self.cfg, ref, packet=digest, orch=root)
+            res = bhcore.measure_ref(self.cfg, ref, orch=root)
             facts += res["facts"]
             met = res["items"][0]["status"] == "met"
         if met and packet.get("kind") == "defect":
@@ -1275,7 +1285,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = Config(a.config, partial=bare)  # a bare measurement reads the file as an override
         bricks = cfg.file("bricks")
         if bare and not (bricks and bricks.exists()):
-            res = bhcore.measure_ref(cfg, packet=os.environ.get("BH_PACKET_SHA256"))  # no plan: measure HEAD against its plan commit
+            res = bhcore.measure_ref(cfg)  # no plan: measure HEAD against its plan commit
             for f in res["facts"]:  # the teaching lines first, the result JSON last
                 print(f["message"])
             print(json.dumps(res))

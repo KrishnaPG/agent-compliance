@@ -104,7 +104,9 @@ def commit_message(packet: dict[str, Any], digest: str) -> str:
     and the acceptance ids the change answers."""
     goal = " ".join(str(packet.get("goal", "")).split())[:60] or "build"
     ids = ", ".join(a["id"] for a in packet.get("acceptance", []))
-    return f"feat({packet['id']}): {goal}\n\nPacket: {packet['id']}@{digest}\nAcceptance: {ids}\n"
+    from bhpacket import trailer  # the one derivation of the trailer value, from the kept packet
+
+    return f"feat({packet['id']}): {goal}\n\nPacket: {trailer(packet, digest)}\nAcceptance: {ids}\n"
 
 
 def commit_build(clone: Path, packet: dict[str, Any], digest: str) -> str:

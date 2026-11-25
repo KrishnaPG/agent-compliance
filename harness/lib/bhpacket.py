@@ -255,6 +255,26 @@ def custody_read(root: Path, digest: str) -> bytes:
     return raw
 
 
+def custody_digest(root: Path, item: str | None = None) -> str | None:
+    """The digest of the item's kept packet, the one resolver from an item to its identity: the
+    newest kept packet whose id is the item (a changed packet is kept beside the old one). With
+    no item, the kept packet of the one item custody holds."""
+    kept = []
+    for f in (root / CUSTODY_DIR).glob("*.json"):
+        try:
+            pid = json.loads(f.read_bytes()).get("id")
+            kept.append((pid, f.stat().st_mtime_ns, f.stem))
+        except (OSError, ValueError, AttributeError):
+            continue
+    mine = [k for k in kept if item is None or k[0] == item]
+    return max(mine, key=lambda k: k[1:])[2] if mine and len({k[0] for k in mine}) == 1 else None
+
+
+def trailer(packet: dict[str, Any], digest: str) -> str:
+    """The commit trailer that ties a commit to its packet (L4): derived from the kept packet."""
+    return f"{packet['id']}@{digest}"
+
+
 def assemble(root: Path, item: str) -> tuple[Any, bytes, list[dict[str, str]], str]:
     """Validate the packet and apply the size cap; return (packet, bytes, facts, teaching errors)."""
     from bhorch import write_atomic
@@ -283,12 +303,14 @@ def result_json(name: str, raw: bytes, facts: list[dict[str, str]], **extra: Any
     return json.dumps(doc, indent=2) + "\n"
 
 
-def register(root: Path, clone: Path, digest: str, packet: dict[str, Any]) -> None:
-    """Put the clone's copy of the packet where the hooks read it (H0, H1, H2): a copy of the
-    kept bytes, so whatever the builder does to it changes nothing the program reads."""
+def register(root: Path, clone: Path, digest: str) -> None:
+    """Put the clone's copy of the kept packet where the hooks read it (H0, H1, H2): a copy of the
+    custody bytes, so whatever the builder does to it changes nothing the program reads."""
     from bhorch import write_atomic
 
-    write_atomic(packet_path(clone, packet["id"]), custody_read(root, digest).decode())
+    raw = custody_read(root, digest)
+    packet = json.loads(raw)
+    write_atomic(packet_path(clone, packet["id"]), raw.decode())
     for o in packet.get("overflow", []):
         src = root / o["path"]
         if src.is_file():
@@ -308,7 +330,7 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
     clone = root / CLONES_DIR / f"{item}-{digest[:12]}"
     base = bhorch.git(root, "rev-parse", "HEAD").stdout.strip()  # the base commit the program records
     bhbuilder.make_clone(root, clone, base)
-    register(root, clone, digest, packet)
+    register(root, clone, digest)
     cfg = root / ".brick-harness" / "config.json"
     sandbox = json.loads(cfg.read_bytes()).get("sandbox") if cfg.is_file() else None
     settings = bhbuilder.write_settings(

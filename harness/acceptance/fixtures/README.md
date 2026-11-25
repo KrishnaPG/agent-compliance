@@ -16,7 +16,7 @@ An optional `meta.json` in a state dir (not copied into the repo): `{"remote": t
 
 ## planted: `planted/<plant>/` (or `planted/<plant>@<repo name>/` when it differs per repo)
 
-An overlay in the same format as a repo state (files copied over the repo; `.atdd-delete`). `where` decides how it is applied: `candidate_commit` (default) commits it on branch `candidate` on top of `base` and checks that branch out; `working_tree` leaves it uncommitted; `plan_commit` commits it on `main`, moves tag `base` to it and rebases `candidate`. A plant of the plugin repo is applied to a copy of the tree, never to the tree.
+An overlay in the same format as a repo state (files copied over the repo; `.atdd-delete`). `where` decides how it is applied: `candidate_commit` (default) commits it on branch `candidate` on top of `base` and checks that branch out; `working_tree` leaves it uncommitted; `plan_commit` commits it on `main`, moves tag `base` to it and rebases `candidate`. `main_commit` commits it on `main` after the candidate branched and leaves tag `base` and `candidate` alone, so main and the candidate diverge (give the candidate plant first). A plant of the plugin repo is applied to a copy of the tree, never to the tree.
 Tests a plant adds may use `$ATDD_OUTSIDE` (a directory outside the checkout, with a file the suite digests) in their environment.
 
 ## recorded_model: `recorded_model/<fixture>.json`

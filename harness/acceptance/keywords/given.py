@@ -82,6 +82,13 @@ def given_planted(ctx, plant, **kw):
             git(ctx, "rebase", "-q", R["main_branch"])
         elif cur != R["main_branch"]:
             git(ctx, "checkout", "-q", cur)
+    elif where == "main_commit":  # main moves on after the candidate branched: base tag and candidate stay where they are
+        cur = git(ctx, "rev-parse", "--abbrev-ref", "HEAD").stdout.strip()
+        git(ctx, "checkout", "-q", R["main_branch"])
+        overlay(src, r)
+        git(ctx, "add", "-A")
+        git(ctx, "commit", "-q", "-m", f"main: {plant}")
+        git(ctx, "checkout", "-q", cur)
     else:
         has_cand = git(ctx, "rev-parse", "--verify", "-q", R["candidate_branch"], check=False).returncode == 0
         git(ctx, "checkout", "-q", *([R["candidate_branch"]] if has_cand else ["-b", R["candidate_branch"]]))
@@ -172,7 +179,6 @@ def given_packet(ctx, fixture, variant):
     orch = ctx.work / "orchestrator" / P["custody_dir"]  # the orchestrator keeps the packet by digest
     orch.mkdir(parents=True, exist_ok=True)
     (orch / f"{digest}.json").write_bytes(raw)
-    ctx.state["env"]["BH_PACKET_SHA256"] = digest  # the orchestrator names the packet it measures against
     r = writable_repo(ctx)
     inrepo = r / P["packets_dir"] / f"{pid}.json"
     tracked = git(ctx, "ls-files", "--error-unmatch", str(inrepo.relative_to(r)), check=False).returncode == 0

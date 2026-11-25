@@ -86,6 +86,9 @@ def init_env(ctx):
         "PATH": f"{work / 'bin'}{os.pathsep}{os.environ.get('PATH', '')}",
         "HOME": str(work / "home"),
         "LC_ALL": "C.UTF-8",
+        # the row's HOME is empty, so the host's pinned toolchain (uv's interpreters and cache, mise's tools) is named where it lives
+        "XDG_CACHE_HOME": os.environ.get("XDG_CACHE_HOME") or str(Path.home() / ".cache"),
+        "XDG_DATA_HOME": os.environ.get("XDG_DATA_HOME") or str(Path.home() / ".local" / "share"),
         "PYTHONDONTWRITEBYTECODE": "1",
         "PYTHONPATH": "",
         "GIT_AUTHOR_NAME": "Fixture", "GIT_AUTHOR_EMAIL": "fixture@example.invalid", "GIT_AUTHOR_DATE": FIXED_DATE,
@@ -98,6 +101,7 @@ def init_env(ctx):
         CONTRACT["env"]["answers_file"]: str(work / "answers.json"),
         "ATDD_MODEL_STATE": str(work / "model.state"),
         "ATDD_TREE": str(ctx.tree),
+        "MISE_GLOBAL_CONFIG_FILE": str(ctx.tree / ".tool-versions"),  # the plugin's one toolchain manifest pins the host tools (just) a run finds through mise shims
         "ATDD_OUTSIDE": str(work / "outside"),
         "BH_ORCHESTRATOR_DIR": str(work / "orchestrator"),  # where the program finds the authoritative packets
     }

@@ -384,7 +384,8 @@
             "where": {
               "enum": [
                 "working_tree",
-                "plan_commit"
+                "plan_commit",
+                "main_commit"
               ]
             }
           }
@@ -476,6 +477,7 @@
                 "valid",
                 "mechanical",
                 "design_field",
+                "empty_goal",
                 "scenario_without_traces_to",
                 "scenario_without_verification",
                 "over_cap",
@@ -608,7 +610,8 @@
                 "where": {
                   "enum": [
                     "working_tree",
-                    "plan_commit"
+                    "plan_commit",
+                    "main_commit"
                   ]
                 }
               }
@@ -664,7 +667,6 @@
                 "validate_packet",
                 "launch_builder",
                 "merge",
-                "gap_review",
                 "generate_tests",
                 "commit_build"
               ]
