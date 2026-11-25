@@ -168,19 +168,28 @@ def _pattern_match(entry: str, tool: str, path: str, clone: Path) -> bool:
     return fnmatch(rel, pat) or fnmatch(path, pat) or fnmatch(rel, pat.rstrip("/") + "/*")
 
 
+def _launch(ctx):
+    """The builder acts only inside a launch (R5: a builder starts only with its packet): the
+    program's one launch path makes the clone and that launch's settings; its result JSON is the run's."""
+    pk = ctx.state.get("packet")
+    if pk is None:
+        missing("the row gives no packet, and a builder is launched only with its packet", "give the row a packet")
+    launch = when_program_step(ctx, "launch_builder", item=pk["id"])
+    r = repo(ctx)
+    clones = sorted((r / P["clones_dir"]).glob(f"{pk['id']}-*"), key=lambda p: p.stat().st_mtime)
+    if not clones:
+        missing(f"step launch_builder made no clone under {P['clones_dir']} (exit {launch.exit_code})", "launch the builder in a clone of the base commit")
+    settings = r / P["launch_settings"].format(clone=clones[-1].name)
+    if not settings.exists():
+        missing(f"the launch's builder settings {settings.relative_to(r)} do not exist", "generate the builder settings before a launch")
+    ctx.state.update(clone=clones[-1], settings=settings, launch=launch)
+
+
 def when_builder_action(ctx, tool, action, target):
     r = repo(ctx)
-    settings_src = r / P["builder_settings"]
-    if not settings_src.exists():
-        missing(f"the generated builder settings {P['builder_settings']} do not exist", "generate the builder settings before a launch")
-    settings = json.loads(settings_src.read_text())
-    clone = ctx.state.get("clone")
-    if clone is None:
-        clone = ctx.work / "clone"
-        subprocess.run(["git", "clone", "-q", "--shared", str(r), str(clone)], check=True, capture_output=True, env=base_env(ctx))
-        (clone / P["builder_settings"]).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(settings_src, clone / P["builder_settings"])
-        ctx.state["clone"] = clone
+    if ctx.state.get("clone") is None:
+        _launch(ctx)
+    clone, settings, launch = ctx.state["clone"], json.loads(ctx.state["settings"].read_text()), ctx.state["launch"]
     pk = ctx.state.get("packet")
     if target == "acceptance_test":
         files = [f for f in (clone.glob("tests/**/*.py"))]
@@ -226,7 +235,7 @@ def when_builder_action(ctx, tool, action, target):
         if p.returncode:
             refused, by, msg = True, "sandbox", (p.stderr or p.stdout).strip()
     after = digest_files([path]) if Path(path).is_file() else ""
-    run = Run(["builder_action", tool, action, target], 1 if refused else 0, msg, msg, 0.0, "builder_action")
+    run = Run(["builder_action", tool, action, target], 1 if refused else 0, launch.stdout, msg, 0.0, "builder_action")
     run.runs = [run]
     run.extra.update(refused=refused, by=by, message=msg, tool_result=msg, changed=before != after, target_path=str(path), primary=msg)
     return run

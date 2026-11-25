@@ -152,7 +152,8 @@ def source(ctx, name):
             missing(f"no packet file under {P['packets_dir']}", "write the packet where the program reads packets")
         return json.loads(files[-1].read_text())
     if name == "builder_settings":
-        return load_json_file(r / P["builder_settings"], "the generated builder settings")
+        launched = sorted(r.glob(P["launch_settings"].format(clone="*")), key=lambda p: p.stat().st_mtime)
+        return load_json_file(ctx.state.get("settings") or (launched[-1] if launched else r / P["launch_settings"].format(clone="<clone>")), "the generated builder settings")
     if name == "hooks_json":
         return load_json_file(ctx.tree / P["hooks_json"], "hooks/hooks.json")
     if name == "register":
@@ -692,7 +693,11 @@ def then_git(ctx, **kw):
         need(CONTRACT["program_identity"] in who.lower().split("|")[0], f"the commit was made by {who}, not the program", "commit as the program")
     elif a == "path_in_plan_commit":
         pats = _expand_placeholder(ctx, kw["path"]) or [kw["path"]]
-        files = git(ctx, "show", "--name-only", "--format=", R["plan_ref"]).stdout.split()
+        # the plan commit: the program's, whose Packet trailer names the row's packet (packet-standards
+        # L3); before the program planned, the fixture's plan commit, tag base (a plan_commit plant moves it)
+        pid = (ctx.state.get("packet") or {}).get("id", "")
+        plan = git(ctx, "log", "-1", "--format=%H", "--fixed-strings", f"--grep={R['plan_trailer']}: {pid}@", R["main_branch"]).stdout.strip()
+        files = git(ctx, "show", "--name-only", "--format=", plan or R["base_tag"]).stdout.split()
         from fnmatch import fnmatch
 
         need(any(fnmatch(f, p) for f in files for p in pats), f"the plan commit holds no file matching {pats}", "add it to the plan commit")

@@ -39,6 +39,10 @@ Replay: mitmproxy (pinned in `harness/run_tests.py`) answers from the flow files
 
 The five enum values from the row, then `touch` (`first` when the row omits it), joined by dots, for example `PreToolUse.Edit.builder.registered.outside_packet_paths.first.json`. The file is the exact hook-input JSON Claude Code sends on stdin. For `touch: repeat` the hook is run twice with it and the second run is read.
 
+## Running the rows
+
+`harness/acceptance/run.sh <tree> [pytest args]`. The builder launch probe refuses an account in the docker group (R10). On a host whose account is in it, `run.sh` re-runs itself as the same account with its supplementary groups dropped (`sudo -n setpriv --clear-groups`, environment kept); without passwordless sudo, run the rows from an account outside that group.
+
 ## packet: `packet/<fixture>/<variant>.json`
 
 A schema-valid (or deliberately invalid, per `variant`) packet with the d0 fields: `id`, `parent_issue`, `tier`, `goal`, `applies[*]`, `constraints.declared_paths`, `acceptance[*].{id,traces_to,verification}`, `verifier.{rules,targets,acceptance_paths}`, `paved_road.{test_paths,dependency_command,check_command}`, `definition_of_done`. Its `id` names it. The file is copied to `.brick-harness/packets/<id>.json` in the repo (unless that path is already tracked, so a plant can supply an edited one) and to the orchestrator's authoritative copy outside the repo. `$packet_sha256`, `$acceptance_ids` and `$packet.<path>` (the value at that packet path, for example `$packet.verifier.acceptance_paths`; a list matches when any element does) are read from it.
@@ -76,4 +80,4 @@ The approved output a `snapshot` row compares with, kept by syrupy (pinned in `h
 
 ## Names outside the field list
 
-Field names are fixed in `docs/atdd/fields.yaml`; fixtures use only those. Everything else the keywords assume (where files are written, the `bh` and step command lines, hook selection, the program's git identity) is one line each in `../keywords/contract.json`. Fixtures that depend on it: `hook_input` files (the hook command names), builder settings (`.brick-harness/builder-settings.json`, Claude Code settings shape with `permissions.allow|deny`, `sandbox.filesystem.allowWrite|denyWrite` and an optional `messages.<Tool>` denial text), `host` file stubs such as the run lock, and `packet` variants whose declaration the packet schema does not name (`config_change` is written as `pyproject.toml` in `constraints.declared_paths`).
+Field names are fixed in `docs/atdd/fields.yaml`; fixtures use only those. Everything else the keywords assume (where files are written, the `bh` and step command lines, hook selection, the program's git identity) is one line each in `../keywords/contract.json`. Fixtures that depend on it: `hook_input` files (the hook command names), builder settings (the launch's own `.brick-harness/launch/<clone>.settings.json`: a `builder_action` first launches the builder for the row's packet through `bh step launch_builder` and acts in that launch's clone; Claude Code settings shape with `permissions.allow|deny`, `sandbox.filesystem.allowWrite|denyWrite` and an optional `messages.<Tool>` denial text), `host` file stubs such as the run lock, and `packet` variants whose declaration the packet schema does not name (`config_change` is written as `pyproject.toml` in `constraints.declared_paths`).
