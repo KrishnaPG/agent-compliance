@@ -60,9 +60,10 @@ def job_totals(out_dir: Path) -> dict[str, dict[str, float]]:
     are stored; item totals are computed)."""
     totals: dict[str, dict[str, float]] = {}
     for f in sorted((out_dir / "jobs").glob("*.json")):
-        if f.name.endswith((".input.json", ".error.json")):
+        if f.name.endswith(".input.json"):
             continue
-        j = json.loads(f.read_text()).get("record") or {}
+        doc = json.loads(f.read_text())  # a failed job's file is its record; a finished job's holds it
+        j = doc if f.name.endswith(".error.json") else doc.get("record") or {}
         if not j.get("item"):
             continue
         tok = j.get("tokens") or 0

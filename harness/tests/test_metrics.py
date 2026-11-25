@@ -42,13 +42,14 @@ def test_metrics_from_a_recorded_history_with_a_baseline_written_once(tmp_path, 
     jobs = proj / ".brick-harness" / "out" / "jobs"  # the order engine's state: one kept record per finished job
     jobs.mkdir(parents=True)
     for rec in (
-        {"id": "a1", "item": "gh-1", "role": "builder", "tokens": 60, "round": 1},
+        {"id": "a1", "item": "gh-1", "role": "builder", "tokens": 50, "round": 1},
         {"id": "a2", "item": "gh-1", "role": "builder", "tokens": 40, "round": 2},  # two rounds: rounds is the highest
         {"id": "b", "item": "gh-2", "role": "builder", "tokens": {"input": 250, "output": 50}, "round": 1},
         {"id": "c", "item": "gh-3", "role": "builder", "tokens": 500, "round": 3},
     ):
         (jobs / f"{rec['id']}.json").write_text(json.dumps({"record": rec, "output": None}))
     (jobs / "b.input.json").write_text(json.dumps({"item": "gh-2", "tokens": 900}))  # a job's input is no record
+    (jobs / "e.error.json").write_text(json.dumps({"id": "e", "item": "gh-1", "tokens": 10}))  # a failed job's record counts too
     history = [
         issue(1, "slice", T0, 10), issue(2, "slice", T0, 10), issue(3, "slice", T0 + 40 * H, 10),
         issue(9, "defect", T0 + 12 * H, 1),  # a defect under slice 1, after its merge

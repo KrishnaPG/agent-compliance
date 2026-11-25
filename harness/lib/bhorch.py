@@ -1155,7 +1155,7 @@ class Orchestrator:
             return await self.merge_item(root, packet, met_sha, facts)
         if feedback or first > len(rounds):
             facts.append(
-                {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds"}
+                {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds for this packet; a changed packet or a higher max_rounds starts more"}
             )
         return "unmet"
 
@@ -1175,7 +1175,7 @@ class Orchestrator:
         res = bhcore.measure_ref(self.cfg, plan or "HEAD", orch=root)
         accept = res["items"][0]["acceptance"]
         if accept and all(a["status"] == "met" for a in accept):  # no criterion measured is never met
-            self.program_step("red_run", item, t0, digest)
+            self.program_step("red_run", item, t0, digest, 1)  # not red: exit 0 is recorded only for red
             return [], True  # every criterion's test passes at HEAD
         module = bhpacket.acceptance_file(packet).removesuffix(".py").replace("/", ".")
         ids = [a["id"] for a in packet["acceptance"]]
@@ -1457,6 +1457,38 @@ class Orchestrator:
 # ---------------------------------------------------------------- printing and the CLI
 
 
+def result_doc(cmd: str, r: dict[str, Any]) -> dict[str, Any]:
+    """The result JSON a bh command prints as its last stdout line, made of d0's decided result and
+    ``jobs[*]`` fields only (docs/atdd/fields.yaml); the whole run document stays in
+    ``<command>-result.json`` and the summary text."""
+    rounds = [x for x in (r.get("phases") or {}).get("rounds") or [] if "status" in x]
+    verdict = lambda st: st if st in ("met", "unmet", "stuck") else "unmet"  # noqa: E731
+    jobs = []
+    for j in r.get("jobs", []):
+        tok = j.get("tokens") or 0
+        row = {
+            "id": j.get("id") or j.get("key"),
+            "kind": j.get("kind", "agent"),
+            "exit_code": j.get("exit_code", 0 if j.get("ok") else 1),
+            "cost_usd": j.get("cost_usd", 0.0),
+            "tokens": sum(tok.values()) if isinstance(tok, dict) else tok,
+            "cached": bool(j.get("skipped")),
+        }
+        keep = ("role", "step", "item", "started_at", "ended_at", "packet_sha256", "round")
+        jobs.append(row | {k: j[k] for k in keep if j.get(k) is not None})
+    return {
+        "schema_version": bhcore.RESULT_VERSION,
+        "command": cmd,
+        "items": [{"id": x["item"], "status": verdict(x["status"])} for x in rounds],
+        "facts": [
+            {k: str(f[k]) for k in ("kind", "detail", "item", "message") if f.get(k) is not None}
+            for x in rounds
+            for f in x.get("facts", [])
+        ],
+        "jobs": jobs,
+    }
+
+
 def summary_text(r: dict[str, Any], path: Path | None) -> str:
     """The short text a run prints: product view first."""
     if "product" not in r:
@@ -1653,7 +1685,8 @@ def main(argv: list[str] | None = None) -> int:
     path = orch.out / f"{a.cmd}-result.json"
     if not a.dry_run:
         write_atomic(path, json.dumps(result, indent=2, default=str) + "\n")
-    print(summary_text(result, None if a.dry_run else path))
+    print(summary_text(result, None if a.dry_run else path))  # the human's view first, the result JSON last
+    print(json.dumps(result_doc(a.cmd, result), default=str))
     return 1 if result["errors"] else 0
 
 
