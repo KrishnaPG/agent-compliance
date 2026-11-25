@@ -431,7 +431,7 @@ def _jail(
     and the whole jail dies with its parent (no process-group handling of our own). A
     toolchain's cache (uv, mise, pip: XDG Base Directory spec ``XDG_CACHE_HOME``) and temp
     files (POSIX ``TMPDIR``) go to the jail's own ``/tmp``, thrown away with it; what the
-    tools need was installed into ``co`` before the seal (``bhinfer.PREPARE``).
+    tools need was installed into ``co`` before the seal (``prepare``).
     """
     seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
     seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
@@ -559,16 +559,7 @@ def measure_item(
         mine = mine + [{"item": item, "metric": "rules.violations", "op": "==", "value": 0}]
 
     def step(name: str, cmd: str) -> bool:
-        sealed = name != "env_setup"  # installing dependencies needs the network
-        r = _run(
-            _render(cmd, ctx),
-            workdir,
-            root,
-            env,
-            timeout,
-            [cfg.dir / HDIR] if sealed else None,
-            [out],
-        )
+        r = _run(_render(cmd, ctx), workdir, root, env, timeout, [cfg.dir / HDIR], [out])
         r["name"] = name
         runs.append(r)
         if r["exit"] != 0:
@@ -578,8 +569,10 @@ def measure_item(
             return False
         return True
 
-    if cmds.get("env_setup"):
-        step("env_setup", cmds["env_setup"])
+    setup_runs, setup_error = prepare(cfg, workdir, env, ctx, cmds, root)
+    runs += setup_runs
+    if setup_error:
+        errors.append(setup_error)
     test = cmds.get("test")
     if test and test.get("pending"):
         errors.append(f"test: command not yet present ({test['pending']})")
@@ -1424,17 +1417,32 @@ def _project_environ() -> dict[str, str]:
     return env
 
 
-def _prepare(cfg: Config, co: Path, env: dict[str, str], slot: int) -> str | None:
-    """Install checkout ``co``'s declared toolchain: the configured ``commands.env_setup``,
-    else the install its lockfiles name (``bhinfer.PREPARE``). The error, or None."""
-    own = cfg.data.get("commands", {}).get("env_setup")
-    ctx = {"out": env.get("BH_OUT", co), "workdir": co, "root": co, **cfg.slot(slot)}
-    cmds = [_render(own, ctx)] if own else bhinfer.infer(co).get("install", {}).get("value", [])
-    for cmd in cmds:
-        r = _run(cmd, co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)))
+def prepare(
+    cfg: Config,
+    co: Path,
+    env: dict[str, str],
+    ctx: dict[str, Any],
+    commands: dict[str, Any] | None = None,
+    root: Path | None = None,
+) -> tuple[list[dict[str, Any]], str | None]:
+    """The measurer's one toolchain install, run open before every sealed run of every measurement
+    path (``measure_item``, ``measure_ref`` and its base side in ``diff_facts``), so a build is
+    never met on one path and unmet on another for want of a dependency. ``commands`` (default the
+    config's; ``measure_item`` passes the item's, ``Config.commands_for``) may name its own
+    ``env_setup``; else the install the project dir ``root`` (default ``co``) names by its
+    lockfiles (``bhinfer.infer``). Returns the runs (each named ``env_setup``) and the first error, or None."""
+    cmds = cfg.data.get("commands", {}) if commands is None else commands
+    root = root or co
+    own = cmds.get("env_setup")
+    todo = [_render(own, ctx)] if own else bhinfer.infer(root).get("install", {}).get("value", [])
+    runs: list[dict[str, Any]] = []
+    for cmd in todo:
+        r = _run(cmd, co, root, env, float(cmds.get("timeout_s", 600))) | {"name": "env_setup"}
+        runs.append(r)
         if r["exit"] != 0:
-            return f"env_setup `{cmd}`: exit {r['exit']}: {r['tail'][-300:]}"
-    return None
+            why = f"exit {r['exit']}" if r["exit"] is not None else "timeout"
+            return runs, f"env_setup: `{cmd}` {why}: {r['tail'][-300:]}"
+    return runs, None
 
 
 def _prepare_hooks(co: Path, env: dict[str, str], timeout: float) -> str | None:
@@ -1679,7 +1687,7 @@ def diff_facts(
     with clean_checkout(top, base) as bco:
         benv = dict(_project_environ(), BH_OUT=str(bco))
         junit = bco / ".bh-junit.xml"
-        _prepare(cfg, bco, benv, 0)
+        prepare(cfg, bco, benv, {"out": bco, "workdir": bco, "root": bco, **cfg.slot(0)})
         _run(
             _test_cmd(bco, junit, benv),
             bco,
@@ -1833,7 +1841,8 @@ def measure_ref(
     with clean_checkout(top, sha, clone) as co:
         overlay_plan(cfg, top, co, base)
         env = dict(_project_environ(), BH_OUT=str(out))
-        setup_error = None if self_check else _prepare(cfg, co, env, slot)  # a check runs on what setup installed
+        ctx = {"item": item, "out": out, "workdir": co, "root": co, "ref": sha, **cfg.slot(slot)}
+        setup_error = prepare(cfg, co, env, ctx)[1]  # every measurement installs the same way, bh check too
         hooks_error = None if setup_error else _prepare_hooks(co, env, timeout)
         if setup_error:  # its own fact, whatever the checks then do
             errors.append(setup_error)
@@ -1891,7 +1900,6 @@ def measure_ref(
             if not bench:
                 errors.append("bench targets but no bench command")
                 break
-            ctx = {"item": item, "out": out, "root": co, "workdir": co, "ref": sha}  # the config's placeholders
             _run(
                 _render(bench["run"], ctx), co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)),
                 seal, [out],
