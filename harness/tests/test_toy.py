@@ -25,7 +25,7 @@ def write_rows(rows: list[dict[str, str]]) -> str:
     return json.dumps(rows, ensure_ascii=False)
 '''
 ENV = dict(
-    os.environ,
+    {k: v for k, v in os.environ.items() if k not in ("GIT_AUTHOR_DATE", "GIT_COMMITTER_DATE")},  # commit dates are real time: the harvest window compares them with measurement times
     GIT_AUTHOR_NAME="t",
     GIT_AUTHOR_EMAIL="t@example.invalid",
     GIT_COMMITTER_NAME="t",
