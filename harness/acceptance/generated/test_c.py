@@ -180,6 +180,7 @@ def test_c2_AC5(ctx):
     ctx.when('program_step', {'step': 'ask_once', 'rerun': True})
     ctx.then('questions_asked', {'count': 0})
     ctx.then('file_unchanged', {'target': 'project_config'})
+    ctx.then('paths', {'paths': ['CODEOWNERS'], 'exist': True})
 
 
 @pytest.mark.criterion('c3-AC1')
@@ -190,6 +191,7 @@ def test_c3_AC1(ctx):
     ctx.when('program_step', {'step': 'apply_presets'})
     ctx.then('file_unchanged', {'target': 'project_config'})
     ctx.then('git', {'assert': 'no_git_hook_installed'})
+    ctx.then('questions_asked', {'count': 1})
 
 
 @pytest.mark.criterion('c3-AC2')
@@ -253,6 +255,7 @@ def test_c3_AC7(ctx):
     ctx.given('recorded_answer', {'question': 'write_pre_commit_hooks', 'answer': 'decline'})
     ctx.when('program_step', {'step': 'apply_presets'})
     ctx.then('paths', {'paths': ['.pre-commit-config.yaml'], 'exist': False})
+    ctx.then('questions_asked', {'count': 1})
 
 
 @pytest.mark.criterion('c3-AC8')
@@ -270,6 +273,7 @@ def test_c3_AC9(ctx):
     ctx.given('recorded_answer', {'question': 'write_pre_commit_hooks', 'answer': 'approve'})
     ctx.when('program_step', {'step': 'apply_presets'})
     ctx.then('git', {'assert': 'no_git_hook_installed'})
+    ctx.then('paths', {'paths': ['.pre-commit-config.yaml'], 'exist': True})
 
 
 @pytest.mark.criterion('c3-AC10')
@@ -295,10 +299,14 @@ def test_c3_AC11(ctx):
 
 @pytest.mark.criterion('c3-AC12')
 def test_c3_AC12(ctx):
-    # The measurer holds no call to a linter or checker of its own
-    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['bin/bh-measure'], 'kind': 'text', 'pattern': 'ruff|eslint|oxlint|sqlfluff|ast-grep|pre-commit'})
-    ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    # The measurer reports a planted naive datetime only through the project recipes
+    ctx.given('repo', {'name': 'toy', 'state': 'presets_applied'})
+    ctx.given('host', {'condition': 'claude_code_absent'})
+    ctx.given('planted', {'plant': 'naive_datetime', 'class': 'violation', 'where': 'working_tree'})
+    ctx.when('bh', {'sub': 'measure'})
+    ctx.then('fact', {'kind': 'red', 'detail': 'DTZ'})
+    ctx.then('teaching', {'channel': 'fact', 'wrong': 'DTZ005 datetime without tzinfo', 'right': 'pass tz=timezone.utc', 'prevent': 'run the project test recipe so ruff DTZ reports it before commit'})
+    ctx.then('file_unchanged', {'target': 'project_config'})
 
 
 @pytest.mark.criterion('c4-AC1')
@@ -370,18 +378,22 @@ def test_c4_AC7(ctx):
     ctx.given('planted', {'plant': 'baselines_shrunk_and_include_list_grown', 'class': 'honest', 'where': 'candidate_commit'})
     ctx.when('bh', {'sub': 'check'})
     ctx.then('no_fact', {'kind': 'ratchet_growth'})
+    ctx.then('exit_code', {'code': 0})
 
 
 @pytest.mark.criterion('c5-AC1')
 def test_c5_AC1(ctx):
-    # The parity report covers HO-02, ID-15 and RL-08 in Python and TypeScript
+    # The parity report runs old and new on every valid and invalid case and lists per rule what each catches
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('bh', {'sub': 'check', 'args': ['parity']})
-    ctx.then('fact', {'kind': 'parity', 'detail': 'HO-02'})
-    ctx.then('fact', {'kind': 'parity', 'detail': 'ID-15'})
-    ctx.then('fact', {'kind': 'parity', 'detail': 'RL-08'})
-    ctx.then('fact', {'kind': 'parity', 'detail': 'python'})
-    ctx.then('fact', {'kind': 'parity', 'detail': 'typescript'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'HO-02.python-test.yml'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'HO-02.typescript-test.yml'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'ID-15.python-test.yml'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'ID-15.typescript-test.yml'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'RL-08.python-test.yml'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'RL-08.typescript-test.yml'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'valid'})
+    ctx.then('fact', {'kind': 'parity', 'detail': 'invalid'})
 
 
 @pytest.mark.criterion('c5-AC2')
@@ -506,6 +518,24 @@ def test_c7_AC4(ctx):
     ctx.then('field', {'source': 'owners_output', 'path': 'sources', 'op': 'contains', 'value': 'openapi'})
 
 
+@pytest.mark.criterion('c7-AC5')
+def test_c7_AC5(ctx):
+    # Database roles are read from the database catalog through the libpq PG variables
+    ctx.given('repo', {'name': 'project', 'state': 'database_roles_only'})
+    ctx.given('host', {'condition': 'database_via_pg_env'})
+    ctx.when('bh', {'sub': 'owners', 'args': ['billing']})
+    ctx.then('field', {'source': 'owners_output', 'path': 'database_roles', 'op': 'present'})
+
+
+@pytest.mark.criterion('c7-AC11')
+def test_c7_AC11(ctx):
+    # Database roles are read from the database catalog through DATABASE_URL
+    ctx.given('repo', {'name': 'project', 'state': 'database_roles_only'})
+    ctx.given('host', {'condition': 'database_via_url'})
+    ctx.when('bh', {'sub': 'owners', 'args': ['billing']})
+    ctx.then('field', {'source': 'owners_output', 'path': 'database_roles', 'op': 'present'})
+
+
 @pytest.mark.criterion('c7-AC6')
 def test_c7_AC6(ctx):
     # Packages are read from package.json exports
@@ -554,14 +584,14 @@ def test_c7_AC10(ctx):
 
 @pytest.mark.criterion('c8-AC1')
 def test_c8_AC1(ctx):
-    # pgTAP is vetted before the fitness checks name it
+    # A vet record for pgTAP at its pinned version is committed with its three results and its decision
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.given('recorded_api', {'service': 'github', 'fixture': 'vet_pgtap'})
-    ctx.given('recorded_api', {'service': 'scorecard', 'fixture': 'vet_pgtap'})
-    ctx.given('recorded_api', {'service': 'deps_dev', 'fixture': 'vet_pgtap'})
-    ctx.given('recorded_api', {'service': 'osv', 'fixture': 'vet_pgtap'})
-    ctx.when('bh', {'sub': 'vet', 'args': ['pgtap']})
-    ctx.then('fact', {'kind': 'vet_result', 'detail': 'pgtap'})
+    ctx.when('scan', {'paths': ['docs/design/evidence/vet-pgtap.md'], 'kind': 'path'})
+    ctx.then('paths', {'paths': ['docs/design/evidence/vet-pgtap.md'], 'exist': True})
+    ctx.then('file_contains', {'path': 'docs/design/evidence/vet-pgtap.md', 'text': 'Scorecard'})
+    ctx.then('file_contains', {'path': 'docs/design/evidence/vet-pgtap.md', 'text': 'deps.dev'})
+    ctx.then('file_contains', {'path': 'docs/design/evidence/vet-pgtap.md', 'text': 'OSV'})
+    ctx.then('file_contains', {'path': 'docs/design/evidence/vet-pgtap.md', 'text': 'Decision'})
 
 
 @pytest.mark.criterion('c8-AC2')
@@ -675,3 +705,4 @@ def test_c9_AC3(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'presets_applied'})
     ctx.when('bh', {'sub': 'check'})
     ctx.then('no_fact', {'kind': 'unwired'})
+    ctx.then('exit_code', {'code': 0})

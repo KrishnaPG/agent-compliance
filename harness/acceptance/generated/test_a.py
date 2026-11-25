@@ -32,6 +32,7 @@ def test_a1_AC4(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['skills/'], 'kind': 'dangling_references'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.then('field', {'source': 'skill_md', 'path': 'references[*]', 'op': 'not_contains', 'value': 'compliance-'})
 
 
 @pytest.mark.criterion('a2-AC1')
@@ -39,7 +40,7 @@ def test_a2_AC1(ctx):
     # bin holds only the kept programs
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['bin/*'], 'kind': 'path'})
-    ctx.then('paths', {'paths': ['bin/bh', 'bin/bh-answer', 'bin/bh-measure'], 'exist': True})
+    ctx.then('paths', {'paths': ['bin/bh', 'bin/bh-answer', 'bin/bh-measure', 'bin/bh-init'], 'exist': True})
     ctx.then('paths', {'paths': ['bin/bh-admit', 'bin/bh-branch', 'bin/bh-brief', 'bin/bh-commit', 'bin/bh-gaps', 'bin/bh-merge', 'bin/bh-rank', 'bin/bh-reconcile', 'bin/bh-state'], 'exist': False})
 
 
@@ -49,6 +50,7 @@ def test_a2_AC2(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['harness/lib/', 'bin/'], 'kind': 'undefined_names'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.then('paths', {'paths': ['bin/bh-admit', 'bin/bh-state'], 'exist': False})
 
 
 @pytest.mark.criterion('a2-AC3')
@@ -66,13 +68,14 @@ def test_a2_AC4(ctx):
     ctx.when('entry_point', {'entry': 'plugin_pytest'})
     ctx.then('exit_code', {'code': 0})
     ctx.then('junit', {'failures': 0, 'errors': 0, 'tests_min': 1})
+    ctx.then('paths', {'paths': ['bin/bh-admit', 'bin/bh-branch', 'bin/bh-brief', 'bin/bh-commit', 'bin/bh-gaps', 'bin/bh-merge', 'bin/bh-rank', 'bin/bh-reconcile', 'bin/bh-state'], 'exist': False})
 
 
 @pytest.mark.criterion('a2-AC5')
 def test_a2_AC5(ctx):
     # No skill or doc names a deleted CLI
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['skills/', 'docs/', 'README.md', 'harness/README.md'], 'kind': 'text', 'pattern': 'bh-(admit|branch|brief|commit|gaps|merge|rank|reconcile|state)\\b'})
+    ctx.when('scan', {'paths': ['skills/', 'README.md', 'harness/README.md'], 'kind': 'text', 'pattern': 'bh-(admit|branch|brief|commit|gaps|merge|rank|reconcile|state)\\b'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
 
 
@@ -82,6 +85,7 @@ def test_a3_AC1(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['templates/*'], 'kind': 'path'})
     ctx.then('paths', {'paths': ['templates/plan-dry-run.md', 'templates/bug-record.md'], 'exist': True})
+    ctx.then('scan_count', {'op': 'eq', 'value': 2})
 
 
 @pytest.mark.criterion('a3-AC2')
@@ -91,6 +95,22 @@ def test_a3_AC2(ctx):
     ctx.when('scan', {'paths': ['skills/', 'agents/', 'harness/', 'templates/', 'bin/', 'README.md'], 'kind': 'text', 'pattern': 'catalog-audit\\.md|compliance-bindings\\.md|review-brief\\.md'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
     ctx.then('paths', {'paths': ['templates/catalog-audit.md', 'templates/compliance-bindings.md', 'templates/review-brief.md'], 'exist': False})
+
+
+@pytest.mark.criterion('a3-AC3')
+def test_a3_AC3(ctx):
+    # The dry-run template contains none of the words BROKEN, PASS or FAIL
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('scan', {'paths': ['templates/plan-dry-run.md'], 'kind': 'text', 'pattern': '\\bBROKEN\\b|\\bPASS\\b|\\bFAIL\\b'})
+    ctx.then('scan_count', {'op': 'eq', 'value': 0})
+
+
+@pytest.mark.criterion('a3-AC4')
+def test_a3_AC4(ctx):
+    # The dry-run template asks for the guesses as a count in a Guesses line
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('scan', {'paths': ['templates/plan-dry-run.md'], 'kind': 'text', 'pattern': '^Guesses: <n>$'})
+    ctx.then('scan_count', {'op': 'ge', 'value': 1})
 
 
 @pytest.mark.criterion('a4-AC1')

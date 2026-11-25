@@ -2,6 +2,15 @@
 import pytest
 
 
+@pytest.mark.criterion('d0-AC1')
+def test_d0_AC1(ctx):
+    # A valid packet fixture validates against the one packet schema
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('validate', {'instance': 'toy_item_packet', 'schema': 'harness/schema/packet.schema.json'})
+    ctx.then('schema_valid', {'valid': True})
+
+
 @pytest.mark.criterion('d0-AC2')
 def test_d0_AC2(ctx):
     # The assembled packet carries id and parent_issue
@@ -21,6 +30,18 @@ def test_d0_AC3(ctx):
     ctx.then('field', {'source': 'packet', 'path': 'tier', 'op': 'eq', 'value': 'mechanical'})
     ctx.then('field', {'source': 'packet', 'path': 'goal', 'op': 'present'})
     ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
+
+
+@pytest.mark.criterion('d0-AC4')
+def test_d0_AC4(ctx):
+    # applies holds all principles and the QBC ids
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies', 'op': 'contains', 'value': 'P1'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies', 'op': 'contains', 'value': 'P12'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies', 'op': 'contains', 'value': 'QBC-24'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies[*].text', 'op': 'in_file', 'value': 'docs/spec/quality-by-construction.md'})
 
 
 @pytest.mark.criterion('d0-AC5')
@@ -44,6 +65,17 @@ def test_d0_AC6(ctx):
     ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].id', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].traces_to', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].verification', 'op': 'matches', 'value': '^(test|lint|fitness|measure)$'})
+
+
+@pytest.mark.criterion('d0-AC7')
+def test_d0_AC7(ctx):
+    # Content over the size cap is referenced by path and the packet still validates
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'over_cap'})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('fact', {'kind': 'over_cap'})
+    ctx.then('field', {'source': 'packet', 'path': 'overflow[*].path', 'op': 'exists'})
+    ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
 
 
 @pytest.mark.criterion('d0-AC8')
@@ -106,6 +138,18 @@ def test_d1_AC2(ctx):
     ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
 
 
+@pytest.mark.criterion('d1-AC4')
+def test_d1_AC4(ctx):
+    # A lowered token limit makes the same packet over the cap, and over the cap is a fact
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'over_cap'})
+    ctx.given('config', {'state': 'override', 'key': 'sizing.packet_tokens', 'value': 400})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('fact', {'kind': 'over_cap'})
+    ctx.then('field', {'source': 'packet', 'path': 'overflow[*].path', 'op': 'exists'})
+    ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
+
+
 @pytest.mark.criterion('d1-AC5')
 def test_d1_AC5(ctx):
     # A launch is never refused for size
@@ -152,12 +196,23 @@ def test_d2_AC3(ctx):
 
 @pytest.mark.criterion('d2-AC4')
 def test_d2_AC4(ctx):
-    # The packet carries the lint and fitness rules with teaching messages and the ratchet baselines
-    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    # On the toy with presets applied the packet carries the enabled rules with their teaching messages and the ratchet baselines
+    ctx.given('repo', {'name': 'toy', 'state': 'presets_applied'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'render_packet', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'packet', 'path': 'verifier', 'op': 'present'})
+    ctx.then('output_contains', {'channel': 'packet_markdown', 'text': 'DTZ'})
     ctx.then('output_contains', {'channel': 'packet_markdown', 'text': 'baseline'})
+    ctx.then('lines', {'channel': 'stdout', 'pattern': 'DTZ', 'op': 'ge', 'count': 1})
+
+
+@pytest.mark.criterion('d2-AC5')
+def test_d2_AC5(ctx):
+    # The packet holds the text of every cited rule and decision line
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints[*].text', 'op': 'in_file', 'value': 'docs/adr/toy_item.md'})
 
 
 @pytest.mark.criterion('d2-AC6')
@@ -206,6 +261,18 @@ def test_d2_AC10(ctx):
     ctx.then('output_contains', {'channel': 'packet_markdown', 'text': 'final report'})
 
 
+@pytest.mark.criterion('d3-AC1')
+def test_d3_AC1(ctx):
+    # bh check reports a planted violation in the clone working tree through the same checks as the measurer
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'naive_datetime', 'class': 'violation', 'where': 'working_tree'})
+    ctx.given('host', {'condition': 'builder_sandbox'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('teaching', {'channel': 'stdout', 'wrong': 'naive datetime without a timezone', 'right': 'use a timezone-aware datetime', 'prevent': 'run bh check before finishing so the lint rule reports it'})
+    ctx.then('file_unchanged', {'target': 'outside_checkout'})
+
+
 @pytest.mark.criterion('d3-AC2')
 def test_d3_AC2(ctx):
     # Two bh check runs at the same moment both complete, with no lock
@@ -230,6 +297,19 @@ def test_d3_AC3(ctx):
     ctx.then('exit_code', {'code': 0})
 
 
+@pytest.mark.criterion('d3-AC4')
+def test_d3_AC4(ctx):
+    # bh check prints the missed checks' teaching messages and states what it skips
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'naive_datetime', 'class': 'violation', 'where': 'working_tree'})
+    ctx.given('host', {'condition': 'builder_sandbox'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('teaching', {'channel': 'stdout', 'wrong': 'naive datetime without a timezone', 'right': 'use a timezone-aware datetime', 'prevent': 'run bh check before finishing so the lint rule reports it'})
+    ctx.then('output_contains', {'channel': 'stdout', 'text': 'fresh-stack'})
+    ctx.then('lines', {'channel': 'stdout', 'pattern': '@teaching_shape|fresh-stack', 'every': True})
+
+
 @pytest.mark.criterion('d3-AC6')
 def test_d3_AC6(ctx):
     # A finish without bh check is not refused
@@ -240,6 +320,16 @@ def test_d3_AC6(ctx):
     ctx.then('no_fact', {'kind': 'launch_refused'})
     ctx.then('no_fact', {'kind': 'stuck'})
     ctx.then('exit_code', {'code': 0})
+
+
+@pytest.mark.criterion('d4-AC1')
+def test_d4_AC1(ctx):
+    # The authoritative packet is kept by digest in the orchestrator's directory and a launch leaves it unchanged
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'launch_builder', 'item': 'toy_item'})
+    ctx.then('file_unchanged', {'target': 'orchestrator_packet'})
+    ctx.then('field', {'source': 'job_record', 'path': 'jobs[*].packet_sha256', 'op': 'eq', 'value': '$packet_sha256'})
 
 
 @pytest.mark.criterion('d4-AC2')
@@ -261,6 +351,7 @@ def test_d4_AC3(ctx):
     ctx.given('hook_input', {'event': 'SessionStart', 'tool': 'none', 'agent_type': 'builder', 'packet': 'registered', 'target': 'none', 'touch': 'repeat'})
     ctx.when('hook', {'hook': 'H1'})
     ctx.then('field', {'source': 'hook_output', 'path': 'additionalContext', 'op': 'absent'})
+    ctx.then('exit_code', {'code': 0})
 
 
 @pytest.mark.criterion('d4-AC4')
@@ -280,6 +371,7 @@ def test_d4_AC5(ctx):
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('builder_action', {'tool': 'Edit', 'action': 'edit', 'target': 'clone_packet'})
     ctx.then('file_unchanged', {'target': 'orchestrator_packet'})
+    ctx.then('field', {'source': 'job_record', 'path': 'jobs[*].packet_sha256', 'op': 'eq', 'value': '$packet_sha256'})
 
 
 @pytest.mark.criterion('d4-AC6')
@@ -288,6 +380,7 @@ def test_d4_AC6(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['hooks/hooks.json', 'harness/lib/'], 'kind': 'text', 'pattern': 'SubagentStart'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.then('field', {'source': 'hooks_json', 'path': 'hooks.SessionStart', 'op': 'present'})
 
 
 @pytest.mark.criterion('d5-AC1')
@@ -378,57 +471,156 @@ def test_d5_AC8(ctx):
 
 @pytest.mark.criterion('d6-AC1')
 def test_d6_AC1(ctx):
-    # The test author runs before the builder as a separate job and the measurer last
+    # The test author runs before the builder as a separate job and writes acceptance rows into the packet
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.given('recorded_model', {'fixture': 'test_author_then_builder'})
+    ctx.given('recorded_model', {'fixture': 'test_author_rows'})
     ctx.when('bh', {'sub': 'run'})
-    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'builder', 'measurer']})
-    ctx.then('jobs', {'assert': 'distinct', 'values': ['test_author', 'builder', 'measurer']})
+    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'builder']})
+    ctx.then('jobs', {'assert': 'distinct', 'values': ['test_author', 'builder']})
+    ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].verification', 'op': 'present'})
 
 
 @pytest.mark.criterion('d6-AC2')
 def test_d6_AC2(ctx):
-    # The visible acceptance tests are in protected paths, the builder cannot change them
+    # The acceptance rows the test author wrote are valid against the criteria schema
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('recorded_model', {'fixture': 'test_author_rows'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'docs/atdd/criteria.schema.json'})
+
+
+@pytest.mark.criterion('d6-AC4')
+def test_d6_AC4(ctx):
+    # Each generated test is marked by its criterion id in the project's framework
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
+    ctx.then('field', {'source': 'manifest', 'path': 'toy_item-AC1', 'op': 'contains', 'value': 'toy_item-AC1'})
+
+
+@pytest.mark.criterion('d6-AC5')
+def test_d6_AC5(ctx):
+    # The generated tests and the manifest are committed in protected paths in the plan commit
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
+    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$acceptance_paths'})
+
+
+@pytest.mark.criterion('d6-AC6')
+def test_d6_AC6(ctx):
+    # The builder cannot change the protected generated tests
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.given('host', {'condition': 'builder_sandbox'})
     ctx.when('builder_action', {'tool': 'Edit', 'action': 'edit', 'target': 'acceptance_test'})
     ctx.then('file_unchanged', {'target': 'acceptance_tests'})
-    ctx.then('refused', {'by': 'file_tools', 'wrong': 'edit of a visible acceptance test', 'right': 'ask the test author to change the test', 'prevent': 'acceptance test paths are protected from the builder'})
+    ctx.then('refused', {'by': 'file_tools', 'wrong': 'edit of a protected acceptance test', 'right': 'ask the test author to change the row and regenerate the test', 'prevent': 'acceptance test paths are protected from the builder'})
     ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$acceptance_paths'})
 
 
-@pytest.mark.criterion('d6-AC3')
-def test_d6_AC3(ctx):
-    # A test that is red on main for a real reason is recorded as red
+@pytest.mark.criterion('d6-AC7')
+def test_d6_AC7(ctx):
+    # A row whose keyword the generator does not implement is a fact with teaching, never an empty test
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.given('recorded_model', {'fixture': 'test_author_red'})
+    ctx.given('planted', {'plant': 'unimplemented_keyword_row', 'class': 'violation', 'where': 'plan_commit'})
+    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
+    ctx.then('fact', {'kind': 'gap', 'detail': 'questions_asked'})
+    ctx.then('teaching', {'channel': 'fact', 'wrong': 'the generator does not implement the keyword questions_asked', 'right': "implement questions_asked in the generator or change the row's keyword", 'prevent': "add the keyword's implementation before the row enters the packet"})
+    ctx.then('field', {'source': 'manifest', 'path': 'toy_item-AC9', 'op': 'absent'})
+
+
+@pytest.mark.criterion('d6-AC8')
+def test_d6_AC8(ctx):
+    # Every generated test fails on main by an assertion and is recorded red
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('recorded_model', {'fixture': 'test_author_rows'})
     ctx.when('bh', {'sub': 'run'})
+    ctx.then('junit', {'tests_min': 1, 'errors': 0})
     ctx.then('fact', {'kind': 'red'})
     ctx.then('no_fact', {'kind': 'red_by_error'})
 
 
-@pytest.mark.criterion('d6-AC4')
-def test_d6_AC4(ctx):
-    # A test that is red on main by an error goes back to the test author
+@pytest.mark.criterion('d6-AC9')
+def test_d6_AC9(ctx):
+    # A test that errors on main is recorded red-by-error and its row goes back to the test author
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.given('recorded_model', {'fixture': 'test_author_red_by_error'})
+    ctx.given('planted', {'plant': 'test_errors_on_main', 'class': 'defect', 'where': 'plan_commit'})
+    ctx.given('recorded_model', {'fixture': 'test_author_rows'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('fact', {'kind': 'red_by_error'})
-    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'test_author', 'builder']})
+    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'generator', 'test_author', 'generator', 'builder']})
 
 
-@pytest.mark.criterion('d6-AC5')
-def test_d6_AC5(ctx):
-    # A defect gets a regression test recorded as failing at the parent and passing at the fix
+@pytest.mark.criterion('d6-AC10')
+def test_d6_AC10(ctx):
+    # For a defect the test author writes the regression row and "fails at the parent, passes at the fix" is recorded
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'defect'})
     ctx.given('recorded_model', {'fixture': 'test_author_regression'})
     ctx.when('bh', {'sub': 'run'})
+    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'generator', 'builder']})
     ctx.then('fact', {'kind': 'regression_recorded', 'detail': 'parent'})
+
+
+@pytest.mark.criterion('d6-AC11')
+def test_d6_AC11(ctx):
+    # For a defect found by a finder who is not the builder, the finder's regression row is used
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'defect'})
+    ctx.given('recorded_model', {'fixture': 'finder_regression_row'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('fact', {'kind': 'regression_recorded', 'detail': 'parent'})
+    ctx.then('jobs', {'assert': 'distinct', 'values': ['finder', 'builder']})
+
+
+@pytest.mark.criterion('d6-AC12')
+def test_d6_AC12(ctx):
+    # The job record shows test author, generator, builder and measurer in order, the generator not an agent
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('recorded_model', {'fixture': 'test_author_rows'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'generator', 'builder', 'measurer']})
+    ctx.then('jobs', {'assert': 'distinct', 'values': ['test_author', 'generator', 'builder', 'measurer']})
+    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['generator']})
+
+
+@pytest.mark.criterion('d6-AC13')
+def test_d6_AC13(ctx):
+    # The generator's bootstrap of the plugin's own v2 acceptance tests is accepted by the plain pytest entry point
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('entry_point', {'entry': 'plugin_pytest'})
+    ctx.then('exit_code', {'code': 0})
+    ctx.then('junit', {'failures': 0, 'errors': 0, 'tests_min': 1})
+    ctx.then('field', {'source': 'manifest', 'path': 'a1-AC1', 'op': 'present'})
+
+
+@pytest.mark.criterion('d6-AC14')
+def test_d6_AC14(ctx):
+    # A planted test without a criterion is reported with teaching
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'test_without_criterion', 'class': 'violation', 'where': 'plan_commit'})
+    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
+    ctx.then('fact', {'kind': 'gap'})
+    ctx.then('teaching', {'channel': 'fact', 'wrong': 'test without a criterion', 'right': "tests are generated from the packet's rows, one per criterion", 'prevent': 'regenerate the tests from the packet instead of writing them by hand'})
+
+
+@pytest.mark.criterion('d6-AC15')
+def test_d6_AC15(ctx):
+    # A planted criterion without a test is reported with teaching
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'criterion_without_test', 'class': 'violation', 'where': 'plan_commit'})
+    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
+    ctx.then('fact', {'kind': 'gap'})
+    ctx.then('teaching', {'channel': 'fact', 'wrong': 'criterion without a test', 'right': "tests are generated from the packet's rows, one per criterion", 'prevent': 'regenerate the tests from the packet instead of writing them by hand'})
 
 
 @pytest.mark.criterion('d7-AC1')
@@ -567,6 +759,7 @@ def test_d8_AC9(ctx):
     ctx.when('hook', {'hook': 'H2'})
     ctx.then('field', {'source': 'hook_output', 'path': 'additionalContext', 'op': 'absent'})
     ctx.then('no_fact', {'kind': 'scope'})
+    ctx.then('exit_code', {'code': 0})
 
 
 @pytest.mark.criterion('d8-AC10')
@@ -575,6 +768,7 @@ def test_d8_AC10(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['hooks/'], 'kind': 'text', 'pattern': 'read_text|\\.read\\(|open\\(|re\\.(search|match|findall)'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.then('field', {'source': 'hooks_json', 'path': 'hooks.PreToolUse', 'op': 'present'})
 
 
 @pytest.mark.criterion('d8-AC11')
@@ -691,6 +885,7 @@ def test_d10_AC3(ctx):
     # The harness skill has no more characters than version 1.5.2's
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['skills/harness/SKILL.md'], 'kind': 'file_chars'})
+    ctx.then('field', {'source': 'skill_md', 'path': 'body', 'op': 'contains', 'value': 'bh check'})
     ctx.then('threshold', {'metric': 'skill_chars', 'op': 'le', 'bound': 'ref:v1.5.2'})
 
 
@@ -715,6 +910,7 @@ def test_d11_AC2(ctx):
     ctx.given('recorded_model', {'fixture': 'reviewer_one_finding'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['reviewer']})
+    ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'generator', 'builder', 'measurer']})
 
 
 @pytest.mark.criterion('d11-AC3')
@@ -789,6 +985,16 @@ def test_d0_AC14(ctx):
     ctx.then('scan_count', {'op': 'ge', 'value': 1})
 
 
+@pytest.mark.criterion('d0-AC15')
+def test_d0_AC15(ctx):
+    # Every section 0 item that applies is traced by the packet
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'applies[*].id', 'op': 'covered_by', 'value': 'acceptance[*].traces_to[*]'})
+
+
 @pytest.mark.criterion('d0-AC16')
 def test_d0_AC16(ctx):
     # The packet is one schema-valid file only the orchestrator writes, identified by its sha256
@@ -809,49 +1015,6 @@ def test_d4_AC7(ctx):
     ctx.given('hook_input', {'event': 'SessionStart', 'tool': 'none', 'agent_type': 'builder', 'packet': 'registered', 'target': 'none', 'touch': 'first'})
     ctx.when('hook', {'hook': 'H1'})
     ctx.then('snapshot', {'name': 'toy_item_packet_markdown'})
-
-
-@pytest.mark.criterion('d6-AC7')
-def test_d6_AC7(ctx):
-    # Each generated test is marked by its criterion id
-    ctx.given('repo', {'name': 'toy', 'state': 'base'})
-    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'manifest', 'path': 'toy_item-AC1', 'op': 'contains', 'value': 'toy_item-AC1'})
-
-
-@pytest.mark.criterion('d6-AC8')
-def test_d6_AC8(ctx):
-    # The red-on-main run is JUnit XML and every test fails with an assertion failure, not an error
-    ctx.given('repo', {'name': 'toy', 'state': 'base'})
-    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.given('recorded_model', {'fixture': 'test_author_red'})
-    ctx.when('bh', {'sub': 'run'})
-    ctx.then('junit', {'tests_min': 1, 'errors': 0})
-    ctx.then('fact', {'kind': 'red'})
-    ctx.then('no_fact', {'kind': 'red_by_error'})
-
-
-@pytest.mark.criterion('d6-AC9')
-def test_d6_AC9(ctx):
-    # A planted test without a criterion is reported with teaching
-    ctx.given('repo', {'name': 'toy', 'state': 'base'})
-    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.given('planted', {'plant': 'test_without_criterion', 'class': 'violation', 'where': 'plan_commit'})
-    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
-    ctx.then('fact', {'kind': 'gap'})
-    ctx.then('teaching', {'channel': 'fact', 'wrong': 'test without a criterion', 'right': "tests are generated from the packet's rows, one per criterion", 'prevent': 'regenerate the tests from the packet instead of writing them by hand'})
-
-
-@pytest.mark.criterion('d6-AC10')
-def test_d6_AC10(ctx):
-    # A planted criterion without a test is reported with teaching
-    ctx.given('repo', {'name': 'toy', 'state': 'base'})
-    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
-    ctx.given('planted', {'plant': 'criterion_without_test', 'class': 'violation', 'where': 'plan_commit'})
-    ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
-    ctx.then('fact', {'kind': 'gap'})
-    ctx.then('teaching', {'channel': 'fact', 'wrong': 'criterion without a test', 'right': "tests are generated from the packet's rows, one per criterion", 'prevent': 'regenerate the tests from the packet instead of writing them by hand'})
 
 
 @pytest.mark.criterion('d11-AC8')

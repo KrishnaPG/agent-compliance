@@ -203,9 +203,9 @@ def test_f3_AC1(ctx):
 
 @pytest.mark.criterion('f3-AC2')
 def test_f3_AC2(ctx):
-    # The sibling sweep, per-typo issues, termination block and vetted-decision chain are gone
+    # The bug-analysis skill drops the any-defect wording, the Siblings line, the termination paragraph and the vetted-decision step
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['skills/bug-analysis/'], 'kind': 'text', 'pattern': 'per-typo|sibling|terminat|vetted-decision'})
+    ctx.when('scan', {'paths': ['skills/bug-analysis/SKILL.md'], 'kind': 'text', 'pattern': 'however small|Siblings:|touches a termination|termination tier|vetted-decision'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
 
 
@@ -249,16 +249,19 @@ def test_f3_AC6(ctx):
 
 @pytest.mark.criterion('f3-AC7')
 def test_f3_AC7(ctx):
-    # A fix commit that references its issue records no fact
+    # A fix commit that references its issue adds no fact beside the one for a nonconforming message
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('planted', {'plant': 'fix_commit_with_issue_ref', 'class': 'honest'})
+    ctx.given('planted', {'plant': 'nonconforming_commit_message', 'class': 'violation'})
     ctx.when('bh', {'sub': 'check'})
-    ctx.then('no_fact', {'kind': 'commitlint'})
+    ctx.then('fact', {'kind': 'commitlint', 'count': 1})
 
 
 @pytest.mark.criterion('f3-AC8')
 def test_f3_AC8(ctx):
-    # No commit-msg git hook is installed
+    # commitlint reports without any commit-msg git hook installed
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('planted', {'plant': 'nonconforming_commit_message', 'class': 'violation'})
     ctx.when('bh', {'sub': 'check'})
     ctx.then('git', {'assert': 'no_git_hook_installed'})
+    ctx.then('fact', {'kind': 'commitlint', 'count': 1})

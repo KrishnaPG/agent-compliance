@@ -68,14 +68,15 @@ def test_h1_AC7(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['harness/', 'bin/', 'hooks/', 'skills/', 'tests/'], 'kind': 'text', 'pattern': 'plugin eval'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.then('paths', {'paths': ['evals/ablation/*'], 'exist': True})
 
 
 @pytest.mark.criterion('h2-AC1')
 def test_h2_AC1(ctx):
-    # No wording or read-count grader remains
+    # No wording or read-count grader directory remains
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['evals/'], 'kind': 'text', 'pattern': 'read_count|reads_at_most|wording|output_contains|regex_grader'})
-    ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.when('scan', {'paths': ['evals/accuracy/*/graders', 'evals/*/graders'], 'kind': 'path'})
+    ctx.then('paths', {'paths': ['evals/accuracy/*/graders', 'evals/*/graders'], 'exist': False})
 
 
 @pytest.mark.criterion('h2-AC2')

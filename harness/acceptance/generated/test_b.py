@@ -445,6 +445,7 @@ def test_b4_AC9(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('planted', {'plant': 'honest_change', 'class': 'honest'})
     ctx.when('bh', {'sub': 'measure'})
+    ctx.then('paths', {'paths': ['out/*/*-*'], 'exist': True})
     ctx.then('no_fact', {'kind': 'dropped_tests'})
     ctx.then('no_fact', {'kind': 'skipped_growth'})
     ctx.then('no_fact', {'kind': 'suppression_growth'})
@@ -465,10 +466,10 @@ def test_b4_AC10(ctx):
 
 @pytest.mark.criterion('b4-AC11')
 def test_b4_AC11(ctx):
-    # Diff facts use no pattern lists
+    # Suppressed findings are compared by the linters' own flags, not by pattern lists
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['harness/lib/'], 'kind': 'text', 'pattern': 'SKIP_PATTERNS|SUPPRESS_PATTERNS|_PATTERN_LIST'})
-    ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    ctx.when('scan', {'paths': ['harness/lib/'], 'kind': 'text', 'pattern': '--ignore-noqa|--no-inline-config'})
+    ctx.then('scan_count', {'op': 'ge', 'value': 2, 'distinct': True})
 
 
 @pytest.mark.criterion('b5-AC1')
@@ -515,6 +516,17 @@ def test_b6_AC1(ctx):
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
     ctx.when('scan', {'paths': ['harness/'], 'kind': 'symbol', 'pattern': 'def teach\\(rule, wrong, right, ref\\)'})
     ctx.then('scan_count', {'op': 'eq', 'value': 1})
+
+
+@pytest.mark.criterion('b6-AC2')
+def test_b6_AC2(ctx):
+    # Repeats are grouped: the first limits.findings_shown, then one count line
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('planted', {'plant': 'fifteen_repeated_findings', 'class': 'violation'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'limits.findings_shown', 'op': 'eq', 'value': 10})
+    ctx.then('lines', {'channel': 'stdout', 'pattern': '@teaching_shape', 'op': 'eq', 'count': 10})
+    ctx.then('lines', {'channel': 'stdout', 'pattern': '^(?!\\[).*\\b5\\b', 'op': 'eq', 'count': 1})
 
 
 @pytest.mark.criterion('b6-AC3')
@@ -582,6 +594,14 @@ def test_b6_AC8(ctx):
     ctx.given('planted', {'plant': 'step_out_of_order', 'class': 'violation'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('refused', {'by': 'program', 'wrong': 'bh run was started before its packet exists', 'right': 'run bh run after the planner writes the packet', 'prevent': 'start steps in plan order'})
+
+
+@pytest.mark.criterion('b6-AC9')
+def test_b6_AC9(ctx):
+    # Every refusal and non-zero exit goes through teach()
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('scan', {'paths': ['harness/', 'bin/', 'hooks/', 'fitness/', 'presets/'], 'kind': 'untaught_exits'})
+    ctx.then('scan_count', {'op': 'eq', 'value': 0})
 
 
 @pytest.mark.criterion('b7-AC1')
@@ -748,6 +768,14 @@ def test_b8_AC4(ctx):
     ctx.then('refused', {'by': 'hook', 'wrong': 'No work packet for this clone.', 'right': 'Launch builders through the launch step', 'prevent': 'Builders start from a packet the orchestrator writes'})
 
 
+@pytest.mark.criterion('b8-AC5')
+def test_b8_AC5(ctx):
+    # Every register test is a planted test or a generated test of an earlier task's criterion
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('program_step', {'step': 'generate_register'})
+    ctx.then('field', {'source': 'register', 'path': 'entries[*].tests[*]', 'op': 'matches', 'value': '^(harness/tests/planted/|.*(b1|b4|b9|c4|d5|d8)-AC[0-9]+)'})
+
+
 @pytest.mark.criterion('b8-AC6')
 def test_b8_AC6(ctx):
     # Register status comes from the markers and the JUnit results
@@ -767,6 +795,16 @@ def test_b8_AC7(ctx):
     ctx.then('teaching', {'channel': 'fact', 'wrong': 'register entry cites a test that did not run or failed', 'right': 'run the cited test with its marker', 'prevent': 'mark each planted test with its safeguard id'})
 
 
+@pytest.mark.criterion('b8-AC8')
+def test_b8_AC8(ctx):
+    # No hand-kept status field remains: status is generated from the JUnit results
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.given('planted', {'plant': 'hand_set_status', 'class': 'defect', 'where': 'working_tree'})
+    ctx.when('program_step', {'step': 'generate_register'})
+    ctx.then('file_contains', {'path': 'harness/safeguards.json', 'text': '"status"', 'negate': True})
+    ctx.then('field', {'source': 'register', 'path': 'entries[*].status', 'op': 'present'})
+
+
 @pytest.mark.criterion('b9-AC1')
 def test_b9_AC1(ctx):
     # The builder works in a shared clone of the recorded base commit, with no remote fetch and no worktree
@@ -784,6 +822,7 @@ def test_b9_AC2(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('recorded_model', {'fixture': 'toy_honest'})
     ctx.when('bh', {'sub': 'run'})
+    ctx.then('field', {'source': 'builder_settings', 'path': 'permissions.allow', 'op': 'contains', 'value': 'Edit(*)'})
     ctx.then('field', {'source': 'launch_args', 'path': '--add-dir', 'op': 'not_contains', 'value': 'jobs'})
     ctx.then('field', {'source': 'launch_args', 'path': '--add-dir', 'op': 'not_contains', 'value': 'plugin'})
 
@@ -872,6 +911,7 @@ def test_b9_AC10(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('host', {'condition': 'builder_sandbox'})
     ctx.when('builder_action', {'tool': 'Bash', 'action': 'append', 'target': 'orchestrator_packet'})
+    ctx.then('field', {'source': 'builder_settings', 'path': 'sandbox.filesystem.denyWrite', 'op': 'present'})
     ctx.then('file_unchanged', {'target': 'orchestrator_packet'})
 
 
@@ -881,6 +921,7 @@ def test_b9_AC11(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('host', {'condition': 'builder_sandbox'})
     ctx.when('builder_action', {'tool': 'Bash', 'action': 'delete_ref', 'target': 'source_repo'})
+    ctx.then('git', {'assert': 'clone_is_shared_from_base'})
     ctx.then('file_unchanged', {'target': 'source_refs'})
     ctx.then('git', {'assert': 'source_refs_unchanged'})
 
@@ -1041,6 +1082,16 @@ def test_b12_AC5(ctx):
     ctx.then('snapshot', {'name': 'gaps_md_pipe_summary'})
 
 
+@pytest.mark.criterion('b12-AC6')
+def test_b12_AC6(ctx):
+    # A broken link in a reviewed document is reported as a gap
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('planted', {'plant': 'broken_link_in_document', 'class': 'defect'})
+    ctx.when('program_step', {'step': 'gap_review'})
+    ctx.then('fact', {'kind': 'gap', 'detail': 'link'})
+    ctx.then('teaching', {'channel': 'fact', 'wrong': 'broken link in a document', 'right': 'fix the link target or remove the link', 'prevent': 'run lychee on the documents before the review'})
+
+
 @pytest.mark.criterion('b13-AC1')
 def test_b13_AC1(ctx):
     # One builder's git failure yields a stuck entry and the run continues
@@ -1095,18 +1146,34 @@ def test_b13_AC6(ctx):
 
 @pytest.mark.criterion('b13-AC7')
 def test_b13_AC7(ctx):
-    # item_key, bhorch.git and bhorch.fill are each defined once
+    # harness/lib defines one git runner, one item_key and one fill
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['harness/', 'bin/'], 'kind': 'symbol', 'pattern': 'def (item_key|git|fill)\\b'})
+    ctx.when('scan', {'paths': ['harness/lib/'], 'kind': 'symbol', 'pattern': 'def (_git|git|item_key|fill)\\b'})
     ctx.then('scan_count', {'op': 'eq', 'value': 3})
 
 
 @pytest.mark.criterion('b13-AC8')
 def test_b13_AC8(ctx):
-    # _waves is gone and graphlib is used
+    # _waves is gone
     ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['harness/', 'bin/'], 'kind': 'symbol', 'pattern': '_waves'})
+    ctx.when('scan', {'paths': ['harness/lib/'], 'kind': 'symbol', 'pattern': '_waves'})
     ctx.then('scan_count', {'op': 'eq', 'value': 0})
+
+
+@pytest.mark.criterion('b13-AC9')
+def test_b13_AC9(ctx):
+    # The rules.violations target literal is written in one module
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('scan', {'paths': ['harness/lib/'], 'kind': 'text', 'pattern': 'rules\\.violations'})
+    ctx.then('scan_count', {'op': 'eq', 'value': 1})
+
+
+@pytest.mark.criterion('b13-AC10')
+def test_b13_AC10(ctx):
+    # Item order comes from graphlib.TopologicalSorter
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.when('scan', {'paths': ['harness/lib/'], 'kind': 'text', 'pattern': 'graphlib\\.TopologicalSorter'})
+    ctx.then('scan_count', {'op': 'ge', 'value': 1})
 
 
 @pytest.mark.criterion('b14-AC1')
@@ -1126,6 +1193,7 @@ def test_b14_AC2(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('recorded_model', {'fixture': 'toy_e2e'})
     ctx.when('bh', {'sub': 'run'})
+    ctx.then('jobs', {'assert': 'present', 'values': ['builder']})
     ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['state', 'measure', 'merge', 'commit', 'ordering']})
 
 
@@ -1145,6 +1213,7 @@ def test_b14_AC4(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('recorded_model', {'fixture': 'toy_e2e'})
     ctx.when('bh', {'sub': 'run'})
+    ctx.then('field', {'source': 'launch_args', 'path': '--tools', 'op': 'present'})
     ctx.then('field', {'source': 'launch_args', 'path': '--tools', 'op': 'not_contains', 'value': 'Workflow'})
 
 

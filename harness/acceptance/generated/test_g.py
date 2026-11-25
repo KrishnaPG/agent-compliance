@@ -50,10 +50,12 @@ def test_g1_AC5(ctx):
 
 @pytest.mark.criterion('g1-AC6')
 def test_g1_AC6(ctx):
-    # No entry cites only Convention
-    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['standards/'], 'kind': 'text', 'pattern': '"standard": *"Convention"'})
-    ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    # An entry that cites only Convention is reported with teaching
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('planted', {'plant': 'standards_entry_cites_only_convention', 'class': 'defect', 'where': 'working_tree'})
+    ctx.when('bh', {'sub': 'check'})
+    ctx.then('fact', {'kind': 'gap', 'detail': 'Convention'})
+    ctx.then('teaching', {'channel': 'fact', 'wrong': 'an entry cites only Convention', 'right': 'cite a standard with its pinned version, control id and URL', 'prevent': 'standards/schema.json rejects Convention as the only citation'})
 
 
 @pytest.mark.criterion('g2-AC1')
@@ -63,6 +65,7 @@ def test_g2_AC1(ctx):
     ctx.when('program_step', {'step': 'map_catalog_ids'})
     ctx.then('no_fact', {'kind': 'unmapped_rule_code'})
     ctx.then('no_fact', {'kind': 'unknown_rule'})
+    ctx.then('field', {'source': 'result_json', 'path': 'map[*].old_id', 'op': 'present'})
 
 
 @pytest.mark.criterion('g2-AC2')

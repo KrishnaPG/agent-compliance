@@ -94,6 +94,7 @@ def test_e1_AC11(ctx):
     ctx.given('recorded_answer', {'question': 'write_issue_forms', 'answer': 'decline'})
     ctx.when('program_step', {'step': 'write_forms'})
     ctx.then('paths', {'paths': ['.github/ISSUE_TEMPLATE/*'], 'exist': False})
+    ctx.then('questions_asked', {'count': 1})
 
 
 @pytest.mark.criterion('e1-AC12')
@@ -154,6 +155,7 @@ def test_e2_AC4(ctx):
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'parentless_issue'})
     ctx.when('program_step', {'step': 'intake_issue', 'rerun': True})
     ctx.then('api_call', {'service': 'github', 'operation': 'addComment', 'count': 0})
+    ctx.then('fact', {'kind': 'gap', 'detail': 'parent', 'count': 1})
 
 
 @pytest.mark.criterion('e2-AC5')
@@ -292,6 +294,7 @@ def test_e4_AC4(ctx):
     ctx.when('bh', {'sub': 'intake', 'rerun': True})
     ctx.then('api_call', {'service': 'github', 'operation': 'reopenIssue', 'count': 0})
     ctx.then('api_call', {'service': 'github', 'operation': 'updateIssue', 'count': 0, 'with': 'OPEN'})
+    ctx.then('field', {'source': 'result_json', 'path': 'skipped[*].number', 'op': 'contains', 'value': 15})
 
 
 @pytest.mark.criterion('e4-AC5')
@@ -399,6 +402,7 @@ def test_e5_AC7(ctx):
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'tracking_issue_one_sub_issue_open'})
     ctx.when('program_step', {'step': 'close_tracking'})
     ctx.then('api_call', {'service': 'github', 'operation': 'updateIssue', 'count': 0})
+    ctx.then('api_call', {'service': 'github', 'operation': 'listSubIssues', 'count': 1})
 
 
 @pytest.mark.criterion('e5-AC8')
@@ -422,14 +426,20 @@ def test_e5_AC9(ctx):
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'tracking_issue_with_checklist'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('no_fact', {'kind': 'idle_tracking'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'limits.idle_days', 'op': 'eq', 'value': 14})
 
 
 @pytest.mark.criterion('e5-AC10')
 def test_e5_AC10(ctx):
-    # The idle check has no timer
-    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
-    ctx.when('scan', {'paths': ['harness/lib/bhtracker.py'], 'kind': 'text', 'pattern': 'sleep|Timer|schedule|cron'})
-    ctx.then('scan_count', {'op': 'eq', 'value': 0})
+    # The idle report needs no timer, it appears in the next bh run
+    ctx.given('repo', {'name': 'project', 'state': 'tracking_issue_open'})
+    ctx.given('history', {'fixture': 'tracking_issue_idle_20_days', 'period': 'v2'})
+    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 14})
+    ctx.given('recorded_api', {'service': 'github', 'fixture': 'tracking_issue_with_checklist'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('fact', {'kind': 'idle_tracking', 'count': 1})
+    ctx.then('exit_code', {'code': 0})
+    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['timer']})
 
 
 @pytest.mark.criterion('e6-AC1')
@@ -454,6 +464,7 @@ def test_e6_AC2(ctx):
     ctx.then('api_call', {'service': 'github', 'operation': 'createMilestone', 'count': 0})
     ctx.then('api_call', {'service': 'github', 'operation': 'createProject', 'count': 0})
     ctx.then('api_call', {'service': 'github', 'operation': 'createLabel', 'count': 0})
+    ctx.then('exit_code', {'code': 0})
 
 
 @pytest.mark.criterion('e6-AC3')
@@ -466,3 +477,5 @@ def test_e6_AC3(ctx):
     ctx.then('api_call', {'service': 'github', 'operation': 'createMilestone', 'count': 0})
     ctx.then('api_call', {'service': 'github', 'operation': 'createProject', 'count': 0})
     ctx.then('api_call', {'service': 'github', 'operation': 'createLabel', 'count': 0})
+    ctx.then('exit_code', {'code': 0})
+    ctx.then('questions_asked', {'count': 1})
