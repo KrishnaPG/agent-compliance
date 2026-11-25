@@ -168,9 +168,9 @@ def test_f2_AC2(ctx):
     ctx.given('recorded_api', {'service': 'deps_dev', 'fixture': 'package_ok'})
     ctx.given('recorded_api', {'service': 'osv', 'fixture': 'package_ok'})
     ctx.when('bh', {'sub': 'vet', 'args': ['pypi', 'example-pkg@1.2.3']})
-    ctx.then('field', {'source': 'result_json', 'path': 'scorecard', 'op': 'present'})
-    ctx.then('field', {'source': 'result_json', 'path': 'deps_dev', 'op': 'present'})
-    ctx.then('field', {'source': 'result_json', 'path': 'osv', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'api_results[id=scorecard].body', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'api_results[id=deps.dev].body', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'api_results[id=osv].body', 'op': 'present'})
     ctx.then('field', {'source': 'result_json', 'path': 'verdict', 'op': 'absent'})
 
 

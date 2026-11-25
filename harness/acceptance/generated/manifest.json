@@ -1280,6 +1280,10 @@
       "node": "test_d.py::test_d9_AC1",
       "slice": "d"
     },
+    "d9-AC10": {
+      "node": "test_d.py::test_d9_AC10",
+      "slice": "d"
+    },
     "d9-AC2": {
       "node": "test_d.py::test_d9_AC2",
       "slice": "d"
@@ -1298,6 +1302,14 @@
     },
     "d9-AC7": {
       "node": "test_d.py::test_d9_AC7",
+      "slice": "d"
+    },
+    "d9-AC8": {
+      "node": "test_d.py::test_d9_AC8",
+      "slice": "d"
+    },
+    "d9-AC9": {
+      "node": "test_d.py::test_d9_AC9",
       "slice": "d"
     },
     "e1-AC1": {

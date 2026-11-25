@@ -890,6 +890,34 @@ def test_d10_AC1(ctx):
     ctx.then('field', {'source': 'skill_md', 'path': 'body', 'op': 'contains', 'value': 'bh check'})
 
 
+@pytest.mark.criterion('d9-AC8')
+def test_d9_AC8(ctx):
+    # With no override file the job budget is 20 and the run budget is the job budget times the concurrency
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.given('config', {'state': 'absent'})
+    ctx.when('bh', {'sub': 'owners', 'args': ['--config']})
+    ctx.then('field', {'source': 'config_effective', 'path': 'budgets.job_usd', 'op': 'eq', 'value': 20})
+    ctx.then('field', {'source': 'config_effective', 'path': 'budgets.run_usd', 'op': 'eq', 'value': 100})
+
+
+@pytest.mark.criterion('d9-AC9')
+def test_d9_AC9(ctx):
+    # An overridden job budget scales the computed run budget
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.given('config', {'state': 'override', 'key': 'budgets.job_usd', 'value': 10})
+    ctx.when('bh', {'sub': 'owners', 'args': ['--config']})
+    ctx.then('field', {'source': 'config_effective', 'path': 'budgets.run_usd', 'op': 'eq', 'value': 50})
+
+
+@pytest.mark.criterion('d9-AC10')
+def test_d9_AC10(ctx):
+    # An overridden concurrency scales the computed run budget
+    ctx.given('repo', {'name': 'plugin', 'state': 'candidate'})
+    ctx.given('config', {'state': 'override', 'key': 'concurrency', 'value': 2})
+    ctx.when('bh', {'sub': 'owners', 'args': ['--config']})
+    ctx.then('field', {'source': 'config_effective', 'path': 'budgets.run_usd', 'op': 'eq', 'value': 40})
+
+
 @pytest.mark.criterion('d10-AC2')
 def test_d10_AC2(ctx):
     # The harness skill references no deleted skill

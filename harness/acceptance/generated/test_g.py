@@ -66,6 +66,7 @@ def test_g2_AC1(ctx):
     ctx.then('no_fact', {'kind': 'unmapped_rule_code'})
     ctx.then('no_fact', {'kind': 'unknown_rule'})
     ctx.then('field', {'source': 'result_json', 'path': 'map[*].old_id', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'map[*].new_id', 'op': 'present'})
 
 
 @pytest.mark.criterion('g2-AC2')

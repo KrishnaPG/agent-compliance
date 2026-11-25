@@ -31,7 +31,8 @@ def test_h1_AC3(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('recorded_model', {'fixture': 'toy_ablation_arm'})
     ctx.when('bh', {'sub': 'metrics'})
-    ctx.then('field', {'source': 'result_json', 'path': 'measurer_rounds', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=measurer_rounds][window=current].value', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=measurer_rounds][window=current].unit', 'op': 'eq', 'value': 'count'})
     ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].rounds', 'op': 'present'})
 
 
@@ -120,9 +121,9 @@ def test_h3_AC1(ctx):
     ctx.given('history', {'fixture': 'dora_v2', 'period': 'v2'})
     ctx.when('bh', {'sub': 'metrics'})
     ctx.then('exit_code', {'code': 0})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.change_failure_rate', 'op': 'present'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.lead_time_hours', 'op': 'present'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.tokens_per_met_slice', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=change_failure_rate][window=current].value', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=lead_time_for_changes][window=current].value', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=tokens_per_met_slice][window=current].value', 'op': 'present'})
 
 
 @pytest.mark.criterion('h3-AC2')
@@ -131,7 +132,8 @@ def test_h3_AC2(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'v2_history'})
     ctx.given('history', {'fixture': 'dora_four_merged_one_later_defect', 'period': 'v2'})
     ctx.when('bh', {'sub': 'metrics'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.change_failure_rate', 'op': 'eq', 'value': 0.25})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=change_failure_rate][window=current].value', 'op': 'eq', 'value': 0.25})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=change_failure_rate][window=current].unit', 'op': 'eq', 'value': 'ratio'})
 
 
 @pytest.mark.criterion('h3-AC3')
@@ -140,7 +142,7 @@ def test_h3_AC3(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'v2_history'})
     ctx.given('history', {'fixture': 'dora_defect_before_merge', 'period': 'v2'})
     ctx.when('bh', {'sub': 'metrics'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.change_failure_rate', 'op': 'eq', 'value': 0})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=change_failure_rate][window=current].value', 'op': 'eq', 'value': 0})
 
 
 @pytest.mark.criterion('h3-AC4')
@@ -149,7 +151,8 @@ def test_h3_AC4(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'v2_history'})
     ctx.given('history', {'fixture': 'dora_slice_opened_to_merged_48h', 'period': 'v2'})
     ctx.when('bh', {'sub': 'metrics'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.lead_time_hours', 'op': 'eq', 'value': 48})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=lead_time_for_changes][window=current].value', 'op': 'eq', 'value': 48})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=lead_time_for_changes][window=current].unit', 'op': 'eq', 'value': 'hours'})
 
 
 @pytest.mark.criterion('h3-AC5')
@@ -158,7 +161,8 @@ def test_h3_AC5(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'v2_history'})
     ctx.given('history', {'fixture': 'dora_900k_tokens_three_met', 'period': 'v2'})
     ctx.when('bh', {'sub': 'metrics'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.tokens_per_met_slice', 'op': 'eq', 'value': 300000})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=tokens_per_met_slice][window=current].value', 'op': 'eq', 'value': 300000})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=tokens_per_met_slice][window=current].unit', 'op': 'eq', 'value': 'tokens'})
 
 
 @pytest.mark.criterion('h3-AC6')
@@ -188,8 +192,8 @@ def test_h3_AC8(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'v2_history'})
     ctx.given('history', {'fixture': 'dora_both', 'period': 'both'})
     ctx.when('bh', {'sub': 'metrics'})
-    ctx.then('field', {'source': 'result_json', 'path': 'pre_v2.change_failure_rate', 'op': 'present'})
-    ctx.then('field', {'source': 'result_json', 'path': 'v2.change_failure_rate', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=change_failure_rate][window=baseline].value', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'metrics[id=change_failure_rate][window=current].value', 'op': 'present'})
     ctx.then('snapshot', {'name': 'metrics_side_by_side'})
 
 
