@@ -100,6 +100,7 @@ def when_program_step(ctx, step, item=None, rerun=False):
 
 def when_entry_point(ctx, entry, mode=None):
     env = {"UV_OFFLINE": "1"} if mode == "uv_script_offline" else {}
+    env["HOME"] = os.environ["HOME"]  # the host's python tooling (pyenv, mise shims) is found through HOME
     if entry == "plugin_pytest":
         junit = ctx.work / "junit-plugin-pytest.xml"
         argv = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
