@@ -652,13 +652,15 @@ def project_rules(cfg: Any) -> list[dict[str, str]]:
 
 
 def selector_misses(
-    cfg: Any, brick: dict[str, Any], selected: list[str], findings: list[dict[str, Any]]
+    cfg: Any, brick: dict[str, Any], selected: list[str], findings: list[dict[str, Any]], base: str | None = None
 ) -> list[dict[str, Any]]:
     """Facts for the run result: a finding whose house rule was not in the item's packet is a
     ``selector_miss`` naming the rule and the tags it applies by that the item's sources missed
-    (none: it applies only when the planner adds it). ``selected`` is every id the packet lists."""
+    (none: it applies only when the planner adds it). ``selected`` is every id the packet lists;
+    ``base`` reads the contract's code facts before the diff, as ``select_rules`` does, so a
+    review run with HEAD checked out still names the tag the diff brought in."""
     house = rules_doc(cfg).get("house", {})
-    have = {"always"} | set(stack_tags(cfg)) | set(contract_tags(cfg, brick))
+    have = {"always"} | set(stack_tags(cfg)) | set(contract_tags(cfg, brick, base))
     out = []
     for r in dict.fromkeys(f.get("rule") for f in findings if f.get("rule") in house and f.get("rule") not in selected):
         miss = sorted(set(house[r].get("applies", [])) - have)
