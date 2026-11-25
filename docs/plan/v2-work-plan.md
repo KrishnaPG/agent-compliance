@@ -79,7 +79,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 | PC-M18 paid, nondeterministic tests inside "met" | Recorded fixtures and a stub `claude` in every acceptance test. Paid runs only in h1 |
 | PC-M19 approvals indistinguishable from agents | The approvals task is removed: it serves no G or R item, and P12 applies. Residual: no approval is identity-checked |
 | PC-M20 Bash when the sandbox probe fails | b10: a failed self-test refuses the launch. b9: Bash is allowed only through `autoAllowBashIfSandboxed`, never pre-approved |
-| PC excess: former e6 and e7, approvals, review trigger, g2 sweep, b8/d13 overlap, a5 filing, d7 judge | The former e6 and e7, the approvals task and the review-trigger task are removed. g2 is cut down. b8 now holds the planted suite, so the two overlapping tasks are one. a5 files nothing. d7's judge has an outcome |
+| PC excess: former e6 and e7, approvals, review trigger, g2 sweep, b8/d13 overlap, a5 filing, d7 judge | The former e6 and e7 and the approvals task are removed; the review trigger is kept as d11 (QBC-36, P6, NIST SSDF PW.7). g2 is cut down. b8 now holds the planted suite, so the two overlapping tasks are one. a5 files nothing. d7's judge has an outcome |
 | PC minor 1 stale references | Fixed by this rewrite |
 | PC minor 2 trigger for bringing back hidden tests | h3's change-failure rate (post-merge defects traced to a slice) is the named trigger |
 | PC minor 3 ts-comment growth | b4: counted with `@typescript-eslint/ban-ts-comment` at base and candidate |
@@ -122,7 +122,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 | IR-m2 two trigger lists | d5: one list, each trigger with a fresh-stack flag |
 | IR-m3 coverage overstated | c5's parity report |
 | IR-m4 Major count | Evidence correction only |
-| IR-m5 review-trigger detector | Not planned: the review-trigger task serves no G or R item. 1.5.2's reviewer job stays as is |
+| IR-m5 review-trigger detector | d11 (paths inferred from standard files, overridable) |
 | IR-m6 PostToolUse linter | Not planned: `bh check` (d3) is the paved road. Revisit only if h1 measures rounds lost to lint |
 | IR-m7 pgTAP | c8 |
 | IR-m8 published parts | c7, c8 |
@@ -185,7 +185,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
    - **d0-d3, the packet format and the paved road.** These need only b1 (and b5 for d0), because d3 shares the measurer's code.
 3. **b9 and b10, the builder restrictions and launch preconditions.** They come only after d0-d3 are met.
 4. **c**, after b. c3, c4, c6 and c8 feed rule data into d2's packet as each lands.
-5. **d4-d10**, after b9. d8 needs c7 for H2's owner line. d7 needs f1's judge.
+5. **d4-d11**, after b9. d8 needs c7 for H2's owner line. d7 needs f1's judge.
 6. **e**, after d (d9's limits, d6's test author).
 7. **f**, after g. f3 also needs e1 and c3.
 8. **h**, alongside:
@@ -493,7 +493,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
 
 ### d. Flow (#11), design-affecting
 
-d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d10 come after b9.
+d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
 
 - [ ] **d0. L2 packet format.**
   - Proves: R5, R3, G3, P1, P6. QBC: 24, 31, 33, 37, 38, 39, 42.
@@ -635,6 +635,17 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d10 come after b9.
     - references no deleted skill;
     - has no more characters than 1.5.2's.
   - Size: S.
+
+- [ ] **d11. Independent review of security-sensitive diffs** (QBC-36, IR-m5).
+  - Proves: P6, G1, P4, P8. QBC: 31, 36.
+  - Files: `harness/lib/bhorch.py` (replaces `AUTH_RE`), `agents/harness-reviewer.md`, plugin defaults table.
+  - Standards: NIST SSDF PW.7; OWASP SAMM design and implementation review.
+  - Done when, with recorded fixtures:
+    - the program launches a fresh reviewer job, one that neither planned, tested nor built the item, only when the item's whole diff across all rounds touches the security-sensitive paths: auth, keys, grants, money or signatures;
+    - those paths are inferred from standard files (OpenAPI `securitySchemes` and secured operations, role and grant files, money types, key and signing paths), are overridable in `.brick-harness/config.json` (`review.triggers`), and `AUTH_RE` is gone;
+    - a planted split diff still triggers the review, and a diff outside those paths launches none;
+    - findings are recorded as facts on the item and handed to e5; the review never changes met or blocks a merge.
+  - Size: M.
 
 ### e. Intake (#12), design-affecting, after d
 
@@ -781,7 +792,7 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d10 come after b9.
     - the tests run on a recorded history fixture.
   - Size: M.
 
-Task counts: a 5, b 14, c 9, d 11, e 6, f 3, g 2, h 3 (53).
+Task counts: a 5, b 14, c 9, d 12, e 6, f 3, g 2, h 3 (54).
 
 ## 5. How ATDD follows
 
@@ -795,7 +806,6 @@ Task counts: a 5, b 14, c 9, d 11, e 6, f 3, g 2, h 3 (53).
 - QBC ids cited on no task, because no single task tests them:
   - 1, 6, 7 and 14 are principles that the tasks carry out;
   - 17 and 52 are withdrawn;
-  - 36, the review trigger, serves no §0 item, so it is not planned;
   - 95 is the rollout order;
   - 96, 97, 99, 101 and 102 record decisions.
 - Rollout steps 4-6 (adoption in the pilot, generators) are outside slices a-h. f1 ships before step 4.
