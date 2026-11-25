@@ -1,6 +1,11 @@
 #!/usr/bin/env python3
 """A fake host CLI for the orchestrator tests: no model, no network, no cost.
 
+Contract of ``--agents`` (https://code.claude.com/docs/en/cli-reference): a JSON object defining the agents, inline; with
+``--print`` the value may instead be the path to a JSON file holding that object (Claude Code 2.1.281 and later). The docs
+give no marker, so this stub tells them apart by the text: a value starting with ``{`` is the object, anything else a path.
+(It never stats the value: a stat of a long JSON string raises ENAMETOOLONG on Python 3.12 and 3.13.) bhorch passes inline JSON.
+
 It stands in for ``claude -p --agent ... --output-format json`` and behaves from a spec file
 (``$FAKE_CLAUDE_SPEC``, JSON):
 
