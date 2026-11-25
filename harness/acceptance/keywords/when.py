@@ -70,22 +70,25 @@ def _finish(ctx, runs, kind, what, sub=None):
     return last
 
 
-def _run_many(ctx, argv, n, rerun, stdin="", env_extra=None):
+def _run_many(ctx, argv, n, rerun, stdin="", env_extra=None, between_runs=None):
     def once(_):
         return execute(ctx, argv, stdin=stdin, env_extra=env_extra)
 
     runs = parallel(once, n) if n > 1 else [once(0)]
     if rerun:
         ctx.state["after_first"] = digests(ctx)
+        if between_runs:
+            from given import given_planted
+            given_planted(ctx, between_runs["planted"], where=between_runs.get("where", "candidate_commit"), **{"class": None})
         second = [once(0)]
         second[0].first = runs[0]
         return second
     return runs
 
 
-def when_bh(ctx, sub, args=None, parallel=1, rerun=False):
+def when_bh(ctx, sub, args=None, parallel=1, rerun=False, between_runs=None):
     argv = sut_argv(ctx, CONTRACT["argv"]["bh"]) + [sub, *(args or [])]
-    runs = _run_many(ctx, argv, parallel, rerun)
+    runs = _run_many(ctx, argv, parallel, rerun, between_runs=between_runs)
     return _finish(ctx, runs, "bh", f"bh {sub}", sub)
 
 

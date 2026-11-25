@@ -49,6 +49,7 @@ terms:
 placeholders:
   packet_sha256: "the sha256 of the given packet file"
   acceptance_ids: "the given packet's `acceptance[*].id` values, joined by \", \""
+  measure_out: "the measurer's output root: the `paths.measure_out` of the effective config (default `.brick-harness/out`), relative to the repo; it needs no packet given. Rows anchor output paths at `$measure_out/...`, so they follow the config"
   packet: "written $packet.<path>: the value at that docs/atdd/fields.yaml packet path of the given packet; a list matches when any one element does"
 
 verification:
@@ -61,7 +62,7 @@ compatibility: >-
   A then-entry's `after` lists the when-keys whose output it can read; `needs_given` lists
   given-keys the row must hold; `conditional` makes parameters required for a parameter value
   (if) or when another parameter is present (if_present, which may widen `after`).
-  A value using a `$<placeholder>` (see `placeholders`) needs a `packet` given. build.py reports every row that breaks these, and every key or
+  A value using a `$<placeholder>` (see `placeholders`) needs a `packet` given, except `$measure_out`. build.py reports every row that breaks these, and every key or
   enum value no row uses (comparison operators excepted), so the catalog stays the smallest
   that covers the rows.
 
@@ -263,6 +264,8 @@ given:
 when:
   bh:
     meaning: Run a `bh` subcommand once, or `parallel` times at the same moment.
+    conditional:
+      - {if_present: between_runs, require: [rerun]}
     params:
       sub:
         type: enum
@@ -277,6 +280,13 @@ when:
       args: {type: list, items: string, required: false}
       parallel: {type: integer, minimum: 1, required: false, doc: "default 1"}
       rerun: {type: boolean, required: false, doc: "true: run twice; assertions read the second run, and file_unchanged compares the state after the first run with the state after the second"}
+      between_runs:
+        type: object
+        required: false
+        doc: "needs `rerun`: a plant applied after the first run and before the second, so the second run sees changed inputs (without it both runs see identical inputs). `planted` names the plant as in the planted given; `where` is as there (default candidate_commit)"
+        fields:
+          planted: {type: id}
+          where: {type: enum, ref: planted.where, required: false}
     passes_when: The command completes or is refused; its exit code, stdout, stderr, result JSON and run report are captured.
 
   entry_point:

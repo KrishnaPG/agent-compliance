@@ -16,6 +16,7 @@
     "packets_dir": ".brick-harness/packets",
     "custody_dir": ".brick-harness/custody",
     "config_file": ".brick-harness/config.json",
+    "measure_out": ".brick-harness/out",
     "builder_settings": ".brick-harness/builder-settings.json",
     "register": ".brick-harness/register.json",
     "manifest": ".brick-harness/manifest.json",

@@ -172,7 +172,8 @@ def row_lint(r: dict, catalog: dict) -> list[str]:
     when = next(iter(r.get("when") or {}), None)
     givens = {k for g in r.get("given", []) for k in g}
     placeholder = re.compile(r"\$(" + "|".join(catalog["placeholders"]) + r")\b")
-    if placeholder.search(json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))) and "packet" not in givens:
+    packet_placeholder = re.compile(r"\$(" + "|".join(n for n in catalog["placeholders"] if n != "measure_out") + r")\b")
+    if packet_placeholder.search(json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))) and "packet" not in givens:
         out.append("uses a $packet_sha256, $acceptance_ids or $packet.<path> placeholder without a packet given")
     for name in re.findall(r"\$([a-z_0-9]+)", json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))):
         if name not in catalog["placeholders"]:
@@ -337,6 +338,11 @@ def param_schema(p: dict, catalog: dict) -> dict:
         return {"type": t}
     if t == "any":
         return {}
+    if t == "object":
+        fields = p["fields"]
+        return {"type": "object", "additionalProperties": False,
+                "required": [k for k, v in fields.items() if v.get("required", True)],
+                "properties": {k: param_schema(v, catalog) for k, v in fields.items()}}
     if t == "list":
         return {"type": "array", "minItems": 1, "items": param_schema({"type": p["items"]}, catalog)}
     raise ValueError(f"unknown param type {t}")

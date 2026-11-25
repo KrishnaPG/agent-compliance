@@ -60,7 +60,7 @@ fields:
   - {schema: result, path: "items[*].id", type: string, meaning: "the item id"}
   - {schema: result, path: "items[*].status", type: "enum: met, unmet, stuck, not_checked", meaning: "the measurer's verdict for the item"}
   - {schema: result, path: "items[*].tier", type: "enum: mechanical, design-affecting", meaning: "the tier the item ran at"}
-  - {schema: result, path: "items[*].out", type: string, meaning: "the item's output dir out/<item>/<sha12>-<slot>"}
+  - {schema: result, path: "items[*].out", type: string, meaning: "the item's output dir <measure_out>/<item>/<sha12>-<slot>"}
   - {schema: result, path: "items[*].acceptance[*].id", type: string, meaning: "an acceptance criterion id of the item"}
   - {schema: result, path: "items[*].acceptance[*].status", type: "enum: met, unmet", meaning: "the measurer's verdict for that criterion"}
   - {schema: result, path: "checks_run[*]", type: string, meaning: "an exact check a measure or check command ran (command measure, check)"}

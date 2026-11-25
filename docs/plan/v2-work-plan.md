@@ -272,7 +272,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Proves: R3, R4. QBC: 34, 66.
   - Files: `harness/lib/bhcore.py`.
   - Done when:
-    - each run writes to `out/<item>/<sha12>-<slot>`, with pairs deduped;
+    - each run writes to `<measure_out>/<item>/<sha12>-<slot>` (default `.brick-harness/out`), with pairs deduped;
     - a missing or malformed JUnit file, a NaN or inf sample, and an unreadable target each give unmet plus a teaching fact, never an exception;
     - JUnit `<failure>` is recorded as red and `<error>` as red-by-error;
     - `tree_key` includes the plan files;

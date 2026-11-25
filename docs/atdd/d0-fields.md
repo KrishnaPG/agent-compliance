@@ -61,7 +61,7 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `items[*].id` | string | the item id | b13-AC1, e4-AC6 |
 | `items[*].status` | enum: met, unmet, stuck, not_checked | the measurer's verdict for the item | b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC18, b2-AC19, b7-AC4, b8-AC2, b8-AC3, b13-AC1, b14-AC1, c8-AC8, c8-AC9, d11-AC7, d11-AC9, e4-AC6 |
 | `items[*].tier` | enum: mechanical, design-affecting | the tier the item ran at | d5-AC3, d5-AC4 |
-| `items[*].out` | string | the item's output dir out/<item>/<sha12>-<slot> | b2-AC1 |
+| `items[*].out` | string | the item's output dir <measure_out>/<item>/<sha12>-<slot> | b2-AC1 |
 | `items[*].acceptance[*].id` | string | an acceptance criterion id of the item | b2-AC18 |
 | `items[*].acceptance[*].status` | enum: met, unmet | the measurer's verdict for that criterion | b2-AC18, b2-AC19 |
 | `checks_run[*]` | string | an exact check a measure or check command ran (command measure, check) | - |

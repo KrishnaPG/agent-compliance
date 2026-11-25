@@ -697,8 +697,42 @@
             },
             "rerun": {
               "type": "boolean"
+            },
+            "between_runs": {
+              "type": "object",
+              "additionalProperties": false,
+              "required": [
+                "planted"
+              ],
+              "properties": {
+                "planted": {
+                  "type": "string",
+                  "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+                },
+                "where": {
+                  "enum": [
+                    "candidate_commit",
+                    "working_tree",
+                    "plan_commit"
+                  ]
+                }
+              }
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "between_runs"
+                ]
+              },
+              "then": {
+                "required": [
+                  "rerun"
+                ]
+              }
+            }
+          ]
         },
         "entry_point": {
           "description": "Run a test or verify entry point as a human would.",

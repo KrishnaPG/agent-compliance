@@ -623,7 +623,7 @@ acceptance:
   deterministic: true
   plan_gap: '"never the 1.5.2 measurer" is a negative about the old tool; the row asserts the new tree passes plain pytest'
 - id: b2-AC1
-  scenario: A run writes to out/<item>/<sha12>-<slot>
+  scenario: A run writes to <measure_out>/<item>/<sha12>-<slot>
   covers:
   - 1
   given:
@@ -636,13 +636,13 @@ acceptance:
   then:
   - paths:
       paths:
-      - out/*/*-*
+      - $measure_out/*/*-*
       exist: true
   - field:
       source: result_json
       path: items[*].out
       op: matches
-      value: out/[^/]+/[0-9a-f]{12}-[^/]+
+      value: $measure_out/[^/]+/[0-9a-f]{12}-[^/]+
   traces_to:
   - R3
   - QBC-34
@@ -667,7 +667,7 @@ acceptance:
       compare: equal
   - paths:
       paths:
-      - out/*/*-*
+      - $measure_out/*/*-*
       exist: true
   traces_to:
   - R3
@@ -873,14 +873,13 @@ acceptance:
   - repo:
       name: toy
       state: base
-  - planted:
-      plant: plan_file_changed
-      class: diff
-      where: plan_commit
   when:
     bh:
       sub: measure
       rerun: true
+      between_runs:
+        planted: plan_file_changed
+        where: plan_commit
   then:
   - same_result:
       a: before_plan_change
@@ -1352,7 +1351,7 @@ acceptance:
   then:
   - paths:
       paths:
-      - out/*/*-*
+      - $measure_out/*/*-*
       exist: true
   - no_fact:
       kind: dropped_tests
@@ -1369,7 +1368,7 @@ acceptance:
   - QBC-8
   verification: test
   deterministic: true
-  plan_gap: the paths entry fails on main, which writes no out/<item>/<sha12>-<slot> directory
+  plan_gap: the paths entry fails on main, which writes no <measure_out>/<item>/<sha12>-<slot> directory
 - id: b4-AC10
   scenario: Ratchet growth is recorded through the same fact writer
   covers:
@@ -3614,9 +3613,9 @@ acceptance:
   then:
   - paths:
       paths:
-      - out/*/*-*/*.xml
-      - out/*/*-*/*.sarif
-      - out/*/*-*/*.json
+      - $measure_out/*/*-*/*.xml
+      - $measure_out/*/*-*/*.sarif
+      - $measure_out/*/*-*/*.json
       exist: true
   - schema_valid:
       valid: true
@@ -3963,7 +3962,7 @@ acceptance:
   then:
   - paths:
       paths:
-      - out/*/*-*/*.xml
+      - $measure_out/*/*-*/*.xml
       exist: true
   - junit:
       tests_min: 1

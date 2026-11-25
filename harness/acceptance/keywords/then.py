@@ -97,7 +97,19 @@ def packet_path(ctx, path):
     return flat if (isinstance(vals[0], list) or len(vals) > 1) else vals[0]
 
 
+def measure_out(ctx) -> str:
+    """$measure_out: `paths.measure_out` of the repo's config override, else the contract default."""
+    f = repo(ctx) / P["config_file"]
+    if f.is_file():
+        out = json.loads(f.read_text()).get("paths", {}).get("measure_out")
+        if out:
+            return out.rstrip("/")
+    return P["measure_out"]
+
+
 def subst(ctx, v):
+    if isinstance(v, str) and "$measure_out" in v:
+        v = re.sub(r"\$measure_out\b", lambda _: measure_out(ctx), v)
     if isinstance(v, str) and v.startswith("$"):
         m = re.fullmatch(r"\$packet\.(\S+)", v)
         if m:
@@ -478,6 +490,7 @@ def _expand_placeholder(ctx, s):
 def then_paths(ctx, paths, exist):
     r = repo(ctx)
     for p in paths:
+        p = subst(ctx, p) if "$measure_out" in p else p
         alt = _expand_placeholder(ctx, p)
         pats = alt if alt is not None else [p]
         hit = any(globs(r, [x]) or (r / x).exists() for x in pats)
