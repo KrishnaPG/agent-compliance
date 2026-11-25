@@ -3007,3 +3007,23 @@ question = "Where are a run's owner questions collected and their answers record
 applies = []
 cites = []
 embodied_by = "tracker intake (GitHub issues)"
+
+[standards.Unicode-CLDR]
+title = "Unicode Common Locale Data Repository"
+version = "48"
+url = "https://cldr.unicode.org/"
+summary = "Per-locale data for formatting dates, times, numbers, currencies, units and plurals, used by ICU and every major platform."
+
+[standards.ISO-4217]
+title = "ISO 4217 currency codes"
+version = "2015"
+url = "https://www.iso.org/iso-4217-currency-codes.html"
+summary = "Three-letter codes and minor-unit digits for every currency, so an amount is stored with its code and never with a symbol."
+
+[house.GL-01]
+text = "Values are stored locale-neutral (UTC instants, ISO 4217 currency code with the amount, SI units, Unicode NFC text) and formatted for a user only at the edge, through the locale layer (CLDR data, message catalogs keyed by id)."
+why = "A value stored in one country's format or language cannot be read correctly by a tenant in another, and string-built messages cannot be translated."
+right = "Store neutral values; format dates, numbers, currencies, units and messages per the user's locale at the edge with the platform's CLDR-backed library."
+question = "Where is a stored value tied to one locale, or a user-facing string built in code instead of a message catalog?"
+applies = ["http-server", "money", "time"]
+cites = ["Unicode-CLDR", "ISO-4217", "RFC-3339"]
