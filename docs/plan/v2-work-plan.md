@@ -10,7 +10,7 @@ Finding ids are prefixed by source, because the reviews reuse the same numbers:
 - RS-: `evidence/review-skills.md`;
 - SP-: `evidence/spike-order-engine.md`.
 
-Sizes: S is under a day, M is 1-3 days, L is more (as in RH section 7). "Spike" marks a task whose mechanism comes from the spike. The spike is done, so these tasks are not blocked; its four mechanism changes wait only for the owner's confirmation (Q5).
+Sizes: S is under a day, M is 1-3 days, L is more (as in RH section 7). "Spike" marks a task whose mechanism comes from the spike. The spike is done, so these tasks are not blocked; its four mechanism changes, as adjusted by the owner's paved-road direction, wait only for the owner's confirmation (Q5).
 
 ## 1. Rulings applied
 
@@ -21,6 +21,9 @@ These bind every task and are not re-argued:
 - **No pass/fail quality gates.** Only refusals for order, and every rejection teaches.
 - **The Known issues list is a bounded backlog**, with its limit set as policy.
 - **The packet sits in a protected path** that only the orchestrator or planner writes; a builder writing its own packet is refused.
+- **Paved road first** (owner direction, 2026-11-25). Make the right thing easy rather than restricting builders more. Before any new restriction, the program assembles mechanically, with no agent, what the builder needs upfront: the success criteria (acceptance tests, visible and read-only, plus targets), exactly what the verifier checks (lint and fitness rules with their teaching messages, the ratchet baselines), one command that runs the same verification locally (shift-left), and the project's existing scaffolds and generators. Standards: ATDD (tests are the shared, visible definition of done), shift-left testing, the paved road (golden path).
+- **ATDD tests are visible to the builder.** Hidden held-out tests and their isolation machinery are dropped until a measured need (for example h1 showing special-cased outputs) brings them back. Integrity comes from the measurer laying the planner's tests and config over the build (about 1 s, 0 tokens): measurement, not a gate.
+- **Only cheap restrictions that protect measurement stay:** the sandbox for Bash, scoped Edit/Write, and the measurer overlay, each refusal teaching. Everything else is cut as excess.
 
 ## 2. Independent-review findings: disposition
 
@@ -29,34 +32,34 @@ Each finding gets exactly one disposition: a task id, "settled" with its reason,
 | Finding | Disposition |
 |---|---|
 | IR-C1 builder controls what the measurer runs | b4 (measure with all tests, test and lint config, recipes and ratchet files from the trusted plan commit); c4 (ratchets compared against the merge base); b5 (suppression, skip, ratchet-growth and dropped-test facts); b4 (a declared config change is written by a non-builder into the plan commit) |
-| IR-C2 orchestrator grades itself; tier rules contradict | d3 (tier computed by the program from declared paths, then from the actual diff, with automatic re-queue and a "tier X from paths Y" fact line); d2 (prompt assembled mechanically from packet fields). "Planner writes every packet": settled by ruling (orchestrator or planner). The pins contradiction is Q2 |
+| IR-C2 orchestrator grades itself; tier rules contradict | d5 (tier computed by the program from declared paths, then from the actual diff, with automatic re-queue and a "tier X from paths Y" fact line); d4 (prompt assembled mechanically from packet fields). "Planner writes every packet": settled by ruling (orchestrator or planner). The pins contradiction is Q2 |
 | IR-C3 how plugin checks reach the human's build | c3 (presets written into the project's standard config files and `.pre-commit-config.yaml`; the measurer runs only the project's entry points); e6 (red CI on a human push files a defect). Moving CI ahead of rollout step 5 is Q3 |
-| IR-M1 H0 does not hold | d2 and b2 (order is structural: a builder clone exists only from a packet, kept by digest outside the clone); d7 (H0 predicate, Bash route through the sandbox and PostToolUse, orchestrator channel). That H0 refuses is settled by ruling and QBC-46 |
-| IR-M2 held-out cases; red by error | d4 (held-out cases written by the test author, unseen by the builder); b6 (JUnit error vs failure recorded) |
-| IR-M3 design-affecting tier has no design step | Settled by QBC-41 (the planner's packet is the design output at L2) and QBC-69 (a fresh judge). Built in d5 |
-| IR-M4 bug fixes graded by their builder | d4 (finder or test author writes the regression test; fails at parent, passes at fix) |
+| IR-M1 H0 does not hold | d4 and b2 (order is structural: a builder clone exists only from a packet, kept by digest outside the clone); d9 (H0 predicate, Bash route through the sandbox and PostToolUse, orchestrator channel). That H0 refuses is settled by ruling and QBC-46 |
+| IR-M2 held-out cases; red by error | Held-out cases: dropped by owner direction (visible ATDD tests are the standard), revisited only if h1 measures special-casing. Red by error: b6 records it, d6 sends it back to the test author |
+| IR-M3 design-affecting tier has no design step | d7, following QBC-41 (the planner's packet is the design output at L2) and QBC-69 (a fresh judge). Its wording clash with QBC-33 and the L2 row ("no design beyond L1") goes to Q6 |
+| IR-M4 bug fixes graded by their builder | d6 (finder or test author writes the regression test; fails at parent, passes at fix) |
 | IR-M5 L1's counter rests on what it replaces | f1 (proposer plus fresh judge; falsifying calls become measurer targets). Ordering before the pilot's first epic is in the rollout note (section 5) |
-| IR-M6 "gate" undefined | Settled by QBC-11 and QBC-51: build checks are declared targets returned for retry, not gates. Built in b10 ("stuck" fact at the round limit) and d9 (Critical and Major review findings become failing protected tests) |
+| IR-M6 "gate" undefined | Settled by QBC-11 and QBC-51: build checks are declared targets returned for retry, not gates. Built in b10 ("stuck" fact at the round limit) and d11 (Critical and Major review findings become failing protected tests) |
 | IR-M7 facts have no readers | b10 (fact, reader, action, channel table). The rollout condition "Criticals plus RH-M1, M12, M14" is met because b9 and b10 are in slice b |
 | IR-M8 declared data has no standard source | Sources settled by ruling (CODEOWNERS, OpenAPI tags, database catalog). c7 reaches the database through the standard libpq environment. c8 adds the "not checked" fact for unsupported stacks and keeps project-only checks as project tests |
-| IR-M9 limits have no override place | Settled by ruling (`.brick-harness/config.json`). d8 holds the full list, with QBC-13's units kept |
+| IR-M9 limits have no override place | Settled by ruling (`.brick-harness/config.json`). d10 holds the full list, with QBC-13's units kept |
 | IR-M10 teach() helper home and claim | b9 (one helper in the plugin's own code, with a test over every refusal path); c6 (right-way text as data keyed by rule code; an unmapped rule is a fact). Project tests never import plugin code (c3, c8 run as standalone tools) |
-| IR-M11 runtime state has no home | Settled by ruling plus SP section 5. Packets, held-out cases and facts live in the orchestrator's `.brick-harness/`, outside every builder clone (b2, d2) |
+| IR-M11 runtime state has no home | Settled by ruling plus SP section 5. Packets and facts live in the orchestrator's `.brick-harness/`, outside every builder clone (b2, d4) |
 | IR-M12 v2 contents not derivable | This plan (section 4) is the single table. The spike answers its open branch (SP section 5) |
 | IR-M13 agents act as the owner on GitHub | e7, waiting on Q1 (a bot identity) |
 | IR-M14 intake mechanics | e2 (atomic parent through GraphQL `createIssue(parentIssueId)`, which the API accepts; the Action links form parents first; a standing maintenance parent per owner); e5 (idle report at events, no timer); e3 (Known issues found by label) |
-| IR-M15 success measure and cost case | h1 and h3 (a per-slice metric from measurer and job records). The target and stop-rule defaults are Q4. d11 adds one planted test per gaming row |
-| IR-E1 H1 duplicates the packet | Settled: H1 is a MUST (QBC-49). Per SP it is the packet delivered at SessionStart (d2), so there is no second copy |
-| IR-E2 H2's record duplicates SG-02 | d7: H2 writes through the same scope-fact writer, so there is one record |
+| IR-M15 success measure and cost case | h1 and h3 (a per-slice metric from measurer and job records). The target and stop-rule defaults are Q4. d13 adds one planted test per gaming row |
+| IR-E1 H1 duplicates the packet | Settled: H1 is a MUST (QBC-49). Per SP it is the packet delivered at SessionStart (d4), so there is no second copy |
+| IR-E2 H2's record duplicates SG-02 | d9: H2 writes through the same scope-fact writer, so there is one record |
 | IR-E3 brief and packet are two schemas | d1: one packet schema with tier and environment fields |
 | IR-E4 history inside the design | Q6 (a spec edit) |
 | IR-E5 unbacked token numbers | b14 and h1 measure them; the spec text follows measurement (Q6) |
 | IR-m1 rules file in packet vs never repeated | d1: the packet cites rule lines by id, never their text |
-| IR-m2 two trigger lists | d3: one trigger list, and each trigger flags whether it needs a fresh stack |
+| IR-m2 two trigger lists | d5: one trigger list, and each trigger flags whether it needs a fresh stack |
 | IR-m3 "cover most of them" overstates | c5: the parity report states the real coverage |
 | IR-m4 Major count | Evidence correction only (11 Major); no task |
-| IR-m5 review trigger needs a detector | d9 |
-| IR-m6 PostToolUse linter on the changed file | Not planned. Measure first: h1 records measurer rounds lost to lint misses, and a hook is added only if they are material (QBC-14) |
+| IR-m5 review trigger needs a detector | d11 |
+| IR-m6 PostToolUse linter on the changed file | Not planned as a hook. The paved road gives the builder the same check as one local command (d1 after renumbering: see d5); h1 records measurer rounds lost to lint misses before anything more is added (QBC-14) |
 | IR-m7 pgTAP question | c8: vet pgTAP before writing a catalog diff |
 | IR-m8 published-part declarations exist | c7, c8: infer from package.json `exports`, PEP 8 `__all__` and workspace members |
 
@@ -73,8 +76,8 @@ The same rule applies: each finding maps to one task or a stated reason.
   - K8: b7.
 - **RH-M1 to RH-M14:**
   - M1 and M12: b9;
-  - M2: d4;
-  - M3: d3;
+  - M2: d6;
+  - M3: d5;
   - M4: e4;
   - M5: c1;
   - M6: b1;
@@ -121,9 +124,9 @@ b (Harness core) --> c (Convention) --+
 
 - **a and g** start now and run in parallel.
 - **b** needs nothing else. The spike is done, and Q5 confirms its four mechanism changes.
-- **c and d** need b. d7 needs c7 for the owner line H2 shows.
-- **e** needs d (d6's approvals, d8's limits). e6 waits on Q3, e7 on Q1.
-- **f** needs g. f3 also needs e1, d4 and c3.
+- **c and d** need b. In d, the paved-road tasks d1-d3 come before any restriction; d2 picks up c3, c4, c6 and c8's rule data as it lands. d9 needs c7 for the owner line H2 shows. d7 needs f1's judge, and so g.
+- **e** needs d (d8's approvals, d10's limits). e6 waits on Q3, e7 on Q1.
+- **f** needs g. f3 also needs e1, d6 and c3.
 - **h** runs alongside: h2 can follow a; h1 needs b14's toy run; h3 waits on Q4.
 - **Coupling g to b and d (QBC-85):**
   - the packet's rule list (d1) and the measurer read g1's data;
@@ -192,47 +195,51 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - a schema keyword the old validator ignored now rejects bad input in a test;
     - the suite passes under `uv run --script`.
   - Size: M.
-- [ ] **b2. Builder isolation** (RH-K1; SP C2 and C5). Spike.
+- [ ] **b2. Builder workspace and the cheap restrictions** (RH-K1; SP C2 and C5; owner direction). Spike.
   - QBC: 65, 15, 48, 80, 100.
   - Files: `harness/lib/bhorch.py` (launch), `agents/harness-builder.md`, the generated builder settings.
+  - Why `git clone --shared`: on the pilot's 101 MB repository it took 0.19 s and 220 KB, against 1.8 s and 61 MB for `--no-local` and 0.67 s for `--depth 1`, and its refs are separate from the source, unlike a worktree. Git objects are immutable, so sharing the object store risks only reading objects, and nothing is hidden once tests are visible.
   - Done when:
-    - the builder works in a `git clone --no-local --single-branch` outside the repo with `origin` removed, never a worktree;
+    - the builder works in a `git clone --shared` of the local repository at the base commit the program records, never a worktree, and no build waits for or fetches the remote;
+    - deleting or moving refs in the clone leaves the source repository's refs unchanged;
     - the jobs dir and the plugin root are not passed as `--add-dir`;
-    - allow rules are scoped (`Edit(*)`, `Write(*)`, `Bash`), with `permissions.blockReadsOutsideWorkingDirectories: true`;
-    - the sandbox has `allowUnsandboxedCommands: false`; `denyRead` on the orchestrator dir and the repo; `denyWrite` on the clone's protected tests, the orchestrator dir, the repo, the plugin root and any orchestrator state under a temp dir;
+    - file tools are scoped (`Edit(*)`, `Write(*)`, never a bare tool name), with `permissions.blockReadsOutsideWorkingDirectories: true`;
+    - Bash runs in the sandbox with `allowUnsandboxedCommands: false` and `denyWrite` on the clone's acceptance tests, the source repository, the orchestrator dir, the plugin root and any orchestrator state under a temp dir; there is no `denyRead`, because nothing is hidden;
     - no deny rule sits on a path whose refusal must teach;
-    - packet and held-out cases live only in the orchestrator dir, kept by digest;
+    - the packet lives only in the orchestrator dir, kept by digest;
     - the program, not the builder, stages and commits the clone;
-    - the spike's 10 planted attempts (C2 and C5 tables), rerun as tests on the toy, each end stopped or with no effect, judged by file digests and refs, not by the agent's reply.
-  - Size: L.
+    - planted attempts on the toy (edit or delete an acceptance test by Write and by Bash, write the packet by Write and by Bash, delete a ref, write outside the clone) each end refused with teaching, or without effect on the source repository and the measurement, judged by digests and refs.
+  - Size: M.
+
 - [ ] **b3. Sandbox self-test and host caveat** (SP host finding 1, SP section 5). Spike.
   - QBC: 12, 13, 11, 80.
   - Files: `harness/lib/bhorch.py`, `harness/README.md`.
   - Done when:
     - before launching, the program runs one sandboxed probe;
-    - on failure it records a fact, withholds the held-out cases for that run, and prints a teaching message naming the fix: `network.allowAllUnixSockets: true` where the AppArmor profile `bwrap-userns-restrict` applies (as on Ubuntu 26.04), with the builder account outside socket-granting groups such as `docker`, or a fixed AppArmor profile;
+    - on failure it records a fact and prints a teaching message naming the fix: `network.allowAllUnixSockets: true` where the AppArmor profile `bwrap-userns-restrict` applies (as on Ubuntu 26.04), with the builder account outside socket-granting groups such as `docker`, or a fixed AppArmor profile;
     - the run starts anyway: no `failIfUnavailable`, which would be a gate by environment;
     - membership of a socket-granting group is recorded as a fact;
     - `allowAllUnixSockets` is a default with an override.
   - Size: M.
-- [ ] **b4. Measure from the trusted base** (IR-C1, RH-K5; SP G1-G3). Spike.
+- [ ] **b4. Measure from the trusted base** (IR-C1, RH-K5; SP G1-G3).
   - QBC: 15, 31, 35, 51, 65, 80.
-  - Files: `harness/lib/bhcore.py` (`measure_item`, `overlay_plan`, `_protected`), `bin/bh-measure`.
+  - Files: `harness/lib/bhcore.py` (`measure_item`, `overlay_plan`, `_protected`, `holdout_files`), `bin/bh-measure`.
   - Done when:
     - the measurer uses its own checkout per (ref, mode);
     - from the plan commit it overlays all tests (not only the item's), the test and lint config (`conftest.py`, `pytest.ini`, `pyproject.toml` `[tool.*]`, `tsconfig*.json`, `.sqlfluff`, ESLint and oxlint config), the entry-point recipe files and the ratchet files;
     - builder-added test config is set aside;
-    - held-out cases are copied in only at measure time;
-    - the test command runs in `bwrap` (read-only `/`; tmpfs over `/tmp`, the orchestrator state and the builder clones; only the checkout writable; no network), with a canary that must fail (`tampered` fact);
+    - a canary test that must fail runs with the item's tests, and a passing canary is the `tampered` fact (a measurement, not a jail);
+    - the holdout ref, `holdout_files` and their entries in `tree_key` are removed;
     - `protected` defaults to these paths, and an empty list is a gap;
     - a config change the packet declares is measured from the plan commit, where a non-builder wrote it;
     - planted cases measure as follows:
       - G1, a gutted test: `met:false` with a fact;
       - G2, a forging `conftest.py`: `met:false`, fact `A conftest.py`;
-      - G3, report patching plus a leak: `met:false`, `tampered`, no leak file;
+      - G3, code that patches pytest reports at import: `tampered`;
       - an edited test recipe: measured with the base recipe;
-      - an honest commit: `met`.
-  - Size: L.
+      - an honest commit: `met`, in about 1 s and 0 tokens.
+  - Size: M.
+
 - [ ] **b5. Diff facts against the base, without pattern lists** (IR-C1.3, RH-K5).
   - QBC: 8, 11, 15.
   - Files: `harness/lib/bhcore.py` (facts).
@@ -240,7 +247,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - JUnit test ids present at base and missing at the candidate;
     - a grown JUnit skipped or xfail count;
     - a grown count of suppressed findings, measured by running the project's linters with inline suppressions ignored (`ruff --ignore-noqa`, `eslint --no-inline-config`) against a normal run, at base and at the candidate;
-    - a grown ratchet list (files from c4).
+    - c4 adds the ratchet-growth fact through the same writer.
   - Size: M.
 - [ ] **b6. Measurer correctness** (RH-K6, RH-K7, IR-M2, RH-m9, m10, m11, m13).
   - QBC: 66, 34.
@@ -250,7 +257,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - every crash path gives unmet plus a teaching fact, never an exception;
     - a JUnit `<error>` and a `<failure>` are recorded apart, as red by error or red by failure;
     - non-finite samples fail closed;
-    - `tree_key` includes plan files and held-out cases;
+    - `tree_key` includes the plan files;
     - a test leaving a child that holds stdout is not recorded as a timeout;
     - each planted input (missing or malformed JUnit, a NaN in CSV, two refs at once, a lingering child) gives the stated result.
   - Size: M.
@@ -277,7 +284,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
   - Files: `harness/lib/*.py`, `bin/*`.
   - Done when:
     - one `teach(rule, wrong, right, ref)` exists with all arguments required; repeats are grouped (first N, default 10, then a count); the cap defaults to 300 characters;
-    - five former gates become facts with teaching, and the item stays ready: the commit gate on targets, the `env_setup` block, the tracker sha-pin refusal, the catalogue-schema merge refusal and the platform gate (in c5);
+    - four former gates become facts with teaching, and the item stays ready: the commit gate on targets, the `env_setup` block, the tracker sha-pin refusal and the catalogue-schema merge refusal (the platform gate goes with c5);
     - each order refusal in RH section 3 that lacked one now names the next step;
     - a test enumerates every refusal and non-zero exit path in `harness/` and `bin/` and asserts the shape `[rule] wrong -> right . ref` with a non-empty right part.
   - Size: M.
@@ -285,7 +292,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
   - QBC: 30, 35, 51.
   - Files: `harness/lib/bhorch.py`, `harness/README.md`.
   - Done when:
-    - a table (fact, reader, action, channel) covers scope, flaky, red on main (by failure or by error), tampered, sandbox unavailable, suppression or ratchet growth, dropped tests, H0 bypass, not checked, inferred and stuck;
+    - a table (fact, reader, action, channel) covers the facts slice b produces: scope, flaky, red on main (by failure or by error), tampered, sandbox unavailable, suppression growth, dropped tests and stuck; later tasks add their own rows (c1 inferred, c4 ratchet growth, c8 not checked, d5 re-queue, d9 H0 bypass);
     - the channel is `bh run`'s result JSON plus one line per item in the run report;
     - at the round limit an item becomes "stuck", reported to the owner for a re-plan;
     - each fact, planted on the toy, appears in the run report with its action.
@@ -320,9 +327,11 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - `item_key`, `bhorch.git`, `bhorch.fill`, the restated targets and `_waves` (replaced by `graphlib`) have one home each.
   - Size: S.
 - [ ] **b14. Toy run as proof** (RH-M10).
-  - QBC: 9, 10, 80.
+  - QBC: 9, 10, 78, 80.
   - Files: `docs/design/evidence/` (new run record).
-  - Done when a paid end-to-end `bh run` on the toy is committed as evidence: per-job tokens and USD from the job records, and every item met, or stuck with its facts.
+  - Done when:
+    - a paid end-to-end `bh run` on the toy is committed as evidence: per-job tokens and USD from the job records, and every item met, or stuck with its facts;
+    - the job record shows no agent job for state, measure, merge, commit or ordering: agents appear only for judgement jobs.
   - Size: M.
 
 ### c. Convention over configuration (#10), design-affecting, depends on b
@@ -423,7 +432,26 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - the cap is `sizing.packet_tokens` (default 1,600 tokens, documented as bytes/4);
     - an over-cap packet is not launched, and the planner gets a teaching message.
   - Size: M.
-- [ ] **d2. Packet custody and delivery** (SP section 5, IR-C2.4, IR-E1). Spike.
+- [ ] **d2. Paved road in the packet** (owner direction).
+  - QBC: 24, 38, 49, 54, 57.
+  - Files: `harness/lib/bhcore.py` (packet assembly), `harness/schema/` (packet).
+  - Done when:
+    - the program, with no agent, puts into every builder packet the acceptance test paths (visible, read-only to the builder) and the targets with their numbers;
+    - it adds the lint and fitness rules the measurer will run on the touched files, each with its teaching message (from c3, c6, c8), and the current ratchet baselines (c4);
+    - it adds the one local verification command (d3);
+    - it adds the project's existing generators or scaffolds for the touched shapes, as c1 detects them; no new generator is written for this;
+    - on the toy, a builder that reads only its packet is met in its first measurer round on a planted lint-and-test item.
+  - Size: M.
+- [ ] **d3. One local verification command** (owner direction, shift-left).
+  - QBC: 16, 51, 55.
+  - Files: `bin/bh` (`check` subcommand), `harness/lib/bhcore.py`.
+  - Done when:
+    - `bh check` runs in the builder's clone exactly what the measurer runs (same overlay from the plan commit, same project recipes, same rules), through the same code, not a copy;
+    - it prints only the missed checks' teaching messages;
+    - on planted commits its result equals the measurer's;
+    - the builder's prompt asks it to run `bh check` before finishing; nothing refuses a finish without it.
+  - Size: M.
+- [ ] **d4. Packet custody and delivery** (SP section 5, IR-C2.4, IR-E1). Spike.
   - QBC: 24, 46, 48, 49.
   - Files: `harness/lib/bhorch.py`, `hooks/hooks.json`.
   - Done when:
@@ -433,7 +461,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - SubagentStart is used only for Agent-tool subagents;
     - a packet edited inside the clone changes nothing the program reads.
   - Size: M.
-- [ ] **d3. Tier computed by the program** (IR-C2, IR-m2).
+- [ ] **d5. Tier computed by the program** (IR-C2, IR-m2).
   - QBC: 25, 27, 30.
   - Files: `harness/lib/bhorch.py`, a plugin defaults table.
   - Done when:
@@ -444,18 +472,18 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - the pins default follows Q2;
     - a packet declaring docs only, whose diff touches compose, is re-queued.
   - Size: M.
-- [ ] **d4. Test-author step (L3)** (RH-M2, IR-M2, IR-M4). Spike for the holdout path.
+- [ ] **d6. Test-author step (L3)** (RH-M2, IR-M2, IR-M4).
   - QBC: 31, 34, 41, 82.
   - Files: new `agents/harness-test-author.md`, `harness/lib/bhorch.py`.
   - Done when:
     - the program launches the test author before the builder, as another job;
-    - the test author writes acceptance tests into protected paths in the plan commit, and held-out cases into the orchestrator's holdout;
+    - the test author writes acceptance tests into protected paths in the plan commit, visible to the builder;
     - red on main is recorded by failure or by error;
     - a test that is red by error only goes back to the test author;
     - for a defect, the finder or the test author writes the regression test, and "fails at the parent, passes at the fix" is recorded;
     - on the toy, an item runs test author, then builder, then measurer.
   - Size: L.
-- [ ] **d5. Design step for design-affecting items** (IR-M3).
+- [ ] **d7. Design step for design-affecting items** (IR-M3).
   - QBC: 41, 69, 26.
   - Files: `agents/harness-planner.md`, `harness/lib/bhorch.py`.
   - Done when:
@@ -463,7 +491,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - a fresh judge job (f1's judge) reads it before the test author starts;
     - the job record shows planner, then judge, then test author, then builder, each a distinct job.
   - Size: M.
-- [ ] **d6. Approvals recorded.**
+- [ ] **d8. Approvals recorded.**
   - QBC: 26.
   - Files: `harness/lib/bhorch.py`, `bin/bh-answer`.
   - Done when:
@@ -472,20 +500,20 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - the message names the missing approval;
     - the identity check follows in e7.
   - Size: S.
-- [ ] **d7. Hooks in `hooks/hooks.json`** (IR-M1, IR-E2; SP sections 4 and 5). Spike.
+- [ ] **d9. Hooks in `hooks/hooks.json`** (IR-M1, IR-E2; SP sections 4 and 5). Spike.
   - QBC: 29, 43, 44, 45, 46, 47, 48, 50.
   - Files: new `hooks/hooks.json`, `hooks/*.py`.
   - Done when:
     - every guard has `onFailure: block`;
-    - H0 (PreToolUse, Edit/Write/Read) refuses a builder or test-author agent type with no registered packet, with QBC-47's text;
+    - H0 (PreToolUse, Edit/Write) refuses the builder agent type's edit when no packet is registered, with QBC-47's text;
     - the orchestrator learns of it through the agent's final report and a b10 fact;
-    - file tools on the orchestrator dir are refused with teaching and no deny rule;
     - H2 (PreToolUse) shows one owner line (from c7) on the first touch outside the packet's paths, at most 200 characters, once per path, written through the SG-02 scope-fact writer, never blocking;
     - Bash notes come from PostToolUse or PostToolUseFailure, keyed on the sandbox's own read-only error and the packet's protected paths;
     - the main session and human sessions are never refused;
+    - no hook reads file contents for code patterns: hooks key only on paths, agent type and the sandbox's own error text;
     - the hooks fire under `claude -p --plugin-dir`.
   - Size: M.
-- [ ] **d8. Limits table** (IR-M9).
+- [ ] **d10. Limits table** (IR-M9).
   - QBC: 13, 27, 33, 55, 90.
   - Files: one plugin defaults table, `harness/schema/harness.config.schema.json`.
   - Done when:
@@ -495,7 +523,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - with 6 ready items at most 5 agents run;
     - ruff PLR2004 is clean over `harness/`.
   - Size: M.
-- [ ] **d9. Review on the whole diff** (IR-m5, IR-M6).
+- [ ] **d11. Review on the whole diff** (IR-m5, IR-M6).
   - QBC: 31, 36, 91.
   - Files: `harness/lib/bhorch.py` (`AUTH_RE`), `agents/harness-reviewer.md`.
   - Done when:
@@ -505,7 +533,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - a Critical or Major finding becomes a failing protected test by the test author;
     - a planted split diff still triggers review.
   - Size: M.
-- [ ] **d10. Harness skill.**
+- [ ] **d12. Harness skill.**
   - QBC: 82, 59.
   - Files: `skills/harness/SKILL.md`.
   - Done when:
@@ -513,10 +541,10 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - it references no deleted skill;
     - it is no longer than the 1.5.2 skill.
   - Size: S.
-- [ ] **d11. Planted gaming suite** (IR-M15).
+- [ ] **d13. Planted gaming suite** (IR-M15).
   - QBC: 31, 58, 15.
   - Files: `harness/tests/`.
-  - Done when one planted test per gaming row of the levels and mechanisms tables passes on the toy, and each row cites its test id. The rows: under-tiering, vacuous tests, test edits, a self-written packet, hidden reads, Bash-path edits, suppression and ratchet growth, a split diff, endless retries and a hand launch.
+  - Done when one planted test per gaming row of the levels and mechanisms tables passes on the toy, and each row cites its test id. The rows: under-tiering, vacuous tests, test edits, a self-written packet, Bash-path edits, suppression and ratchet growth, a split diff, endless retries and a hand launch.
   - Size: M.
 
 ### e. Intake (#12), design-affecting, depends on d
@@ -544,7 +572,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
   - Done when:
     - the list is found by label;
     - each line names its parent;
-    - at the d8 limit (default 100) a new line is refused with teaching: fix and remove first;
+    - at the d10 limit (default 100) a new line is refused with teaching: fix and remove first;
     - a second labelled list is a fact.
   - Size: S.
 - [ ] **e4. Intake keeps the body; tracker from the git remote** (RH-M4, RS-F10, RH-m6).
@@ -564,7 +592,8 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
   - Done when:
     - a review finding reopens the slice's checklist line rather than opening an issue;
     - closing the last sub-issue closes the tracking issue;
-    - an idle tracking issue appears as a fact in the next `bh run` report or on a sub-issue close, with no timer.
+    - an idle tracking issue appears as a fact in the next `bh run` report or on a sub-issue close, with no timer;
+    - a defect a builder finds inside its packet's declared paths is fixed in the slice; outside them it is filed through e2 under the right parent.
   - Size: S.
 - [ ] **e6. Red CI on a human push** (IR-C3). Waits on Q3.
   - QBC: 17, 52, 92.
@@ -595,6 +624,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - options are scored against the project's architecture targets and g1's ids;
     - an unverified rule reads "unknown", not fail, so in a fixture an OSS option is no longer beaten by existing code by default;
     - falsifying calls become measurer targets;
+    - a decision record is one per epic, and one over the 2-page limit (d10) goes back to the proposer with teaching;
     - the skill cites rules by id and never restates them;
     - its load tokens before and after are recorded.
   - Size: L.
@@ -605,7 +635,7 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - `bh vet <ecosystem> <package@version>` records the three tools' outputs as facts, with no model verdict;
     - the vet-oss skill is gone.
   - Size: M.
-- [ ] **f3. Narrower bug-analysis, plus commitlint** (RS-F11). Needs e1, d4, c3.
+- [ ] **f3. Narrower bug-analysis, plus commitlint** (RS-F11). Needs e1, d6, c3.
   - QBC: 84.
   - Files: `skills/bug-analysis/SKILL.md`, `presets/commitlint`.
   - Done when:
@@ -670,23 +700,24 @@ Each task lists the QBC ids it satisfies, the files it touches, "done when" (the
     - the target and the stop rule are defaults with an override.
   - Size: S.
 
-Task counts: a 5, b 14, c 9, d 11, e 8, f 3, g 3, h 3 (56).
+Task counts: a 5, b 14, c 9, d 13, e 8, f 3, g 3, h 3 (58).
 
 ## 5. Owner questions
 
 - **Q1. Bot identity** (IR-M13). Create a GitHub App or machine account for agents, with per-role scopes, so that owner approvals are recorded under a login agents do not hold. This is an owner action. e7 waits on it.
-- **Q2. Pin bumps** (IR-C2). They are "Mechanical" in the tier table but "pins" are a design-affecting trigger (QBC-25, QBC-27). Which list wins? A program cannot compute a tier from two conflicting lists. d3's default waits on it.
+- **Q2. Pin bumps** (IR-C2). They are "Mechanical" in the tier table but "pins" are a design-affecting trigger (QBC-25, QBC-27). Which list wins? A program cannot compute a tier from two conflicting lists. d5's default waits on it.
 - **Q3. Minimal CI ahead of rollout step 5?** (IR-C3.4). Until then only agents are held, and e6 has nothing to react to. Moving it ahead changes QBC-95's order.
 - **Q4. Default target and stop rule for the per-slice metric** (IR-M15.2). These are policy values. h3 waits on them.
-- **Q5. The spike changes P3's Plane 2 mechanisms** (SP section 5). Confirm the four changes: b2, b4, d2 and d7 are built on them.
+- **Q5. The spike changes P3's Plane 2 mechanisms** (SP section 5), adjusted by the owner's paved-road direction. Confirm the four changes; b2, b4, d4 and d9 are built on them.
   1. H1 moves to SessionStart, or into the prompt, for program-launched builders. SubagentStart stays only for subagents (QBC-49).
-  2. Builders get a `git clone`, not a worktree.
-  3. A path whose refusal must teach gets no permission deny rule, because deny rules run before hooks and silence them.
+  2. Builders get a `git clone --shared` of the local repository at the program's recorded base commit: not a worktree (refs stay separate), not a `--no-local` copy (0.19 s against 1.8 s), and no remote fetch.
+  3. A path whose refusal must teach (the visible, read-only acceptance tests) gets no permission deny rule, because deny rules run before hooks and silence them.
   4. Notes for Bash come from PostToolUse or PostToolUseFailure, keyed on the sandbox's own error.
-- **Q6. Spec text** (IR-E4, IR-E5). Move section 12 (design history) out of the spec into evidence. Replace the unbacked token figures (QBC-9, the tier table column) with b14 and h1's measured ones once they exist.
+  - With tests visible, the spike's hidden-case defences are cut: `denyRead`, the holdout ref, `bwrap` around the test run, and the orchestrator-dir Read hook.
+- **Q6. Spec text** (IR-E4, IR-E5, IR-M3). Move section 12 (design history) out of the spec into evidence. Replace the unbacked token figures (QBC-9, the tier table column) with b14 and h1's measured ones once they exist. Say in QBC-33 and the L2 row that the planner's contract, schema or role delta (d7) is the L2 design output, not a design field.
 
 Residual spike risks, carried as facts rather than tasks:
-- report forging that spares the canary (counter: the review trigger, d9);
+- report forging that spares the canary, now without a `bwrap` jail (counter: the review trigger, d11);
 - hooks under `--bare`, not tested (keep bare mode off);
 - the hook-versus-deny ordering, now documented in SP section 3.
 
@@ -694,11 +725,9 @@ Residual spike risks, carried as facts rather than tasks:
 
 - A test author who is not the task's builder writes the acceptance tests for each task from its "done when", before the build, into protected paths. Each test names its task id and the QBC ids it covers, for example `test_b4_g2_forging_conftest_unmet  # QBC-65, QBC-15`.
 - A task is done when the measurer says met for its tests. Its checkbox is crossed then, and not before.
-- QBC ids not covered by a task are principles or records that tasks carry out, not testable on their own:
-  - 1, 6, 7, 10, 11 and 14 are principles;
-  - 64, 76 and 77 are covered by the plan's sections 2 and 4;
-  - 78 and 97 are the order engine, carried by every b task;
+- QBC ids cited on no task, because no single task can test them:
+  - 1, 6, 7 and 14 are principles that the tasks carry out;
   - 95 is the rollout order;
-  - 96, 99, 100, 101 and 102 are decision records;
-  - 2, 12 and 13 appear on tasks too.
+  - 96, 97, 99, 101 and 102 record decisions (97's order engine is tested through b14's job record, under QBC-78).
+- Tests are visible to the builder (owner direction): the packet names them (d2), and `bh check` (d3) runs them as the measurer will.
 - Rollout steps 4-6 (adoption in the pilot, the CI runner, generators) are outside slices a-h. Before step 4, f1 must ship (IR-M5).
