@@ -174,7 +174,7 @@ class InputError(HarnessError):
 # Output limits (config ``limits``): they bound what is printed per call, never
 # what is measured.
 SUMMARY_CAP = 25  # rows a printed summary or a report lists; the full data is in the state dict
-LIMIT_DEFAULTS = {"packet_rules": 15, "tracker_read": 200, "known_issues": 100, "review_rounds": 1}
+LIMIT_DEFAULTS = {"packet_rules": 15, "tracker_read": 200, "known_issues": 100, "review_rounds": 1, "test_corrections": 1}
 
 
 # ---------------------------------------------------------------- schema validation
@@ -1563,10 +1563,11 @@ def run_alone(cfg: Config, ref: str, cases: list[tuple[str, str]]) -> dict[tuple
             except HarnessError:
                 out[(classname, name)] = "errored"
                 continue
-            if [(c.classname, c.name) for c in ran] != [(classname, name)]:
+            # a name without parameters runs all of its parametrized cases (pytest's node id)
+            if not ran or any(c.classname != classname or (c.name if "[" in name else c.name.split("[")[0]) != name for c in ran):
                 out[(classname, name)] = "not_alone" if ran else "missing"
                 continue
-            kinds = {type(x).__name__ for x in ran[0].result}
+            kinds = {type(x).__name__ for c in ran for x in c.result}
             out[(classname, name)] = "errored" if "Error" in kinds else "failed" if "Failure" in kinds else "passed"
     return out
 

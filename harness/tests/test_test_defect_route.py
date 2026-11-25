@@ -97,6 +97,7 @@ def test_a_confirmed_test_defect_goes_to_its_author_and_the_item_ends_met(toy, f
     assert "brick-harness: acceptance csv2json: the tests of json-writer corrected" in log
     assert (toy / "tests" / "acceptance" / "test_json_writer.py").read_text() == OWNED  # the author's bytes, no hand edit
     assert "tests/conftest.py" not in git(toy, "ls-files")
+    assert res["status"]["all_met"], res["status"]  # json-writer, stale after its tests changed, settles too
 
 
 def test_a_false_test_defect_claim_is_refused_taught_and_costs_its_round(toy, fake):  # noqa: F811

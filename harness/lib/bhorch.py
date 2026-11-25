@@ -1320,36 +1320,40 @@ class Orchestrator:
         """The builder's claims that a failing acceptance test is faulty. The builder never edits a
         test (R3); a test red by its own fault goes back to its author (IR-M2, ATDD: the tests are
         the author's). The program checks each claim (P3): the test failed in the measured suite,
-        it is an acceptance test of a packet, it was not corrected before, and it passes alone at
-        the build (an Interacting Test, Meszaros' xUnit Test Patterns). A refused claim teaches the
-        builder and its round stays spent (P4, P5). Confirmed claims go, with the evidence, to the
-        author of the file that holds the test, for one corrected round per test; the program
-        commits the corrected file with this packet's trailer and records this packet red by an
-        assertion at that new base (L3). Returns the builder's lines and whether a test was
-        corrected, or None when the corrected tests broke the red run (the item is stuck)."""
+        it is an acceptance test of a packet, it was corrected fewer than ``limits.test_corrections``
+        times, and it passes alone at the build (an Interacting Test, Meszaros' xUnit Test
+        Patterns). A refused claim teaches the builder and its round stays spent (P4, P5). Confirmed
+        claims go, with the evidence, to the author of the file that holds the test, for one
+        corrected round; the program commits the corrected file with this packet's trailer, records
+        the claim confirmed, and records this packet red by an assertion at that new base (L3).
+        Returns the builder's lines and whether a test was corrected, or None when the corrected
+        tests broke the red run (the item is stuck)."""
         root, item = self.top, packet["id"]
-        ref = bhpacket.BUILD_REF.format(item=item)
         try:
             cases = bhcore._cases(bhcore.read_junit(root / self.outs.get(item, "-") / "junit.xml"))
         except HarnessError:
             cases = []
-        red = {(c.classname, c.name) for c in cases if any(type(x).__name__ == "Failure" for x in c.result)}
+        failed = [(c.classname, c.name) for c in cases if any(type(x).__name__ == "Failure" for x in c.result)]
+        red = set(failed) | {(k, n.split("[")[0]) for k, n in failed}  # a test is red when one of its parameters is
         owners = {}  # the dotted module of each packet's acceptance file -> its packet
         for i in self.held():
             p, _ = bhpacket.load_packet(root, i)
             owners[bhpacket.acceptance_file(p).removesuffix(".py").replace("/", ".")] = p
-        done = {j.get("test") for j in self.recorded(item) if j.get("step") == "test_defect" and j.get("exit_code") == 0}
+        corrected = [j.get("test") for j in self.recorded(item) if j.get("step") == "test_defect" and j.get("exit_code") == 0]
         taught: list[str] = []
-        confirmed: dict[str, list[tuple[str, str]]] = {}  # owner -> its tests that passed alone
 
         def record(test: str, ok: bool, wrong: str, right: str, prevent: str) -> None:
             t0 = datetime.now(UTC)
-            self.keep({**bhpacket.program_job("test_defect", item, t0, digest, 0 if ok else 1), "id": f"{item}-test_defect-{digest[:12]}-{sha(test)[:12]}", "test": test})
+            self.keep({**bhpacket.program_job("test_defect", item, t0, digest, 0 if ok else 1), "id": f"{item}-test_defect-{digest[:12]}-{sha([test, len(corrected)])[:12]}", "test": test})
             line = bhcore._teach("test-defect", wrong, right, prevent)
             facts.append({"kind": "test_defect" if ok else "test_defect_refused", "item": item, "detail": test, "message": line})
             taught.append(line)
 
-        for c in claims[: bhreview.limits(self.cfg.data)["findings_shown"]]:
+        shown = bhreview.limits(self.cfg.data)["findings_shown"]
+        if len(claims) > shown:
+            facts.append({"kind": "test_defect_refused", "item": item, "detail": f"{len(claims) - shown} more claims", "message": f"only the first {shown} claims are checked"})
+        checkable: dict[tuple[str, str], tuple[dict[str, Any], str]] = {}
+        for c in claims[:shown]:
             head, _, name = c["test"].rpartition("::")
             mod, _, cls = head.partition(".py::") if ".py" in head else (head, "", "")
             classname = ".".join(x for x in [mod.removesuffix(".py").replace("/", "."), cls.replace("::", ".")] if x)
@@ -1359,13 +1363,19 @@ class Orchestrator:
                 record(test, False, f"{test} did not fail by an assertion in the measured suite", "make the failing tests pass in your owned paths", "claim a test defect only for a test the measurer reported red")
             elif owner is None:
                 record(test, False, f"{test} is not an acceptance test of any packet", "fix the tests you own in your owned paths", "claim a test defect only for an acceptance test")
-            elif test in done:
-                record(test, False, f"{test} was already corrected once by its author", "make it pass in your owned paths", "a test goes back to its author once; read its fixtures before claiming")
-            elif (alone := bhcore.run_alone(self.cfg, ref, [(classname, name)])[(classname, name)]) != "passed":
-                record(test, False, f"{test} fails in the suite and {alone} alone at your build, so the build is wrong, not the test ({c['evidence'][:80]})", "make it pass in your owned paths", "run the test alone before claiming a test defect")
+            elif corrected.count(test) >= self.cfg.limit("test_corrections"):
+                record(test, False, f"{test} was already corrected by its author", "make it pass in your owned paths", "read a test's fixtures before claiming it is faulty")
             else:
-                confirmed.setdefault(owner["id"], []).append((test, c["evidence"]))
-                record(test, True, f"{test} passes alone and fails in the suite at your build: it depends on state another test leaves", f"its author ({owner['id']}) corrects it; build again on the corrected tests", "claim a test defect only with that evidence")
+                checkable[(classname, name)] = (owner, c["evidence"])
+        alone = bhcore.run_alone(self.cfg, bhpacket.BUILD_REF.format(item=item), list(checkable)) if checkable else {}
+        confirmed: dict[str, list[tuple[str, str]]] = {}  # owner -> its tests that passed alone, with the evidence
+        for key, (owner, evidence) in checkable.items():
+            test = "::".join(key)
+            if alone[key] != "passed":
+                record(test, False, f"{test} fails in the suite and {alone[key]} alone at your build, so the build is wrong, not the test ({evidence[:80]})", "make it pass in your owned paths", "run the test alone before claiming a test defect")
+            else:
+                confirmed.setdefault(owner["id"], []).append((test, evidence))
+        fixed = False
         for oid, tests in confirmed.items():
             op, _ = bhpacket.load_packet(root, oid)
             path = bhpacket.acceptance_file(op)
@@ -1383,23 +1393,28 @@ class Orchestrator:
             ]
             core = {"task": "test_author", "item": oid, "packet": op, "test_path": path, "test_command": self.cfg.inferred.get("test", {}).get("value", "pytest"), "feedback": fb}
             j = await self.job("test_author", f"{oid}:test-defect:{item}", core, {}, f"Correct the acceptance tests of packet {oid} that the feedback names.", cwd=root)
-            if not j["ok"]:
-                facts.append({"kind": "gap", "item": item, "detail": f"the author of {oid} did not correct its tests"})
-                return taught, False
+            if not j["ok"]:  # nothing changed: the claims stay unconfirmed and the builder is told so
+                for t, _ in tests:
+                    record(t, False, f"{t} passes alone, but its author ({oid}) returned no correction", "make the failing tests pass in your owned paths", "the item goes on with the tests as they are")
+                continue
             write_atomic(root / path, j["output"]["test_code"])  # the criteria stay the packet's: only the test file changes
             self.commit(f"acceptance {item}: the tests of {oid} corrected\n\nPacket: {bhpacket.trailer(packet, digest)}")
-        if not confirmed:
+            fixed = True
+            for t, _ in tests:  # confirmed once the correction is committed
+                record(t, True, f"{t} passes alone and fails in the suite at your build: it depends on state another test leaves", f"its author ({oid}) corrected it; build again on the corrected tests", "claim a test defect only with that evidence")
+        if not fixed:
             return taught, False
         again, _ = self.red_on_main(packet, facts)  # L3 again at the new base
         try:
             now = bhcore._cases(bhcore.read_junit(root / self.outs[item] / "junit.xml"))
         except (HarnessError, KeyError):
             now = []
+        others = [m for m, p in owners.items() if p["id"] in confirmed and p["id"] != item]
         broken = [
             f"{c.classname}::{c.name}"
             for c in now
             if any(type(x).__name__ in ("Failure", "Error") for x in c.result)
-            and any(c.classname == m or c.classname.startswith(m + ".") for m, p in owners.items() if p["id"] in confirmed and p["id"] != item)
+            and any(c.classname == m or c.classname.startswith(m + ".") for m in others)
         ]
         if again or broken:
             facts.append({"kind": "stuck", "item": item, "detail": f"the corrected tests are not red by assertion at the new base: {', '.join([a['id'] for a in again] + broken)[:200]}"})

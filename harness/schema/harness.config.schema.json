@@ -437,6 +437,11 @@
           "type": "integer",
           "minimum": 0,
           "description": "Builder rounds a critical or major review finding may start for one packet (default 1, code review's request changes); a finding still open after them becomes a defect item."
+        },
+        "test_corrections": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Times one acceptance test may go back to its author on a builder's confirmed claim that it is faulty (default 1)."
         }
       }
     },
