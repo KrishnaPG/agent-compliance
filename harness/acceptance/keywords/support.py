@@ -89,6 +89,7 @@ def init_env(ctx):
         "ATDD_MODEL_STATE": str(work / "model.state"),
         "ATDD_TREE": str(ctx.tree),
         "ATDD_OUTSIDE": str(work / "outside"),
+        "BH_ORCHESTRATOR_DIR": str(work / "orchestrator"),  # where the program finds the authoritative packets
     }
     ctx.state["env"] = env
     ctx.state.setdefault("hidden_bins", [])
