@@ -48,7 +48,7 @@ def test_c1_AC6(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'uv_lockfile'})
     ctx.when('program_step', {'step': 'infer_config'})
     ctx.then('fact', {'kind': 'inferred', 'detail': 'uv.lock'})
-    ctx.then('field', {'source': 'config_effective', 'path': 'dependency_command', 'op': 'contains', 'value': 'uv add'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'paved_road.dependency_command', 'op': 'contains', 'value': 'uv add'})
 
 
 @pytest.mark.criterion('c1-AC7')
@@ -57,7 +57,7 @@ def test_c1_AC7(ctx):
     ctx.given('repo', {'name': 'node_toy', 'state': 'pnpm_lockfile'})
     ctx.when('program_step', {'step': 'infer_config'})
     ctx.then('fact', {'kind': 'inferred', 'detail': 'pnpm-lock.yaml'})
-    ctx.then('field', {'source': 'config_effective', 'path': 'dependency_command', 'op': 'contains', 'value': 'pnpm add'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'paved_road.dependency_command', 'op': 'contains', 'value': 'pnpm add'})
 
 
 @pytest.mark.criterion('c1-AC8')
@@ -66,7 +66,7 @@ def test_c1_AC8(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'pytest_testpaths'})
     ctx.when('program_step', {'step': 'infer_config'})
     ctx.then('fact', {'kind': 'inferred', 'detail': 'pyproject.toml'})
-    ctx.then('field', {'source': 'config_effective', 'path': 'builder_test_paths', 'op': 'contains', 'value': 'tests'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'paved_road.test_paths', 'op': 'contains', 'value': 'tests'})
 
 
 @pytest.mark.criterion('c1-AC9')
@@ -75,7 +75,7 @@ def test_c1_AC9(ctx):
     ctx.given('repo', {'name': 'node_toy', 'state': 'runner_config'})
     ctx.when('program_step', {'step': 'infer_config'})
     ctx.then('fact', {'kind': 'inferred', 'detail': 'vitest.config'})
-    ctx.then('field', {'source': 'config_effective', 'path': 'builder_test_paths', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'paved_road.test_paths', 'op': 'present'})
 
 
 @pytest.mark.criterion('c1-AC10')
@@ -484,10 +484,10 @@ def test_c7_AC1(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'owners_fixture'})
     ctx.given('host', {'condition': 'database_available'})
     ctx.when('bh', {'sub': 'owners', 'args': ['src/billing/invoice.py']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'owner', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'package', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'database_roles', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'operations', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'owner', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'package', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'database_roles', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'operations', 'op': 'present'})
 
 
 @pytest.mark.criterion('c7-AC2')
@@ -496,10 +496,10 @@ def test_c7_AC2(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'owners_fixture'})
     ctx.given('host', {'condition': 'database_available'})
     ctx.when('bh', {'sub': 'owners', 'args': ['billing']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'owner', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'package', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'database_roles', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'operations', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'owner', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'package', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'database_roles', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'operations', 'op': 'present'})
 
 
 @pytest.mark.criterion('c7-AC3')
@@ -507,7 +507,7 @@ def test_c7_AC3(ctx):
     # Owners are read from CODEOWNERS
     ctx.given('repo', {'name': 'project', 'state': 'codeowners_only'})
     ctx.when('bh', {'sub': 'owners', 'args': ['src/billing/invoice.py']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'sources', 'op': 'contains', 'value': 'CODEOWNERS'})
+    ctx.then('field', {'source': 'result_json', 'path': 'sources', 'op': 'contains', 'value': 'CODEOWNERS'})
 
 
 @pytest.mark.criterion('c7-AC4')
@@ -515,7 +515,7 @@ def test_c7_AC4(ctx):
     # Owners are read from OpenAPI tags
     ctx.given('repo', {'name': 'project', 'state': 'openapi_tags_only'})
     ctx.when('bh', {'sub': 'owners', 'args': ['billing']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'sources', 'op': 'contains', 'value': 'openapi'})
+    ctx.then('field', {'source': 'result_json', 'path': 'sources', 'op': 'contains', 'value': 'openapi'})
 
 
 @pytest.mark.criterion('c7-AC5')
@@ -524,7 +524,7 @@ def test_c7_AC5(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'database_roles_only'})
     ctx.given('host', {'condition': 'database_via_pg_env'})
     ctx.when('bh', {'sub': 'owners', 'args': ['billing']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'database_roles', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'database_roles', 'op': 'present'})
 
 
 @pytest.mark.criterion('c7-AC11')
@@ -533,7 +533,7 @@ def test_c7_AC11(ctx):
     ctx.given('repo', {'name': 'project', 'state': 'database_roles_only'})
     ctx.given('host', {'condition': 'database_via_url'})
     ctx.when('bh', {'sub': 'owners', 'args': ['billing']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'database_roles', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'database_roles', 'op': 'present'})
 
 
 @pytest.mark.criterion('c7-AC6')
@@ -541,8 +541,8 @@ def test_c7_AC6(ctx):
     # Packages are read from package.json exports
     ctx.given('repo', {'name': 'node_toy', 'state': 'package_exports_only'})
     ctx.when('bh', {'sub': 'owners', 'args': ['src/billing/index.ts']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'sources', 'op': 'contains', 'value': 'package.json'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'package', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'sources', 'op': 'contains', 'value': 'package.json'})
+    ctx.then('field', {'source': 'result_json', 'path': 'package', 'op': 'present'})
 
 
 @pytest.mark.criterion('c7-AC7')
@@ -550,8 +550,8 @@ def test_c7_AC7(ctx):
     # Published operations are read from __all__
     ctx.given('repo', {'name': 'toy', 'state': 'dunder_all_only'})
     ctx.when('bh', {'sub': 'owners', 'args': ['src/billing/invoice.py']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'operations', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'sources', 'op': 'contains', 'value': '__all__'})
+    ctx.then('field', {'source': 'result_json', 'path': 'operations', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'sources', 'op': 'contains', 'value': '__all__'})
 
 
 @pytest.mark.criterion('c7-AC8')
@@ -559,8 +559,8 @@ def test_c7_AC8(ctx):
     # Packages are read from workspace members
     ctx.given('repo', {'name': 'node_toy', 'state': 'workspace_members_only'})
     ctx.when('bh', {'sub': 'owners', 'args': ['packages/billing']})
-    ctx.then('field', {'source': 'owners_output', 'path': 'package', 'op': 'present'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'sources', 'op': 'contains', 'value': 'workspace'})
+    ctx.then('field', {'source': 'result_json', 'path': 'package', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'sources', 'op': 'contains', 'value': 'workspace'})
 
 
 @pytest.mark.criterion('c7-AC9')

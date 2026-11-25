@@ -1,5 +1,5 @@
 {
-  "criteria": {
+  "acceptance": {
     "a1-AC1": {
       "node": "test_a.py::test_a1_AC1",
       "slice": "a"
@@ -236,6 +236,10 @@
       "node": "test_b.py::test_b13_AC10",
       "slice": "b"
     },
+    "b13-AC11": {
+      "node": "test_b.py::test_b13_AC11",
+      "slice": "b"
+    },
     "b13-AC2": {
       "node": "test_b.py::test_b13_AC2",
       "slice": "b"
@@ -280,6 +284,10 @@
       "node": "test_b.py::test_b14_AC4",
       "slice": "b"
     },
+    "b14-AC5": {
+      "node": "test_b.py::test_b14_AC5",
+      "slice": "b"
+    },
     "b2-AC1": {
       "node": "test_b.py::test_b2_AC1",
       "slice": "b"
@@ -310,6 +318,14 @@
     },
     "b2-AC17": {
       "node": "test_b.py::test_b2_AC17",
+      "slice": "b"
+    },
+    "b2-AC18": {
+      "node": "test_b.py::test_b2_AC18",
+      "slice": "b"
+    },
+    "b2-AC19": {
+      "node": "test_b.py::test_b2_AC19",
       "slice": "b"
     },
     "b2-AC3": {
@@ -558,6 +574,10 @@
     },
     "b9-AC14": {
       "node": "test_b.py::test_b9_AC14",
+      "slice": "b"
+    },
+    "b9-AC15": {
+      "node": "test_b.py::test_b9_AC15",
       "slice": "b"
     },
     "b9-AC2": {
@@ -906,6 +926,10 @@
     },
     "d0-AC16": {
       "node": "test_d.py::test_d0_AC16",
+      "slice": "d"
+    },
+    "d0-AC17": {
+      "node": "test_d.py::test_d0_AC17",
       "slice": "d"
     },
     "d0-AC2": {

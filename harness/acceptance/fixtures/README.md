@@ -2,7 +2,7 @@
 
 One directory per given key. A row names a fixture; its file is found by the rule below. A missing or malformed fixture is an error in the run (not a red test). Fixtures need no network, CI, bot account or paid model call. All JSON files may be written as YAML.
 
-Field names follow the owner's d0 map: `acceptance[*]` (each with `id`), `verifier.targets[*]`, `verifier.rules[*]`, `verifier.acceptance_paths`, `constraints.declared_paths`, `paved_road.test_paths`, `jobs[*].kind` (`agent` or `program_step`), `jobs[*].role` (agents only), `jobs[*].tokens`, `command` on every result JSON, id-keyed collections as arrays of objects with `id`. The keyword library reads every other assumed name from `../keywords/contract.json`.
+Field names follow the owner's d0 map: `acceptance[*]` (each with `id`), `verifier.targets[*]`, `verifier.rules[*]`, `verifier.acceptance_paths`, `constraints.declared_paths`, `paved_road.test_paths`, `jobs[*].kind` (`agent` or `program_step`), `jobs[*].role` (agents) or `jobs[*].step` (program steps), `jobs[*].tokens`, `schema_version` and `command` on every result JSON, id-keyed collections as arrays of objects with `id`. The keyword library reads every other assumed name from `../keywords/contract.json`.
 
 A fixture is never edited to change a row's outcome; a keyword bug is reported to the engine owner.
 
@@ -41,7 +41,7 @@ The five enum values from the row, then `touch` (`first` when the row omits it),
 
 ## packet: `packet/<fixture>/<variant>.json`
 
-A schema-valid (or deliberately invalid, per `variant`) packet with the d0 fields: `id`, `parent_issue`, `tier`, `goal`, `applies[*]`, `constraints.declared_paths`, `acceptance[*].{id,traces_to,verification}`, `verifier.{rules,targets,acceptance_paths}`, `paved_road.{test_paths,dependency_command,check_command}`, `definition_of_done`. Its `id` names it. The file is copied to `.brick-harness/packets/<id>.json` in the repo (unless that path is already tracked, so a plant can supply an edited one) and to the orchestrator's authoritative copy outside the repo. `$packet_sha256`, `$packet_id`, `$acceptance_ids`, `$acceptance_paths` (= `verifier.acceptance_paths`) and `$declared_paths` (= `constraints.declared_paths`) are read from it.
+A schema-valid (or deliberately invalid, per `variant`) packet with the d0 fields: `id`, `parent_issue`, `tier`, `goal`, `applies[*]`, `constraints.declared_paths`, `acceptance[*].{id,traces_to,verification}`, `verifier.{rules,targets,acceptance_paths}`, `paved_road.{test_paths,dependency_command,check_command}`, `definition_of_done`. Its `id` names it. The file is copied to `.brick-harness/packets/<id>.json` in the repo (unless that path is already tracked, so a plant can supply an edited one) and to the orchestrator's authoritative copy outside the repo. `$packet_sha256`, `$acceptance_ids` and `$packet.<path>` (the value at that packet path, for example `$packet.verifier.acceptance_paths`; a list matches when any element does) are read from it.
 
 ## config: no fixture file
 

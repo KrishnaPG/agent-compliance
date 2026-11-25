@@ -28,7 +28,7 @@ def load_rows(criteria_dir: Path) -> list[dict]:
     rows = []
     for f in sorted(Path(criteria_dir).glob("*.yaml")):
         doc = yaml.safe_load(f.read_text())
-        for r in doc["criteria"]:
+        for r in doc["acceptance"]:
             r = dict(r)
             r["_slice"] = str(doc["slice"])
             rows.append(r)
@@ -119,7 +119,7 @@ def generate(catalog_path, criteria_dir, library_dir, fixtures_dir, out_dir) -> 
     nodes = [m["node"] for m in manifest.values()]
     if len(nodes) != len(set(nodes)):
         raise Refusal(teach("ATDD-NODE", "two rows map to one test node", "give the rows ids that differ beyond case and punctuation", REF))
-    files["manifest.json"] = _j({"criteria": manifest, "version": 1})
+    files["manifest.json"] = _j({"acceptance": manifest, "version": 1})
     files["not_generated.json"] = _j(skipped)
     return files
 

@@ -50,9 +50,14 @@ def test_d0_AC5(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'packet', 'path': 'constraints', 'op': 'present'})
-    ctx.then('field', {'source': 'packet', 'path': 'verifier', 'op': 'present'})
-    ctx.then('field', {'source': 'packet', 'path': 'paved_road', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.decisions[*].id', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.decisions[*].text', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.owners[*]', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.interfaces[*]', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.declared_paths[*]', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.limits', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.checks[*]', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'paved_road.check_command', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'definition_of_done', 'op': 'present'})
 
 
@@ -166,7 +171,7 @@ def test_d2_AC1(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['planner', 'judge', 'test_author', 'builder', 'reviewer']})
+    ctx.then('jobs', {'assert': 'absent', 'values': ['planner', 'judge', 'test_author', 'builder', 'reviewer']})
     ctx.then('field', {'source': 'packet', 'path': 'acceptance', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'verifier', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'paved_road', 'op': 'present'})
@@ -190,7 +195,12 @@ def test_d2_AC3(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'packet', 'path': 'verifier', 'op': 'matches', 'value': '[0-9]'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.acceptance_paths[*]', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.targets[*].item', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.targets[*].metric', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.targets[*].op', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.targets[*].value', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.targets[*].unit', 'op': 'present'})
     ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].id', 'op': 'present'})
 
 
@@ -203,6 +213,8 @@ def test_d2_AC4(ctx):
     ctx.then('output_contains', {'channel': 'packet_markdown', 'text': 'DTZ'})
     ctx.then('output_contains', {'channel': 'packet_markdown', 'text': 'baseline'})
     ctx.then('lines', {'channel': 'stdout', 'pattern': 'DTZ', 'op': 'ge', 'count': 1})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.rules[*].message', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.baselines[*]', 'op': 'present'})
 
 
 @pytest.mark.criterion('d2-AC5')
@@ -212,7 +224,7 @@ def test_d2_AC5(ctx):
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
     ctx.then('field', {'source': 'packet', 'path': 'applies', 'op': 'present'})
-    ctx.then('field', {'source': 'packet', 'path': 'constraints[*].text', 'op': 'in_file', 'value': 'docs/adr/toy_item.md'})
+    ctx.then('field', {'source': 'packet', 'path': 'constraints.decisions[*].text', 'op': 'in_file', 'value': 'docs/adr/toy_item.md'})
 
 
 @pytest.mark.criterion('d2-AC6')
@@ -221,7 +233,7 @@ def test_d2_AC6(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'packet', 'path': 'paved_road', 'op': 'contains', 'value': 'bh check'})
+    ctx.then('field', {'source': 'packet', 'path': 'paved_road.check_command', 'op': 'eq', 'value': 'bh check'})
 
 
 @pytest.mark.criterion('d2-AC7')
@@ -230,8 +242,8 @@ def test_d2_AC7(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'packet', 'path': 'paved_road', 'op': 'present'})
-    ctx.then('field', {'source': 'packet', 'path': 'paved_road', 'op': 'matches', 'value': '(?i)test'})
+    ctx.then('field', {'source': 'packet', 'path': 'paved_road.test_paths[*]', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'paved_road.dependency_command', 'op': 'present'})
 
 
 @pytest.mark.criterion('d2-AC8')
@@ -329,7 +341,7 @@ def test_d4_AC1(ctx):
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'launch_builder', 'item': 'toy_item'})
     ctx.then('file_unchanged', {'target': 'orchestrator_packet'})
-    ctx.then('field', {'source': 'job_record', 'path': 'jobs[*].packet_sha256', 'op': 'eq', 'value': '$packet_sha256'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].packet_sha256', 'op': 'eq', 'value': '$packet_sha256'})
 
 
 @pytest.mark.criterion('d4-AC2')
@@ -371,7 +383,7 @@ def test_d4_AC5(ctx):
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('builder_action', {'tool': 'Edit', 'action': 'edit', 'target': 'clone_packet'})
     ctx.then('file_unchanged', {'target': 'orchestrator_packet'})
-    ctx.then('field', {'source': 'job_record', 'path': 'jobs[*].packet_sha256', 'op': 'eq', 'value': '$packet_sha256'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].packet_sha256', 'op': 'eq', 'value': '$packet_sha256'})
 
 
 @pytest.mark.criterion('d4-AC6')
@@ -391,6 +403,8 @@ def test_d5_AC1(ctx):
     ctx.when('bh', {'sub': 'owners', 'args': ['--config']})
     ctx.then('field', {'source': 'config_effective', 'path': 'tiers.triggers', 'op': 'present'})
     ctx.then('field', {'source': 'config_effective', 'path': 'tiers.triggers[*].fresh_stack', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'tiers.triggers[*].paths', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'tiers.triggers[*].tier', 'op': 'eq', 'value': 'design-affecting'})
 
 
 @pytest.mark.criterion('d5-AC2')
@@ -506,7 +520,7 @@ def test_d6_AC5(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'generate_tests', 'item': 'toy_item'})
-    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$acceptance_paths'})
+    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$packet.verifier.acceptance_paths'})
 
 
 @pytest.mark.criterion('d6-AC6')
@@ -518,7 +532,7 @@ def test_d6_AC6(ctx):
     ctx.when('builder_action', {'tool': 'Edit', 'action': 'edit', 'target': 'acceptance_test'})
     ctx.then('file_unchanged', {'target': 'acceptance_tests'})
     ctx.then('refused', {'by': 'file_tools', 'wrong': 'edit of a protected acceptance test', 'right': 'ask the test author to change the row and regenerate the test', 'prevent': 'acceptance test paths are protected from the builder'})
-    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$acceptance_paths'})
+    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$packet.verifier.acceptance_paths'})
 
 
 @pytest.mark.criterion('d6-AC7')
@@ -588,7 +602,7 @@ def test_d6_AC12(ctx):
     ctx.when('bh', {'sub': 'run'})
     ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'generator', 'builder', 'measurer']})
     ctx.then('jobs', {'assert': 'distinct', 'values': ['test_author', 'generator', 'builder', 'measurer']})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['generator']})
+    ctx.then('jobs', {'assert': 'program_only', 'values': ['generator']})
 
 
 @pytest.mark.criterion('d6-AC13')
@@ -631,7 +645,7 @@ def test_d7_AC1(ctx):
     ctx.given('recorded_model', {'fixture': 'planner_judge_author_builder'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('field', {'source': 'packet', 'path': 'constraints', 'op': 'present'})
-    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$declared_paths'})
+    ctx.then('git', {'assert': 'path_in_plan_commit', 'path': '$packet.constraints.declared_paths'})
 
 
 @pytest.mark.criterion('d7-AC2')
@@ -642,8 +656,8 @@ def test_d7_AC2(ctx):
     ctx.given('recorded_model', {'fixture': 'judge_two_objections'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('jobs', {'assert': 'present', 'values': ['judge']})
-    ctx.then('field', {'source': 'job_record', 'path': 'objections', 'op': 'present'})
-    ctx.then('field', {'source': 'job_record', 'path': 'falsifying_calls', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].objections', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].falsifying_calls', 'op': 'present'})
 
 
 @pytest.mark.criterion('d7-AC4')
@@ -836,10 +850,14 @@ def test_d9_AC4(ctx):
     ctx.when('bh', {'sub': 'owners', 'args': ['--config']})
     ctx.then('field', {'source': 'config_effective', 'path': 'limits.measure_overhead_s', 'op': 'eq', 'value': 2})
     ctx.then('field', {'source': 'config_effective', 'path': 'limits.socket_groups', 'op': 'contains', 'value': 'docker'})
-    ctx.then('field', {'source': 'config_effective', 'path': 'sandbox.allow_all_unix_sockets', 'op': 'eq', 'value': False})
+    ctx.then('field', {'source': 'config_effective', 'path': 'sandbox.network.allowAllUnixSockets', 'op': 'eq', 'value': False})
     ctx.then('field', {'source': 'config_effective', 'path': 'evals.runs', 'op': 'eq', 'value': 3})
-    ctx.then('field', {'source': 'config_effective', 'path': 'models', 'op': 'present'})
     ctx.then('field', {'source': 'config_effective', 'path': 'tiers.triggers', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'models.planner', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'models.judge', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'models.test_author', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'models.builder', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'models.reviewer', 'op': 'present'})
 
 
 @pytest.mark.criterion('d9-AC5')
@@ -909,7 +927,7 @@ def test_d11_AC2(ctx):
     ctx.given('planted', {'plant': 'docs_change', 'class': 'honest', 'where': 'candidate_commit'})
     ctx.given('recorded_model', {'fixture': 'reviewer_one_finding'})
     ctx.when('bh', {'sub': 'run'})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['reviewer']})
+    ctx.then('jobs', {'assert': 'absent', 'values': ['reviewer']})
     ctx.then('jobs', {'assert': 'order', 'values': ['test_author', 'generator', 'builder', 'measurer']})
 
 
@@ -932,7 +950,7 @@ def test_d11_AC4(ctx):
     ctx.given('config', {'state': 'absent'})
     ctx.when('bh', {'sub': 'owners', 'args': ['--review-paths']})
     ctx.then('fact', {'kind': 'inferred', 'detail': 'securitySchemes'})
-    ctx.then('field', {'source': 'owners_output', 'path': 'review.triggers', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'review.triggers', 'op': 'present'})
 
 
 @pytest.mark.criterion('d11-AC5')
@@ -1004,7 +1022,21 @@ def test_d0_AC16(ctx):
     ctx.when('builder_action', {'tool': 'Write', 'action': 'write', 'target': 'orchestrator_packet'})
     ctx.then('file_unchanged', {'target': 'orchestrator_packet'})
     ctx.then('refused', {'by': 'sandbox', 'wrong': "write to the orchestrator's packet file", 'right': 'only the planner or orchestrator writes the packet', 'prevent': "the packet file is outside the builder's writable paths"})
-    ctx.then('field', {'source': 'job_record', 'path': 'packet_sha256', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].packet_sha256', 'op': 'present'})
+
+
+@pytest.mark.criterion('d0-AC17')
+def test_d0_AC17(ctx):
+    # The packet names its schema version and each acceptance item carries its scenario and its given, when and then steps
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
+    ctx.then('field', {'source': 'packet', 'path': 'schema_version', 'op': 'matches', 'value': '^\\d+\\.\\d+\\.\\d+$'})
+    ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].scenario', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].given', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].when', 'op': 'present'})
+    ctx.then('field', {'source': 'packet', 'path': 'acceptance[*].then', 'op': 'present'})
+    ctx.then('schema_valid', {'valid': True, 'instance': 'packet', 'schema': 'harness/schema/packet.schema.json'})
 
 
 @pytest.mark.criterion('d4-AC7')

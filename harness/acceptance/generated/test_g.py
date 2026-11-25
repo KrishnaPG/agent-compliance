@@ -82,7 +82,7 @@ def test_g2_AC3(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'assemble_packet', 'item': 'toy_item'})
-    ctx.then('field', {'source': 'packet', 'path': 'rules[*]', 'op': 'matches', 'value': '^(ASVS|SSDF|SP800-53|SLSA|WA|HR)[A-Za-z0-9._-]*$'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.rules[*].id', 'op': 'matches', 'value': '^(ASVS|SSDF|SP800-53|SLSA|WA|HR)[A-Za-z0-9._-]*$'})
     ctx.then('no_fact', {'kind': 'unknown_rule'})
 
 

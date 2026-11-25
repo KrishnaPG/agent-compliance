@@ -19,7 +19,7 @@ from atdd_engine import generate as g  # noqa: E402
 from atdd_engine import report, teaching  # noqa: E402
 
 CATALOG = {"given": {"thing": {}}, "when": {"act": {}}, "then": {"is_ok": {}, "boom": {}, "missing": {}, "needs_keyword": {}, "vague": {}}}
-ROWS = {"slice": "z", "criteria": [
+ROWS = {"slice": "z", "acceptance": [
     {"id": "z1-AC1", "scenario": "green", "given": [{"thing": {"x": 1}}], "when": {"act": {}}, "then": [{"is_ok": {"v": True}}]},
     {"id": "z1-AC2", "scenario": "red by assertion", "given": [], "when": {"act": {}}, "then": [{"is_ok": {"v": False}}]},
     {"id": "z1-AC3", "scenario": "red: the tree lacks something", "given": [], "when": {"act": {}}, "then": [{"missing": {}}]},
@@ -57,7 +57,7 @@ def gen(p):
 
 def test_one_test_per_row_and_manifest_maps_each(project):
     files = gen(project)
-    manifest = json.loads(files["manifest.json"])["criteria"]
+    manifest = json.loads(files["manifest.json"])["acceptance"]
     assert sorted(manifest) == ["z1-AC1", "z1-AC2", "z1-AC3", "z1-AC4"]
     assert len({m["node"] for m in manifest.values()}) == 4
     assert files["test_z.py"].count("@pytest.mark.criterion(") == 4
@@ -111,7 +111,7 @@ def test_a_missing_tree_is_an_error_not_a_failure(project, tmp_path):
 
 
 def test_duplicate_row_ids_are_refused_with_teaching(project):
-    rows = dict(ROWS, criteria=ROWS["criteria"] + [ROWS["criteria"][0]])
+    rows = dict(ROWS, acceptance=ROWS["acceptance"] + [ROWS["acceptance"][0]])
     (project / "criteria" / "z.yaml").write_text(yaml.safe_dump(rows))
     with pytest.raises(g.Refusal) as e:
         gen(project)

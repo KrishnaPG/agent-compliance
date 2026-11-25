@@ -315,8 +315,8 @@ def test_e4_AC6(ctx):
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'three_claims_one_malformed'})
     ctx.when('bh', {'sub': 'intake'})
     ctx.then('exit_code', {'code': 0})
-    ctx.then('field', {'source': 'result_json', 'path': 'items.claim-a.status', 'op': 'present'})
-    ctx.then('field', {'source': 'result_json', 'path': 'items.claim-c.status', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'items[id=claim-a].status', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'items[id=claim-c].status', 'op': 'present'})
     ctx.then('teaching', {'channel': 'stderr', 'wrong': 'claim-b', 'right': 'fix the claim', 'prevent': 'issue form'})
 
 
@@ -410,7 +410,7 @@ def test_e5_AC8(ctx):
     # A tracking issue idle past limits.idle_days is a fact in the next run report
     ctx.given('repo', {'name': 'project', 'state': 'tracking_issue_open'})
     ctx.given('history', {'fixture': 'tracking_issue_idle_20_days', 'period': 'v2'})
-    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 14})
+    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 7})
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'tracking_issue_with_checklist'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('fact', {'kind': 'idle_tracking', 'count': 1})
@@ -422,11 +422,11 @@ def test_e5_AC9(ctx):
     # A tracking issue with recent activity is not reported
     ctx.given('repo', {'name': 'project', 'state': 'tracking_issue_open'})
     ctx.given('history', {'fixture': 'tracking_issue_active_2_days', 'period': 'v2'})
-    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 14})
+    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 7})
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'tracking_issue_with_checklist'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('no_fact', {'kind': 'idle_tracking'})
-    ctx.then('field', {'source': 'config_effective', 'path': 'limits.idle_days', 'op': 'eq', 'value': 14})
+    ctx.then('field', {'source': 'config_effective', 'path': 'limits.idle_days', 'op': 'eq', 'value': 7})
 
 
 @pytest.mark.criterion('e5-AC10')
@@ -434,12 +434,12 @@ def test_e5_AC10(ctx):
     # The idle report needs no timer, it appears in the next bh run
     ctx.given('repo', {'name': 'project', 'state': 'tracking_issue_open'})
     ctx.given('history', {'fixture': 'tracking_issue_idle_20_days', 'period': 'v2'})
-    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 14})
+    ctx.given('config', {'state': 'override', 'key': 'limits.idle_days', 'value': 7})
     ctx.given('recorded_api', {'service': 'github', 'fixture': 'tracking_issue_with_checklist'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('fact', {'kind': 'idle_tracking', 'count': 1})
     ctx.then('exit_code', {'code': 0})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['timer']})
+    ctx.then('jobs', {'assert': 'absent', 'values': ['timer']})
 
 
 @pytest.mark.criterion('e6-AC1')

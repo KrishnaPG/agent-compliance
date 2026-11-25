@@ -33,8 +33,8 @@ def test_f1_AC3(ctx):
     ctx.given('packet', {'fixture': 'decision_item_oss_vs_existing', 'variant': 'valid'})
     ctx.given('recorded_model', {'fixture': 'judge_oss_option_unverified_rule'})
     ctx.when('bh', {'sub': 'run'})
-    ctx.then('field', {'source': 'result_json', 'path': 'options[oss].rules.unverified.verdict', 'op': 'eq', 'value': 'unknown'})
-    ctx.then('field', {'source': 'result_json', 'path': 'options[oss].rules.unverified.verdict', 'op': 'ne', 'value': 'fail'})
+    ctx.then('field', {'source': 'result_json', 'path': 'options[id=oss].rules[id=unverified].verdict', 'op': 'eq', 'value': 'unknown'})
+    ctx.then('field', {'source': 'result_json', 'path': 'options[id=oss].rules[id=unverified].verdict', 'op': 'ne', 'value': 'fail'})
     ctx.then('field', {'source': 'result_json', 'path': 'recommended', 'op': 'eq', 'value': 'oss'})
 
 
@@ -45,7 +45,7 @@ def test_f1_AC4(ctx):
     ctx.given('packet', {'fixture': 'decision_item', 'variant': 'valid'})
     ctx.given('recorded_model', {'fixture': 'judge_with_falsifying_call'})
     ctx.when('bh', {'sub': 'run'})
-    ctx.then('field', {'source': 'packet', 'path': 'targets', 'op': 'contains', 'value': 'falsify-1'})
+    ctx.then('field', {'source': 'packet', 'path': 'verifier.targets[*].id', 'op': 'contains', 'value': 'falsify-1'})
 
 
 @pytest.mark.criterion('f1-AC5')
@@ -56,7 +56,7 @@ def test_f1_AC5(ctx):
     ctx.given('config', {'state': 'override', 'key': 'limits.record_chars', 'value': 500})
     ctx.given('recorded_model', {'fixture': 'proposer_record_800_chars'})
     ctx.when('bh', {'sub': 'run'})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['judge']})
+    ctx.then('jobs', {'assert': 'absent', 'values': ['judge']})
     ctx.then('teaching', {'channel': 'run_report', 'wrong': 'limits.record_chars', 'right': 'shorten the record', 'prevent': 'record_chars'})
 
 
@@ -157,7 +157,7 @@ def test_f2_AC1(ctx):
     ctx.then('api_call', {'service': 'scorecard', 'operation': 'getProject', 'count': 1})
     ctx.then('api_call', {'service': 'deps_dev', 'operation': 'GetVersion', 'count': 1})
     ctx.then('api_call', {'service': 'osv', 'operation': 'query', 'count': 1})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['agent']})
+    ctx.then('jobs', {'assert': 'program_only', 'values': ['vet']})
 
 
 @pytest.mark.criterion('f2-AC2')
@@ -168,10 +168,10 @@ def test_f2_AC2(ctx):
     ctx.given('recorded_api', {'service': 'deps_dev', 'fixture': 'package_ok'})
     ctx.given('recorded_api', {'service': 'osv', 'fixture': 'package_ok'})
     ctx.when('bh', {'sub': 'vet', 'args': ['pypi', 'example-pkg@1.2.3']})
-    ctx.then('field', {'source': 'vet_output', 'path': 'scorecard', 'op': 'present'})
-    ctx.then('field', {'source': 'vet_output', 'path': 'deps_dev', 'op': 'present'})
-    ctx.then('field', {'source': 'vet_output', 'path': 'osv', 'op': 'present'})
-    ctx.then('field', {'source': 'vet_output', 'path': 'verdict', 'op': 'absent'})
+    ctx.then('field', {'source': 'result_json', 'path': 'scorecard', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'deps_dev', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'osv', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'verdict', 'op': 'absent'})
 
 
 @pytest.mark.criterion('f2-AC3')

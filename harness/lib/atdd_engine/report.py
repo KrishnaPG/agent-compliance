@@ -11,7 +11,7 @@ from pathlib import Path
 
 
 def outcomes(junit: Path, manifest: Path) -> dict[str, dict]:
-    ids = json.loads(Path(manifest).read_text())["criteria"]
+    ids = json.loads(Path(manifest).read_text())["acceptance"]
     out = {i: {"outcome": "absent", "message": ""} for i in ids}
     for tc in ET.parse(junit).getroot().iter("testcase"):
         crit = next((p.get("value") for p in tc.iter("property") if p.get("name") == "criterion"), None)

@@ -1123,7 +1123,7 @@ def test_b13_AC4(ctx):
     ctx.given('planted', {'plant': 'skill_changed', 'class': 'diff'})
     ctx.given('recorded_model', {'fixture': 'toy_honest'})
     ctx.when('bh', {'sub': 'run', 'rerun': True})
-    ctx.then('field', {'source': 'job_record', 'path': 'jobs[*].cached', 'op': 'eq', 'value': False})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].cached', 'op': 'eq', 'value': False})
 
 
 @pytest.mark.criterion('b13-AC5')
@@ -1133,7 +1133,7 @@ def test_b13_AC5(ctx):
     ctx.given('planted', {'plant': 'standards_changed', 'class': 'diff'})
     ctx.given('recorded_model', {'fixture': 'toy_honest'})
     ctx.when('bh', {'sub': 'run', 'rerun': True})
-    ctx.then('field', {'source': 'job_record', 'path': 'jobs[*].cached', 'op': 'eq', 'value': False})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].cached', 'op': 'eq', 'value': False})
 
 
 @pytest.mark.criterion('b13-AC6')
@@ -1176,6 +1176,16 @@ def test_b13_AC10(ctx):
     ctx.then('scan_count', {'op': 'ge', 'value': 1})
 
 
+@pytest.mark.criterion('b13-AC11')
+def test_b13_AC11(ctx):
+    # The job and run budgets have defaults when no config file exists
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('config', {'state': 'absent'})
+    ctx.when('bh', {'sub': 'owners', 'args': ['--config']})
+    ctx.then('field', {'source': 'config_effective', 'path': 'budgets.job_usd', 'op': 'present'})
+    ctx.then('field', {'source': 'config_effective', 'path': 'budgets.run_usd', 'op': 'present'})
+
+
 @pytest.mark.criterion('b14-AC1')
 def test_b14_AC1(ctx):
     # A bh run on the toy with the stub claude ends with every item met or stuck with facts
@@ -1194,7 +1204,7 @@ def test_b14_AC2(ctx):
     ctx.given('recorded_model', {'fixture': 'toy_e2e'})
     ctx.when('bh', {'sub': 'run'})
     ctx.then('jobs', {'assert': 'present', 'values': ['builder']})
-    ctx.then('jobs', {'assert': 'none_of_kind', 'values': ['state', 'measure', 'merge', 'commit', 'ordering']})
+    ctx.then('jobs', {'assert': 'program_only', 'values': ['state', 'measure', 'merge', 'commit', 'ordering']})
 
 
 @pytest.mark.criterion('b14-AC3')
@@ -1203,8 +1213,8 @@ def test_b14_AC3(ctx):
     ctx.given('repo', {'name': 'toy', 'state': 'base'})
     ctx.given('recorded_model', {'fixture': 'toy_e2e'})
     ctx.when('bh', {'sub': 'run'})
-    ctx.then('field', {'source': 'result_json', 'path': 'items[*].tokens', 'op': 'present'})
-    ctx.then('field', {'source': 'run_report', 'path': 'tokens', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].tokens', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].item', 'op': 'present'})
 
 
 @pytest.mark.criterion('b14-AC4')
@@ -1215,6 +1225,19 @@ def test_b14_AC4(ctx):
     ctx.when('bh', {'sub': 'run'})
     ctx.then('field', {'source': 'launch_args', 'path': '--tools', 'op': 'present'})
     ctx.then('field', {'source': 'launch_args', 'path': '--tools', 'op': 'not_contains', 'value': 'Workflow'})
+
+
+@pytest.mark.criterion('b14-AC5')
+def test_b14_AC5(ctx):
+    # Every job record has an id, a kind, its item, a start time and an exit code
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('recorded_model', {'fixture': 'toy_e2e'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].id', 'op': 'distinct'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].kind', 'op': 'matches', 'value': '^(agent|program_step)$'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].item', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].started_at', 'op': 'matches', 'value': '^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$'})
+    ctx.then('field', {'source': 'result_json', 'path': 'jobs[*].exit_code', 'op': 'present'})
 
 
 @pytest.mark.criterion('b2-AC12')
@@ -1306,8 +1329,8 @@ def test_b9_AC13(ctx):
     ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
     ctx.when('program_step', {'step': 'commit_build'})
     ctx.then('field', {'source': 'commit_message', 'path': 'subject', 'op': 'matches', 'value': '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\\(.+\\))?!?: .+'})
-    ctx.then('field', {'source': 'commit_message', 'path': 'trailers', 'op': 'contains', 'value': 'Packet: $packet_id@$packet_sha256'})
-    ctx.then('field', {'source': 'commit_message', 'path': 'trailers', 'op': 'contains', 'value': 'Criteria: $criteria_ids'})
+    ctx.then('field', {'source': 'commit_message', 'path': 'trailers', 'op': 'contains', 'value': 'Packet: $packet.id@$packet_sha256'})
+    ctx.then('field', {'source': 'commit_message', 'path': 'trailers', 'op': 'contains', 'value': 'Acceptance: $acceptance_ids'})
     ctx.then('git', {'assert': 'committed_by_program'})
 
 
@@ -1324,6 +1347,16 @@ def test_b9_AC14(ctx):
     ctx.then('teaching', {'channel': 'fact', 'wrong': "diff path outside the packet's declared paths", 'right': 'keep changes inside the declared paths or ask for a plan change', 'prevent': 'declare every path the item touches in the packet'})
 
 
+@pytest.mark.criterion('b9-AC15')
+def test_b9_AC15(ctx):
+    # The config's sandbox object reaches the builder's settings verbatim
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('config', {'state': 'override', 'key': 'sandbox', 'value': {'excludedCommands': ['docker']}})
+    ctx.given('recorded_model', {'fixture': 'toy_honest'})
+    ctx.when('bh', {'sub': 'run'})
+    ctx.then('field', {'source': 'builder_settings', 'path': 'sandbox.excludedCommands', 'op': 'contains', 'value': 'docker'})
+
+
 @pytest.mark.criterion('b2-AC17')
 def test_b2_AC17(ctx):
     # The JUnit XML a measurement writes parses and holds the item's tests
@@ -1332,3 +1365,31 @@ def test_b2_AC17(ctx):
     ctx.when('bh', {'sub': 'measure'})
     ctx.then('paths', {'paths': ['out/*/*-*/*.xml'], 'exist': True})
     ctx.then('junit', {'tests_min': 1, 'errors': 0})
+
+
+@pytest.mark.criterion('b2-AC18')
+def test_b2_AC18(ctx):
+    # A measurement names its schema version and command and gives a verdict for each acceptance criterion
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'honest_commit', 'class': 'honest'})
+    ctx.when('bh', {'sub': 'measure'})
+    ctx.then('met', {'status': 'met'})
+    ctx.then('field', {'source': 'result_json', 'path': 'schema_version', 'op': 'matches', 'value': '^\\d+\\.\\d+\\.\\d+$'})
+    ctx.then('field', {'source': 'result_json', 'path': 'command', 'op': 'eq', 'value': 'measure'})
+    ctx.then('field', {'source': 'result_json', 'path': 'items[*].acceptance[*].id', 'op': 'present'})
+    ctx.then('field', {'source': 'result_json', 'path': 'items[*].acceptance[*].status', 'op': 'eq', 'value': 'met'})
+
+
+@pytest.mark.criterion('b2-AC19')
+def test_b2_AC19(ctx):
+    # One failing acceptance criterion is unmet by itself and its fact names the item
+    ctx.given('repo', {'name': 'toy', 'state': 'base'})
+    ctx.given('packet', {'fixture': 'toy_item', 'variant': 'valid'})
+    ctx.given('planted', {'plant': 'one_criterion_failing', 'class': 'defect'})
+    ctx.when('bh', {'sub': 'measure'})
+    ctx.then('met', {'status': 'unmet'})
+    ctx.then('field', {'source': 'result_json', 'path': 'items[*].acceptance[*].status', 'op': 'matches', 'value': '^(met|unmet)$'})
+    ctx.then('fact', {'kind': 'red'})
+    ctx.then('field', {'source': 'result_json', 'path': 'facts[*].item', 'op': 'eq', 'value': 'toy_item'})
+    ctx.then('teaching', {'channel': 'stdout', 'wrong': 'toy_item-AC1 failed an assertion', 'right': 'make toy_item-AC1 pass without editing tests/', 'prevent': 'run bh check before finishing'})

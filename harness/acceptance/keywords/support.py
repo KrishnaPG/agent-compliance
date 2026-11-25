@@ -203,11 +203,21 @@ def overlay(src: Path, dest: Path):
 
 # ---------- field paths ----------
 
-_SEG = re.compile(r"([^.\[\]]+)|\[(\*|\d+)\]")
+_SEG = re.compile(r"([^.\[\]]+)|\[(\*|\d+|id=[^\]]+)\]")
 
 
 def path_segments(path: str):
-    return [(m.group(1) if m.group(1) is not None else (None if m.group(2) == "*" else int(m.group(2)))) for m in _SEG.finditer(path)]
+    out = []
+    for m in _SEG.finditer(path):
+        if m.group(1) is not None:
+            out.append(m.group(1))
+        elif m.group(2) == "*":
+            out.append(None)
+        elif m.group(2).startswith("id="):
+            out.append(("id", m.group(2)[3:]))
+        else:
+            out.append(int(m.group(2)))
+    return out
 
 
 _NONE = object()
@@ -223,6 +233,11 @@ def get_path(obj, path: str) -> list:
                 if not isinstance(c, list):
                     raise KeyError(path)
                 nxt.extend(c)
+            elif isinstance(seg, tuple):
+                hit = [x for x in c if isinstance(x, dict) and x.get("id") == seg[1]] if isinstance(c, list) else []
+                if not hit:
+                    raise KeyError(path)
+                nxt.append(hit[0])
             elif isinstance(seg, int):
                 if not isinstance(c, list) or seg >= len(c):
                     raise KeyError(path)

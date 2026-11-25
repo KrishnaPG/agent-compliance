@@ -36,8 +36,10 @@ def result(ctx):
     j = run.extra.get("hook_json") if run.kind == "hook" else run.json
     if j is None:
         missing(f"{run.extra.get('what', run.kind)} printed no result JSON on stdout (exit {run.exit_code})", "print the result JSON on stdout")
-    if run.kind != "hook" and not (isinstance(j, dict) and j.get(RJ["command"])):
-        missing(f"the result JSON has no `{RJ['command']}` field", "name the command in every result JSON")
+    if run.kind != "hook":
+        for k in (RJ["schema_version"], RJ["command"]):
+            if not (isinstance(j, dict) and j.get(k)):
+                missing(f"the result JSON has no `{k}` field", "give every result JSON its schema_version and command")
     return j
 
 
@@ -79,16 +81,30 @@ def packet_values(ctx) -> dict:
     pk = ctx.state.get("packet")
     if not pk:
         raise FixtureError(say("ATDD-ORDER", "a $placeholder is used with no packet given", "add a packet given", REF))
-    d = pk["data"]
-    return {"packet_sha256": pk["sha256"], "packet_id": pk["id"], "acceptance_ids": ", ".join(a["id"] for a in d.get("acceptance", [])), "acceptance_paths": d.get("verifier", {}).get("acceptance_paths", []), "declared_paths": d.get("constraints", {}).get("declared_paths", [])}
+    return {"packet_sha256": pk["sha256"], "acceptance_ids": ", ".join(a["id"] for a in pk["data"].get("acceptance", []))}
+
+
+def packet_path(ctx, path):
+    """$packet.<path>: the value (or list of values) at a packet path."""
+    pk = ctx.state.get("packet")
+    if not pk:
+        raise FixtureError(say("ATDD-ORDER", "a $packet.<path> placeholder is used with no packet given", "add a packet given", REF))
+    try:
+        vals = get_path(pk["data"], path)
+    except KeyError:
+        raise FixtureError(say("ATDD-FIXTURE", f"the packet fixture has no {path}", "add the field to the packet fixture", REF)) from None
+    flat = [x for v in vals for x in (v if isinstance(v, list) else [v])]
+    return flat if (isinstance(vals[0], list) or len(vals) > 1) else vals[0]
 
 
 def subst(ctx, v):
-    if isinstance(v, str) and "$" in v:
-        vals = packet_values(ctx)
+    if isinstance(v, str) and v.startswith("$"):
+        m = re.fullmatch(r"\$packet\.(\S+)", v)
+        if m:
+            return packet_path(ctx, m.group(1))
         m = re.fullmatch(r"\$(\w+)", v)
-        if m and m.group(1) in vals:
-            return vals[m.group(1)]
+        if m and m.group(1) in ("packet_sha256", "acceptance_ids"):
+            return packet_values(ctx)[m.group(1)]
     return v
 
 
@@ -105,9 +121,7 @@ def source(ctx, name):
     r = repo(ctx) if ctx.state.get("repo") else None
     if name == "result_json":
         return result(ctx)
-    if name == "run_report":
-        return {"text": report_text(ctx), "tokens": re.findall(r"tokens[^\n]*", report_text(ctx))}
-    if name in ("owners_output", "metrics_output", "vet_output", "eval_report", "hook_output"):
+    if name in ("eval_report", "hook_output"):
         return result(ctx)
     if name == "config_effective":
         res = result(ctx)
@@ -122,11 +136,6 @@ def source(ctx, name):
         if not files:
             missing(f"no packet file under {P['packets_dir']}", "write the packet where the program reads packets")
         return json.loads(files[-1].read_text())
-    if name == "job_record":
-        res = result(ctx)
-        if RJ["jobs"] not in res:
-            missing(f"the result JSON has no `{RJ['jobs']}`", "record every job in the result JSON")
-        return {"jobs": res[RJ["jobs"]]}
     if name == "builder_settings":
         return load_json_file(r / P["builder_settings"], "the generated builder settings")
     if name == "hooks_json":
@@ -418,31 +427,32 @@ def _jobs_list(ctx):
     return res[RJ["jobs"]]
 
 
-def _job_names(j):
-    return [str(x) for x in (j.get("role"), j.get("kind"), j.get("step"), j.get("name"), *(j.get("args") or [])) if x]
+def _job_name(j):
+    """A job's name: its role when kind is agent, its step when kind is program_step."""
+    return j.get("role") if j.get("kind") == "agent" else j.get("step")
 
 
 def then_jobs(ctx, **kw):
-    """kind is agent or program_step; role names an agent job (catalog then.jobs passes_when)."""
     a, values = kw["assert"], kw["values"]
     jobs = _jobs_list(ctx)
-    names = [_job_names(j) for j in jobs]
+    names = [_job_name(j) for j in jobs]
     if a == "order":
         pos, ok = 0, True
         for v in values:
-            while pos < len(names) and v not in names[pos]:
+            while pos < len(names) and names[pos] != v:
                 pos += 1
             ok = ok and pos < len(names)
             pos += 1
-        need(ok, f"jobs {[n[:2] for n in names]} do not hold {values} in order", "launch the jobs in that order")
+        need(ok, f"job names {names} do not hold {values} in order", "start the jobs in that order")
     elif a == "distinct":
-        idx = [next((i for i, n in enumerate(names) if v in n), None) for v in values]
-        need(None not in idx and len(set(idx)) == len(values), f"{values} are not each a separate job", "launch each as its own job")
-    elif a == "none_of_kind":
-        bad = [j for j in jobs if j.get("kind") == "agent" and any(v in _job_names(j) for v in values)]
-        need(not bad, f"{len(bad)} agent job(s) have a kind in {values}", "launch no agent job of that kind")
-    else:
-        need(all(any(v in n for n in names) for v in values), f"jobs lack {[v for v in values if not any(v in n for n in names)]}", "record them in the job record")
+        need(all(names.count(v) >= 1 for v in values) and len({v for v in values}) == len(values), f"{values} are not each a separate job in {names}", "run each as its own job")
+    elif a == "present":
+        need(all(v in names for v in values), f"no job is named {[v for v in values if v not in names]} in {names}", "run those jobs")
+    elif a == "absent":
+        need(not any(v in names for v in values), f"jobs named {[v for v in values if v in names]} ran", "run none of them")
+    else:  # program_only
+        sel = [j for j in jobs if _job_name(j) in values]
+        need(sel and all(j.get("kind") == "program_step" for j in sel), f"jobs {values} are not all program steps that ran", "do these steps in the program, with no agent")
 
 
 def then_file_unchanged(ctx, target):
@@ -453,9 +463,10 @@ def then_file_unchanged(ctx, target):
 
 
 def _expand_placeholder(ctx, s):
-    m = re.fullmatch(r"\$(\w+)", s)
-    if m and m.group(1) in ("acceptance_paths", "declared_paths"):  # list placeholders: a match of any one satisfies
-        return packet_values(ctx)[m.group(1)]
+    """A $packet.<path> placeholder as a list: a match of any one element satisfies a path parameter."""
+    if isinstance(s, str) and s.startswith("$packet."):
+        v = subst(ctx, s)
+        return v if isinstance(v, list) else [v]
     return None
 
 
