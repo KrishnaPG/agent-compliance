@@ -63,6 +63,7 @@ from pathlib import Path
 from typing import Any
 
 import bhcore
+import bhpacket
 import bhtracker
 from bhcore import Config, HarnessError
 
@@ -1357,11 +1358,6 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
 
 
 def main(argv: list[str] | None = None) -> int:
-    args = sys.argv[1:] if argv is None else argv
-    if args[:1] == ["step"]:  # a program step needs no orchestrator and no config (d0)
-        import bhpacket
-
-        return bhpacket.main(args[1:])
     ap = argparse.ArgumentParser(prog="bh", description="Run the build harness (orchestrator).")
     common = argparse.ArgumentParser(add_help=False)  # accepted before or after the subcommand
     for p, dflt in ((ap, None), (common, argparse.SUPPRESS)):
@@ -1384,7 +1380,12 @@ def main(argv: list[str] | None = None) -> int:
     )
     m.add_argument("--item", action="append", help="ID[@REF]; none: the ready items at HEAD")
     sub.add_parser("harvest", parents=[common], help="find duplicated helpers; apply settled picks")
+    st = sub.add_parser("step", help="run one program step with no agent and no config")
+    st.add_argument("name", choices=bhpacket.STEPS)
+    st.add_argument("--item", required=True)
     a = ap.parse_args(argv)
+    if a.cmd == "step":  # a program step reads only its packet: no orchestrator, no config
+        return bhpacket.run_step(a.name, a.item)
     try:
         cfg = Config(a.config)
         orch = Orchestrator(cfg, a.dry_run)

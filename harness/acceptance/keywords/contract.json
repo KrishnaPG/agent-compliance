@@ -107,5 +107,11 @@
     "Makefile",
     ".brick-harness/config.json",
     "tsconfig.json"
-  ]
+  ],
+  "instance_names": {
+    "packet": [
+      "{id}_packet",
+      "assembled_{id}_packet"
+    ]
+  }
 }

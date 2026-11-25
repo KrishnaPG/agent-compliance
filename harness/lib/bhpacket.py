@@ -8,7 +8,6 @@ refusal, the size cap that moves long text to a file, the Markdown rendering and
 
 from __future__ import annotations
 
-import argparse
 import hashlib
 import json
 import sys
@@ -200,13 +199,10 @@ def step(name: str, root: Path, item: str) -> tuple[int, str, str]:
     return 0, json.dumps(result, indent=2) + "\n", ""
 
 
-def main(argv: list[str]) -> int:
-    ap = argparse.ArgumentParser(prog="bh step", description="Run one program step, with no agent.")
-    ap.add_argument("name", choices=STEPS)
-    ap.add_argument("--item", required=True)
-    a = ap.parse_args(argv)
+def run_step(name: str, item: str) -> int:
+    """The ``bh step`` entry: run the step in the current directory, print its streams."""
     try:
-        code, out, err = step(a.name, Path.cwd(), a.item)
+        code, out, err = step(name, Path.cwd(), item)
     except HarnessError as e:
         code, out, err = 2, "", f"{e}\n"
     sys.stdout.write(out)
