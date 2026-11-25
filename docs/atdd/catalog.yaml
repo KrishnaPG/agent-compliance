@@ -9,9 +9,10 @@
 #   id: <task>-AC<n>            covers: [leaf numbers of the task's "Done when" bullets]
 #   given: [ {key: params}, ... ]   when: {key: params}   then: [ {key: params}, ... ]
 #   traces_to: [G*, P*, R*, QBC-n]   method: test|lint|fitness|measure   deterministic: true
-#   spec_ref: [stage:L1..L5|stage:review|enforce:1..5]  (optional) the packet-standards.md
-#             stage-output row or enforcement mechanism the criterion proves; a row needs
-#             covers, spec_ref or both
+#   spec_ref: [<stage>.<part>|enforce.<n>]  (optional) the docs/spec/packet-standards.md
+#             Applied-table row (stage = common, L1..L5 or review; part = the row's first
+#             cell, slugged) or enforcement mechanism the criterion proves; build.py prints
+#             the ids. A row needs covers, spec_ref or both
 #
 # Parameter types:
 #   id       lowercase identifier of a fixture, state or plant: ^[a-z0-9][a-z0-9_.-]*$
@@ -31,6 +32,9 @@
 #                 the given packet file, its id, and its acceptance row ids joined by ", ";
 #                 $acceptance_paths and $declared_paths: the packet's acceptance test paths
 #                 and declared paths (a match of any one satisfies a path parameter)
+#   quoted message  where the spec quotes a message (QBC-47, QBC-50, QBC-88), its sentences
+#                 fill the wrong and right parts of the teaching shape, so output_contains
+#                 matches each quoted sentence on its own, never one text across ` -> `
 #   fixture       committed under the plugin's test fixtures; it never needs network,
 #                 CI, a bot account or a live paid model call
 
@@ -39,6 +43,17 @@ methods:
   lint: A static inspection of the tree (files, text, symbols, schemas); nothing is run but a parser or validator.
   fitness: A property declared once and checked over the whole tree or every instance (all refusals, all limits, all rows).
   measure: A number is produced and compared with a default limit or with a reference value (time, characters, tokens, counts).
+
+compatibility: >-
+  A then-entry's `after` lists the when-keys whose output it can read; `needs_given` lists
+  given-keys the row must hold; `conditional` makes parameters required for a parameter value
+  (if / if_not) or when another parameter is present (if_present, which may widen `after`).
+  A value using a $packet_* , $criteria_ids, $acceptance_paths or $declared_paths placeholder
+  needs a `packet` given. build.py reports every row that breaks these.
+
+spec_ref_exempt:
+  L2.requirement-wording-in-the-spec: RFC 2119 wording applies to the spec text, not to any output the plugin produces.
+  L2.slice-size: INVEST is the planner's judgement of a slice; it has no mechanical pass condition.
 
 rejection_rule: >-
   A row whose `then` holds a rejection assertion (exit_code with code != 0, met with status
@@ -50,7 +65,14 @@ given:
   repo:
     meaning: A repository fixture checked out in a named state, with a git history.
     params:
-      name: {type: enum, values: [toy, node_toy, plugin, project], doc: "toy = the plugin's Python toy project; node_toy = a Node fixture; plugin = this plugin's own tree; project = a minimal generic project fixture"}
+      name:
+        type: enum
+        values:
+          toy: "the plugin's Python toy project fixture"
+          node_toy: "a Node (package.json) project fixture"
+          plugin: "this plugin's own tree"
+          project: "a minimal generic project fixture"
+        doc: "toy = the plugin's Python toy project; node_toy = a Node fixture; plugin = this plugin's own tree; project = a minimal generic project fixture"
       state: {type: id, doc: "named fixture state, e.g. base, v1.5.2, candidate, no_codeowners, six_ready_items"}
     passes_when: Fixture setup; the named state is reproduced from committed files before `when` runs.
 
@@ -58,8 +80,25 @@ given:
     meaning: One planted change on top of the repo fixture, committed as the candidate or applied to the working tree.
     params:
       plant: {type: id, doc: "what is planted, e.g. gutted_test, forging_conftest, naive_datetime, minor_bump"}
-      class: {type: enum, values: [gaming, violation, bump, diff, defect, wiring, honest]}
-      where: {type: enum, values: [candidate_commit, working_tree, plan_commit, base], required: false, doc: "default candidate_commit"}
+      class:
+        type: enum
+        values:
+          gaming: "a change a builder could make to fool the measurer (gutted test, forged conftest, edited config, out-of-checkout write, network call, passing canary)"
+          violation: "code, config or input that breaks a rule or limit the program reports (a lint finding, a repeated finding, an out-of-order step)"
+          bump: "a dependency version change in a lockfile or manifest diff (patch, minor or major)"
+          diff: "a change to the candidate's diff against its base that a measurement fact reads (changed plan file, test ids dropped, skips or suppressions grown)"
+          defect: "a faulty input or state the program must handle with a teaching fact instead of an exception (missing or malformed JUnit, conflicting candidates, flaky test)"
+          wiring: "a check or guard that exists but is not connected to the recipe or test that should run it"
+          honest: "a legitimate change that must not be flagged, penalised or blocked"
+      where:
+        type: enum
+        values:
+          candidate_commit: "the plant is committed as the candidate commit"
+          working_tree: "the plant is applied to the working tree, uncommitted"
+          plan_commit: "the plant is committed in the plan commit"
+          base: "the plant is committed in the base commit"
+        required: false
+        doc: "default candidate_commit"
     passes_when: Fixture setup; the plant is present at `where` before `when` runs.
 
   recorded_model:
@@ -71,32 +110,88 @@ given:
   recorded_api:
     meaning: Recorded HTTP responses stand in for an external service; the network is off.
     params:
-      service: {type: enum, values: [github, scorecard, deps_dev, osv]}
+      service:
+        type: enum
+        values:
+          github: "GitHub REST/GraphQL API (issues, sub-issues, repository)"
+          scorecard: "OpenSSF Scorecard API"
+          deps_dev: "deps.dev API"
+          osv: "OSV vulnerability API"
       fixture: {type: id}
     passes_when: Fixture setup; every request is answered from the fixture and every request is logged for api_call.
 
   hook_input:
     meaning: A recorded hook-input JSON, as Claude Code sends it, for one tool call.
     params:
-      event: {type: enum, values: [PreToolUse, PostToolUse, SessionStart]}
-      tool: {type: enum, values: [Edit, Write, Bash, none]}
-      agent_type: {type: enum, values: [builder, test_author, main, human]}
-      packet: {type: enum, values: [registered, absent]}
-      target: {type: enum, values: [inside_packet_paths, outside_packet_paths, acceptance_test, packet_file, none]}
-      touch: {type: enum, values: [first, repeat], required: false, doc: "default first"}
+      event:
+        type: enum
+        values:
+          PreToolUse: "Claude Code hook event sent before a tool call runs"
+          PostToolUse: "Claude Code hook event sent after a tool call has run"
+          SessionStart: "Claude Code hook event sent once when a session starts"
+      tool:
+        type: enum
+        values:
+          Edit: "the Edit file tool"
+          Write: "the Write file tool"
+          Bash: "the Bash tool"
+          none: "the event carries no tool call"
+      agent_type:
+        type: enum
+        values:
+          builder: "a builder agent session"
+          test_author: "a test-author agent session"
+          main: "the orchestrating main session"
+          human: "a human-driven session"
+      packet:
+        type: enum
+        values:
+          registered: "the program has a registered packet for this session's clone"
+          absent: "no packet is registered for this session"
+      target:
+        type: enum
+        values:
+          inside_packet_paths: "the tool call touches a path inside the packet's declared paths"
+          outside_packet_paths: "the tool call touches a path outside the packet's declared paths"
+          acceptance_test: "the tool call touches an acceptance test file"
+          packet_file: "the tool call touches the packet file"
+          none: "the tool call touches no path"
+      touch:
+        type: enum
+        values:
+          first: "the first time the session touches that path"
+          repeat: "a later touch of a path the session already touched"
+        required: false
+        doc: "default first"
     passes_when: Fixture setup; the JSON is fed on stdin to the hook named in `when`.
 
   packet:
     meaning: A work-packet instance fixture for one item.
     params:
       fixture: {type: id}
-      variant: {type: enum, values: [valid, mechanical, design_field, scenario_without_traces_to, scenario_without_verification, over_cap, defect, config_change]}
+      variant:
+        type: enum
+        values:
+          valid: "a packet that passes the packet schema"
+          mechanical: "a valid packet whose declared paths make it a mechanical item"
+          design_field: "a packet that carries a forbidden design field"
+          scenario_without_traces_to: "a packet with a scenario that has no traces_to"
+          scenario_without_verification: "a packet with a scenario that has no verification"
+          over_cap: "a packet with content longer than its size cap"
+          defect: "a packet for a defect item (a bug fix)"
+          config_change: "a packet that declares a config change"
     passes_when: Fixture setup; the packet file exists where the program reads packets.
 
   config:
     meaning: The state of the optional `.brick-harness/config.json` override file.
+    conditional:
+      - {if: {state: override}, require: [key, value]}
     params:
-      state: {type: enum, values: [absent, override]}
+      state:
+        type: enum
+        values:
+          absent: "no .brick-harness/config.json exists, so defaults apply"
+          override: "a .brick-harness/config.json exists holding only the given key and value"
       key: {type: key, required: false, doc: "required when state is override"}
       value: {type: any, required: false}
     passes_when: Fixture setup; absent means no file; override means a file holding only key = value.
@@ -104,14 +199,33 @@ given:
   host:
     meaning: A stubbed host condition the program or check observes.
     params:
-      condition: {type: enum, values: [probe_passes, probe_fails, probe_passes_only_with_unix_sockets, account_in_socket_group, claude_code_absent, network_off, caches_prewarmed, no_database, database_available, unsupported_stack, run_in_progress, builder_sandbox]}
+      condition:
+        type: enum
+        values:
+          probe_passes: "the sandbox self-test probe the program runs before a launch exits zero (stubbed)"
+          probe_fails: "the sandbox self-test probe the program runs before a launch exits non-zero (stubbed)"
+          probe_passes_only_with_unix_sockets: "the self-test probe exits zero only when allowAllUnixSockets is set, and non-zero without it (stubbed)"
+          account_in_socket_group: "the builder's account belongs to a group that grants container-socket access, such as docker (stubbed)"
+          claude_code_absent: "no Claude Code executable is installed on the host"
+          network_off: "no network is reachable from the process"
+          caches_prewarmed: "the tool and package caches are already filled, so nothing needs a download"
+          no_database: "the project declares no database"
+          database_available: "the project declares a database and it is reachable"
+          unsupported_stack: "the project's language or stack is not one the checks support"
+          run_in_progress: "another bh run holds the run lock"
+          builder_sandbox: "the process runs under the builder's Bash sandbox and generated settings"
     passes_when: Fixture setup; the condition holds (by stub or environment) while `when` runs.
 
   recorded_answer:
     meaning: A recorded owner answer to a one-time question or an approval request; never a live human or account.
     params:
       question: {type: id}
-      answer: {type: enum, values: [approve, decline, value]}
+      answer:
+        type: enum
+        values:
+          approve: "the owner approves the question or approval request"
+          decline: "the owner declines the question or approval request"
+          value: "the owner answers with the text in `value`"
       value: {type: string, required: false}
     passes_when: Fixture setup; the program's question or approval prompt is answered from the record.
 
@@ -119,14 +233,28 @@ given:
     meaning: A recorded history fixture of git commits, issues with sub-issue events, and bh job records.
     params:
       fixture: {type: id}
-      period: {type: enum, values: [pre_v2, v2, both]}
+      period:
+        type: enum
+        values:
+          pre_v2: "history from before the v2 changes"
+          v2: "history from the v2 work"
+          both: "history from both periods"
     passes_when: Fixture setup; the history is readable by the program offline.
 
 when:
   bh:
     meaning: Run a `bh` subcommand once, or `parallel` times at the same moment.
     params:
-      sub: {type: enum, values: [run, measure, check, owners, vet, metrics, intake]}
+      sub:
+        type: enum
+        values:
+          run: "`bh run`: the order engine builds, measures and merges ready items"
+          measure: "`bh measure`: measure one candidate against its packet"
+          check: "`bh check`: the builder's self-check command"
+          owners: "`bh owners`: answer who owns a path or topic"
+          vet: "`bh vet`: record the outputs of the vetting tools as facts"
+          metrics: "`bh metrics`: compute the change-failure, lead-time and token metrics"
+          intake: "`bh intake`: process a newly filed issue"
       args: {type: list, items: string, required: false}
       parallel: {type: integer, minimum: 1, required: false, doc: "default 1"}
       rerun: {type: boolean, required: false, doc: "true: run twice; assertions read the second run, and file_unchanged compares the state after the first run with the state after the second"}
@@ -135,14 +263,52 @@ when:
   entry_point:
     meaning: Run a test or verify entry point as a human would.
     params:
-      entry: {type: enum, values: [project_test, project_verify, plugin_pytest]}
-      mode: {type: enum, values: [normal, uv_script_offline], required: false, doc: "uv_script_offline = uv run --script from a pre-warmed cache with the network off"}
+      entry:
+        type: enum
+        values:
+          project_test: "the project's own test recipe"
+          project_verify: "the project's own verify recipe"
+          plugin_pytest: "the plugin's plain pytest entry point"
+      mode:
+        type: enum
+        values:
+          normal: "run the recipe as usual"
+          uv_script_offline: "uv run --script from a pre-warmed cache with the network off"
+        required: false
+        doc: "uv_script_offline = uv run --script from a pre-warmed cache with the network off"
     passes_when: The recipe completes; exit code, output and JUnit XML are captured.
 
   program_step:
     meaning: Run one named step of the program through bh or its library function, with no agent.
     params:
-      step: {type: enum, values: [assemble_packet, render_packet, validate_packet, launch_builder, derive_tier, merge, gap_review, rank_findings, render_gaps, generate_baselines, generate_register, infer_config, ask_once, apply_presets, write_forms, file_issue, intake_issue, add_known_issue, reopen_from_review, close_tracking, relay_miss, validate_standards, map_catalog_ids, generate_tests, commit_build]}
+      step:
+        type: enum
+        values:
+          assemble_packet: "build an item's work packet from the plan and project files, with no agent"
+          render_packet: "render a packet to its Markdown form"
+          validate_packet: "validate a packet file against the packet schema"
+          launch_builder: "launch the builder job for an item: preconditions checked, packet registered, clone created"
+          derive_tier: "derive an item's tier from its declared paths"
+          merge: "merge a candidate into HEAD"
+          gap_review: "run the spec-gap review over the project documents and update the gaps list"
+          rank_findings: "rank gap findings by their cited impact and estimated size"
+          render_gaps: "render gaps.md from the gap findings"
+          generate_baselines: "write the ratchet baseline files at adoption"
+          generate_register: "build the safeguard register from the planted-test markers and JUnit results"
+          infer_config: "infer entry points, languages, owners, test location and dependency command from project files"
+          ask_once: "put one question to the owner and keep the recorded answer"
+          apply_presets: "write the approved linter and hook presets into the project's config files"
+          write_forms: "write the issue forms into the project's .github directory"
+          file_issue: "create an issue through the tracker API with its native parent"
+          intake_issue: "process a newly filed issue: parent link, parent check and message"
+          add_known_issue: "add a line to the Known issues list found by its label"
+          reopen_from_review: "reopen the slice's checklist line from a reviewer's structured finding"
+          close_tracking: "close a tracking issue when its last sub-issue closes"
+          relay_miss: "relay a linter rule miss with its right-way line"
+          validate_standards: "validate the standards data file"
+          map_catalog_ids: "map the rule ids that checks, skills and packets read to catalog ids"
+          generate_tests: "generate tests from the packet's acceptance rows and write the manifest"
+          commit_build: "stage and commit the builder's change as the program, with Packet and Criteria trailers"
       item: {type: id, required: false}
       rerun: {type: boolean, required: false, doc: "as bh.rerun"}
     passes_when: The step returns or is refused; its outputs, files and log are captured.
@@ -150,22 +316,63 @@ when:
   hook:
     meaning: Feed the given hook input to the plugin hook command registered in hooks/hooks.json.
     params:
-      hook: {type: enum, values: [H0, H1, H2, bash_note, test_guard]}
+      hook:
+        type: enum
+        values:
+          H0: "the PreToolUse guard that refuses a builder's Edit or Write without a registered packet"
+          H1: "the SessionStart hook that delivers the packet as additionalContext"
+          H2: "the PreToolUse hook that shows an owner line at a first touch outside the packet's paths"
+          bash_note: "the PostToolUse hook that notes a builder's Bash call made with no packet"
+          test_guard: "the hook that guards acceptance test files"
     passes_when: The hook exits; its exit code, stdout JSON and any fact it wrote are captured.
 
   builder_action:
     meaning: A scripted builder action (no model) applied under the generated builder settings and the Bash sandbox.
     params:
-      tool: {type: enum, values: [Edit, Write, Bash]}
-      action: {type: enum, values: [edit, write, delete, append, delete_ref]}
-      target: {type: enum, values: [acceptance_test, clone_packet, orchestrator_packet, outside_clone, source_repo, clone_source_file]}
+      tool:
+        type: enum
+        values:
+          Edit: "the Edit file tool"
+          Write: "the Write file tool"
+          Bash: "the Bash tool"
+      action:
+        type: enum
+        values:
+          edit: "change part of an existing file"
+          write: "create or overwrite a file"
+          delete: "remove a file or directory"
+          append: "add text to the end of a file"
+          delete_ref: "delete a git ref"
+      target:
+        type: enum
+        values:
+          acceptance_test: "an acceptance test file in the clone"
+          clone_packet: "the packet copy in the clone's packet directory"
+          orchestrator_packet: "the orchestrator's authoritative packet outside the clone"
+          outside_clone: "a path outside the builder's clone"
+          source_repo: "the source repository's refs, from inside the clone"
+          clone_source_file: "a source file in the clone"
     passes_when: The action is attempted once; its tool result and the files and refs it targets are captured.
 
   scan:
     meaning: Statically inspect files of the repo fixture (no system code runs).
     params:
       paths: {type: list, items: string}
-      kind: {type: enum, values: [text, symbol, path, frontmatter, description_chars, file_chars, references, version_strings, exits, undefined_names, lint_rule]}
+      kind:
+        type: enum
+        values:
+          text: "lines matching `pattern` as literal or regex text"
+          symbol: "definitions or uses of the symbol named by `pattern`"
+          path: "the paths that exist under `paths`"
+          frontmatter: "the front matter fields of the files"
+          description_chars: "the character count of each file's description field"
+          file_chars: "the character count of each file"
+          references: "every file path a file names"
+          dangling_references: "every file path a file names that does not exist in the tree (relative to the naming file or the repo root)"
+          version_strings: "every version string found"
+          exits: "every refusal and non-zero exit site"
+          undefined_names: "every name one module uses from another that the other does not define"
+          lint_rule: "the findings of the linter rule code in `pattern`, run alone over `paths`"
       pattern: {type: string, required: false, doc: "literal or regex; for kind text and symbol"}
     passes_when: The matches (or the measured number) are captured. kind references = every file path a file names; exits = every refusal and non-zero exit site; version_strings = every version string found; undefined_names = every attribute or name one module uses from another that the other does not define (a type checker's attr-defined result); lint_rule = pattern is a linter rule code (e.g. PLR2004), run alone over paths, and its findings are the matches.
 
@@ -185,35 +392,91 @@ when:
 then:
   exit_code:
     meaning: The process exit status.
+    after: [bh, entry_point, program_step, hook, plugin_eval]
     params:
       code: {type: integer}
     passes_when: The exit status of `when` equals code.
 
   met:
     meaning: The measurer's verdict for the item in the result JSON.
+    after: [bh]
     params:
-      status: {type: enum, values: [met, unmet, stuck, not_checked]}
+      status:
+        type: enum
+        values:
+          met: "the item's status is met"
+          unmet: "the item's status is unmet"
+          stuck: "the item's status is stuck (round limit reached)"
+          not_checked: "the item's status is not_checked (the check could not run on this project)"
       item: {type: id, required: false}
     passes_when: result JSON items[item].status equals status (the only item when item is omitted).
 
   fact:
     meaning: A fact of a closed kind is recorded in the result JSON and listed in the run report.
+    after: [bh, program_step, hook]
     params:
-      kind: {type: enum, values: [diff, scope, flaky, red, red_by_error, red_on_main, regression_recorded, tampered, dropped_tests, skipped_growth, suppression_growth, ts_comment_growth, ratchet_growth, launch_refused, stuck, inferred, not_declared, not_checked, re_queue, tier, h0_bypass, over_cap, unmapped_rule_code, unwired, sandbox_choice, judge_objection, review_finding, idle_tracking, second_known_list, gap, parity, commitlint, vet_result, unknown_rule, packet_mismatch]}
+      kind:
+        type: enum
+        values:
+          diff: "a path changed between base and candidate in a protected or overlaid area, e.g. `M tests/x` or `A conftest.py`"
+          scope: "a changed path outside the packet's declared paths (for a builder launched with no packet, every changed path)"
+          flaky: "a measured test whose result differed between repeated runs"
+          red: "a test failed by an assertion (JUnit failure)"
+          red_by_error: "a test errored instead of failing by assertion (JUnit error)"
+          red_on_main: "a test is red on the base commit before the build"
+          regression_recorded: "a regression test recorded as failing at the parent and passing at the fix"
+          tampered: "the build altered a measurement input or a canary passed that must fail"
+          dropped_tests: "a JUnit test id present at base is missing at the candidate"
+          skipped_growth: "the JUnit skipped count grew from base to candidate"
+          suppression_growth: "findings suppressed by inline comments grew from base to candidate"
+          ts_comment_growth: "ban-ts-comment findings grew from base to candidate"
+          ratchet_growth: "a ratchet baseline or ignore list grew, or a pinned hash changed, against the base"
+          launch_refused: "a builder launch was refused by a precondition"
+          stuck: "an item reached the round limit or failed without a result and is reported for a re-plan"
+          inferred: "a value inferred from a named project file, with its source"
+          not_declared: "a declared-data source (CODEOWNERS, database) is missing, naming what to add"
+          not_checked: "a check was skipped because its stack or database is absent"
+          re_queue: "the tier recomputed from the diff is above the launch tier (a diff hit on a tier trigger), so the item is re-queued"
+          tier: "an item's tier and the reason it was derived"
+          h0_bypass: "a builder's tool call was made with no registered packet"
+          over_cap: "packet content exceeded its size cap and was referenced by path"
+          unmapped_rule_code: "an enabled rule code has no right-way entry"
+          unwired: "a check, test or linter config that no recipe runs"
+          sandbox_choice: "a sandbox setting chosen from the self-test probe, e.g. allowAllUnixSockets"
+          judge_objection: "an objection returned by the fresh judge job"
+          review_finding: "a finding reported by the review of a feature"
+          idle_tracking: "a tracking issue idle past limits.idle_days"
+          second_known_list: "a second Known issues list found by label"
+          gap: "a spec gap or an ill-formed required input, reported with teaching"
+          parity: "the result of comparing an old check with its replacement per language"
+          commitlint: "a commit message result from commitlint"
+          vet_result: "the raw values from a vetting tool, with no verdict"
+          unknown_rule: "a rule id that is not in the catalog"
+          packet_mismatch: "a commit's Packet trailer names a sha256 other than the registered packet's"
       detail: {type: string, required: false, doc: "substring the fact's text must contain"}
       count: {type: integer, required: false, doc: "exact number of facts of this kind; default at least 1"}
     passes_when: result JSON facts has entries of kind (exactly count when given, else >= 1), one containing detail, and the run report has a line for it.
 
   no_fact:
     meaning: No fact of the kind is recorded.
+    after: [bh, program_step, hook]
     params:
       kind: {type: enum, ref: fact.kind}
     passes_when: result JSON facts has no entry of kind.
 
   refused:
     meaning: "An order refusal that teaches (P5): the step is not done and the message names what is wrong, the right way and the prevention."
+    after: [bh, program_step, hook, builder_action]
     params:
-      by: {type: enum, values: [hook, sandbox, file_tools, program, launch, form]}
+      by:
+        type: enum
+        values:
+          hook: "a PreToolUse or launch hook refused it"
+          sandbox: "the Bash sandbox refused it (read-only or denied path)"
+          file_tools: "the scoped Edit and Write tool permissions refused it"
+          program: "bh refused the order step"
+          launch: "a launch precondition refused the builder launch"
+          form: "an issue form refused the input"
       wrong: {type: string}
       right: {type: string}
       prevent: {type: string}
@@ -221,8 +484,22 @@ then:
 
   teaching:
     meaning: A message that is not a refusal (a fact, note, unmet result or report line) teaches what is wrong, the right way and the prevention.
+    after: [bh, entry_point, program_step, hook, builder_action]
+    conditional:
+      - {if_not: {channel: form_description}, require: [prevent]}
     params:
-      channel: {type: enum, values: [stdout, stderr, hook_output, fact, run_report, issue_comment, form_description, tool_result, sarif]}
+      channel:
+        type: enum
+        values:
+          stdout: "the process's standard output"
+          stderr: "the process's standard error"
+          hook_output: "the hook's stdout JSON"
+          fact: "the text of a fact in the result JSON"
+          run_report: "a line of the run report"
+          issue_comment: "a comment on the issue"
+          form_description: "a form field's description"
+          tool_result: "the tool result returned to the agent"
+          sarif: "the SARIF log"
       wrong: {type: string}
       right: {type: string}
       prevent: {type: string, required: false, doc: "required except for a form_description, which teaches the right way only"}
@@ -230,8 +507,18 @@ then:
 
   output_contains:
     meaning: A channel carries an exact text.
+    after: [bh, entry_point, program_step, hook, builder_action, plugin_eval]
     params:
-      channel: {type: enum, values: [stdout, stderr, hook_output, run_report, packet_markdown, additional_context, issue_comment]}
+      channel:
+        type: enum
+        values:
+          stdout: "the process's standard output"
+          stderr: "the process's standard error"
+          hook_output: "the hook's stdout JSON"
+          run_report: "the run report"
+          packet_markdown: "the rendered packet Markdown"
+          additional_context: "the additionalContext of the hook's output"
+          issue_comment: "a comment on the issue"
       text: {type: string}
       max_chars: {type: integer, required: false}
       negate: {type: boolean, required: false, doc: "true: the channel does not contain text"}
@@ -239,28 +526,89 @@ then:
 
   field:
     meaning: A field of a structured output has a value.
+    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
     params:
-      source: {type: enum, values: [result_json, run_report, packet, job_record, config_effective, owners_output, metrics_output, builder_settings, hook_output, hooks_json, issue, gaps_md, skill_md, eval_report, register, parity_report, vet_output, baseline_file, standards_data, changelog, launch_args, commit_message, sarif, manifest, decision_record]}
+      source:
+        type: enum
+        values:
+          result_json: "the result JSON bh prints"
+          run_report: "the run report file"
+          packet: "the work packet file"
+          job_record: "the bh job record"
+          config_effective: "the effective config after defaults and overrides"
+          owners_output: "the output of `bh owners`"
+          metrics_output: "the output of `bh metrics`"
+          builder_settings: "the generated builder settings JSON"
+          hook_output: "the hook's stdout JSON"
+          hooks_json: "hooks/hooks.json"
+          issue: "the fields of a filed issue"
+          gaps_md: "the rendered gaps.md"
+          skill_md: "a SKILL.md file"
+          eval_report: "the report of `claude plugin eval`"
+          register: "the safeguard register"
+          parity_report: "the parity report"
+          vet_output: "the output of `bh vet`"
+          baseline_file: "a ratchet baseline file"
+          standards_data: "the standards data file"
+          changelog: "the changelog"
+          launch_args: "the arguments of a `claude` job launch"
+          commit_message: "a commit message"
+          sarif: "the SARIF log"
+          manifest: "the manifest mapping criterion id to test node id"
+          decision_record: "the L1 decision record"
       path: {type: key}
-      op: {type: enum, values: [eq, ne, contains, not_contains, present, absent, gt, ge, lt, le, matches, distinct]}
+      op:
+        type: enum
+        values:
+          eq: "equal"
+          ne: "not equal"
+          contains: "a list holds the element, or a string holds the substring"
+          not_contains: "a list lacks the element, or a string lacks the substring"
+          present: "the field exists and is not empty"
+          absent: "the field does not exist or is empty"
+          gt: "greater than"
+          ge: "greater than or equal"
+          lt: "less than"
+          le: "less than or equal"
+          matches: "the value matches the regex"
+          distinct: "the values have no duplicate"
       value: {type: any, required: false, doc: "omitted for present and absent"}
     passes_when: "Reading path in source and applying op to value is true. contains on a list = element present; matches = regex; present = exists and is not empty; distinct = the values at path have no duplicate. A path segment [*] applies op to every element, and all must pass (with distinct, the collected values are compared)."
 
   jobs:
     meaning: The bh job record of the run, as an ordered list of jobs with role, kind and arguments.
+    after: [bh, program_step]
     params:
-      assert: {type: enum, values: [order, distinct, none_of_kind, present]}
+      assert:
+        type: enum
+        values:
+          order: "the given roles occur in this order"
+          distinct: "each given role is a separate job"
+          none_of_kind: "no agent job has any of the given kinds"
+          present: "each given value occurs among the jobs"
       values: {type: list, items: string}
     passes_when: order = these roles occur in this order; distinct = each role is a separate job; none_of_kind = no agent job has any of these kinds; present = each value occurs.
 
   file_unchanged:
     meaning: A file, tree or ref set has the same digest after `when` as before.
+    after: [bh, entry_point, program_step, hook, builder_action]
     params:
-      target: {type: enum, values: [orchestrator_packet, source_refs, outside_checkout, acceptance_tests, project_config, plugin_files, base_recipe, baseline_file]}
+      target:
+        type: enum
+        values:
+          orchestrator_packet: "the orchestrator's authoritative packet"
+          source_refs: "the source repository's git refs"
+          outside_checkout: "the files outside the measured checkout"
+          acceptance_tests: "the acceptance test files"
+          project_config: "the project's own config files"
+          plugin_files: "the plugin's files"
+          base_recipe: "the test recipe at the base commit"
+          baseline_file: "a ratchet baseline file"
     passes_when: The sha256 digest of target after `when` equals the digest before.
 
   paths:
     meaning: Paths exist or do not exist in the tree after `when`.
+    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
     params:
       paths: {type: list, items: string}
       exist: {type: boolean}
@@ -268,14 +616,23 @@ then:
 
   scan_count:
     meaning: The scan's match count or measured number compared with a value.
+    after: [scan]
     params:
-      op: {type: enum, values: [eq, lt, le, ge, gt]}
+      op:
+        type: enum
+        values:
+          eq: "equal"
+          lt: "less than"
+          le: "less than or equal"
+          ge: "greater than or equal"
+          gt: "greater than"
       value: {type: integer}
       distinct: {type: boolean, required: false, doc: "true: count distinct matched values instead of matches"}
     passes_when: The number captured by scan (distinct matched values when distinct is true), applied to op and value, is true.
 
   junit:
     meaning: Counts in the JUnit XML of the run.
+    after: [bh, entry_point]
     params:
       tests_min: {type: integer, required: false}
       failures: {type: integer, required: false}
@@ -285,21 +642,32 @@ then:
 
   threshold:
     meaning: A measured number is within a default limit (overridable) or below a reference value.
+    after: [bh, entry_point, program_step, scan, plugin_eval]
     params:
       metric: {type: id}
-      op: {type: enum, values: [lt, le, ge, gt]}
+      op:
+        type: enum
+        values:
+          lt: "less than"
+          le: "less than or equal"
+          ge: "greater than or equal"
+          gt: "greater than"
       bound: {type: string, doc: "a limits key (e.g. limits.measure_overhead_s) or ref:<state> for the value at that fixture state"}
       default: {type: number, required: false, doc: "the default of the limits key"}
     passes_when: metric op bound is true, where bound is the effective limit (override or default) or the metric at the reference state.
 
   snapshot:
     meaning: An output equals a committed golden file.
+    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
     params:
       name: {type: id}
     passes_when: The output is byte-equal to the golden file named name.
 
   schema_valid:
     meaning: The validate result.
+    after: [validate]
+    conditional:
+      - {if_present: instance, require: [schema], after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]}
     params:
       valid: {type: boolean}
       error_path: {type: string, required: false, doc: "JSON path an error must point at when valid is false"}
@@ -309,21 +677,43 @@ then:
 
   same_result:
     meaning: Two results compared.
+    after: [bh, program_step]
     params:
       a: {type: id}
       b: {type: id}
-      compare: {type: enum, values: [equal, separate]}
+      compare:
+        type: enum
+        values:
+          equal: "the two results are equal"
+          separate: "neither result holds any entry of the other"
     passes_when: equal = the two lists or JSON values are equal; separate = neither result holds any entry of the other.
 
   git:
     meaning: A git property of the repo after `when`.
+    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
+    conditional:
+      - {if: {assert: path_in_plan_commit}, require: [path]}
     params:
-      assert: {type: enum, values: [candidate_not_in_head, merge_is_one_commit, source_refs_unchanged, no_git_hook_installed, clone_is_shared_from_base, no_remote_fetch, conflict_names_item, unmerged_empty, committed_by_program, path_in_plan_commit]}
+      assert:
+        type: enum
+        values:
+          candidate_not_in_head: "the candidate commit is not reachable from HEAD"
+          merge_is_one_commit: "the merge added exactly one commit"
+          source_refs_unchanged: "the source repository's refs are the same as before"
+          no_git_hook_installed: "the repository's hooks directory holds no blocking hook"
+          clone_is_shared_from_base: "the clone was made with --shared from the recorded base commit"
+          no_remote_fetch: "no remote fetch happened"
+          conflict_names_item: "the conflict message names the item"
+          unmerged_empty: "the repository has no unmerged paths"
+          committed_by_program: "the commit was made by the program, not the builder"
+          path_in_plan_commit: "the plan commit adds or changes a file matching `path`"
       path: {type: string, required: false, doc: "required for path_in_plan_commit: a glob or placeholder"}
     passes_when: The named property holds, read from git plumbing (rev-list, show-ref, config, alternates, reflog, hooks dir); path_in_plan_commit = the plan commit adds or changes a file matching path.
 
   api_call:
     meaning: Requests the program made to a recorded service.
+    after: [bh, program_step]
+    needs_given: [recorded_api]
     params:
       service: {type: enum, ref: recorded_api.service}
       operation: {type: string, doc: "e.g. createIssue, addSubIssue, updateIssue"}
@@ -333,6 +723,7 @@ then:
 
   file_contains:
     meaning: A file of the repo fixture, read after `when`, contains a text.
+    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
     params:
       path: {type: string}
       text: {type: string, doc: "literal; or a regex when regex is true"}
@@ -342,12 +733,14 @@ then:
 
   questions_asked:
     meaning: The number of questions or approval prompts the program put to the owner during `when`.
+    after: [bh, program_step]
     params:
       count: {type: integer, minimum: 0}
     passes_when: The prompts answered from recorded_answer (plus any unanswered prompt) number exactly count.
 
   needs_keyword:
     meaning: The part of the criterion that no catalog entry expresses.
+    after: [bh, entry_point, program_step, hook, builder_action, scan, validate, plugin_eval]
     params:
       reason: {type: string}
     passes_when: Not generated; listed in coverage.md until a keyword is added.

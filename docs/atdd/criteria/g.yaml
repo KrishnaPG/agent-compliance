@@ -19,13 +19,13 @@ criteria:
     scenario: An entry without a pinned version is rejected with the path of the error
     covers: [1]
     given:
-      - repo: {name: plugin, state: candidate}
+      - repo: {name: toy, state: base}
       - planted: {plant: standards_entry_without_version, class: defect, where: working_tree}
     when:
-      validate: {instance: "standards/data/*.json", schema: standards/schema.json}
+      bh: {sub: check}
     then:
-      - schema_valid: {valid: false, error_path: "[0].version"}
-      - teaching: {channel: stderr, wrong: version, right: pinned version, prevent: standards/schema.json}
+      - fact: {kind: gap, detail: standards}
+      - teaching: {channel: fact, wrong: "a standards entry has no pinned version", right: "add the pinned version, control id and URL to the entry", prevent: "standards/schema.json validates every entry when bh check runs"}
     traces_to: [R9, P1, P5, QBC-13, QBC-85]
     method: lint
     deterministic: true
@@ -62,13 +62,13 @@ criteria:
     scenario: A house rule with no rung and no mechanism is rejected
     covers: [2]
     given:
-      - repo: {name: plugin, state: candidate}
+      - repo: {name: toy, state: base}
       - planted: {plant: house_rule_without_rung, class: defect, where: working_tree}
     when:
-      validate: {instance: standards/house-rules.json, schema: standards/house-rules.schema.json}
+      bh: {sub: check}
     then:
-      - schema_valid: {valid: false, error_path: "[0].rung"}
-      - teaching: {channel: stderr, wrong: rung, right: judgement, prevent: standards/house-rules.schema.json}
+      - fact: {kind: gap, detail: standards}
+      - teaching: {channel: fact, wrong: "a house rule names no ladder rung or mechanism", right: "name its ladder rung and mechanism, or write judgement", prevent: "standards/house-rules.schema.json validates every rule when bh check runs"}
     traces_to: [R9, P1, P5, QBC-18]
     method: lint
     deterministic: true

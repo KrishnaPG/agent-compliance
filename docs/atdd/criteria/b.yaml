@@ -26,9 +26,6 @@ criteria:
       compare: separate
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
   - QBC-31
   method: test
@@ -56,16 +53,13 @@ criteria:
       detail: M tests/
   - teaching:
       channel: fact
-      wrong: tests/
-      right: restore
-      prevent: protected
+      wrong: tests/ file edited by the builder
+      right: restore the test to its plan-commit content
+      prevent: protect tests/ so edits to it have no effect
   traces_to:
   - R4
-  - R1
   - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
@@ -91,16 +85,12 @@ criteria:
       detail: pyproject.toml
   - teaching:
       channel: fact
-      wrong: config
-      right: base
-      prevent: protected
+      wrong: lint or test config section changed in pyproject.toml
+      right: the base commit's config section is used for the measurement
+      prevent: keep [tool.pytest*], [tool.ruff*] and [tool.mypy*] unchanged in a build
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
@@ -123,16 +113,12 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: ratchet
-      right: plan
-      prevent: protected
+      wrong: ratchet file changed by the builder
+      right: the plan commit's ratchet file is used for the measurement
+      prevent: change ratchet files only through a plan change
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
@@ -157,11 +143,7 @@ criteria:
       kind: tampered
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
-  - QBC-15
-  - QBC-80
+  - QBC-65
   method: test
   deterministic: true
 - id: b1-AC6
@@ -184,16 +166,12 @@ criteria:
       detail: A pytest.ini
   - teaching:
       channel: fact
-      wrong: pytest.ini
-      right: base
-      prevent: protected
+      wrong: test config file pytest.ini added in the build
+      right: it is set aside; put test settings in the plan commit
+      prevent: ask the planner to add test config, not the builder
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
@@ -222,19 +200,19 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: outside
-      right: checkout
-      prevent: jail
+      wrong: a measured test wrote outside the checkout
+      right: only the checkout is writable in the jail
+      prevent: write test output under the checkout only
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-31
   - QBC-65
   method: test
   deterministic: true
   plan_gap: bullet prescribes bwrap; the row asserts the observable consequence (nothing written outside the checkout, including the orchestrator dir and /tmp), and the plan omits the teaching
+  spec_ref:
+  - L2.isolation-of-the-measuring-run
+  - L5.isolation-of-the-run
 - id: b1-AC8
   scenario: A measured test cannot reach the network
   covers:
@@ -256,19 +234,18 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: network
-      right: offline
-      prevent: jail
+      wrong: a measured test used the network
+      right: the measured run has no network
+      prevent: use recorded fixtures instead of live calls
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-31
   - QBC-65
   method: test
   deterministic: true
   plan_gap: bullet prescribes bwrap (no network); the plan omits the teaching
+  spec_ref:
+  - L5.isolation-of-the-run
 - id: b1-AC9
   scenario: A canary that must fail and passes records tampered
   covers:
@@ -290,15 +267,11 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: canary
-      right: tampered
-      prevent: protected
+      wrong: the canary test passed
+      right: a canary must fail; a passing canary records tampered
+      prevent: do not patch the test report or runner
   traces_to:
-  - R4
-  - R1
   - P6
-  - G5
-  - QBC-15
   - QBC-31
   method: test
   deterministic: true
@@ -324,10 +297,6 @@ criteria:
       status: met
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
-  - QBC-15
   - QBC-31
   method: test
   deterministic: true
@@ -350,14 +319,11 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: holdout
-      right: hidden
-      prevent: protected
+      wrong: the holdout ref or holdout_files were read
+      right: they are removed from the measured checkout
+      prevent: do not read holdout files in tests
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
   - QBC-31
   method: test
@@ -389,11 +355,7 @@ criteria:
       value: conftest.py
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan lists the defaults only as "these paths" (the overlay list); the row asserts the test paths and conftest.py
@@ -418,16 +380,12 @@ criteria:
       detail: protected
   - teaching:
       channel: fact
-      wrong: protected
-      right: set
-      prevent: default
+      wrong: protected list is empty
+      right: declare the protected paths in the packet
+      prevent: leave protected at its default test and config paths
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
-  - QBC-15
-  - QBC-31
+  - QBC-35
   method: test
   deterministic: true
   plan_gap: plan omits the teaching for the gap
@@ -456,11 +414,8 @@ criteria:
       kind: tampered
   traces_to:
   - R4
-  - R1
   - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
 - id: b1-AC15
@@ -485,16 +440,13 @@ criteria:
       detail: M tests/
   - teaching:
       channel: fact
-      wrong: tests/
-      right: restore
-      prevent: protected
+      wrong: tests/ file edited by the builder
+      right: restore the test to its plan-commit content
+      prevent: protect tests/ so edits to it have no effect
   traces_to:
   - R4
-  - R1
   - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
@@ -520,15 +472,12 @@ criteria:
       detail: A conftest.py
   - teaching:
       channel: fact
-      wrong: conftest.py
-      right: remove
-      prevent: protected
+      wrong: a conftest.py was added in the build
+      right: remove conftest.py; the plan commit's version is used
+      prevent: add test config only through a plan change
   traces_to:
   - R4
-  - R1
   - P6
-  - G5
-  - QBC-15
   - QBC-31
   method: test
   deterministic: true
@@ -556,20 +505,18 @@ criteria:
       target: outside_checkout
   - teaching:
       channel: fact
-      wrong: tampered
-      right: report
-      prevent: jail
+      wrong: a report patch wrote outside the checkout
+      right: the jail keeps writes inside the checkout
+      prevent: do not patch the test report at import
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
-  - QBC-31
-  - QBC-65
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+  spec_ref:
+  - L5.isolation-of-the-run
+  - L2.isolation-of-the-measuring-run
 - id: b1-AC18
   scenario: An edited test recipe is measured with the base recipe
   covers:
@@ -591,16 +538,12 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: recipe
-      right: base
-      prevent: protected
+      wrong: the test recipe was edited in the build
+      right: the base commit's recipe is used for the measurement
+      prevent: change the recipe only through a plan change
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
   - QBC-15
-  - QBC-31
   method: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
@@ -625,10 +568,7 @@ criteria:
       kind: tampered
   traces_to:
   - R4
-  - R1
-  - P6
-  - G5
-  - QBC-15
+  - QBC-35
   method: test
   deterministic: true
 - id: b1-AC20
@@ -649,11 +589,8 @@ criteria:
       bound: limits.measure_overhead_s
       default: 2
   traces_to:
-  - R4
   - R1
-  - P6
-  - G5
-  - QBC-15
+  - QBC-80
   method: measure
   deterministic: true
 - id: b1-AC21
@@ -675,11 +612,8 @@ criteria:
       errors: 0
       tests_min: 1
   traces_to:
-  - R4
-  - R1
-  - P6
   - G5
-  - QBC-15
+  - QBC-80
   method: test
   deterministic: true
   plan_gap: '"never the 1.5.2 measurer" is a negative about the old tool; the row asserts the new tree passes plain pytest'
@@ -706,9 +640,7 @@ criteria:
       value: out/[^/]+/[0-9a-f]{12}-[^/]+
   traces_to:
   - R3
-  - R4
   - QBC-34
-  - QBC-66
   method: test
   deterministic: true
 - id: b2-AC2
@@ -734,9 +666,7 @@ criteria:
       exist: true
   traces_to:
   - R3
-  - R4
   - QBC-34
-  - QBC-66
   method: test
   deterministic: true
   plan_gap: dedupe is observable only as an equal second result and one output location
@@ -759,17 +689,15 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: missing junit file
-      right: fix
-      prevent: check
+      wrong: JUnit file missing
+      right: write JUnit XML to the report path
+      prevent: run the test recipe before finishing
   - output_contains:
       channel: stderr
       text: Traceback
       negate: true
   traces_to:
-  - R3
   - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -793,17 +721,15 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: malformed junit file
-      right: fix
-      prevent: check
+      wrong: JUnit file malformed
+      right: write well-formed JUnit XML to the report path
+      prevent: use the project's test runner to emit it
   - output_contains:
       channel: stderr
       text: Traceback
       negate: true
   traces_to:
-  - R3
   - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -827,17 +753,15 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: nan
-      right: fix
-      prevent: check
+      wrong: NaN or inf sample in the results
+      right: emit finite numbers in the samples
+      prevent: validate samples before writing them
   - output_contains:
       channel: stderr
       text: Traceback
       negate: true
   traces_to:
-  - R3
   - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -861,17 +785,15 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: an unreadable target
-      right: fix
-      prevent: check
+      wrong: target unreadable
+      right: make the target readable by the measurer
+      prevent: check the target path and permissions before the build ends
   - output_contains:
       channel: stderr
       text: Traceback
       negate: true
   traces_to:
-  - R3
   - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -899,13 +821,11 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: red
-      right: fix
-      prevent: protected
+      wrong: a test failed (red)
+      right: fix the failing assertion
+      prevent: run the item's tests before finishing
   traces_to:
-  - R3
   - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -931,13 +851,11 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: error
-      right: fix
-      prevent: protected
+      wrong: a test errored (red-by-error)
+      right: fix the error so the test runs and asserts
+      prevent: run the item's tests before finishing
   traces_to:
-  - R3
   - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -965,8 +883,6 @@ criteria:
       compare: separate
   traces_to:
   - R3
-  - R4
-  - QBC-34
   - QBC-66
   method: test
   deterministic: true
@@ -992,9 +908,7 @@ criteria:
       kind: stuck
   traces_to:
   - R3
-  - R4
   - QBC-34
-  - QBC-66
   method: test
   deterministic: true
 - id: b2-AC11
@@ -1016,9 +930,7 @@ criteria:
       compare: separate
   traces_to:
   - R3
-  - R4
   - QBC-34
-  - QBC-66
   method: test
   deterministic: true
 - id: b3-AC1
@@ -1066,9 +978,9 @@ criteria:
       assert: candidate_not_in_head
   - refused:
       by: program
-      wrong: unmet
-      right: fix
-      prevent: measure
+      wrong: the candidate is unmet
+      right: fix the failing criteria, then measure again
+      prevent: merge only after the measurer reports met
   traces_to:
   - R4
   - P6
@@ -1096,9 +1008,9 @@ criteria:
       code: 1
   - teaching:
       channel: stdout
-      wrong: unmerged
-      right: guard
-      prevent: test
+      wrong: merge guard removed, merge test failed
+      right: restore the unmerged == [] guard
+      prevent: keep the guard test in the suite
   traces_to:
   - R4
   - P6
@@ -1150,9 +1062,9 @@ criteria:
       assert: unmerged_empty
   - teaching:
       channel: stderr
-      wrong: conflict
-      right: item
-      prevent: order
+      wrong: merge conflict in an item's files
+      right: resolve the conflict named in the message
+      prevent: merge items in plan order
   traces_to:
   - R4
   - P6
@@ -1208,16 +1120,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: dropped tests
-      right: restore
-      prevent: ratchet
+      wrong: test ids present at base are missing at the candidate
+      right: restore the dropped tests
+      prevent: do not delete or rename tests in a build
   traces_to:
   - R4
-  - P11
   - P4
-  - QBC-8
   - QBC-11
-  - QBC-15
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -1243,10 +1152,6 @@ criteria:
       code: 0
   traces_to:
   - R4
-  - P11
-  - P4
-  - QBC-8
-  - QBC-11
   - QBC-15
   method: test
   deterministic: true
@@ -1273,16 +1178,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: skipped growth
-      right: restore
-      prevent: ratchet
+      wrong: the JUnit skipped count grew
+      right: remove the new skips
+      prevent: do not add skip markers in a build
   traces_to:
   - R4
-  - P11
   - P4
-  - QBC-8
   - QBC-11
-  - QBC-15
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -1308,10 +1210,6 @@ criteria:
       code: 0
   traces_to:
   - R4
-  - P11
-  - P4
-  - QBC-8
-  - QBC-11
   - QBC-15
   method: test
   deterministic: true
@@ -1338,16 +1236,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: suppression growth
-      right: restore
-      prevent: ratchet
+      wrong: suppressed findings grew (ruff --ignore-noqa, eslint --no-inline-config)
+      right: fix the findings instead of suppressing them
+      prevent: do not add noqa or eslint-disable comments
   traces_to:
   - R4
-  - P11
   - P4
-  - QBC-8
   - QBC-11
-  - QBC-15
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -1373,10 +1268,6 @@ criteria:
       code: 0
   traces_to:
   - R4
-  - P11
-  - P4
-  - QBC-8
-  - QBC-11
   - QBC-15
   method: test
   deterministic: true
@@ -1403,16 +1294,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: ts comment growth
-      right: restore
-      prevent: ratchet
+      wrong: '@typescript-eslint/ban-ts-comment findings grew'
+      right: remove the new ts comments
+      prevent: do not add @ts-ignore comments
   traces_to:
   - R4
-  - P11
   - P4
-  - QBC-8
   - QBC-11
-  - QBC-15
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -1438,10 +1326,6 @@ criteria:
       code: 0
   traces_to:
   - R4
-  - P11
-  - P4
-  - QBC-8
-  - QBC-11
   - QBC-15
   method: test
   deterministic: true
@@ -1472,11 +1356,7 @@ criteria:
       kind: ratchet_growth
   traces_to:
   - R4
-  - P11
-  - P4
   - QBC-8
-  - QBC-11
-  - QBC-15
   method: test
   deterministic: true
 - id: b4-AC10
@@ -1501,16 +1381,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: ratchet
-      right: restore
-      prevent: ratchet
+      wrong: ratchet baseline grew
+      right: reduce the findings back to the baseline
+      prevent: do not raise a ratchet baseline in a build
   traces_to:
-  - R4
   - P11
   - P4
-  - QBC-8
   - QBC-11
-  - QBC-15
   method: test
   deterministic: true
   plan_gap: the writer belongs to c4; the row asserts only that the fact appears in the result JSON and run report; plan omits the teaching text
@@ -1533,12 +1410,8 @@ criteria:
       op: eq
       value: 0
   traces_to:
-  - R4
-  - P11
-  - P4
   - QBC-8
-  - QBC-11
-  - QBC-15
+  - P11
   method: lint
   deterministic: true
   plan_gap: title says "without pattern lists"; the row asserts those list names are absent, which is a text check and not a proof
@@ -1562,11 +1435,8 @@ criteria:
       op: eq
       value: 0
   traces_to:
-  - P2
   - G5
-  - QBC-13
   - QBC-76
-  - QBC-80
   method: lint
   deterministic: true
 - id: b5-AC2
@@ -1588,11 +1458,8 @@ criteria:
   - schema_valid:
       valid: true
   traces_to:
-  - P2
   - G5
-  - QBC-13
-  - QBC-76
-  - QBC-80
+  - P2
   method: test
   deterministic: true
   plan_gap: '"kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted'
@@ -1605,23 +1472,16 @@ criteria:
       name: plugin
       state: candidate
   when:
-    validate:
-      instance: gap_violating_ignored_keyword
-      schema: gaps.schema.json
+    program_step:
+      step: gap_review
   then:
-  - schema_valid:
-      valid: false
-      error_path: $
-  - teaching:
-      channel: stderr
-      wrong: schema
-      right: gaps.schema.json
-      prevent: validate
+  - refused:
+      by: program
+      wrong: gaps.schema.json rejects the input
+      right: fix the field the schema names in the error path
+      prevent: validate gaps against gaps.schema.json before writing them
   traces_to:
   - P2
-  - G5
-  - QBC-13
-  - QBC-76
   - QBC-80
   method: test
   deterministic: true
@@ -1651,9 +1511,6 @@ criteria:
       tests_min: 1
   traces_to:
   - P2
-  - G5
-  - QBC-13
-  - QBC-76
   - QBC-80
   method: test
   deterministic: true
@@ -1676,19 +1533,13 @@ criteria:
       op: eq
       value: 1
   traces_to:
-  - P5
-  - P4
-  - G3
-  - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
-  - QBC-55
   - QBC-56
-  - QBC-68
+  - P5
   method: lint
   deterministic: true
   plan_gap: plan prescribes a signature; the row asserts the definition has exactly the four required parameters
+  spec_ref:
+  - L2.teaching-messages
 - id: b6-AC2
   scenario: 'Repeats are grouped: the first limits.findings_shown then a count'
   covers:
@@ -1712,16 +1563,7 @@ criteria:
   - needs_keyword:
       reason: no keyword counts finding lines shown versus the grouped count line in a channel
   traces_to:
-  - P5
-  - P4
-  - G3
-  - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
   - QBC-55
-  - QBC-56
-  - QBC-68
   method: test
   deterministic: true
 - id: b6-AC3
@@ -1750,16 +1592,7 @@ criteria:
       bound: limits.message_chars
       default: 300
   traces_to:
-  - P5
-  - P4
-  - G3
-  - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
   - QBC-55
-  - QBC-56
-  - QBC-68
   method: measure
   deterministic: true
 - id: b6-AC4
@@ -1785,20 +1618,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: the commit gate on targets
-      right: fix
-      prevent: declare
+      wrong: commit gate on targets found a problem
+      right: declare the targets in the packet
+      prevent: declare targets before launch
   traces_to:
-  - P5
   - P4
-  - G3
   - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
-  - QBC-55
-  - QBC-56
-  - QBC-68
+  - G3
   method: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
@@ -1825,20 +1651,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: the env_setup block
-      right: fix
-      prevent: declare
+      wrong: env_setup block found a problem
+      right: declare env_setup in the project config
+      prevent: declare env_setup before launch
   traces_to:
-  - P5
   - P4
-  - G3
   - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
-  - QBC-55
-  - QBC-56
-  - QBC-68
+  - G3
   method: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
@@ -1865,20 +1684,13 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: the tracker sha pin
-      right: fix
-      prevent: declare
+      wrong: tracker sha pin does not match
+      right: pin the tracker to the current sha
+      prevent: re-pin the tracker when it changes
   traces_to:
-  - P5
   - P4
-  - G3
   - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
-  - QBC-55
-  - QBC-56
-  - QBC-68
+  - G3
   method: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
@@ -1905,20 +1717,12 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: the catalogue-schema merge refusal
-      right: fix
-      prevent: declare
+      wrong: catalogue schema merge refusal
+      right: fix the catalogue entry to match its schema
+      prevent: validate the catalogue schema before merging
   traces_to:
-  - P5
   - P4
-  - G3
   - QBC-11
-  - QBC-12
-  - QBC-53
-  - QBC-54
-  - QBC-55
-  - QBC-56
-  - QBC-68
   method: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
@@ -1939,23 +1743,18 @@ criteria:
   then:
   - refused:
       by: program
-      wrong: order
-      right: run
-      prevent: before
+      wrong: bh run was started before its packet exists
+      right: run bh run after the planner writes the packet
+      prevent: start steps in plan order
   traces_to:
   - P5
-  - P4
-  - G3
-  - QBC-11
   - QBC-12
-  - QBC-53
   - QBC-54
-  - QBC-55
-  - QBC-56
-  - QBC-68
   method: test
   deterministic: true
   plan_gap: plan names no sample message; the row asserts a refusal that teaches
+  spec_ref:
+  - common.every-refusal-finding-or-note
 - id: b6-AC9
   scenario: Every refusal and non-zero exit has the shape [rule] wrong -> right . ref
   covers:
@@ -1980,18 +1779,13 @@ criteria:
   - needs_keyword:
       reason: no keyword asserts a shape over every scanned site
   traces_to:
-  - P5
-  - P4
-  - G3
-  - QBC-11
-  - QBC-12
   - QBC-53
-  - QBC-54
-  - QBC-55
-  - QBC-56
   - QBC-68
   method: fitness
   deterministic: true
+  spec_ref:
+  - common.every-refusal-finding-or-note
+  - L2.teaching-messages
 - id: b7-AC1
   scenario: The fact table lists the facts slice b produces
   covers:
@@ -2014,10 +1808,7 @@ criteria:
       distinct: true
   traces_to:
   - G1
-  - P4
   - QBC-30
-  - QBC-35
-  - QBC-51
   method: lint
   deterministic: true
   plan_gap: plan does not name the table's file; the row scans docs and the harness skill
@@ -2043,10 +1834,7 @@ criteria:
       distinct: true
   traces_to:
   - G1
-  - P4
   - QBC-30
-  - QBC-35
-  - QBC-51
   method: lint
   deterministic: true
   plan_gap: holds only after c1, c4, c8, d5 and d8 land
@@ -2071,10 +1859,7 @@ criteria:
       kind: scope
       count: 1
   traces_to:
-  - G1
   - P4
-  - QBC-30
-  - QBC-35
   - QBC-51
   method: test
   deterministic: true
@@ -2105,15 +1890,12 @@ criteria:
       kind: stuck
   - teaching:
       channel: run_report
-      wrong: stuck
-      right: re-plan
-      prevent: round
+      wrong: item stuck after max_rounds rounds
+      right: re-plan the item
+      prevent: split the item into a smaller slice
   traces_to:
   - G1
-  - P4
   - QBC-30
-  - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -2140,11 +1922,8 @@ criteria:
       channel: run_report
       text: scope
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2171,11 +1950,8 @@ criteria:
       channel: run_report
       text: flaky
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2202,11 +1978,8 @@ criteria:
       channel: run_report
       text: red by error
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2233,11 +2006,8 @@ criteria:
       channel: run_report
       text: tampered
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2264,11 +2034,8 @@ criteria:
       channel: run_report
       text: dropped tests
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2295,11 +2062,8 @@ criteria:
       channel: run_report
       text: suppression growth
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2326,11 +2090,8 @@ criteria:
       channel: run_report
       text: launch refused
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2357,11 +2118,8 @@ criteria:
       channel: run_report
       text: stuck
   traces_to:
-  - G1
   - P4
-  - QBC-30
   - QBC-35
-  - QBC-51
   method: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
@@ -2383,10 +2141,6 @@ criteria:
       op: present
   traces_to:
   - P6
-  - R4
-  - QBC-15
-  - QBC-31
-  - QBC-58
   - QBC-67
   method: fitness
   deterministic: true
@@ -2409,16 +2163,12 @@ criteria:
       status: unmet
   - teaching:
       channel: fact
-      wrong: vacuous
-      right: assert
-      prevent: protected
+      wrong: vacuous test with no assertion
+      right: assert the criterion's outcome
+      prevent: require red-on-main for every test
   traces_to:
-  - P6
   - R4
-  - QBC-15
-  - QBC-31
   - QBC-58
-  - QBC-67
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -2441,16 +2191,12 @@ criteria:
       status: stuck
   - teaching:
       channel: fact
-      wrong: retry
-      right: round
-      prevent: protected
+      wrong: item retried past max_rounds
+      right: stop retrying and re-plan
+      prevent: the round limit stops endless retries
   traces_to:
-  - P6
-  - R4
-  - QBC-15
   - QBC-31
   - QBC-58
-  - QBC-67
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -2471,16 +2217,12 @@ criteria:
   then:
   - refused:
       by: hook
-      wrong: No work packet
-      right: Launch builders through
-      prevent: packet
+      wrong: No work packet for this clone.
+      right: Launch builders through the launch step
+      prevent: Builders start from a packet the orchestrator writes
   traces_to:
   - P6
-  - R4
-  - QBC-15
   - QBC-31
-  - QBC-58
-  - QBC-67
   method: test
   deterministic: true
   plan_gap: wording from QBC-47
@@ -2499,12 +2241,7 @@ criteria:
   - needs_keyword:
       reason: no keyword asserts that a register row's marked test is a named earlier task's planted case
   traces_to:
-  - P6
-  - R4
   - QBC-15
-  - QBC-31
-  - QBC-58
-  - QBC-67
   method: fitness
   deterministic: true
 - id: b8-AC6
@@ -2528,10 +2265,6 @@ criteria:
       count: 0
   traces_to:
   - P6
-  - R4
-  - QBC-15
-  - QBC-31
-  - QBC-58
   - QBC-67
   method: test
   deterministic: true
@@ -2556,15 +2289,10 @@ criteria:
       kind: unwired
   - teaching:
       channel: fact
-      wrong: test
-      right: run
-      prevent: marker
+      wrong: register entry cites a test that did not run or failed
+      right: run the cited test with its marker
+      prevent: mark each planted test with its safeguard id
   traces_to:
-  - P6
-  - R4
-  - QBC-15
-  - QBC-31
-  - QBC-58
   - QBC-67
   method: test
   deterministic: true
@@ -2592,12 +2320,8 @@ criteria:
   - needs_keyword:
       reason: no keyword asserts that a hand-set status is overwritten by regeneration
   traces_to:
-  - P6
-  - R4
-  - QBC-15
-  - QBC-31
-  - QBC-58
   - QBC-67
+  - P6
   method: test
   deterministic: true
   plan_gap: '"no hand-kept field" is a data-shape claim'
@@ -2623,13 +2347,7 @@ criteria:
       assert: source_refs_unchanged
   traces_to:
   - R2
-  - R4
-  - P7
-  - QBC-15
-  - QBC-48
   - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
 - id: b9-AC2
@@ -2658,13 +2376,7 @@ criteria:
       value: plugin
   traces_to:
   - R2
-  - R4
-  - P7
-  - QBC-15
-  - QBC-48
   - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
 - id: b9-AC3
@@ -2698,12 +2410,6 @@ criteria:
       value: true
   traces_to:
   - R2
-  - R4
-  - P7
-  - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
   - QBC-100
   method: test
   deterministic: true
@@ -2737,13 +2443,7 @@ criteria:
       op: eq
       value: false
   traces_to:
-  - R2
   - R4
-  - P7
-  - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
   - QBC-100
   method: test
   deterministic: true
@@ -2796,14 +2496,8 @@ criteria:
       path: sandbox.filesystem.denyRead
       op: absent
   traces_to:
-  - R2
   - R4
-  - P7
   - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
   plan_gap: plan names the locations in prose; the row matches each by a short substring of the path
@@ -2824,14 +2518,8 @@ criteria:
   - git:
       assert: committed_by_program
   traces_to:
-  - R2
-  - R4
   - P7
-  - QBC-15
-  - QBC-48
-  - QBC-65
   - QBC-80
-  - QBC-100
   method: test
   deterministic: true
 - id: b9-AC7
@@ -2852,9 +2540,9 @@ criteria:
   then:
   - refused:
       by: hook
-      wrong: protected
-      right: tests
-      prevent: SG-01
+      wrong: acceptance test is protected (SG-01)
+      right: ask the orchestrator to change it in the plan
+      prevent: tests sit in protected paths
   - file_unchanged:
       target: acceptance_tests
   - field:
@@ -2863,14 +2551,8 @@ criteria:
       op: not_contains
       value: tests
   traces_to:
-  - R2
-  - R4
-  - P7
-  - QBC-15
   - QBC-48
-  - QBC-65
-  - QBC-80
-  - QBC-100
+  - R4
   method: test
   deterministic: true
   plan_gap: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
@@ -2894,23 +2576,17 @@ criteria:
       target: acceptance_tests
   - teaching:
       channel: tool_result
-      wrong: read-only
-      right: SG-01
-      prevent: tests
+      wrong: read-only file system
+      right: tests are protected (SG-01)
+      prevent: do not write into tests/
   - teaching:
       channel: hook_output
-      wrong: SG-01
-      right: tests
-      prevent: packet
+      wrong: 'SG-01 note: tests are protected'
+      right: ask the orchestrator to change them
+      prevent: tests sit in protected paths
   traces_to:
-  - R2
-  - R4
-  - P7
   - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
-  - QBC-100
+  - R4
   method: test
   deterministic: true
   plan_gap: plan gives no SG-01 line text
@@ -2932,20 +2608,14 @@ criteria:
   then:
   - refused:
       by: file_tools
-      wrong: orchestrator
-      right: packet
-      prevent: scoped
+      wrong: packet is orchestrator-owned
+      right: the orchestrator writes the packet
+      prevent: file tools are scoped to the clone
   - file_unchanged:
       target: orchestrator_packet
   traces_to:
-  - R2
   - R4
-  - P7
   - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text (file-tool refusals are the tool's own)
@@ -2969,13 +2639,6 @@ criteria:
       target: orchestrator_packet
   traces_to:
   - R2
-  - R4
-  - P7
-  - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
 - id: b9-AC11
@@ -3000,13 +2663,7 @@ criteria:
       assert: source_refs_unchanged
   traces_to:
   - R2
-  - R4
-  - P7
-  - QBC-15
-  - QBC-48
   - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
 - id: b9-AC12
@@ -3027,20 +2684,14 @@ criteria:
   then:
   - refused:
       by: file_tools
-      wrong: outside
-      right: clone
-      prevent: scoped
+      wrong: path is outside the clone
+      right: write only inside the clone
+      prevent: file tools are scoped to the clone
   - file_unchanged:
       target: outside_checkout
   traces_to:
   - R2
-  - R4
-  - P7
   - QBC-15
-  - QBC-48
-  - QBC-65
-  - QBC-80
-  - QBC-100
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
@@ -3065,11 +2716,6 @@ criteria:
       count: 1
   traces_to:
   - R10
-  - R4
-  - P5
-  - QBC-12
-  - QBC-13
-  - QBC-80
   method: test
   deterministic: true
   plan_gap: '"runs one probe" is observed through the one sandbox_choice fact'
@@ -3089,21 +2735,17 @@ criteria:
   then:
   - refused:
       by: launch
-      wrong: probe
-      right: allowAllUnixSockets
-      prevent: outside socket-granting groups
+      wrong: sandbox probe failed
+      right: set network.allowAllUnixSockets to true where bwrap-userns-restrict applies
+      prevent: run builders under an account outside socket-granting groups
   - fact:
       kind: launch_refused
   - output_contains:
       channel: stderr
       text: fix the profile
   traces_to:
-  - R10
-  - R4
   - P5
   - QBC-12
-  - QBC-13
-  - QBC-80
   method: test
   deterministic: true
   plan_gap: 'the right-way wording follows the bullet: set network.allowAllUnixSockets true, run under an account outside socket-granting groups, or fix the profile'
@@ -3130,18 +2772,14 @@ criteria:
       value: docker
   - refused:
       by: launch
-      wrong: group
-      right: outside socket-granting groups
-      prevent: limits.socket_groups
+      wrong: builder account is in a socket-granting group such as docker
+      right: run builders under an account outside socket-granting groups
+      prevent: list the groups in limits.socket_groups
   - fact:
       kind: launch_refused
   traces_to:
   - R10
-  - R4
   - P5
-  - QBC-12
-  - QBC-13
-  - QBC-80
   method: test
   deterministic: true
 - id: b10-AC4
@@ -3170,11 +2808,7 @@ criteria:
       detail: allowAllUnixSockets
   traces_to:
   - R10
-  - R4
-  - P5
-  - QBC-12
   - QBC-13
-  - QBC-80
   method: test
   deterministic: true
 - id: b10-AC5
@@ -3200,11 +2834,7 @@ criteria:
       value: false
   traces_to:
   - R10
-  - R4
-  - P5
-  - QBC-12
   - QBC-13
-  - QBC-80
   method: test
   deterministic: true
 - id: b10-AC6
@@ -3227,11 +2857,7 @@ criteria:
       value: 4
       distinct: true
   traces_to:
-  - R10
   - R4
-  - P5
-  - QBC-12
-  - QBC-13
   - QBC-80
   method: lint
   deterministic: true
@@ -3251,9 +2877,9 @@ criteria:
   then:
   - refused:
       by: program
-      wrong: already running
-      right: wait
-      prevent: background
+      wrong: another bh run holds the output dir lock
+      right: wait for it or read its result
+      prevent: start bh run once, in the background
   - exit_code:
       code: 1
   traces_to:
@@ -3278,9 +2904,9 @@ criteria:
   then:
   - refused:
       by: program
-      wrong: already running
-      right: wait
-      prevent: background
+      wrong: another bh run holds the output dir lock
+      right: wait for it or read its result
+      prevent: start bh run once, in the background
   traces_to:
   - R1
   - G5
@@ -3354,9 +2980,9 @@ criteria:
       detail: open
   - teaching:
       channel: fact
-      wrong: omit
-      right: re-review
-      prevent: open
+      wrong: re-review omitted an open gap
+      right: list every open gap in the re-review
+      prevent: carry the open gaps forward in each review
   traces_to:
   - R9
   - G5
@@ -3384,9 +3010,9 @@ criteria:
       detail: no impact
   - teaching:
       channel: fact
-      wrong: file:line
-      right: cite
-      prevent: impact
+      wrong: claimed impact cites no file:line
+      right: cite the file:line of the impact
+      prevent: every finding cites file:line
   traces_to:
   - R9
   - G5
@@ -3443,9 +3069,9 @@ criteria:
       count: 1
   - teaching:
       channel: fact
-      wrong: est_loc
-      right: declare
-      prevent: gap
+      wrong: est_loc missing
+      right: declare est_loc for the gap
+      prevent: require est_loc on every gap
   traces_to:
   - R9
   - G5
@@ -3491,9 +3117,9 @@ criteria:
       - docs/
       kind: references
   then:
-  - fact:
-      kind: gap
-      count: 0
+  - scan_count:
+      op: eq
+      value: 0
   - needs_keyword:
       reason: no keyword asserts that the link checker lychee ran and its result
   traces_to:
@@ -3532,13 +3158,11 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: git
-      right: retry
-      prevent: stuck
+      wrong: git failure in one builder
+      right: re-run the item after fixing its clone
+      prevent: one failing builder stuck-lists its item only
   traces_to:
   - R1
-  - G5
-  - QBC-76
   - QBC-80
   method: test
   deterministic: true
@@ -3568,9 +3192,6 @@ criteria:
       value: 0.5
   traces_to:
   - R1
-  - G5
-  - QBC-76
-  - QBC-80
   method: test
   deterministic: true
 - id: b13-AC3
@@ -3597,9 +3218,7 @@ criteria:
       bound: budgets.run_usd
   traces_to:
   - R1
-  - G5
-  - QBC-76
-  - QBC-80
+  - QBC-13
   method: measure
   deterministic: true
 - id: b13-AC4
@@ -3626,10 +3245,7 @@ criteria:
       op: eq
       value: false
   traces_to:
-  - R1
   - G5
-  - QBC-76
-  - QBC-80
   method: test
   deterministic: true
   plan_gap: plan names no job-record field for a cache hit
@@ -3657,10 +3273,7 @@ criteria:
       op: eq
       value: false
   traces_to:
-  - R1
   - G5
-  - QBC-76
-  - QBC-80
   method: test
   deterministic: true
   plan_gap: plan names no job-record field for a cache hit
@@ -3684,9 +3297,6 @@ criteria:
       value: 4
       distinct: true
   traces_to:
-  - R1
-  - G5
-  - QBC-76
   - QBC-80
   method: lint
   deterministic: true
@@ -3711,10 +3321,8 @@ criteria:
       op: eq
       value: 3
   traces_to:
-  - R1
   - G5
   - QBC-76
-  - QBC-80
   method: lint
   deterministic: true
   plan_gap: '"one home each" is read as one definition each'
@@ -3738,10 +3346,7 @@ criteria:
       op: eq
       value: 0
   traces_to:
-  - R1
-  - G5
   - QBC-76
-  - QBC-80
   method: lint
   deterministic: true
 - id: b13-AC9
@@ -3763,10 +3368,7 @@ criteria:
   - needs_keyword:
       reason: the plan names no symbol for the restated targets, so no scan pattern can express one home
   traces_to:
-  - R1
-  - G5
   - QBC-76
-  - QBC-80
   method: lint
   deterministic: true
   plan_gap: plan does not say which targets are restated
@@ -3795,14 +3397,12 @@ criteria:
       kind: stuck
   traces_to:
   - R1
-  - P3
-  - QBC-9
-  - QBC-10
-  - QBC-78
   - QBC-80
   method: test
   deterministic: true
   plan_gap: the stuck item must exist in the fixture so the facts are shown
+  spec_ref:
+  - L3.model-calls-in-tests
 - id: b14-AC2
   scenario: No agent job runs state, measure, merge, commit or ordering
   covers:
@@ -3826,12 +3426,9 @@ criteria:
       - commit
       - ordering
   traces_to:
-  - R1
   - P3
   - QBC-9
   - QBC-10
-  - QBC-78
-  - QBC-80
   method: test
   deterministic: true
 - id: b14-AC3
@@ -3857,12 +3454,7 @@ criteria:
       path: tokens
       op: present
   traces_to:
-  - R1
-  - P3
-  - QBC-9
-  - QBC-10
   - QBC-78
-  - QBC-80
   method: test
   deterministic: true
   plan_gap: plan names no field for the token count
@@ -3886,18 +3478,16 @@ criteria:
       op: not_contains
       value: Workflow
   traces_to:
-  - R1
-  - P3
-  - QBC-9
   - QBC-10
-  - QBC-78
-  - QBC-80
   method: test
   deterministic: true
 - id: b2-AC12
   scenario: A measurement writes JUnit XML, a SARIF 2.1.0 log and a schema-valid result JSON that names the packet sha256
   spec_ref:
-  - stage:L5
+  - common.any-json-output
+  - L5.per-criterion-verdict-and-facts
+  - L5.test-results
+  - L5.lint-and-fitness-findings
   given:
   - repo:
       name: toy
@@ -3905,6 +3495,9 @@ criteria:
   - planted:
       plant: honest_change
       class: honest
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     bh:
       sub: measure
@@ -3939,7 +3532,7 @@ criteria:
 - id: b2-AC13
   scenario: A lint or fitness finding on a planted violation carries the teaching in the SARIF message, help and fixes
   spec_ref:
-  - stage:L5
+  - L5.lint-and-fitness-findings
   given:
   - repo:
       name: toy
@@ -3957,9 +3550,9 @@ criteria:
       op: present
   - teaching:
       channel: sarif
-      wrong: violation
-      right: fix
-      prevent: rule
+      wrong: lint violation in the SARIF result message
+      right: fix as the help text and fixes say
+      prevent: run the linter before finishing
   traces_to:
   - P5
   - QBC-12
@@ -3970,7 +3563,7 @@ criteria:
 - id: b2-AC14
   scenario: 'A result file forged and committed by the builder has no effect: the verdict reflects the real run'
   spec_ref:
-  - stage:L5
+  - L5.per-criterion-verdict-and-facts
   given:
   - repo:
       name: toy
@@ -3988,9 +3581,9 @@ criteria:
       kind: tampered
   - teaching:
       channel: fact
-      wrong: result
-      right: measurer
-      prevent: protected
+      wrong: result file written by the builder
+      right: only the measurer writes the result JSON
+      prevent: result files are not read from the builder's clone
   traces_to:
   - R4
   - P6
@@ -4002,7 +3595,7 @@ criteria:
 - id: b1-AC22
   scenario: A packet edited in the build is recorded as tampered and has no effect on the measured result
   spec_ref:
-  - enforce:4
+  - enforce.4
   given:
   - repo:
       name: toy
@@ -4010,6 +3603,9 @@ criteria:
   - planted:
       plant: edited_packet
       class: gaming
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     bh:
       sub: measure
@@ -4025,9 +3621,9 @@ criteria:
       value: $packet_sha256
   - teaching:
       channel: fact
-      wrong: packet
-      right: base
-      prevent: protected
+      wrong: packet changed in the build
+      right: the packet from the base commit is used
+      prevent: only the planner writes the packet
   traces_to:
   - R4
   - P6
@@ -4039,7 +3635,7 @@ criteria:
 - id: b1-AC23
   scenario: A generated test edited in the build is recorded as tampered and has no effect on the measured result
   spec_ref:
-  - enforce:4
+  - enforce.4
   given:
   - repo:
       name: toy
@@ -4057,9 +3653,9 @@ criteria:
       target: acceptance_tests
   - teaching:
       channel: fact
-      wrong: generated test
-      right: base
-      prevent: protected
+      wrong: generated test changed in the build
+      right: the generated test from the base commit is used
+      prevent: only the generator writes acceptance tests
   traces_to:
   - R4
   - P6
@@ -4071,7 +3667,8 @@ criteria:
 - id: b2-AC15
   scenario: The result JSON and SARIF run properties name the packet sha256
   spec_ref:
-  - enforce:5
+  - common.reference-to-the-contract
+  - enforce.5
   given:
   - repo:
       name: toy
@@ -4079,6 +3676,9 @@ criteria:
   - planted:
       plant: honest_change
       class: honest
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     bh:
       sub: measure
@@ -4103,7 +3703,8 @@ criteria:
 - id: b2-AC16
   scenario: A commit whose Packet trailer names another sha256 gives packet_mismatch and the item is measured against the right packet
   spec_ref:
-  - enforce:5
+  - enforce.5
+  - common.reference-to-the-contract
   given:
   - repo:
       name: toy
@@ -4111,6 +3712,9 @@ criteria:
   - planted:
       plant: wrong_packet_trailer
       class: defect
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     bh:
       sub: measure
@@ -4125,9 +3729,9 @@ criteria:
       value: $packet_sha256
   - teaching:
       channel: fact
-      wrong: packet
-      right: trailer
-      prevent: sha256
+      wrong: Packet trailer names another sha256
+      right: use the Packet trailer with the packet's sha256
+      prevent: 'use Packet: <id>@<sha256> from the packet'
   traces_to:
   - R4
   - P5
@@ -4139,13 +3743,19 @@ criteria:
 - id: b9-AC13
   scenario: The program's commit follows Conventional Commits 1.0 with Packet and Criteria trailers
   spec_ref:
-  - stage:L4
+  - L4.commit-message
+  - L4.contract-reference
+  - common.reference-to-the-contract
+  - enforce.5
   given:
   - repo:
       name: toy
       state: base
   - recorded_model:
       fixture: toy_honest
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     program_step:
       step: commit_build
@@ -4177,7 +3787,7 @@ criteria:
 - id: b9-AC14
   scenario: A diff path outside the packet's declared paths is a scope fact with teaching, never a refusal
   spec_ref:
-  - stage:L4
+  - L4.contract-reference
   given:
   - repo:
       name: toy
@@ -4200,9 +3810,9 @@ criteria:
       code: 0
   - teaching:
       channel: fact
-      wrong: scope
-      right: packet
-      prevent: declared
+      wrong: diff path outside the packet's declared paths
+      right: keep changes inside the declared paths or ask for a plan change
+      prevent: declare every path the item touches in the packet
   traces_to:
   - R4
   - P5
@@ -4211,3 +3821,32 @@ criteria:
   method: test
   deterministic: true
   plan_gap: plan omits the teaching text
+- id: b2-AC17
+  scenario: The JUnit XML a measurement writes parses and holds the item's tests
+  spec_ref:
+  - L5.test-results
+  - L2.measured-results
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - paths:
+      paths:
+      - out/*/*-*/*.xml
+      exist: true
+  - junit:
+      tests_min: 1
+      errors: 0
+  traces_to:
+  - R4
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan names no JUnit file name

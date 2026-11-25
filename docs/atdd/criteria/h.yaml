@@ -182,6 +182,7 @@ criteria:
 
   - id: h3-AC1
     scenario: bh metrics computes the three metrics from git, the issue history and the job records
+    spec_ref: [L2.success-of-the-whole-flow, L5.success-of-the-flow]
     covers: [0]
     given:
       - repo: {name: project, state: v2_history}
@@ -290,6 +291,7 @@ criteria:
 
   - id: h3-AC8
     scenario: Both periods are shown side by side
+    spec_ref: [L2.success-of-the-whole-flow]
     covers: [5]
     given:
       - repo: {name: project, state: v2_history}

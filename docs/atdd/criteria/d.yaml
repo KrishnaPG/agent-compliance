@@ -5,6 +5,7 @@ criteria:
   - id: d0-AC1
     scenario: A valid packet fixture validates against the one packet schema
     covers: [1]
+    spec_ref: [L2.schema-and-validation, common.any-json-output]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -21,6 +22,7 @@ criteria:
   - id: d0-AC2
     scenario: The assembled packet carries id and parent_issue
     covers: [2, 3]
+    spec_ref: [common.reference-to-the-contract]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -36,6 +38,7 @@ criteria:
   - id: d0-AC3
     scenario: The tier of a mechanical item is derived by the program, and the goal states intent and why
     covers: [4, 5]
+    spec_ref: [L2.goal-without-method]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: mechanical}
@@ -44,7 +47,6 @@ criteria:
     then:
       - field: {source: packet, path: tier, op: eq, value: mechanical}
       - field: {source: packet, path: goal, op: present}
-      - schema_valid: {valid: true}
     traces_to: [R5, P6, QBC-24, QBC-42]
     method: test
     deterministic: true
@@ -70,6 +72,7 @@ criteria:
   - id: d0-AC5
     scenario: constraints and the rest of the field list are present
     covers: [7, 9, 10, 11]
+    spec_ref: [L2.definition-of-done]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -88,6 +91,7 @@ criteria:
   - id: d0-AC6
     scenario: Every acceptance scenario carries an id, traces_to and a verification from the closed four
     covers: [8]
+    spec_ref: [L2.ids-traceability-verification-method-per-criterion, L2.acceptance-criteria]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -110,7 +114,6 @@ criteria:
     when:
       program_step: {step: assemble_packet, item: toy_item}
     then:
-      - schema_valid: {valid: true}
       - fact: {kind: over_cap}
       - needs_keyword: {reason: "the file name that carries the moved text is not named by the plan, so the path reference cannot be matched"}
     traces_to: [R5, QBC-33]
@@ -120,50 +123,50 @@ criteria:
   - id: d0-AC8
     scenario: A packet with a design field fails validation and teaches
     covers: [13]
+    spec_ref: [L2.goal-without-method]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: design_field}
     when:
-      validate: {instance: toy_item_packet, schema: harness/schema/packet.schema.json}
+      program_step: {step: validate_packet, item: toy_item}
     then:
-      - schema_valid: {valid: false}
-      - teaching: {channel: stderr, wrong: design, right: intent and why}
+      - refused: {by: program, wrong: "packet has a design field", right: "the goal states the intent and why, with no design", prevent: "put the design in the declared contract, schema or role delta file, not in the packet"}
     traces_to: [R5, P1, QBC-42, QBC-37]
     method: test
     deterministic: true
-    plan_gap: "the plan states no teaching text for a failed packet; wording is taken from the goal field's definition and the prevent part is not stated"
+    plan_gap: "the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets"
 
   - id: d0-AC9
     scenario: A scenario without traces_to fails validation and teaches
     covers: [13]
+    spec_ref: [L2.ids-traceability-verification-method-per-criterion]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: scenario_without_traces_to}
     when:
-      validate: {instance: toy_item_packet, schema: harness/schema/packet.schema.json}
+      program_step: {step: validate_packet, item: toy_item}
     then:
-      - schema_valid: {valid: false, error_path: "acceptance"}
-      - teaching: {channel: stderr, wrong: traces_to, right: "G, P, R or QBC"}
+      - refused: {by: program, wrong: "scenario without traces_to", right: "traces_to lists a G, P, R or QBC id", prevent: "give every acceptance scenario traces_to before the packet is accepted"}
     traces_to: [R5, QBC-39]
     method: test
     deterministic: true
-    plan_gap: "the plan states no teaching text for a failed packet; the prevent part is not stated"
+    plan_gap: "the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets"
 
   - id: d0-AC10
     scenario: A scenario without verification fails validation and teaches
     covers: [13]
+    spec_ref: [L2.ids-traceability-verification-method-per-criterion]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: scenario_without_verification}
     when:
-      validate: {instance: toy_item_packet, schema: harness/schema/packet.schema.json}
+      program_step: {step: validate_packet, item: toy_item}
     then:
-      - schema_valid: {valid: false, error_path: "acceptance"}
-      - teaching: {channel: stderr, wrong: verification, right: "test, lint, fitness, measure"}
+      - refused: {by: program, wrong: "scenario without verification", right: "verification is one of test, lint, fitness, measure", prevent: "give every acceptance scenario a verification (ISO/IEC/IEEE 29148) before the packet is accepted"}
     traces_to: [R5, QBC-39]
     method: test
     deterministic: true
-    plan_gap: "the plan states no teaching text for a failed packet; the prevent part is not stated"
+    plan_gap: "the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets"
 
   - id: d0-AC11
     scenario: The measurer and bh check run exactly the packet's verifier list
@@ -184,6 +187,7 @@ criteria:
   - id: d0-AC12
     scenario: Rendering the fixture packet gives the golden Markdown
     covers: [15]
+    spec_ref: [L3.messages-and-renderings]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -203,7 +207,7 @@ criteria:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
     when:
-      program_step: {step: assemble_packet, item: toy_item}
+      validate: {instance: assembled_toy_item_packet, schema: harness/schema/packet.schema.json}
     then:
       - schema_valid: {valid: true}
       - field: {source: packet, path: constraints, op: present}
@@ -221,7 +225,6 @@ criteria:
     when:
       program_step: {step: assemble_packet, item: toy_item}
     then:
-      - schema_valid: {valid: true}
       - field: {source: packet, path: goal, op: present}
       - no_fact: {kind: launch_refused}
     traces_to: [R5, P4, QBC-42]
@@ -255,7 +258,6 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - fact: {kind: over_cap}
-      - schema_valid: {valid: true}
       - needs_keyword: {reason: "the moved text's file and the reference to it in the packet are not named by the plan"}
     traces_to: [P8, QBC-33, QBC-40]
     method: test
@@ -287,7 +289,6 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - jobs: {assert: none_of_kind, values: [planner, judge, test_author, builder, reviewer]}
-      - schema_valid: {valid: true}
       - field: {source: packet, path: acceptance, op: present}
       - field: {source: packet, path: verifier, op: present}
       - field: {source: packet, path: paved_road, op: present}
@@ -306,7 +307,7 @@ criteria:
       builder_action: {tool: Write, action: write, target: clone_packet}
     then:
       - file_unchanged: {target: orchestrator_packet}
-      - refused: {by: sandbox, wrong: packet, right: orchestrator, prevent: read-only}
+      - refused: {by: sandbox, wrong: "write to the clone's packet directory", right: "the orchestrator writes the packet; ask to be relaunched with a changed one", prevent: "the packet directory is read-only in the clone"}
     traces_to: [R5, QBC-24, QBC-49]
     method: test
     deterministic: true
@@ -445,7 +446,7 @@ criteria:
     when:
       bh: {sub: check}
     then:
-      - teaching: {channel: stdout, wrong: datetime, right: timezone, prevent: lint}
+      - teaching: {channel: stdout, wrong: "naive datetime without a timezone", right: "use a timezone-aware datetime", prevent: "run bh check before finishing so the lint rule reports it"}
       - needs_keyword: {reason: "that the check runs in a temp dir under the clone and reuses the measurer's code rather than a copy is internal; only the equal result of d3-AC5 is observable"}
     traces_to: [G1, R5, QBC-16]
     method: test
@@ -498,7 +499,7 @@ criteria:
     when:
       bh: {sub: check}
     then:
-      - teaching: {channel: stdout, wrong: datetime, right: timezone, prevent: lint}
+      - teaching: {channel: stdout, wrong: "naive datetime without a timezone", right: "use a timezone-aware datetime", prevent: "run bh check before finishing so the lint rule reports it"}
       - output_contains: {channel: stdout, text: fresh-stack}
       - needs_keyword: {reason: "that stdout holds nothing besides the missed checks' messages and the skip statement"}
     traces_to: [G3, R5, QBC-16, QBC-55]
@@ -667,6 +668,7 @@ criteria:
   - id: d5-AC3
     scenario: A minor version bump in a lockfile and manifest diff stays mechanical
     covers: [2, 5]
+    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: mechanical}
@@ -683,6 +685,7 @@ criteria:
   - id: d5-AC4
     scenario: A patch version bump stays mechanical
     covers: [2]
+    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: mechanical}
@@ -699,6 +702,7 @@ criteria:
   - id: d5-AC5
     scenario: A major version bump re-tiers the item as design-affecting
     covers: [2, 4, 5]
+    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: mechanical}
@@ -716,6 +720,7 @@ criteria:
   - id: d5-AC6
     scenario: A major bump in an npm manifest is read by semver and re-tiers
     covers: [2]
+    spec_ref: [L2.tier-of-a-pin-change, L4.tier-of-version-changes]
     given:
       - repo: {name: node_toy, state: base}
       - packet: {fixture: node_item, variant: mechanical}
@@ -788,7 +793,7 @@ criteria:
       builder_action: {tool: Edit, action: edit, target: acceptance_test}
     then:
       - file_unchanged: {target: acceptance_tests}
-      - refused: {by: file_tools, wrong: acceptance test, right: test author, prevent: protected}
+      - refused: {by: file_tools, wrong: "edit of a visible acceptance test", right: "ask the test author to change the test", prevent: "acceptance test paths are protected from the builder"}
       - git: {assert: path_in_plan_commit, path: $acceptance_paths}
     traces_to: [R3, QBC-31, QBC-41]
     method: test
@@ -1245,7 +1250,7 @@ criteria:
       - field: {source: skill_md, path: body, op: contains, value: test author}
       - field: {source: skill_md, path: body, op: contains, value: packet}
       - field: {source: skill_md, path: body, op: contains, value: bh check}
-    traces_to: [R9, G3, QBC-59, QBC-82]
+    traces_to: [G3, QBC-82]
     method: lint
     deterministic: true
 
@@ -1258,7 +1263,6 @@ criteria:
       scan: {paths: [skills/harness/], kind: text, pattern: "compliance-review|compliance-catalog"}
     then:
       - scan_count: {op: eq, value: 0}
-      - fact: {kind: gap, count: 0}
     traces_to: [R9, QBC-82]
     method: lint
     deterministic: true
@@ -1280,6 +1284,7 @@ criteria:
   - id: d11-AC1
     scenario: A diff touching a security-sensitive path launches a fresh reviewer job
     covers: [1]
+    spec_ref: [review.trigger, L2.security-review-trigger]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1297,6 +1302,7 @@ criteria:
   - id: d11-AC2
     scenario: A diff outside the security-sensitive paths launches no reviewer
     covers: [3]
+    spec_ref: [review.trigger]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1313,6 +1319,7 @@ criteria:
   - id: d11-AC3
     scenario: A diff split across rounds still triggers the review
     covers: [3, 1]
+    spec_ref: [review.trigger]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1395,7 +1402,7 @@ criteria:
   # ---------------------------------------------------------------- stage outputs and enforcement (packet-standards.md)
   - id: d0-AC13
     scenario: The L2 packet is schema-valid and its acceptance rows use only closed catalog values
-    spec_ref: [stage:L2]
+    spec_ref: [L2.schema-and-validation, L2.acceptance-criteria]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1410,7 +1417,7 @@ criteria:
 
   - id: d0-AC14
     scenario: The packet schema holds the catalog keywords as enums
-    spec_ref: [stage:L2]
+    spec_ref: [L2.acceptance-criteria]
     given:
       - repo: {name: plugin, state: candidate}
     when:
@@ -1423,7 +1430,7 @@ criteria:
 
   - id: d0-AC15
     scenario: Every section 0 item that applies is traced by the packet
-    spec_ref: [stage:L2]
+    spec_ref: [L2.ids-traceability-verification-method-per-criterion]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1438,7 +1445,7 @@ criteria:
 
   - id: d0-AC16
     scenario: The packet is one schema-valid file only the orchestrator writes, identified by its sha256
-    spec_ref: [enforce:1]
+    spec_ref: [enforce.1]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1447,7 +1454,7 @@ criteria:
       builder_action: {tool: Write, action: write, target: orchestrator_packet}
     then:
       - file_unchanged: {target: orchestrator_packet}
-      - refused: {by: sandbox, wrong: packet, right: orchestrator, prevent: read-only}
+      - refused: {by: sandbox, wrong: "write to the orchestrator's packet file", right: "only the planner or orchestrator writes the packet", prevent: "the packet file is outside the builder's writable paths"}
       - field: {source: job_record, path: packet_sha256, op: present}
     traces_to: [R5, P6, QBC-24, QBC-48]
     method: test
@@ -1456,7 +1463,7 @@ criteria:
 
   - id: d3-AC7
     scenario: bh check reads the same packet and runs the same verifier list as the measurer
-    spec_ref: [enforce:3]
+    spec_ref: [enforce.3]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1472,7 +1479,7 @@ criteria:
 
   - id: d4-AC7
     scenario: The builder's SessionStart context is byte-equal to the packet's rendering
-    spec_ref: [enforce:3]
+    spec_ref: [enforce.3]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1488,7 +1495,7 @@ criteria:
 
   - id: d6-AC6
     scenario: Tests are generated from the packet's rows and the manifest maps each criterion to one test
-    spec_ref: [stage:L3, enforce:2]
+    spec_ref: [L3.criteria-to-tests, L3.traceability, enforce.2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1505,14 +1512,13 @@ criteria:
 
   - id: d6-AC7
     scenario: Each generated test is marked by its criterion id
-    spec_ref: [stage:L3]
+    spec_ref: [L3.test-code]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
     when:
       program_step: {step: generate_tests, item: toy_item}
     then:
-      - scan_count: {op: ge, value: 1}
       - field: {source: manifest, path: "toy_item-AC1", op: contains, value: toy_item-AC1}
     traces_to: [R3, QBC-31]
     method: test
@@ -1521,7 +1527,7 @@ criteria:
 
   - id: d6-AC8
     scenario: The red-on-main run is JUnit XML and every test fails with an assertion failure, not an error
-    spec_ref: [stage:L3]
+    spec_ref: [L3.results]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1538,7 +1544,7 @@ criteria:
 
   - id: d6-AC9
     scenario: A planted test without a criterion is reported with teaching
-    spec_ref: [enforce:2]
+    spec_ref: [enforce.2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1547,7 +1553,7 @@ criteria:
       program_step: {step: generate_tests, item: toy_item}
     then:
       - fact: {kind: gap}
-      - teaching: {channel: fact, wrong: test without a criterion, right: generated from the packet's rows, prevent: test author}
+      - teaching: {channel: fact, wrong: "test without a criterion", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
     traces_to: [R3, P6, QBC-31]
     method: test
     deterministic: true
@@ -1555,7 +1561,7 @@ criteria:
 
   - id: d6-AC10
     scenario: A planted criterion without a test is reported with teaching
-    spec_ref: [enforce:2]
+    spec_ref: [enforce.2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1564,7 +1570,7 @@ criteria:
       program_step: {step: generate_tests, item: toy_item}
     then:
       - fact: {kind: gap}
-      - teaching: {channel: fact, wrong: criterion without a test, right: generated from the packet's rows, prevent: test author}
+      - teaching: {channel: fact, wrong: "criterion without a test", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
     traces_to: [R3, P6, QBC-31]
     method: test
     deterministic: true
@@ -1572,7 +1578,7 @@ criteria:
 
   - id: d11-AC8
     scenario: Review findings are a valid SARIF 2.1.0 log with severity mapped to level
-    spec_ref: [stage:review]
+    spec_ref: [review.findings]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1592,7 +1598,7 @@ criteria:
 
   - id: d11-AC9
     scenario: Each review finding cites the packet sha256 and never changes met
-    spec_ref: [stage:review]
+    spec_ref: [review.findings, common.reference-to-the-contract]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1608,3 +1614,38 @@ criteria:
     method: test
     deterministic: true
     plan_gap: "the property name for the sha256 is not given; packet_sha256 is assumed"
+
+  - id: d2-AC11
+    scenario: A schema check confirms the parts the program filled for a toy item
+    covers: [0]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+    when:
+      validate: {instance: assembled_toy_item_packet, schema: harness/schema/packet.schema.json}
+    then:
+      - schema_valid: {valid: true}
+      - field: {source: packet, path: acceptance, op: present}
+      - field: {source: packet, path: verifier, op: present}
+      - field: {source: packet, path: paved_road, op: present}
+    traces_to: [G3, R5, QBC-24]
+    method: test
+    deterministic: true
+
+  - id: d11-AC10
+    scenario: A vulnerability finding carries a CVSS 4.0 vector
+    spec_ref: [review.severity]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+      - planted: {plant: auth_path_change, class: diff, where: candidate_commit}
+      - recorded_model: {fixture: reviewer_vulnerability_finding}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: sarif, path: "runs[*].results[*].properties.cvss_vector", op: matches, value: "^CVSS:4\\.0/"}
+    traces_to: [P6, QBC-36]
+    method: test
+    deterministic: true
+    plan_gap: "the property name for the vector is not given; cvss_vector is assumed"
+

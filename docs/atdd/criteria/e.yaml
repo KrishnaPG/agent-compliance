@@ -41,16 +41,17 @@ criteria:
     deterministic: true
 
   - id: e1-AC4
-    scenario: A form missing a field GitHub requires is rejected with the path of the error
+    scenario: An invalid form is refused when the forms are written
     covers: [1]
     given:
-      - repo: {name: plugin, state: candidate}
+      - repo: {name: project, state: no_issue_forms}
       - planted: {plant: form_without_body_type, class: defect, where: working_tree}
+      - recorded_answer: {question: write_issue_forms, answer: approve}
     when:
-      validate: {instance: templates/.github/ISSUE_TEMPLATE/slice.yml, schema: github_issue_form}
+      program_step: {step: write_forms}
     then:
-      - schema_valid: {valid: false, error_path: body}
-      - teaching: {channel: stderr, wrong: body, right: required, prevent: github_issue_form}
+      - refused: {by: program, wrong: "slice.yml fails GitHub's issue-form schema", right: "add a body of form fields to slice.yml", prevent: "validate every form against the issue-form schema before writing it"}
+      - paths: {paths: [.github/ISSUE_TEMPLATE/slice.yml], exist: false}
     traces_to: [R8, P5, QBC-83]
     method: lint
     deterministic: true
@@ -83,15 +84,14 @@ criteria:
     deterministic: true
 
   - id: e1-AC7
-    scenario: The parent field's description teaches the right way
+    scenario: The parent field's description teaches the right way in every form
     covers: [3]
     given:
       - repo: {name: plugin, state: candidate}
     when:
-      scan: {paths: [templates/.github/ISSUE_TEMPLATE/slice.yml], kind: text, pattern: "description:"}
+      scan: {paths: [templates/.github/ISSUE_TEMPLATE/decision.yml, templates/.github/ISSUE_TEMPLATE/slice.yml, templates/.github/ISSUE_TEMPLATE/defect.yml], kind: text, pattern: "pick one, or start a decision"}
     then:
       - scan_count: {op: ge, value: 3}
-      - teaching: {channel: form_description, wrong: No parent decision, right: pick one}
     traces_to: [R8, P5, QBC-88]
     method: lint
     deterministic: true
@@ -223,7 +223,8 @@ criteria:
     then:
       - api_call: {service: github, operation: addComment, count: 1}
       - teaching: {channel: issue_comment, wrong: No parent decision, right: pick one, prevent: start a decision if this is a new capability}
-      - output_contains: {channel: issue_comment, text: "No parent decision. Every issue sits under a decision's tracking issue: pick one, or start a decision if this is a new capability."}
+      - output_contains: {channel: issue_comment, text: "No parent decision."}
+      - output_contains: {channel: issue_comment, text: "Every issue sits under a decision's tracking issue: pick one, or start a decision if this is a new capability."}
     traces_to: [R8, G4, P12, QBC-88, QBC-89]
     method: test
     deterministic: true
@@ -252,7 +253,7 @@ criteria:
       program_step: {step: intake_issue}
     then:
       - api_call: {service: github, operation: createIssue, count: 1, with: maintenance}
-      - teaching: {channel: issue_comment, wrong: No parent decision, right: maintenance, prevent: CODEOWNERS}
+      - teaching: {channel: issue_comment, wrong: No parent decision, right: use the standing maintenance tracking issue named in CODEOWNERS, prevent: add the code's owner to CODEOWNERS}
     traces_to: [R8, G4, QBC-88]
     method: test
     deterministic: true
@@ -288,6 +289,22 @@ criteria:
     traces_to: [R8, P12, QBC-89]
     method: test
     deterministic: true
+
+  - id: e2-AC8
+    scenario: A decision's tracking issue links its record and the record links the issue
+    spec_ref: [L1.link-to-the-work]
+    given:
+      - repo: {name: project, state: decision_record_written}
+      - recorded_api: {service: github, fixture: create_issue_with_parent}
+    when:
+      program_step: {step: file_issue, item: decision_item}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 1, with: docs/decisions/}
+      - field: {source: decision_record, path: tracking_issue, op: present}
+    traces_to: [R8, QBC-87]
+    method: test
+    deterministic: true
+    plan_gap: "the plan does not describe the record-to-issue link; the row asserts the created issue body names the record path and the record names the issue"
 
   - id: e3-AC1
     scenario: The Known issues list is found by its label

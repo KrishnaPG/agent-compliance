@@ -3,6 +3,7 @@ slice: f
 criteria:
   - id: f1-AC1
     scenario: Proposer and judge are separate jobs and the judge sees only the record and the evidence
+    spec_ref: [L1.option-judgement]
     covers: [1]
     given:
       - repo: {name: toy, state: base}
@@ -73,6 +74,7 @@ criteria:
 
   - id: f1-AC5
     scenario: A record over limits.record_chars goes back to the proposer with teaching
+    spec_ref: [L1.lineage-and-size]
     covers: [5]
     given:
       - repo: {name: toy, state: base}
@@ -117,7 +119,7 @@ criteria:
 
   - id: f1-AC8
     scenario: The L1 decision record is MADR 4.0 with status, date and deciders in its front matter
-    spec_ref: [stage:L1]
+    spec_ref: [L1.front-matter]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: decision_item, variant: valid}
@@ -135,7 +137,7 @@ criteria:
 
   - id: f1-AC9
     scenario: The record holds the required MADR sections
-    spec_ref: [stage:L1]
+    spec_ref: [L1.decision-record]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: decision_item, variant: valid}
@@ -152,7 +154,7 @@ criteria:
 
   - id: f1-AC10
     scenario: Every constraint in the record cites a G, P, R or QBC id
-    spec_ref: [stage:L1]
+    spec_ref: [L1.hand-off-to-l2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: decision_item, variant: valid}
@@ -168,7 +170,7 @@ criteria:
 
   - id: f1-AC11
     scenario: A record missing its front matter is reported with teaching
-    spec_ref: [stage:L1]
+    spec_ref: [L1.front-matter]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: decision_item, variant: valid}
@@ -177,7 +179,7 @@ criteria:
       bh: {sub: run}
     then:
       - fact: {kind: gap, detail: front matter}
-      - teaching: {channel: fact, wrong: front matter, right: status, prevent: MADR}
+      - teaching: {channel: fact, wrong: front matter, right: "add front matter with status, date and deciders", prevent: "MADR 4.0 front matter is checked on every record"}
     traces_to: [R9, P5, QBC-84]
     method: test
     deterministic: true
@@ -185,7 +187,7 @@ criteria:
 
   - id: f1-AC12
     scenario: A constraint with no rule id is reported with teaching
-    spec_ref: [stage:L1]
+    spec_ref: [L1.hand-off-to-l2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: decision_item, variant: valid}
@@ -202,7 +204,7 @@ criteria:
 
   - id: f1-AC13
     scenario: The record's falsifying calls become L2 criteria
-    spec_ref: [stage:L1]
+    spec_ref: [L1.hand-off-to-l2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: decision_item, variant: valid}
@@ -267,7 +269,7 @@ criteria:
       bh: {sub: vet, args: [example-pkg]}
     then:
       - exit_code: {code: 2}
-      - teaching: {channel: stderr, wrong: ecosystem, right: "bh vet <ecosystem> <package@version>", prevent: pinned version}
+      - teaching: {channel: stderr, wrong: the package argument has no ecosystem or pinned version, right: "bh vet <ecosystem> <package@version>", prevent: pinned version}
     traces_to: [R9, P5, QBC-84]
     method: test
     deterministic: true
@@ -331,6 +333,7 @@ criteria:
 
   - id: f3-AC4
     scenario: commitlint runs in the test recipe over a nonconforming commit
+    spec_ref: [L2.commit-messages-as-facts]
     covers: [4]
     given:
       - repo: {name: toy, state: base}
@@ -338,13 +341,14 @@ criteria:
     when:
       entry_point: {entry: project_test}
     then:
-      - fact: {kind: commitlint, count: 1}
+      - output_contains: {channel: stdout, text: commitlint}
     traces_to: [R9, P4, QBC-84]
     method: test
     deterministic: true
 
   - id: f3-AC5
     scenario: bh check runs commitlint over the item's commits
+    spec_ref: [L2.commit-messages-as-facts]
     covers: [4]
     given:
       - repo: {name: toy, state: base}
@@ -360,6 +364,7 @@ criteria:
 
   - id: f3-AC6
     scenario: A fix commit without an issue ref becomes a fact with teaching
+    spec_ref: [L2.commit-messages-as-facts]
     covers: [5]
     given:
       - repo: {name: toy, state: base}
@@ -368,7 +373,7 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: commitlint, detail: issue, count: 1}
-      - teaching: {channel: fact, wrong: fix commit without an issue ref, right: reference the defect issue, prevent: commitlint}
+      - teaching: {channel: fact, wrong: fix commit without an issue ref, right: reference the defect issue, prevent: run commitlint in bh check over the item's commits}
       - exit_code: {code: 0}
     traces_to: [R9, P4, P5, QBC-84]
     method: test

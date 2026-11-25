@@ -246,17 +246,53 @@
           "uniqueItems": true,
           "items": {
             "enum": [
-              "stage:L1",
-              "stage:L2",
-              "stage:L3",
-              "stage:L4",
-              "stage:L5",
-              "stage:review",
-              "enforce:1",
-              "enforce:2",
-              "enforce:3",
-              "enforce:4",
-              "enforce:5"
+              "L1.decision-record",
+              "L1.front-matter",
+              "L1.hand-off-to-l2",
+              "L1.lineage-and-size",
+              "L1.link-to-the-work",
+              "L1.option-judgement",
+              "L2.acceptance-criteria",
+              "L2.architecture-checks-in-the-verifier-list",
+              "L2.commit-messages-as-facts",
+              "L2.definition-of-done",
+              "L2.goal-without-method",
+              "L2.ids-traceability-verification-method-per-criterion",
+              "L2.isolation-of-the-measuring-run",
+              "L2.measured-results",
+              "L2.ratchet-baselines",
+              "L2.requirement-wording-in-the-spec",
+              "L2.schema-and-validation",
+              "L2.security-review-trigger",
+              "L2.slice-size",
+              "L2.success-of-the-whole-flow",
+              "L2.teaching-messages",
+              "L2.tier-of-a-pin-change",
+              "L3.criteria-to-tests",
+              "L3.messages-and-renderings",
+              "L3.model-calls-in-tests",
+              "L3.results",
+              "L3.test-code",
+              "L3.traceability",
+              "L4.commit-message",
+              "L4.contract-reference",
+              "L4.tier-of-version-changes",
+              "L5.isolation-of-the-run",
+              "L5.lint-and-fitness-findings",
+              "L5.per-criterion-verdict-and-facts",
+              "L5.success-of-the-flow",
+              "L5.test-results",
+              "common.any-json-output",
+              "common.every-refusal-finding-or-note",
+              "common.reference-to-the-contract",
+              "enforce.1",
+              "enforce.2",
+              "enforce.3",
+              "enforce.4",
+              "enforce.5",
+              "review.findings",
+              "review.severity",
+              "review.trigger"
             ]
           }
         },
@@ -498,7 +534,27 @@
               "pattern": "^[A-Za-z0-9_.\\[\\]*-]+$"
             },
             "value": {}
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "state": {
+                    "const": "override"
+                  }
+                },
+                "required": [
+                  "state"
+                ]
+              },
+              "then": {
+                "required": [
+                  "key",
+                  "value"
+                ]
+              }
+            }
+          ]
         },
         "host": {
           "description": "A stubbed host condition the program or check observes.",
@@ -782,6 +838,7 @@
                 "description_chars",
                 "file_chars",
                 "references",
+                "dangling_references",
                 "version_strings",
                 "exits",
                 "undefined_names",
@@ -1075,7 +1132,25 @@
               "type": "string",
               "minLength": 1
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "channel": {
+                    "not": {
+                      "const": "form_description"
+                    }
+                  }
+                }
+              },
+              "then": {
+                "required": [
+                  "prevent"
+                ]
+              }
+            }
+          ]
         },
         "output_contains": {
           "description": "A channel carries an exact text.",
@@ -1356,7 +1431,21 @@
               "type": "string",
               "minLength": 1
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "required": [
+                  "instance"
+                ]
+              },
+              "then": {
+                "required": [
+                  "schema"
+                ]
+              }
+            }
+          ]
         },
         "same_result": {
           "description": "Two results compared.",
@@ -1410,7 +1499,26 @@
               "type": "string",
               "minLength": 1
             }
-          }
+          },
+          "allOf": [
+            {
+              "if": {
+                "properties": {
+                  "assert": {
+                    "const": "path_in_plan_commit"
+                  }
+                },
+                "required": [
+                  "assert"
+                ]
+              },
+              "then": {
+                "required": [
+                  "path"
+                ]
+              }
+            }
+          ]
         },
         "api_call": {
           "description": "Requests the program made to a recorded service.",

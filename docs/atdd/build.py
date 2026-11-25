@@ -42,6 +42,59 @@ REJECTING = {
     "refused": lambda p: True,
 }
 TEACHING = {"teaching", "refused"}
+PLACEHOLDER = re.compile(r"\$(packet_sha256|packet_id|criteria_ids|acceptance_paths|declared_paths)\b")
+CODE_TOKEN = re.compile(r"[/._`=-]|\d|\b[A-Z]{2,}\b|--")
+
+
+def weak_part(text: str) -> bool:
+    """A teaching part a generic message could satisfy: one plain word with no code-like token."""
+    return len(text.split()) < 2 and not CODE_TOKEN.search(text)
+
+
+def catalog_lint(catalog: dict) -> list[str]:
+    """Catalog defects: an enum whose values are not a map of value -> definition."""
+    out = []
+    for kind in ("given", "when", "then"):
+        for key, entry in catalog[kind].items():
+            for name, p in (entry.get("params") or {}).items():
+                if p.get("type") == "enum" and "ref" not in p and not isinstance(p.get("values"), dict):
+                    out.append(f"catalog {kind}.{key}.{name}: enum values have no definitions")
+                elif isinstance(p.get("values"), dict):
+                    out += [f"catalog {kind}.{key}.{name}.{v}: empty definition" for v, d in p["values"].items() if not d]
+    return out
+
+
+def row_lint(r: dict, catalog: dict) -> list[str]:
+    """Compatibility of a row's then-entries with its when and givens (catalog `after`, `needs_given`, conditionals)."""
+    out = []
+    when = next(iter(r.get("when") or {}), None)
+    givens = {k for g in r.get("given", []) for k in g}
+    if PLACEHOLDER.search(json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))) and "packet" not in givens:
+        out.append("uses a $packet/$criteria/$*_paths placeholder without a packet given")
+    for step in r.get("then", []):
+        for k, v in step.items():
+            entry = catalog["then"].get(k, {})
+            after = list(entry.get("after", []))
+            for c in entry.get("conditional", []):
+                if "if_present" in c and c["if_present"] in (v or {}) and "after" in c:
+                    after = c["after"]
+            if after and when not in after:
+                out.append(f"then {k} cannot read the output of when {when}")
+            for g in entry.get("needs_given", []):
+                if g not in givens:
+                    out.append(f"then {k} needs a {g} given")
+    return out
+
+
+def fixture_ids(r: dict) -> list[tuple[str, str]]:
+    out = []
+    for g in r.get("given", []):
+        for k, v in g.items():
+            v = v or {}
+            for name in ("state", "plant", "fixture", "question"):
+                if name in v and k != "config":
+                    out.append((f"{k}.{name}", f"{v.get('name', '')}:{v[name]}" if k == "repo" else str(v[name])))
+    return out
 
 
 # ---------- sources ----------
@@ -120,12 +173,35 @@ def plan_tasks() -> dict[str, dict]:
     return tasks
 
 
-def spec_refs() -> list[str]:
-    """The stage-output rows and enforcement mechanisms of packet-standards.md, as spec_ref ids."""
-    text = STANDARDS.read_text()
-    stages = re.findall(r"^\| (L\d|Review)\b", text, re.M)
-    mech = re.findall(r"^(\d+)\. \*\*", text.split("How \"one packet", 1)[1], re.M) if "How \"one packet" in text else []
-    return [f"stage:{'review' if s == 'Review' else s}" for s in stages] + [f"enforce:{n}" for n in mech]
+def slug(text: str) -> str:
+    return re.sub(r"[^a-z0-9]+", "-", text.lower()).strip("-")
+
+
+def spec_refs() -> dict[str, str]:
+    """spec_ref id -> text, from packet-standards.md: each Applied-table row of each stage
+    section ("<stage>.<part slug>"; the common table is "common") and each enforcement
+    mechanism ("enforce.<n>")."""
+    refs: dict[str, str] = {}
+    stage, applied = None, False
+    for line in STANDARDS.read_text().splitlines():
+        h2 = re.match(r"^## (.*)$", line)
+        if h2:
+            title = h2.group(1)
+            m = re.match(r"^(L\d|Review|Common)\b", title)
+            stage = None if not m else {"Review": "review", "Common": "common"}.get(m.group(1), m.group(1))
+            applied = stage == "common"
+            continue
+        if re.match(r"^### ", line):
+            applied = stage is not None and line.strip() == "### Applied"
+            continue
+        if stage and applied:
+            cells = [c.strip() for c in line.strip().strip("|").split("|")] if line.startswith("|") else []
+            if cells and not set(cells[0]) <= set("-: ") and cells[0] not in ("Part", "Packet part", "Concern"):
+                refs[f"{stage}.{slug(cells[0])}"] = f"{cells[0]}: {cells[1]}"
+        m = re.match(r"^(\d+)\. \*\*(.+?)\*\*", line)
+        if m:
+            refs[f"enforce.{m.group(1)}"] = m.group(2).rstrip(".")
+    return refs
 
 
 # ---------- schema ----------
@@ -137,9 +213,9 @@ def param_schema(p: dict, catalog: dict) -> dict:
         sec_key, param = p["ref"].split(".")
         for kind in ("given", "when", "then"):
             if sec_key in catalog[kind]:
-                return {"enum": catalog[kind][sec_key]["params"][param]["values"]}
+                return {"enum": list(catalog[kind][sec_key]["params"][param]["values"])}
     if t == "enum":
-        return {"enum": p["values"]}
+        return {"enum": list(p["values"])}
     if t == "id":
         return {"type": "string", "pattern": ID_RE}
     if t == "key":
@@ -171,6 +247,17 @@ def step_schema(section: dict, catalog: dict, title: str) -> dict:
             "required": [k for k, v in params.items() if v.get("required", True)],
             "properties": {k: param_schema(v, catalog) for k, v in params.items()},
         }
+        conds = []
+        for c in entry.get("conditional", []):
+            if "if" in c:
+                cond = {"properties": {k: {"const": v} for k, v in c["if"].items()}, "required": list(c["if"])}
+            elif "if_not" in c:
+                cond = {"properties": {k: {"not": {"const": v}} for k, v in c["if_not"].items()}}
+            else:
+                cond = {"required": [c["if_present"]]}
+            conds.append({"if": cond, "then": {"required": c["require"]}})
+        if conds:
+            props[key]["allOf"] = conds
     return {
         "title": title,
         "type": "object",
@@ -181,7 +268,7 @@ def step_schema(section: dict, catalog: dict, title: str) -> dict:
     }
 
 
-def build_schema(catalog: dict, trace_ids: list[str], refs: list[str]) -> dict:
+def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> dict:
     row = {
         "type": "object",
         "additionalProperties": False,
@@ -197,7 +284,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: list[str]) -> dict:
             "traces_to": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": trace_ids}},
             "method": {"enum": sorted(catalog["methods"])},
             "deterministic": {"type": "boolean"},
-            "spec_ref": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": refs}},
+            "spec_ref": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": sorted(refs)}},
             "plan_gap": {"type": "string", "minLength": 1},
         },
         "if": {"properties": {"id": {"pattern": "^h"}}},
@@ -259,8 +346,11 @@ def main() -> int:
             if isinstance(r, dict):
                 rows.append(r)
 
+    errors += catalog_lint(catalog)
     seen = set()
     by_task: dict[str, list[dict]] = defaultdict(list)
+    incompatible, weak, full_proves = [], [], []
+    inventory: dict[str, dict[str, int]] = defaultdict(lambda: defaultdict(int))
     covered: dict[str, set[int]] = defaultdict(set)
     untaught, needs_kw, gaps, nondet = [], [], [], []
     for r in rows:
@@ -273,6 +363,17 @@ def main() -> int:
             errors.append(f"{rid}: no task {task} in the plan")
             continue
         by_task[task].append(r)
+        incompatible += [f"{rid}: {m}" for m in row_lint(r, catalog)]
+        for k, v in fixture_ids(r):
+            inventory[k][v] += 1
+        for step in r.get("then", []):
+            for k, v in step.items():
+                if k in TEACHING:
+                    weak += [f"{rid}: {k}.{part} = {v[part]!r}" for part in ("wrong", "right", "prevent")
+                             if isinstance((v or {}).get(part), str) and weak_part(v[part])]
+        proves = set(tasks[task]["proves"])
+        if len(proves) >= 4 and proves <= set(r.get("traces_to", [])):
+            full_proves.append(rid)
         for n in r.get("covers", []):
             if n not in tasks[task]["leaves"]:
                 errors.append(f"{rid}: covers {n}, but {task} has {len(tasks[task]['leaves'])} leaves")
@@ -295,7 +396,9 @@ def main() -> int:
     for r in rows:
         for ref in r.get("spec_ref", []):
             by_ref[ref].append(r["id"])
-    refs_uncovered = [x for x in refs if not by_ref.get(x)]
+    exempt = catalog.get("spec_ref_exempt", {})
+    errors += [f"catalog spec_ref_exempt {x}: no such spec_ref" for x in exempt if x not in refs]
+    refs_uncovered = [x for x in refs if not by_ref.get(x) and x not in exempt]
     for r in rows:
         for t in r.get("traces_to", []):
             traced[t].append(r["id"])
@@ -317,11 +420,17 @@ def main() -> int:
            "Generated by `docs/atdd/build.py` from `catalog.yaml`, `criteria/*.yaml`, the plan and the spec. Do not edit.", "",
            "Validation command (JSON Schema draft 2020-12, `jsonschema` library), from the repository root:", "",
            "```", "uv run --script docs/atdd/build.py --check", "```", "",
-           f"Result: {len(errors)} schema or reference errors; {len(untaught)} rejections without teaching.", ""]
+           f"Result: {len(errors)} schema, catalog or reference errors; {len(untaught)} rejections without teaching; "
+           f"{len(incompatible)} then-entries that cannot read their when or lack a given; "
+           f"{len(weak)} one-word generic teaching parts.", ""]
     for e in errors:
         out.append(f"- ERROR {e}")
     for u in untaught:
         out.append(f"- UNTAUGHT {u}")
+    for u in incompatible:
+        out.append(f"- INCOMPATIBLE {u}")
+    for u in weak:
+        out.append(f"- WEAK-TEACHING {u}")
     out += ["", "## Counts", "", "| Slice | Tasks | Tasks with rows | Criteria |", "|---|---|---|---|"]
     for s in SLICES:
         ts = [t for t in tasks if t[0] == s]
@@ -351,9 +460,22 @@ def main() -> int:
     out += [f"- {t}: leaves {', '.join(map(str, m))}" for t, m in thin] or ["None."]
     out += ["", "## packet-standards.md stage outputs and enforcement × criteria", "",
             "Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/packet-standards.md` "
-            "(`spec_ref`); rows without `covers` have no \"done when\" leaf in the plan yet.", "",
+            "(`spec_ref`); rows without `covers` have no \"done when\" leaf in the plan. Exempt rows are listed in the catalog's `spec_ref_exempt` with the reason.", "",
             "| spec_ref | Criteria |", "|---|---|"]
-    out += [f"| {x} | {', '.join(sorted(by_ref.get(x, []), key=key)) or 'NONE'} |" for x in refs]
+    out += [f"| {x} | {', '.join(sorted(by_ref.get(x, []), key=key)) or ('exempt: ' + exempt[x] if x in exempt else 'NONE')} |" for x in refs]
+    share = defaultdict(lambda: [0, 0])
+    for rid in full_proves:
+        share[rid.split("-AC")[0]][0] += 1
+    for t, rs in by_task.items():
+        share[t][1] = len(rs)
+    out += ["", "## Rows tracing their task's whole Proves line", "",
+            "Rows whose `traces_to` holds every id of a task's Proves line (tasks with 4 or more ids). "
+            "A row should cite only what it proves; a high share means the traces were copied, not judged.", ""]
+    out += [f"- {t}: {a}/{n}" for t, (a, n) in sorted(share.items(), key=lambda x: key(x[0] + "-AC0")) if a] or ["None."]
+    out += ["", "## Fixture inventory", "",
+            "Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.", ""]
+    for k in sorted(inventory):
+        out.append(f"- {k}: " + ", ".join(f"{v} ({n})" for v, n in sorted(inventory[k].items())))
     out += ["", "## needs-keyword", ""]
     out += [f"- {rid}: {reason}" for rid, reason in sorted(needs_kw, key=lambda x: key(x[0]))] or ["None."]
     out += ["", "## Plan wording too vague or prescribing design", ""]
@@ -362,8 +484,9 @@ def main() -> int:
 
     print(f"{len(rows)} criteria; {len(errors)} errors; {len(untaught)} untaught; "
           f"no rows: {no_rows or 'none'}; uncovered leaves: {len(thin)} tasks; "
-          f"§0 untraced: {s0_untraced or 'none'}; spec_ref uncovered: {refs_uncovered or 'none'}; needs-keyword: {len(needs_kw)}")
-    if "--check" in sys.argv and (errors or untaught or no_rows or thin or s0_untraced or refs_uncovered):
+          f"§0 untraced: {s0_untraced or 'none'}; spec_ref uncovered: {refs_uncovered or 'none'}; needs-keyword: {len(needs_kw)}; "
+          f"incompatible: {len(incompatible)}; weak teaching: {len(weak)}; whole-Proves rows: {len(full_proves)}")
+    if "--check" in sys.argv and (errors or untaught or no_rows or thin or s0_untraced or refs_uncovered or incompatible or weak):
         return 1
     return 0
 

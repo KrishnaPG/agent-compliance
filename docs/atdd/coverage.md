@@ -8,7 +8,7 @@ Validation command (JSON Schema draft 2020-12, `jsonschema` library), from the r
 uv run --script docs/atdd/build.py --check
 ```
 
-Result: 0 schema or reference errors; 0 rejections without teaching.
+Result: 0 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
 
 
 ## Counts
@@ -16,14 +16,14 @@ Result: 0 schema or reference errors; 0 rejections without teaching.
 | Slice | Tasks | Tasks with rows | Criteria |
 |---|---|---|---|
 | a | 5 | 5 | 18 |
-| b | 14 | 14 | 132 |
+| b | 14 | 14 | 133 |
 | c | 9 | 9 | 71 |
-| d | 12 | 12 | 99 |
-| e | 6 | 6 | 46 |
+| d | 12 | 12 | 101 |
+| e | 6 | 6 | 47 |
 | f | 3 | 3 | 25 |
 | g | 2 | 2 | 12 |
 | h | 3 | 3 | 21 |
-| all | 54 | 54 | 424 |
+| all | 54 | 54 | 428 |
 
 | Catalog | Entries |
 |---|---|
@@ -31,46 +31,46 @@ Result: 0 schema or reference errors; 0 rejections without teaching.
 | when | 8 |
 | then | 22 |
 
-Methods: fitness 8, lint 73, measure 10, test 333.
+Methods: fitness 8, lint 73, measure 10, test 337.
 Non-deterministic rows (slice h only): h1-AC1, h1-AC2.
 
 ## §0 items × criteria
 
 | Item | a | b | c | d | e | f | g | h | Total | Criteria |
 |---|---|---|---|---|---|---|---|---|---|---|
-| G1 | 0 | 12 | 0 | 9 | 0 | 0 | 0 | 0 | 21 | b7-AC1, b7-AC2, b7-AC3, b7-AC4, b7-AC5, b7-AC6, b7-AC7, b7-AC8, b7-AC9, b7-AC10, b7-AC11, b7-AC12, d2-AC6, d3-AC1, d3-AC2, d3-AC5, d3-AC7, d7-AC4, d11-AC1, d11-AC3, d11-AC9 |
+| G1 | 0 | 3 | 0 | 9 | 0 | 0 | 0 | 0 | 12 | b7-AC1, b7-AC2, b7-AC4, d2-AC6, d3-AC1, d3-AC2, d3-AC5, d3-AC7, d7-AC4, d11-AC1, d11-AC3, d11-AC9 |
 | G2 | 0 | 0 | 23 | 0 | 0 | 0 | 0 | 0 | 23 | c3-AC1, c3-AC2, c3-AC3, c3-AC4, c3-AC5, c3-AC6, c3-AC7, c3-AC8, c3-AC10, c3-AC11, c3-AC12, c8-AC1, c8-AC2, c8-AC3, c8-AC4, c8-AC5, c8-AC6, c8-AC7, c8-AC8, c8-AC9, c9-AC1, c9-AC2, c9-AC3 |
-| G3 | 0 | 9 | 3 | 12 | 0 | 0 | 0 | 0 | 24 | b6-AC1, b6-AC2, b6-AC3, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b6-AC8, b6-AC9, c1-AC12, c1-AC13, c1-AC14, d0-AC5, d0-AC11, d2-AC1, d2-AC3, d2-AC4, d2-AC6, d2-AC7, d2-AC10, d3-AC3, d3-AC4, d3-AC5, d10-AC1 |
+| G3 | 0 | 3 | 3 | 13 | 0 | 0 | 0 | 0 | 19 | b6-AC4, b6-AC5, b6-AC6, c1-AC12, c1-AC13, c1-AC14, d0-AC5, d0-AC11, d2-AC1, d2-AC3, d2-AC4, d2-AC6, d2-AC7, d2-AC10, d2-AC11, d3-AC3, d3-AC4, d3-AC5, d10-AC1 |
 | G4 | 0 | 0 | 0 | 0 | 26 | 0 | 0 | 0 | 26 | e1-AC10, e1-AC11, e1-AC12, e2-AC1, e2-AC2, e2-AC3, e2-AC4, e2-AC5, e2-AC6, e3-AC1, e3-AC2, e3-AC3, e3-AC4, e3-AC6, e5-AC1, e5-AC2, e5-AC3, e5-AC4, e5-AC5, e5-AC6, e5-AC7, e5-AC8, e5-AC9, e6-AC1, e6-AC2, e6-AC3 |
-| G5 | 9 | 44 | 0 | 0 | 1 | 0 | 0 | 11 | 65 | a1-AC3, a2-AC1, a2-AC2, a2-AC3, a2-AC4, a2-AC5, a4-AC1, a4-AC2, a4-AC3, b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC20, b1-AC21, b5-AC1, b5-AC2, b5-AC3, b5-AC4, b11-AC1, b11-AC2, b11-AC3, b11-AC4, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC5, b12-AC6, b13-AC1, b13-AC2, b13-AC3, b13-AC4, b13-AC5, b13-AC6, b13-AC7, b13-AC8, b13-AC9, e5-AC10, h1-AC1, h1-AC3, h1-AC6, h1-AC7, h2-AC1, h2-AC2, h2-AC4, h2-AC5, h3-AC1, h3-AC5, h3-AC9 |
-| G6 | 3 | 0 | 30 | 0 | 7 | 0 | 0 | 0 | 40 | a5-AC1, a5-AC2, a5-AC3, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC1, c2-AC2, c2-AC3, c2-AC4, c2-AC5, c7-AC1, c7-AC2, c7-AC3, c7-AC4, c7-AC5, c7-AC6, c7-AC7, c7-AC8, c7-AC9, c7-AC10, e4-AC1, e4-AC2, e4-AC3, e4-AC4, e4-AC5, e4-AC6, e4-AC7 |
+| G5 | 9 | 16 | 0 | 0 | 1 | 0 | 0 | 11 | 37 | a1-AC3, a2-AC1, a2-AC2, a2-AC3, a2-AC4, a2-AC5, a4-AC1, a4-AC2, a4-AC3, b1-AC21, b5-AC1, b5-AC2, b11-AC1, b11-AC2, b11-AC3, b11-AC4, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC5, b12-AC6, b13-AC4, b13-AC5, b13-AC7, e5-AC10, h1-AC1, h1-AC3, h1-AC6, h1-AC7, h2-AC1, h2-AC2, h2-AC4, h2-AC5, h3-AC1, h3-AC5, h3-AC9 |
+| G6 | 3 | 0 | 28 | 0 | 7 | 0 | 0 | 0 | 38 | a5-AC1, a5-AC2, a5-AC3, c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC2, c2-AC3, c2-AC4, c7-AC1, c7-AC2, c7-AC3, c7-AC4, c7-AC5, c7-AC6, c7-AC7, c7-AC8, c7-AC9, c7-AC10, e4-AC1, e4-AC2, e4-AC3, e4-AC4, e4-AC5, e4-AC6, e4-AC7 |
 | P1 | 0 | 0 | 0 | 3 | 0 | 0 | 6 | 0 | 9 | d0-AC4, d0-AC8, d0-AC15, g1-AC1, g1-AC2, g1-AC3, g1-AC4, g1-AC5, g1-AC6 |
-| P2 | 0 | 4 | 0 | 0 | 0 | 5 | 0 | 1 | 10 | b5-AC1, b5-AC2, b5-AC3, b5-AC4, f1-AC2, f1-AC3, f1-AC5, f2-AC1, f2-AC2, h1-AC2 |
-| P3 | 0 | 4 | 0 | 0 | 2 | 0 | 0 | 0 | 6 | b14-AC1, b14-AC2, b14-AC3, b14-AC4, e5-AC1, e5-AC2 |
-| P4 | 1 | 32 | 3 | 8 | 0 | 6 | 0 | 0 | 50 | a3-AC3, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b4-AC10, b4-AC11, b6-AC1, b6-AC2, b6-AC3, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b6-AC8, b6-AC9, b7-AC1, b7-AC2, b7-AC3, b7-AC4, b7-AC5, b7-AC6, b7-AC7, b7-AC8, b7-AC9, b7-AC10, b7-AC11, b7-AC12, c3-AC6, c3-AC9, c3-AC10, d1-AC2, d1-AC5, d7-AC3, d7-AC4, d8-AC7, d8-AC10, d11-AC4, d11-AC6, f3-AC2, f3-AC4, f3-AC5, f3-AC6, f3-AC7, f3-AC8 |
-| P5 | 1 | 18 | 3 | 7 | 6 | 4 | 2 | 0 | 41 | a5-AC1, b2-AC13, b2-AC16, b6-AC1, b6-AC2, b6-AC3, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b6-AC8, b6-AC9, b9-AC14, b10-AC1, b10-AC2, b10-AC3, b10-AC4, b10-AC5, b10-AC6, c6-AC1, c6-AC2, c6-AC3, d8-AC1, d8-AC2, d8-AC3, d8-AC5, d8-AC7, d8-AC8, d8-AC9, e1-AC4, e1-AC7, e1-AC8, e3-AC3, e4-AC3, e4-AC6, f1-AC11, f1-AC12, f2-AC3, f3-AC6, g1-AC2, g1-AC5 |
-| P6 | 0 | 40 | 0 | 19 | 0 | 3 | 0 | 0 | 62 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC20, b1-AC21, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b8-AC1, b8-AC2, b8-AC3, b8-AC4, b8-AC5, b8-AC6, b8-AC7, b8-AC8, d0-AC3, d0-AC16, d4-AC5, d5-AC3, d5-AC5, d5-AC8, d6-AC1, d6-AC4, d6-AC6, d6-AC9, d6-AC10, d7-AC1, d7-AC2, d7-AC5, d11-AC1, d11-AC3, d11-AC7, d11-AC8, d11-AC9, f1-AC1, f1-AC4, f1-AC13 |
-| P7 | 0 | 12 | 0 | 1 | 0 | 0 | 0 | 0 | 13 | b9-AC1, b9-AC2, b9-AC3, b9-AC4, b9-AC5, b9-AC6, b9-AC7, b9-AC8, b9-AC9, b9-AC10, b9-AC11, b9-AC12, d2-AC7 |
+| P2 | 0 | 3 | 0 | 0 | 0 | 5 | 0 | 1 | 9 | b5-AC2, b5-AC3, b5-AC4, f1-AC2, f1-AC3, f1-AC5, f2-AC1, f2-AC2, h1-AC2 |
+| P3 | 0 | 1 | 0 | 0 | 2 | 0 | 0 | 0 | 3 | b14-AC2, e5-AC1, e5-AC2 |
+| P4 | 1 | 18 | 3 | 8 | 0 | 6 | 0 | 0 | 36 | a3-AC3, b4-AC1, b4-AC3, b4-AC5, b4-AC7, b4-AC10, b6-AC4, b6-AC5, b6-AC6, b6-AC7, b7-AC3, b7-AC5, b7-AC6, b7-AC7, b7-AC8, b7-AC9, b7-AC10, b7-AC11, b7-AC12, c3-AC6, c3-AC9, c3-AC10, d1-AC2, d1-AC5, d7-AC3, d7-AC4, d8-AC7, d8-AC10, d11-AC4, d11-AC6, f3-AC2, f3-AC4, f3-AC5, f3-AC6, f3-AC7, f3-AC8 |
+| P5 | 1 | 7 | 2 | 7 | 6 | 4 | 2 | 0 | 29 | a5-AC1, b2-AC13, b2-AC16, b6-AC1, b6-AC8, b9-AC14, b10-AC2, b10-AC3, c6-AC1, c6-AC3, d8-AC1, d8-AC2, d8-AC3, d8-AC5, d8-AC7, d8-AC8, d8-AC9, e1-AC4, e1-AC7, e1-AC8, e3-AC3, e4-AC3, e4-AC6, f1-AC11, f1-AC12, f2-AC3, f3-AC6, g1-AC2, g1-AC5 |
+| P6 | 0 | 20 | 0 | 20 | 0 | 3 | 0 | 0 | 43 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b8-AC1, b8-AC4, b8-AC6, b8-AC8, d0-AC3, d0-AC16, d4-AC5, d5-AC3, d5-AC5, d5-AC8, d6-AC1, d6-AC4, d6-AC6, d6-AC9, d6-AC10, d7-AC1, d7-AC2, d7-AC5, d11-AC1, d11-AC3, d11-AC7, d11-AC8, d11-AC9, d11-AC10, f1-AC1, f1-AC4, f1-AC13 |
+| P7 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 2 | b9-AC6, d2-AC7 |
 | P8 | 0 | 0 | 0 | 14 | 2 | 0 | 0 | 0 | 16 | d1-AC3, d1-AC4, d5-AC1, d5-AC2, d9-AC1, d9-AC2, d9-AC3, d9-AC4, d9-AC5, d9-AC6, d9-AC7, d11-AC2, d11-AC5, d11-AC7, e3-AC4, e3-AC5 |
-| P9 | 0 | 0 | 24 | 0 | 0 | 0 | 0 | 0 | 24 | c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC1, c2-AC2, c2-AC3, c2-AC4, c2-AC5, c7-AC1, c7-AC2, c7-AC9, c7-AC10 |
+| P9 | 0 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 22 | c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC1, c2-AC2, c2-AC5, c7-AC1, c7-AC2, c7-AC9, c7-AC10 |
 | P10 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | a2-AC1, a2-AC3, a2-AC4, a2-AC5 |
-| P11 | 0 | 11 | 10 | 0 | 0 | 0 | 6 | 0 | 27 | b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b4-AC10, b4-AC11, c4-AC1, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c5-AC1, c5-AC2, c5-AC3, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6 |
+| P11 | 0 | 2 | 9 | 0 | 0 | 0 | 6 | 0 | 17 | b4-AC10, b4-AC11, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c5-AC1, c5-AC2, c5-AC3, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6 |
 | P12 | 0 | 0 | 0 | 0 | 2 | 0 | 0 | 0 | 2 | e2-AC3, e2-AC7 |
-| R1 | 0 | 38 | 0 | 0 | 0 | 0 | 0 | 0 | 38 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC20, b1-AC21, b11-AC1, b11-AC2, b11-AC3, b11-AC4, b13-AC1, b13-AC2, b13-AC3, b13-AC4, b13-AC5, b13-AC6, b13-AC7, b13-AC8, b13-AC9, b14-AC1, b14-AC2, b14-AC3, b14-AC4 |
-| R2 | 0 | 12 | 0 | 0 | 0 | 0 | 0 | 0 | 12 | b9-AC1, b9-AC2, b9-AC3, b9-AC4, b9-AC5, b9-AC6, b9-AC7, b9-AC8, b9-AC9, b9-AC10, b9-AC11, b9-AC12 |
-| R3 | 0 | 11 | 0 | 10 | 0 | 0 | 0 | 0 | 21 | b2-AC1, b2-AC2, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC3, d6-AC4, d6-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10 |
-| R4 | 0 | 83 | 0 | 0 | 0 | 0 | 0 | 0 | 83 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC9, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC20, b1-AC21, b1-AC22, b1-AC23, b2-AC1, b2-AC2, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC9, b2-AC10, b2-AC11, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b4-AC10, b4-AC11, b8-AC1, b8-AC2, b8-AC3, b8-AC4, b8-AC5, b8-AC6, b8-AC7, b8-AC8, b9-AC1, b9-AC2, b9-AC3, b9-AC4, b9-AC5, b9-AC6, b9-AC7, b9-AC8, b9-AC9, b9-AC10, b9-AC11, b9-AC12, b9-AC13, b9-AC14, b10-AC1, b10-AC2, b10-AC3, b10-AC4, b10-AC5, b10-AC6 |
-| R5 | 0 | 0 | 10 | 47 | 0 | 0 | 0 | 0 | 57 | c4-AC1, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c6-AC1, c6-AC2, c6-AC3, d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d1-AC1, d1-AC2, d2-AC1, d2-AC2, d2-AC3, d2-AC4, d2-AC5, d2-AC8, d2-AC9, d2-AC10, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC7, d8-AC11, d8-AC12 |
+| R1 | 0 | 9 | 0 | 0 | 0 | 0 | 0 | 0 | 9 | b1-AC20, b11-AC1, b11-AC2, b11-AC3, b11-AC4, b13-AC1, b13-AC2, b13-AC3, b14-AC1 |
+| R2 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | b9-AC1, b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
+| R3 | 0 | 5 | 0 | 10 | 0 | 0 | 0 | 0 | 15 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC3, d6-AC4, d6-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10 |
+| R4 | 0 | 55 | 0 | 0 | 0 | 0 | 0 | 0 | 55 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b8-AC2, b9-AC4, b9-AC5, b9-AC7, b9-AC8, b9-AC9, b9-AC13, b9-AC14, b10-AC6 |
+| R5 | 0 | 0 | 2 | 48 | 0 | 0 | 0 | 0 | 50 | c4-AC1, c6-AC2, d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d1-AC1, d1-AC2, d2-AC1, d2-AC2, d2-AC3, d2-AC4, d2-AC5, d2-AC8, d2-AC9, d2-AC10, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC7, d8-AC11, d8-AC12 |
 | R6 | 0 | 0 | 0 | 8 | 0 | 0 | 0 | 0 | 8 | d5-AC1, d5-AC2, d5-AC3, d5-AC4, d5-AC5, d5-AC6, d5-AC7, d5-AC8 |
 | R7 | 0 | 0 | 23 | 0 | 0 | 0 | 0 | 0 | 23 | c3-AC1, c3-AC2, c3-AC3, c3-AC4, c3-AC5, c3-AC6, c3-AC7, c3-AC8, c3-AC10, c3-AC11, c5-AC1, c5-AC2, c5-AC3, c5-AC6, c5-AC7, c8-AC2, c8-AC3, c8-AC4, c8-AC5, c8-AC6, c8-AC7, c8-AC8, c8-AC9 |
-| R8 | 0 | 0 | 0 | 0 | 46 | 0 | 0 | 0 | 46 | e1-AC1, e1-AC2, e1-AC3, e1-AC4, e1-AC5, e1-AC6, e1-AC7, e1-AC8, e1-AC9, e1-AC10, e1-AC11, e1-AC12, e1-AC13, e2-AC1, e2-AC2, e2-AC3, e2-AC4, e2-AC5, e2-AC6, e2-AC7, e3-AC1, e3-AC2, e3-AC3, e3-AC4, e3-AC5, e3-AC6, e4-AC1, e4-AC2, e4-AC3, e4-AC4, e4-AC5, e4-AC6, e4-AC7, e5-AC1, e5-AC2, e5-AC3, e5-AC4, e5-AC5, e5-AC6, e5-AC7, e5-AC8, e5-AC9, e5-AC10, e6-AC1, e6-AC2, e6-AC3 |
-| R9 | 7 | 6 | 3 | 4 | 0 | 25 | 12 | 7 | 64 | a1-AC1, a1-AC2, a1-AC3, a1-AC4, a3-AC1, a3-AC2, a3-AC3, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC5, b12-AC6, c5-AC4, c5-AC5, c5-AC6, d6-AC5, d10-AC1, d10-AC2, d10-AC3, f1-AC1, f1-AC2, f1-AC3, f1-AC4, f1-AC5, f1-AC6, f1-AC7, f1-AC8, f1-AC9, f1-AC10, f1-AC11, f1-AC12, f1-AC13, f2-AC1, f2-AC2, f2-AC3, f2-AC4, f3-AC1, f3-AC2, f3-AC3, f3-AC4, f3-AC5, f3-AC6, f3-AC7, f3-AC8, g1-AC1, g1-AC2, g1-AC3, g1-AC4, g1-AC5, g1-AC6, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6, h1-AC1, h1-AC4, h2-AC1, h2-AC2, h2-AC3, h2-AC4, h2-AC5 |
-| R10 | 0 | 6 | 0 | 0 | 0 | 0 | 0 | 0 | 6 | b10-AC1, b10-AC2, b10-AC3, b10-AC4, b10-AC5, b10-AC6 |
+| R8 | 0 | 0 | 0 | 0 | 47 | 0 | 0 | 0 | 47 | e1-AC1, e1-AC2, e1-AC3, e1-AC4, e1-AC5, e1-AC6, e1-AC7, e1-AC8, e1-AC9, e1-AC10, e1-AC11, e1-AC12, e1-AC13, e2-AC1, e2-AC2, e2-AC3, e2-AC4, e2-AC5, e2-AC6, e2-AC7, e2-AC8, e3-AC1, e3-AC2, e3-AC3, e3-AC4, e3-AC5, e3-AC6, e4-AC1, e4-AC2, e4-AC3, e4-AC4, e4-AC5, e4-AC6, e4-AC7, e5-AC1, e5-AC2, e5-AC3, e5-AC4, e5-AC5, e5-AC6, e5-AC7, e5-AC8, e5-AC9, e5-AC10, e6-AC1, e6-AC2, e6-AC3 |
+| R9 | 7 | 6 | 3 | 3 | 0 | 25 | 12 | 7 | 63 | a1-AC1, a1-AC2, a1-AC3, a1-AC4, a3-AC1, a3-AC2, a3-AC3, b12-AC1, b12-AC2, b12-AC3, b12-AC4, b12-AC5, b12-AC6, c5-AC4, c5-AC5, c5-AC6, d6-AC5, d10-AC2, d10-AC3, f1-AC1, f1-AC2, f1-AC3, f1-AC4, f1-AC5, f1-AC6, f1-AC7, f1-AC8, f1-AC9, f1-AC10, f1-AC11, f1-AC12, f1-AC13, f2-AC1, f2-AC2, f2-AC3, f2-AC4, f3-AC1, f3-AC2, f3-AC3, f3-AC4, f3-AC5, f3-AC6, f3-AC7, f3-AC8, g1-AC1, g1-AC2, g1-AC3, g1-AC4, g1-AC5, g1-AC6, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6, h1-AC1, h1-AC4, h2-AC1, h2-AC2, h2-AC3, h2-AC4, h2-AC5 |
+| R10 | 0 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | b10-AC1, b10-AC3, b10-AC4, b10-AC5 |
 | R11 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 13 | 13 | h1-AC1, h1-AC2, h1-AC3, h1-AC5, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC6, h3-AC7, h3-AC8, h3-AC9 |
 
 §0 items traced by no criterion: none.
 
-QBC ids traced by no criterion: QBC-1, QBC-6, QBC-7, QBC-14, QBC-95, QBC-96, QBC-97, QBC-99, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
+QBC ids traced by no criterion: QBC-1, QBC-6, QBC-7, QBC-14, QBC-64, QBC-95, QBC-96, QBC-97, QBC-99, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
 
 ## Tasks whose "done when" has no row
 
@@ -84,21 +84,81 @@ None.
 
 ## packet-standards.md stage outputs and enforcement × criteria
 
-Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/packet-standards.md` (`spec_ref`); rows without `covers` have no "done when" leaf in the plan yet.
+Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/packet-standards.md` (`spec_ref`); rows without `covers` have no "done when" leaf in the plan. Exempt rows are listed in the catalog's `spec_ref_exempt` with the reason.
 
 | spec_ref | Criteria |
 |---|---|
-| stage:L1 | f1-AC8, f1-AC9, f1-AC10, f1-AC11, f1-AC12, f1-AC13 |
-| stage:L2 | d0-AC13, d0-AC14, d0-AC15 |
-| stage:L3 | d6-AC6, d6-AC7, d6-AC8 |
-| stage:L4 | b9-AC13, b9-AC14 |
-| stage:L5 | b2-AC12, b2-AC13, b2-AC14 |
-| stage:review | d11-AC8, d11-AC9 |
-| enforce:1 | d0-AC16 |
-| enforce:2 | d6-AC6, d6-AC9, d6-AC10 |
-| enforce:3 | d3-AC7, d4-AC7 |
-| enforce:4 | b1-AC22, b1-AC23 |
-| enforce:5 | b2-AC15, b2-AC16 |
+| common.any-json-output | b2-AC12, d0-AC1 |
+| common.every-refusal-finding-or-note | b6-AC8, b6-AC9 |
+| common.reference-to-the-contract | b2-AC15, b2-AC16, b9-AC13, d0-AC2, d11-AC9 |
+| L1.decision-record | f1-AC9 |
+| L1.lineage-and-size | f1-AC5 |
+| L1.front-matter | f1-AC8, f1-AC11 |
+| L1.option-judgement | f1-AC1 |
+| L1.link-to-the-work | e2-AC8 |
+| L1.hand-off-to-l2 | f1-AC10, f1-AC12, f1-AC13 |
+| L2.schema-and-validation | d0-AC1, d0-AC13 |
+| L2.requirement-wording-in-the-spec | exempt: RFC 2119 wording applies to the spec text, not to any output the plugin produces. |
+| L2.ids-traceability-verification-method-per-criterion | d0-AC6, d0-AC9, d0-AC10, d0-AC15 |
+| L2.acceptance-criteria | d0-AC6, d0-AC13, d0-AC14 |
+| L2.goal-without-method | d0-AC3, d0-AC8 |
+| L2.definition-of-done | d0-AC5 |
+| L2.slice-size | exempt: INVEST is the planner's judgement of a slice; it has no mechanical pass condition. |
+| L2.tier-of-a-pin-change | d5-AC3, d5-AC4, d5-AC5, d5-AC6 |
+| L2.architecture-checks-in-the-verifier-list | c8-AC2, c8-AC3, c8-AC4, c8-AC5, c8-AC6 |
+| L2.teaching-messages | b6-AC1, b6-AC9 |
+| L2.measured-results | b2-AC17 |
+| L2.security-review-trigger | d11-AC1 |
+| L2.isolation-of-the-measuring-run | b1-AC7, b1-AC17 |
+| L2.commit-messages-as-facts | f3-AC4, f3-AC5, f3-AC6 |
+| L2.success-of-the-whole-flow | h3-AC1, h3-AC8 |
+| L2.ratchet-baselines | c4-AC1, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7 |
+| L3.criteria-to-tests | d6-AC6 |
+| L3.test-code | d6-AC7 |
+| L3.results | d6-AC8 |
+| L3.traceability | d6-AC6 |
+| L3.model-calls-in-tests | b14-AC1 |
+| L3.messages-and-renderings | d0-AC12 |
+| L4.commit-message | b9-AC13 |
+| L4.contract-reference | b9-AC13, b9-AC14 |
+| L4.tier-of-version-changes | d5-AC3, d5-AC4, d5-AC5, d5-AC6 |
+| L5.test-results | b2-AC12, b2-AC17 |
+| L5.lint-and-fitness-findings | b2-AC12, b2-AC13 |
+| L5.per-criterion-verdict-and-facts | b2-AC12, b2-AC14 |
+| L5.isolation-of-the-run | b1-AC7, b1-AC8, b1-AC17 |
+| L5.success-of-the-flow | h3-AC1 |
+| review.trigger | d11-AC1, d11-AC2, d11-AC3 |
+| review.findings | d11-AC8, d11-AC9 |
+| review.severity | d11-AC10 |
+| enforce.1 | d0-AC16 |
+| enforce.2 | d6-AC6, d6-AC9, d6-AC10 |
+| enforce.3 | d3-AC7, d4-AC7 |
+| enforce.4 | b1-AC22, b1-AC23 |
+| enforce.5 | b2-AC15, b2-AC16, b9-AC13 |
+
+## Rows tracing their task's whole Proves line
+
+Rows whose `traces_to` holds every id of a task's Proves line (tasks with 4 or more ids). A row should cite only what it proves; a high share means the traces were copied, not judged.
+
+- a2: 1/5
+- a5: 1/3
+- e2: 1/8
+- e3: 1/6
+- e6: 1/3
+- f3: 1/8
+- h3: 1/9
+
+## Fixture inventory
+
+Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.
+
+- history.fixture: dora_900k_tokens_three_met (1), dora_both (2), dora_defect_before_merge (1), dora_four_merged_one_later_defect (1), dora_pre_v2 (2), dora_slice_opened_to_merged_48h (1), dora_v2 (1), tracking_issue_active_2_days (1), tracking_issue_idle_20_days (1)
+- packet.fixture: decision_item (10), decision_item_oss_vs_existing (1), design_item (5), node_item (1), toy_item (81)
+- planted.plant: added_dependency (1), added_pytest_ini (1), auth_path_change (5), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), baselines_shrunk_and_include_list_grown (1), bash_edit_without_packet (1), builder_git_failure (1), builder_never_ran_check (1), catalogue_schema_merge_refusal (1), check_not_run (1), cited_test_failed (1), commit_gate_on_targets (1), compose_file_change (1), conflicting_candidates (1), criterion_without_test (1), docs_change (1), docs_only_touching_compose (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), endless_retries (1), env_setup_block (1), fifteen_repeated_findings (1), finding_without_file_line (1), fix_commit_with_issue_ref (1), fix_commit_without_issue_ref (1), flaky_test (1), forged_result_file (1), forging_conftest (1), form_without_body_type (1), gutted_other_test (1), gutted_test (3), hand_launch (1), hand_set_status (1), honest_change (8), house_rule_without_rung (1), ignore_imports_grown (1), import_ignore_list_grown (1), import_past_published_part (1), junit_error (2), junit_failure (1), junit_ids_added (1), junit_ids_missing (2), kind_added_to_schema_only (1), lint_violation (1), linter_config_not_run (1), magic_value (2), major_bump (2), malformed_junit (1), merge_guard_removed (1), minor_bump (1), missing_est_loc (1), missing_junit (1), naive_datetime (3), nan_sample (1), network_call (1), never_met (1), nonconforming_commit_message (2), out_of_scope_edit (3), overlong_message_source (1), parity_fails (1), parity_passes (1), passing_canary (2), patch_bump (1), per_file_ignores_grown (1), pinned_test_hash_changed (1), pipe_in_summary (1), plan_file_changed (1), planned_config_change (1), probe_fails (1), ratchet_grown (1), reads_holdout (1), report_patch_writes_outside (1), review_omits_open_gap (1), same_text_two_documents (1), skill_changed (1), skipped_grown (1), skipped_shrunk (1), sleep_in_harness (1), split_auth_diff (1), sqlfluffignore_grown (1), standards_changed (1), standards_entry_without_version (1), step_out_of_order (1), strict_include_list_shrunk (1), suppressions_grown (2), suppressions_removed (1), test_without_criterion (1), timezone_aware_datetime (1), tracker_sha_pin (1), two_declared_owners (1), unreadable_target (1), vacuous_test (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_grant (1), wrong_object_owner (1), wrong_packet_trailer (1)
+- recorded_answer.question: create_hierarchy (3), owner_of_unowned_paths (4), write_issue_forms (4), write_pre_commit_hooks (3), write_presets (5)
+- recorded_api.fixture: create_issue_with_parent (2), empty_repository (2), five_issues_three_filtered_out (1), form_issue_with_parent_field (1), hierarchy_already_set_up (1), human_closed_issue (1), issue_list_for_origin (1), issue_with_long_body (1), known_list_by_label (5), maintenance_issue_exists (1), no_maintenance_issue (1), package_ok (6), parentless_issue (3), three_claims_one_malformed (1), tracking_issue_last_sub_issue_closed (1), tracking_issue_one_sub_issue_open (1), tracking_issue_with_checklist (7), two_known_lists (1), two_ready_issues (1), vet_pgtap (4)
+- recorded_model.fixture: any_job (1), decision_proposer_then_judge (5), defect_inside_packet_paths (1), defect_outside_packet_paths (1), judge_oss_option_unverified_rule (1), judge_two_objections (3), judge_with_falsifying_call (2), planner_judge_author_builder (2), proposer_record_800_chars (1), proposer_record_uncited_constraint (1), proposer_record_without_front_matter (1), reviewer_critical_finding (2), reviewer_mixed_findings (1), reviewer_one_critical_finding (1), reviewer_one_finding (3), reviewer_one_minor_finding (1), reviewer_two_major_findings (1), reviewer_vulnerability_finding (1), test_author_red (2), test_author_red_by_error (1), test_author_regression (1), test_author_then_builder (1), toy_ablation_arm (1), toy_e2e (4), toy_flaky_test (1), toy_honest (14), toy_junit_error (1), toy_junit_ids_missing (1), toy_never_met (2), toy_out_of_scope_edit (1), toy_passing_canary (1), toy_probe_fails (1), toy_scope (2), toy_suppressions_grown (1), toy_two_items (2), trigger_cases (1)
+- repo.state: node_toy:base (1), node_toy:baselines_adopted (1), node_toy:mixed_python_typescript (1), node_toy:no_harness_config (1), node_toy:no_presets (2), node_toy:package_exports_only (1), node_toy:package_json_scripts (2), node_toy:pnpm_lockfile (1), node_toy:runner_config (1), node_toy:workspace_members_only (1), plugin:candidate (99), project:codeowners_only (1), project:database_roles_only (1), project:decision_record_written (1), project:defect_without_tracking_issue (2), project:fitness_clean (8), project:fresh_github_repo (3), project:known_list_with_100_lines (1), project:known_list_with_three_lines (1), project:known_list_with_two_lines (3), project:no_codeowners (1), project:no_issue_forms (4), project:openapi_tags_only (1), project:owners_fixture (3), project:pre_v2_history (2), project:room_for_one (1), project:six_ready_items (1), project:slice_in_progress (2), project:slice_merged_checklist_ticked (3), project:tracking_issue_open (13), project:two_labelled_lists (1), project:v2_history (7), toy:base (220), toy:baselines_adopted (5), toy:codeowners_present (1), toy:codeowners_written_by_answer (1), toy:dunder_all_only (1), toy:justfile_recipes (1), toy:makefile_targets (1), toy:no_codeowners (2), toy:no_harness_config (1), toy:no_origin_remote (1), toy:no_presets (5), toy:openapi_tags (1), toy:openapi_without_owner_tag (1), toy:origin_remote_set (1), toy:presets_applied (9), toy:pyproject_only (1), toy:pytest_testpaths (1), toy:recipe_without_owner_line (1), toy:rule_enabled_without_entry (1), toy:sql_files_no_presets (1), toy:uv_lockfile (1)
 
 ## needs-keyword
 
@@ -156,6 +216,7 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 - b2-AC14: plan omits the teaching text
 - b2-AC15: the SARIF property name is not named in the spec
 - b2-AC16: plan omits the teaching text
+- b2-AC17: plan names no JUnit file name
 - b3-AC2: plan omits the teaching text
 - b3-AC3: plan omits the teaching text; mutation of the guard is the only way to show the test catches it
 - b3-AC5: plan omits the teaching text
@@ -260,9 +321,9 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 - d0-AC1: the bullet prescribes one contract read by three roles; the row asserts the observable half (the instance validates against the one schema)
 - d0-AC3: "the intent and why, with no design" is checked only through the design-field rejection in d0-AC11
 - d0-AC5: the parts inside constraints (decision lines, owners, interfaces, paths, limits) have no named sub-fields, so only the field's presence is asserted
-- d0-AC8: the plan states no teaching text for a failed packet; wording is taken from the goal field's definition and the prevent part is not stated
-- d0-AC9: the plan states no teaching text for a failed packet; the prevent part is not stated
-- d0-AC10: the plan states no teaching text for a failed packet; the prevent part is not stated
+- d0-AC8: the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets
+- d0-AC9: the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets
+- d0-AC10: the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets
 - d0-AC16: no refusal text is given for a write to the packet; the sha256 field name in the job record is assumed
 - d1-AC1: "cited by id" names no id format, so only the presence of constraints is asserted
 - d1-AC3: the fixture must hold large program-written fields and small planner-written fields; the plan names no fixture
@@ -300,11 +361,13 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 - d11-AC7: "handed to e5" is checked only by e5's own rows; here the finding fact is recorded
 - d11-AC8: the mapping Critical or Major to error and Minor to warning needs a fixture whose findings have known severities; assumed in reviewer_mixed_findings
 - d11-AC9: the property name for the sha256 is not given; packet_sha256 is assumed
+- d11-AC10: the property name for the vector is not given; cvss_vector is assumed
 - e1-AC4: the plan states no message for an invalid form; the row asserts the validator's error names the body path and teaches
 - e1-AC7: the plan does not give the right-way wording for the goal and acceptance descriptions; the row pins only the parent wording from QBC-88
 - e1-AC8: the wording of each description is not stated; the row asserts a description exists on each of the nine required fields
 - e2-AC1: the plan prescribes the GraphQL createIssue(parentIssueId) mechanism; the row asserts the observable result, one create request carrying the parent and no later link request
 - e2-AC5: the plan does not give the wording naming the maintenance issue; the row requires the message to name it and its CODEOWNERS source
+- e2-AC8: the plan does not describe the record-to-issue link; the row asserts the created issue body names the record path and the record names the issue
 - e3-AC1: the label name is not stated; the row asserts the lookup request carries a label filter and no issue title
 - e3-AC3: the plan states only that each line names its parent, not that a parentless line is refused; the row applies QBC-88's no-parent rule to the list
 - e3-AC4: the plan gives the right way (fix and remove one first) but not the wrong and prevent wording; limits.known_issues is named as the prevention

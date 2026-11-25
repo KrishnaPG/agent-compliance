@@ -221,7 +221,7 @@ criteria:
     then:
       - questions_asked: {count: 1}
       - paths: {paths: [CODEOWNERS], exist: false}
-    traces_to: [P9, G6, QBC-61]
+    traces_to: [P9, QBC-61]
     method: test
     deterministic: true
 
@@ -237,7 +237,7 @@ criteria:
       - paths: {paths: [CODEOWNERS], exist: true}
       - paths: {paths: [.brick-harness/*], exist: false}
       - file_unchanged: {target: plugin_files}
-    traces_to: [P9, G6, QBC-61, QBC-63]
+    traces_to: [P9, G6, QBC-63]
     method: test
     deterministic: true
 
@@ -253,7 +253,7 @@ criteria:
       - paths: {paths: [.brick-harness/*], exist: false}
       - file_unchanged: {target: plugin_files}
       - file_contains: {path: openapi.yaml, text: tags}
-    traces_to: [P9, G6, QBC-61, QBC-63]
+    traces_to: [G6, QBC-63]
     method: test
     deterministic: true
 
@@ -269,7 +269,7 @@ criteria:
       - paths: {paths: [.brick-harness/*], exist: false}
       - file_unchanged: {target: plugin_files}
       - file_contains: {path: justfile, text: owner}
-    traces_to: [P9, G6, QBC-61, QBC-63]
+    traces_to: [G6, QBC-63]
     method: test
     deterministic: true
 
@@ -283,7 +283,7 @@ criteria:
     then:
       - questions_asked: {count: 0}
       - file_unchanged: {target: project_config}
-    traces_to: [P9, G6, QBC-61]
+    traces_to: [P9, QBC-61]
     method: test
     deterministic: true
 
@@ -438,7 +438,7 @@ criteria:
       entry_point: {entry: project_test}
     then:
       - exit_code: {code: 1}
-      - teaching: {channel: stdout, wrong: datetime, right: tz}
+      - teaching: {channel: stdout, wrong: "DTZ005 datetime without tzinfo", right: "pass tz=timezone.utc", prevent: "run the project test recipe so ruff DTZ reports it before commit"}
     traces_to: [R7, G2, P4, QBC-57, QBC-81]
     method: test
     deterministic: true
@@ -475,6 +475,7 @@ criteria:
 
   - id: c4-AC1
     scenario: Baselines are generated at adoption
+    spec_ref: [L2.ratchet-baselines]
     covers: [1]
     given:
       - repo: {name: toy, state: presets_applied}
@@ -486,13 +487,14 @@ criteria:
       - field: {source: baseline_file, path: ignore_imports, op: present}
       - field: {source: baseline_file, path: strict_include_list, op: present}
       - field: {source: baseline_file, path: pinned_test_hashes, op: present}
-    traces_to: [P11, R5, QBC-8]
+    traces_to: [R5, QBC-19]
     method: test
     deterministic: true
     plan_gap: "the baseline file's field names are not named by the plan; the row uses the names the leaf lists"
 
   - id: c4-AC2
     scenario: Growth of per-file-ignores against the merge base yields the ratchet fact
+    spec_ref: [L2.ratchet-baselines]
     covers: [1, 2]
     given:
       - repo: {name: toy, state: baselines_adopted}
@@ -501,14 +503,15 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: ratchet_growth, detail: per-file-ignores}
-      - teaching: {channel: fact, wrong: ignore, right: fix}
-    traces_to: [P11, R5, QBC-8, QBC-19]
+      - teaching: {channel: fact, wrong: "per-file-ignores grew against the merge base", right: "fix the finding and remove the added per-file-ignores entry", prevent: "ratchet_growth fact compares per-file-ignores with the merge base on every check"}
+    traces_to: [P11, QBC-8]
     method: test
     deterministic: true
     plan_gap: "b4's fact kind is taken to be ratchet_growth; its teaching text is not stated"
 
   - id: c4-AC3
     scenario: Growth of .sqlfluffignore against the merge base yields the ratchet fact
+    spec_ref: [L2.ratchet-baselines]
     covers: [1, 2]
     given:
       - repo: {name: toy, state: baselines_adopted}
@@ -517,14 +520,15 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: ratchet_growth, detail: sqlfluffignore}
-      - teaching: {channel: fact, wrong: ignore, right: fix}
-    traces_to: [P11, R5, QBC-8, QBC-19]
+      - teaching: {channel: fact, wrong: ".sqlfluffignore grew against the merge base", right: "fix the SQL and remove the added .sqlfluffignore line", prevent: "ratchet_growth fact compares .sqlfluffignore with the merge base on every check"}
+    traces_to: [P11, QBC-8]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the ratchet fact"
 
   - id: c4-AC4
     scenario: Growth of the generated ignore_imports yields the ratchet fact
+    spec_ref: [L2.ratchet-baselines]
     covers: [1, 2]
     given:
       - repo: {name: toy, state: baselines_adopted}
@@ -533,14 +537,15 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: ratchet_growth, detail: ignore_imports}
-      - teaching: {channel: fact, wrong: ignore, right: fix}
-    traces_to: [P11, R5, QBC-8, QBC-19]
+      - teaching: {channel: fact, wrong: "ignore_imports grew against the merge base", right: "remove the import and drop the added ignore_imports entry", prevent: "ratchet_growth fact compares ignore_imports with the merge base on every check"}
+    traces_to: [P11, QBC-8]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the ratchet fact"
 
   - id: c4-AC5
     scenario: A shrunk strict-tsconfig include list yields the ratchet fact
+    spec_ref: [L2.ratchet-baselines]
     covers: [1, 2]
     given:
       - repo: {name: node_toy, state: baselines_adopted}
@@ -549,14 +554,15 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: ratchet_growth, detail: strict}
-      - teaching: {channel: fact, wrong: strict, right: include}
-    traces_to: [P11, R5, QBC-8, QBC-19]
+      - teaching: {channel: fact, wrong: "strict tsconfig include list shrank", right: "restore the removed paths to the strict tsconfig include list", prevent: "ratchet_growth fact compares the include list with the merge base on every check"}
+    traces_to: [P11, QBC-8]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the ratchet fact"
 
   - id: c4-AC6
     scenario: A changed pinned test hash yields the ratchet fact
+    spec_ref: [L2.ratchet-baselines]
     covers: [1, 2]
     given:
       - repo: {name: toy, state: baselines_adopted}
@@ -565,14 +571,15 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: ratchet_growth, detail: hash}
-      - teaching: {channel: fact, wrong: hash, right: test}
-    traces_to: [P11, R5, QBC-8, QBC-19]
+      - teaching: {channel: fact, wrong: "pinned test hash changed", right: "restore the pinned test or re-pin it with approval", prevent: "ratchet_growth fact compares pinned test hashes with the merge base on every check"}
+    traces_to: [P11, QBC-8]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the ratchet fact; leaf 2 gives no direction for pinned hashes"
 
   - id: c4-AC7
     scenario: The opposite direction of each baseline yields no ratchet fact
+    spec_ref: [L2.ratchet-baselines]
     covers: [3]
     given:
       - repo: {name: toy, state: baselines_adopted}
@@ -581,7 +588,7 @@ criteria:
       bh: {sub: check}
     then:
       - no_fact: {kind: ratchet_growth}
-    traces_to: [P11, R5, QBC-8]
+    traces_to: [P11, QBC-8]
     method: test
     deterministic: true
 
@@ -628,7 +635,7 @@ criteria:
       bh: {sub: check, args: [parity]}
     then:
       - fact: {kind: parity, detail: kept}
-      - teaching: {channel: fact, wrong: parity, right: old check}
+      - teaching: {channel: fact, wrong: "parity failed for the new rule", right: "keep the old ast-grep check until parity passes", prevent: "only rules that pass the parity report are retired"}
       - paths: {paths: ["checks/*"], exist: true}
     traces_to: [R7, P11, QBC-8, QBC-73]
     method: test
@@ -684,7 +691,7 @@ criteria:
       entry_point: {entry: plugin_pytest}
     then:
       - exit_code: {code: 1}
-      - teaching: {channel: stdout, wrong: sleep, right: event}
+      - teaching: {channel: stdout, wrong: "TID251 time.sleep under harness/", right: "react to an event instead of sleeping", prevent: "ruff TID251 runs over harness/ in the project test recipe"}
     traces_to: [R7, QBC-81]
     method: test
     deterministic: true
@@ -699,8 +706,8 @@ criteria:
     when:
       program_step: {step: relay_miss}
     then:
-      - teaching: {channel: run_report, wrong: PLR2004, right: policy}
-    traces_to: [P5, R5, QBC-12, QBC-57]
+      - teaching: {channel: run_report, wrong: PLR2004, right: "read the value from policy, not a constant", prevent: "right-way entry keyed by rule code PLR2004 is relayed with each miss"}
+    traces_to: [P5, QBC-12]
     method: test
     deterministic: true
     plan_gap: "the right-way line's wording is not stated; the substring follows the repo rule that business values are policy"
@@ -715,8 +722,8 @@ criteria:
     when:
       program_step: {step: relay_miss}
     then:
-      - teaching: {channel: run_report, wrong: PLR2004, right: read the limit from the project policy}
-    traces_to: [P5, R5, QBC-57]
+      - teaching: {channel: run_report, wrong: PLR2004, right: read the limit from the project policy, prevent: "override the right-way entry for PLR2004 in .brick-harness/"}
+    traces_to: [R5, QBC-57]
     method: test
     deterministic: true
     plan_gap: "the override's file and key are not named by the plan; the row assumes a key per rule code"
@@ -730,8 +737,8 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: unmapped_rule_code, detail: ZZ999}
-      - teaching: {channel: fact, wrong: ZZ999, right: add}
-    traces_to: [P5, R5, QBC-12]
+      - teaching: {channel: fact, wrong: "ZZ999 enabled with no right-way entry", right: "add a right-way entry for ZZ999 in presets/", prevent: "unmapped_rule_code fact for every enabled rule code without an entry"}
+    traces_to: [P5, QBC-12]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the fact; the fixture's enabled code is a stand-in"
@@ -866,7 +873,7 @@ criteria:
       bh: {sub: owners, args: [src/billing/invoice.py]}
     then:
       - fact: {kind: not_declared, detail: CODEOWNERS}
-      - teaching: {channel: fact, wrong: not declared, right: add CODEOWNERS}
+      - teaching: {channel: fact, wrong: "CODEOWNERS not declared", right: "add CODEOWNERS with an owner for src/billing", prevent: "bh owners reports not_declared for every missing source"}
     traces_to: [G6, P9, QBC-13]
     method: test
     deterministic: true
@@ -882,7 +889,7 @@ criteria:
       bh: {sub: owners, args: [billing]}
     then:
       - fact: {kind: not_declared, detail: database}
-      - teaching: {channel: fact, wrong: not declared, right: DATABASE_URL}
+      - teaching: {channel: fact, wrong: "database not declared", right: "set DATABASE_URL or the libpq PG environment", prevent: "bh owners reports not_declared for every missing source"}
     traces_to: [G6, P9, QBC-13]
     method: test
     deterministic: true
@@ -908,6 +915,7 @@ criteria:
 
   - id: c8-AC2
     scenario: On a clean fixture the test recipe runs the four fitness checks and passes
+    spec_ref: [L2.architecture-checks-in-the-verifier-list]
     covers: [2]
     given:
       - repo: {name: project, state: fitness_clean}
@@ -924,6 +932,7 @@ criteria:
 
   - id: c8-AC3
     scenario: An object with two declared owners is reported with teaching
+    spec_ref: [L2.architecture-checks-in-the-verifier-list]
     covers: [2]
     given:
       - repo: {name: project, state: fitness_clean}
@@ -933,7 +942,7 @@ criteria:
       entry_point: {entry: project_test}
     then:
       - exit_code: {code: 1}
-      - teaching: {channel: stdout, wrong: owner, right: one owner}
+      - teaching: {channel: stdout, wrong: "object billing.invoice has two declared owners", right: "declare exactly one owner for billing.invoice", prevent: "the one-owner-per-object fitness check runs in the project test recipe"}
     traces_to: [G2, R7, QBC-18, QBC-19]
     method: fitness
     deterministic: true
@@ -941,6 +950,7 @@ criteria:
 
   - id: c8-AC4
     scenario: A planted wrong database object owner is reported with teaching
+    spec_ref: [L2.architecture-checks-in-the-verifier-list]
     covers: [3]
     given:
       - repo: {name: project, state: fitness_clean}
@@ -950,7 +960,7 @@ criteria:
       entry_point: {entry: project_test}
     then:
       - exit_code: {code: 1}
-      - teaching: {channel: stdout, wrong: owner, right: declared owner}
+      - teaching: {channel: stdout, wrong: "billing.invoice is owned by a role other than its declared owner", right: "ALTER the object owner to the declared owner", prevent: "the owner-equals-declared fitness check runs in the project test recipe"}
     traces_to: [G2, R7, QBC-18, QBC-19]
     method: fitness
     deterministic: true
@@ -958,6 +968,7 @@ criteria:
 
   - id: c8-AC5
     scenario: A planted grant that differs from the declared roles is reported with teaching
+    spec_ref: [L2.architecture-checks-in-the-verifier-list]
     covers: [3]
     given:
       - repo: {name: project, state: fitness_clean}
@@ -967,7 +978,7 @@ criteria:
       entry_point: {entry: project_test}
     then:
       - exit_code: {code: 1}
-      - teaching: {channel: stdout, wrong: grant, right: declared role}
+      - teaching: {channel: stdout, wrong: "GRANT on billing.invoice differs from the declared roles", right: "REVOKE or GRANT so the grants equal the declared roles", prevent: "the grants fitness check runs in the project test recipe"}
     traces_to: [G2, R7, QBC-18, QBC-19]
     method: fitness
     deterministic: true
@@ -975,6 +986,7 @@ criteria:
 
   - id: c8-AC6
     scenario: A planted import across a package boundary is reported with teaching
+    spec_ref: [L2.architecture-checks-in-the-verifier-list]
     covers: [3]
     given:
       - repo: {name: project, state: fitness_clean}
@@ -983,7 +995,7 @@ criteria:
       entry_point: {entry: project_test}
     then:
       - exit_code: {code: 1}
-      - teaching: {channel: stdout, wrong: import, right: published}
+      - teaching: {channel: stdout, wrong: "import crosses a package boundary", right: "import from the package published exports instead", prevent: "generated import-linter or dependency-cruiser config runs in the project test recipe"}
     traces_to: [G2, R7, QBC-18, QBC-19]
     method: fitness
     deterministic: true
@@ -999,7 +1011,7 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: ratchet_growth, detail: ignore_imports}
-      - teaching: {channel: fact, wrong: ignore, right: fix}
+      - teaching: {channel: fact, wrong: "import-boundary ignore list grew", right: "remove the import and drop the added ignore entry", prevent: "ratchet_growth fact compares the ignore list with the merge base on every check"}
     traces_to: [G2, R7, QBC-19]
     method: test
     deterministic: true
@@ -1016,7 +1028,7 @@ criteria:
     then:
       - met: {status: not_checked}
       - fact: {kind: not_checked, detail: stack}
-      - teaching: {channel: fact, wrong: not checked, right: supported}
+      - teaching: {channel: fact, wrong: "unsupported stack not checked", right: "use a supported stack or add its checker to the recipe", prevent: "not_checked is reported, never met, for an unsupported stack"}
     traces_to: [G2, R7, QBC-18]
     method: test
     deterministic: true
@@ -1033,7 +1045,7 @@ criteria:
     then:
       - met: {status: not_checked}
       - fact: {kind: not_checked, detail: database}
-      - teaching: {channel: fact, wrong: not checked, right: DATABASE_URL}
+      - teaching: {channel: fact, wrong: "no database so the fitness checks were not run", right: "set DATABASE_URL to a reachable database", prevent: "not_checked is reported, never met, when there is no database"}
     traces_to: [G2, R7, QBC-18]
     method: test
     deterministic: true
@@ -1049,8 +1061,8 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: unwired, detail: ruff}
-      - teaching: {channel: fact, wrong: no recipe runs, right: recipe}
-    traces_to: [G2, QBC-20, QBC-21, QBC-22]
+      - teaching: {channel: fact, wrong: "ruff config exists but no recipe runs it", right: "add ruff to the project test recipe", prevent: "unwired fact for every linter config no recipe runs"}
+    traces_to: [G2, QBC-20, QBC-21]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the wiring fact; the fixture's linter is a stand-in"
@@ -1065,8 +1077,8 @@ criteria:
       bh: {sub: check}
     then:
       - fact: {kind: unwired, detail: check}
-      - teaching: {channel: fact, wrong: no recipe runs, right: recipe}
-    traces_to: [G2, QBC-20, QBC-21, QBC-22]
+      - teaching: {channel: fact, wrong: "check exists but no recipe runs it", right: "add the check to the project test recipe", prevent: "unwired fact for every check no recipe runs"}
+    traces_to: [G2, QBC-20, QBC-21]
     method: test
     deterministic: true
     plan_gap: "the plan states no teaching text for the wiring fact"
@@ -1080,6 +1092,6 @@ criteria:
       bh: {sub: check}
     then:
       - no_fact: {kind: unwired}
-    traces_to: [G2, QBC-20]
+    traces_to: [G2, QBC-22]
     method: test
     deterministic: true

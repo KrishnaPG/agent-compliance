@@ -47,11 +47,10 @@ criteria:
     given:
       - repo: {name: plugin, state: candidate}
     when:
-      scan: {paths: [skills/], kind: references}
+      scan: {paths: [skills/], kind: dangling_references}
     then:
-      - fact: {kind: gap, count: 0}
-      - scan_count: {op: ge, value: 1}
-    traces_to: [R9, QBC-64, QBC-79]
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R9, QBC-79]
     method: fitness
     deterministic: true
 
