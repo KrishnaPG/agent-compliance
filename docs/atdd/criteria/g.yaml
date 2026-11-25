@@ -105,7 +105,6 @@ acceptance:
       - field: {source: result_json, path: "map[*].old_id", op: present}
       - field: {source: result_json, path: "map[*].new_id", op: present}
     traces_to: [R9, P11, QBC-8, QBC-85]
-    plan_gap: "the mapping output shape is not named; the row asserts a map of old ids to standard or house-rule ids"
     verification: test
     deterministic: true
     plan_gap: "the 'only' half (ids nobody reads are not mapped) has no output shape in the plan; the next row covers it through the changelog"
