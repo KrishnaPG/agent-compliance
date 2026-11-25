@@ -394,10 +394,14 @@ def _jail(
 
     bubblewrap: read-only ``/``, no network, a tmpfs over ``/tmp`` and over each ``hide`` dir
     (the orchestrator's state and the builder clones), only ``co`` and ``writable`` writable,
-    and the whole jail dies with its parent (no process-group handling of our own).
+    and the whole jail dies with its parent (no process-group handling of our own). A
+    toolchain's cache (uv, mise, pip: XDG Base Directory spec ``XDG_CACHE_HOME``) and temp
+    files (POSIX ``TMPDIR``) go to the jail's own ``/tmp``, thrown away with it; what the
+    tools need was installed into ``co`` before the seal (``PREPARE``).
     """
     seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
     seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
+    seal += ["--setenv", "XDG_CACHE_HOME", "/tmp/.cache", "--setenv", "TMPDIR", "/tmp"]
     for d in hide:
         seal += ["--tmpfs", str(d)] if d.is_dir() else []
     for w in [co, *writable]:
@@ -1257,6 +1261,32 @@ def _project_environ() -> dict[str, str]:
     return env
 
 
+# Each toolchain's own standard install from its lockfile, run open (it needs the network)
+# before the sealed run, in file order: tools first, then packages. The install goes into the
+# checkout (copied, not hardlinked to the host cache, which a test could then rewrite) and
+# runs no package scripts.
+PREPARE = (
+    ("mise.toml", "mise install"),
+    (".tool-versions", "mise install"),
+    ("uv.lock", "uv sync --frozen --link-mode=copy"),
+    ("package-lock.json", "npm ci --ignore-scripts"),
+    ("pnpm-lock.yaml", "pnpm install --frozen-lockfile --ignore-scripts"),
+)
+
+
+def _prepare(cfg: Config, co: Path, env: dict[str, str], slot: int) -> str | None:
+    """Install checkout ``co``'s declared toolchain: the configured ``commands.env_setup``,
+    else the ``PREPARE`` rows whose lockfile ``co`` holds. The error, or None."""
+    own = cfg.data.get("commands", {}).get("env_setup")
+    ctx = {"out": env.get("BH_OUT", co), "workdir": co, "root": co, **cfg.slot(slot)}
+    cmds = [_render(own, ctx)] if own else list(dict.fromkeys(c for f, c in PREPARE if (co / f).is_file()))
+    for cmd in cmds:
+        r = _run(cmd, co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)))
+        if r["exit"] != 0:
+            return f"env_setup `{cmd}`: exit {r['exit']}: {r['tail'][-300:]}"
+    return None
+
+
 def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
     """The project's test command writing JUnit XML to ``junit``: the recipe the checkout's
     justfile names (a pytest line gets the report flag on its command line, any other recipe gets
@@ -1476,6 +1506,7 @@ def diff_facts(
     with clean_checkout(top, base) as bco:
         benv = dict(_project_environ(), BH_OUT=str(bco))
         junit = bco / ".bh-junit.xml"
+        _prepare(cfg, bco, benv, 0)
         _run(
             _test_cmd(bco, junit, benv),
             bco,
@@ -1608,6 +1639,7 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
         _canary_into(co)
         junit = co / ".bh-junit.xml"
         env = dict(_project_environ(), BH_OUT=str(out))
+        setup_error = _prepare(cfg, co, env, slot)
         cmd = _test_cmd(co, junit, env)
         r = _run(
             cmd,
@@ -1622,17 +1654,13 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
             cases = [c for s in _suites(read_junit(junit)) for c in s]
             shutil.copy2(junit, out / "junit.xml")
         except HarnessError as e:
-            errors.append(f"{e}; the test command said: {r['tail'][-300:]}")
-            fact(
-                "gap",
-                "junit",
-                _teach(
-                    "junit",
-                    "JUnit file missing or malformed",
-                    "write well-formed JUnit XML to the report path",
-                    "run the test recipe before finishing",
-                ),
+            errors.append(setup_error or f"{e}; the test command said: {r['tail'][-300:]}")
+            lesson = (
+                ("env_setup", "the toolchain install from the lockfile failed", "keep the lockfile installable (frozen)", "run the install before finishing")
+                if setup_error
+                else ("junit", "JUnit file missing or malformed", "write well-formed JUnit XML to the report path", "run the test recipe before finishing")
             )
+            fact("gap", lesson[0], _teach(*lesson))
         diff_facts(cfg, top, base, sha, item, facts, co, cases)
         bench = cfg.data.get("commands", {}).get("bench")
         for t in (t for t in targets_for(targets, item) if t["metric"].startswith("bench.")):
