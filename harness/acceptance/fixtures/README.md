@@ -23,9 +23,9 @@ Tests a plant adds may use `$ATDD_OUTSIDE` (a directory outside the checkout, wi
 
 ```json
 {"replies": [ {"events": [ {...stream-json object...}, ... ], "exit": 0},
-              {"stdout": "raw text instead of events", "exit": 0} ]}
+              {"stdout": "raw text instead of events", "files": {"src/a.py": "text"}, "exit": 0} ]}
 ```
-The stub `claude` (first on PATH) answers the Nth launch with reply N and logs every launch (`argv`, `cwd`, `stdin`) to `$ATDD_MODEL_LOG`. A launch past the last reply exits 3 with a teaching message. With no recorded_model given, every launch exits 3. Stream-json events use Claude Code's shapes (`system` init, `assistant`, `result` with `usage.input_tokens` and `output_tokens`).
+The stub `claude` (first on PATH) answers the Nth launch with reply N and logs every launch (`argv`, `cwd`, `stdin`) to `$ATDD_MODEL_LOG`. A launch past the last reply exits 3 with a teaching message. With no recorded_model given, every launch exits 3. `files` (paths relative to the launch's cwd, the builder's clone) is what the agent's Write tool would leave: the builder's change the program then commits. Stream-json events use Claude Code's shapes (`system` init, `assistant`, `result` with `usage.input_tokens` and `output_tokens`).
 
 ## recorded_api: `recorded_api/<service>/<fixture>.flows`
 

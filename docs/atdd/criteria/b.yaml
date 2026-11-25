@@ -1548,6 +1548,9 @@ acceptance:
       state: base
   - host:
       condition: builder_sandbox
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     builder_action:
       tool: Bash
@@ -1611,6 +1614,9 @@ acceptance:
       state: base
   - host:
       condition: builder_sandbox
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     builder_action:
       tool: Bash
@@ -1637,6 +1643,9 @@ acceptance:
       state: base
   - host:
       condition: builder_sandbox
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     builder_action:
       tool: Bash
@@ -1664,6 +1673,9 @@ acceptance:
       state: base
   - host:
       condition: builder_sandbox
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     builder_action:
       tool: Write
@@ -1671,7 +1683,7 @@ acceptance:
       target: outside_clone
   then:
   - refused:
-      by: file_tools
+      by: hook
       wrong: path is outside the clone
       right: write only inside the clone
       prevent: file tools are scoped to the clone
@@ -1954,7 +1966,7 @@ acceptance:
       name: toy
       state: base
   - recorded_model:
-      fixture: toy_honest
+      fixture: toy_honest_build
   - packet:
       fixture: toy_item
       variant: valid
@@ -1994,9 +2006,9 @@ acceptance:
   - repo:
       name: toy
       state: base
-  - planted:
-      plant: out_of_scope_edit
-      class: diff
+  - packet:
+      fixture: toy_item
+      variant: valid
   - recorded_model:
       fixture: toy_scope
   when:

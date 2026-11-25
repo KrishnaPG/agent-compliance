@@ -25,6 +25,7 @@ from bhcore import RESULT_VERSION, SIZING_DEFAULT, HarnessError, load_schema
 
 PACKETS_DIR = ".brick-harness/packets"
 RUN_REPORT = ".brick-harness/run-report.txt"
+BUILD_REF = "refs/bh/{item}"  # the item's build commit in the source repository, set by the program only
 
 SPEC = "docs/spec/packet-standards.md"
 CRITERIA_SCHEMA = Path(__file__).resolve().parents[2] / "docs" / "atdd" / "criteria.schema.json"
@@ -466,8 +467,36 @@ def assemble(root: Path, item: str) -> tuple[Any, bytes, list[dict[str, str]], s
     if facts:
         raw = (json.dumps(packet, indent=2) + "\n").encode()
         write_atomic(packet_path(root, item), raw.decode())
-        write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
+        write_report(root, facts)
     return packet, raw, facts, ""
+
+
+def write_report(root: Path, facts: list[dict[str, str]]) -> None:
+    """The run report: one ``kind: detail`` line per fact of the step."""
+    from bhorch import write_atomic
+
+    write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
+
+
+def publish_build(root: Path, clone: Path, packet: dict[str, Any], digest: str) -> tuple[str, list[dict[str, str]]]:
+    """L4 Build (packet-standards.md): the program commits the builder's change in its clone, brings
+    that commit into the source repository as the item's build ref (the ref the measurer and the merge
+    read, which the builder cannot move), and compares the build's paths with the packet's declared
+    paths: a path outside them is a scope fact with its teaching, never a refusal (P4, P5)."""
+    import bhcore
+
+    sha = bhbuilder.commit_build(clone, packet, digest)
+    ref = BUILD_REF.format(item=packet["id"])
+    bhbuilder._git(root, "fetch", "-q", str(clone), f"+{sha}:{ref}")
+    base = bhbuilder._git(root, "merge-base", "HEAD", ref)
+    paths = bhbuilder._git(root, "diff", "--name-only", "--no-renames", base, ref).splitlines()
+    declared = packet.get("constraints", {}).get("declared_paths", [])
+    outside = [p for p in paths if not bhcore._matches(p, declared)]
+    if not outside:
+        return sha, []
+    wrong = f"diff path outside the packet's declared paths: {', '.join(outside[:20])}"
+    right = "keep changes inside the declared paths or ask for a plan change"
+    return sha, [{"kind": "scope", "detail": bhcore._teach("scope", wrong, right, "declare every path the item touches in the packet")}]
 
 
 def result_json(name: str, raw: bytes, facts: list[dict[str, str]], **extra: Any) -> str:
@@ -561,7 +590,8 @@ def launch_builder(
         facts = [*facts, {"kind": "launch_failed", "detail": f"cannot start {argv[0]}: {e}"}]
     cli = bhorch.parse_cli_result(out) or {}
     t = bhorch.tokens_of(cli.get("usage"))
-    after = bhbuilder.commit_build(clone, packet, digest)  # the program stages and commits, never the builder
+    after, scope = publish_build(root, clone, packet, digest)  # the program commits, never the builder
+    facts = [*facts, *scope]
     job = {
         "id": f"{item}-builder-{digest[:12]}-{round_no}",
         "kind": "agent",
@@ -588,8 +618,9 @@ def commit_build(root: Path, item: str) -> tuple[int, str, str]:
     clones = sorted((root / CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime)
     if not clones:
         return 1, "", f"[commit_build] no clone of {item} under {CLONES_DIR} -> launch the builder first . {SPEC}\n"
-    sha = bhbuilder.commit_build(clones[-1], packet, digest)
-    return 0, result_json("commit_build", raw, [], commit=sha), ""
+    sha, facts = publish_build(root, clones[-1], packet, digest)
+    write_report(root, facts)
+    return 0, result_json("commit_build", raw, facts, commit=sha), ""
 
 
 def program_job(

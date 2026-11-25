@@ -146,3 +146,14 @@ def test_two_launches_never_share_a_settings_file(tmp_path):
     pa = bhbuilder.write_settings(root, a, {"n": 1})
     pb = bhbuilder.write_settings(root, b, {"n": 2})
     assert pa != pb and json.loads(pa.read_text()) == {"n": 1} and json.loads(pb.read_text()) == {"n": 2}
+
+
+def test_the_write_guard_teaches_a_write_outside_the_clone_and_lets_one_inside_pass(tmp_path):
+    root = tmp_path / "clone"
+    (root / ".brick-harness" / "packets").mkdir(parents=True)
+    (root / ".brick-harness" / "packets" / "toy_item.json").write_text(json.dumps(PACKET))
+    out = hook("sg01.py", {"hook_event_name": "PreToolUse", "tool_name": "Write", "agent_type": "builder", "cwd": str(root), "tool_input": {"file_path": str(tmp_path / "outside.txt")}}, root)
+    reason = out["hookSpecificOutput"]["permissionDecisionReason"]
+    assert out["hookSpecificOutput"]["permissionDecision"] == "deny" and reason.startswith("[R4] path is outside the clone")
+    inside = hook("sg01.py", {"hook_event_name": "PreToolUse", "tool_name": "Write", "agent_type": "builder", "cwd": str(root), "tool_input": {"file_path": str(root / "src" / "m.py")}}, root)
+    assert "hookSpecificOutput" not in inside

@@ -3,8 +3,10 @@
 # requires-python = "==3.14.*"
 # dependencies = []
 # ///
-"""SG-01, PreToolUse on Edit and Write: refuse a builder's change to a protected acceptance test with one teaching line.
-The path list is the packet's own (the list the sandbox's denyWrite is made from); no deny rule is set on it."""
+"""SG-01, PreToolUse on Edit and Write: the builder's one write guard. It refuses, with one teaching line (P5),
+a change to a protected acceptance test or to any path outside the clone. The protected list is the packet's own
+(the list the sandbox's denyWrite is made from); no deny rule is set on it. The host's scoped file tools stay
+underneath as the backstop (R4): the builder meets this hook first and is taught."""
 import json
 import os
 import sys
@@ -13,14 +15,20 @@ import _common as c
 data = c.load_input()
 root = c.project_dir(data)
 path = c.target_path(data, root)
-if not c.is_builder(data) or not path or not c.inside(path, c.acceptance_globs(root)):
+if not c.is_builder(data) or not path:
+    c.emit()
+if c.outside(root, path):
+    reason = c.OUTSIDE_PRE.format(path=path)
+elif c.inside(path, c.acceptance_globs(root)):
+    reason = c.SG01_PRE.format(path=path)
+else:
     c.emit()
 print(json.dumps({
     "facts": [],
     "hookSpecificOutput": {
         "hookEventName": "PreToolUse",
         "permissionDecision": "deny",
-        "permissionDecisionReason": c.SG01_PRE.format(path=path),
+        "permissionDecisionReason": reason,
     },
 }))
 sys.exit(0)

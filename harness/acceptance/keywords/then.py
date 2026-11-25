@@ -65,6 +65,15 @@ def fact_texts(f) -> list:
     return list(strings(f))
 
 
+def _build_ref(ctx) -> str:
+    """The build commit the program brought into the source repository for the row's packet (L4):
+    the measurer and the merge read it there, never in the builder's throwaway clone."""
+    pk = ctx.state.get("packet")
+    if pk is None:
+        missing("the row gives no packet, so no build commit names one", "give the row a packet")
+    return R["build_ref"].format(item=pk["id"])
+
+
 def report_text(ctx) -> str:
     r = result(ctx)
     p = r.get(RJ["run_report"]) if isinstance(r, dict) else None
@@ -117,7 +126,14 @@ def subst(ctx, v):
         m = re.fullmatch(r"\$(\w+)", v)
         if m and m.group(1) in ("packet_sha256", "acceptance_ids"):
             return packet_values(ctx)[m.group(1)]
+    if isinstance(v, str) and "$" in v:  # a placeholder inside a value (catalog `placeholders`): its text there
+        v = re.sub(r"\$(packet_sha256|acceptance_ids)\b", lambda m: packet_values(ctx)[m.group(1)], v)
+        v = re.sub(r"\$packet\.([\w\[\]*]+(?:\.[\w\[\]*]+)*)", lambda m: _text(packet_path(ctx, m.group(1))), v)
     return v
+
+
+def _text(value) -> str:
+    return ", ".join(map(str, value)) if isinstance(value, list) else str(value)
 
 
 # ---------- sources for `field` ----------
@@ -184,7 +200,7 @@ def source(ctx, name):
                 out[a] = argv[i + 1] if i + 1 < len(argv) and not argv[i + 1].startswith("--") else True
         return out
     if name == "commit_message":
-        full = git(ctx, "log", "-1", "--format=%B").stdout
+        full = git(ctx, "log", "-1", "--format=%B", _build_ref(ctx)).stdout
         subject, _, body = full.partition("\n")
         tr = git(ctx, "interpret-trailers", "--parse", input=full).stdout.splitlines()
         return {"subject": subject, "body": body.strip(), "trailers": tr, "message": full}
@@ -330,8 +346,9 @@ def channel_messages(ctx, channel) -> list:
                 except ValueError:
                     out.append(e["body"])
         return out
-    if channel == "tool_result":
-        return [run.extra.get("tool_result", run.stdout)]
+    if channel == "tool_result":  # the tool's output, then each hook note, one line each (as stdout)
+        text = run.extra.get("tool_result", run.stdout)
+        return _lines(text) + [text.strip()]
     if channel == "sarif":
         out = []
         for res in source(ctx, "sarif")["runs"][0].get("results", []):
@@ -689,7 +706,7 @@ def then_git(ctx, **kw):
     elif a == "unmerged_empty":
         need(not git(ctx, "ls-files", "-u").stdout.strip(), "unmerged paths remain", "leave none")
     elif a == "committed_by_program":
-        who = git(ctx, "log", "-1", "--format=%an|%cn").stdout.strip()
+        who = git(ctx, "log", "-1", "--format=%an|%cn", _build_ref(ctx)).stdout.strip()
         need(CONTRACT["program_identity"] in who.lower().split("|")[0], f"the commit was made by {who}, not the program", "commit as the program")
     elif a == "path_in_plan_commit":
         pats = _expand_placeholder(ctx, kw["path"]) or [kw["path"]]

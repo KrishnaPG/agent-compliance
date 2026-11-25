@@ -1,7 +1,8 @@
 #!/usr/bin/env python3
 """Stub `claude`: replays recorded replies in order; no network, no model, no cost.
 
-Fixture ($ATDD_MODEL_FIXTURE): JSON {"replies": [{"events": [...stream-json objects...] | "stdout": "raw text", "exit": 0}]}.
+Fixture ($ATDD_MODEL_FIXTURE): JSON {"replies": [{"events": [...stream-json objects...] | "stdout": "raw text", "files": {path: text}, "exit": 0}]}.
+``files`` (paths relative to the launch's cwd) is what the agent's Write tool would leave, as in harness/tests/fake_bin/claude.
 Reply N answers the Nth launch. Every launch is logged to $ATDD_MODEL_LOG as one JSON line {argv, cwd, stdin}.
 With no fixture, or with the replies used up, it exits 3 and says so (a launch the row did not expect).
 """
@@ -29,6 +30,9 @@ if n >= len(replies):
     print(f"[ATDD-MODEL] launch {n + 1} has no recorded reply (the fixture holds {len(replies)}) -> the program launched more jobs than recorded . harness/acceptance/fixtures/README.md", file=sys.stderr)
     sys.exit(3)
 r = replies[n]
+for rel, text in r.get("files", {}).items():  # what the agent's Write tool would leave
+    Path(rel).parent.mkdir(parents=True, exist_ok=True)
+    Path(rel).write_text(text)
 if "stdout" in r:
     sys.stdout.write(r["stdout"])
 for ev in r.get("events", []):

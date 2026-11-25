@@ -21,9 +21,13 @@ SG01_PRE = (
     "[SG-01] acceptance test is protected (SG-01): {path} -> ask the orchestrator to change it in the plan; "
     "tests sit in protected paths . docs/spec/packet-standards.md"
 )
+OUTSIDE_PRE = (
+    "[R4] path is outside the clone: {path} (the packet and every file beyond the clone are orchestrator-owned) -> "
+    "write only inside the clone; the orchestrator writes the packet . file tools are scoped to the clone"
+)
 SG01_NOTE = (
-    "SG-01 note: tests are protected: the sandbox made the path read-only. Ask the orchestrator to change them; "
-    "tests sit in protected paths."
+    "[SG-01] SG-01 note: read-only file system, tests are protected -> ask the orchestrator to change them; "
+    "do not write into tests/, tests sit in protected paths . docs/spec/packet-standards.md"
 )
 H2_DEFAULT_CHARS = 200  # d9 moves this into the one limits table (limits.h2_chars)
 
@@ -92,6 +96,13 @@ def acceptance_globs(root: Path) -> list:
     for f in packet_files(root):
         out += json.loads(f.read_bytes()).get("verifier", {}).get("acceptance_paths", [])
     return out
+def outside(root: Path, path: str) -> bool:
+    """A target path (as target_path gives it) that lies outside the working directory."""
+    p = Path(path)
+    full = (p if p.is_absolute() else root / p).resolve()
+    return not full.is_relative_to(root.resolve())
+
+
 def inside(path: str, globs: list) -> bool:
     return any(fnmatch.fnmatch(path, g) or path == g.rstrip("/*") for g in globs)
 

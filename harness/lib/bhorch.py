@@ -1261,8 +1261,8 @@ class Orchestrator:
     async def measure_packet(
         self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
     ) -> tuple[str | None, list[str], str | None]:
-        """The measurer step for a packet: the builder's commit is fetched into the repository (a ref
-        the builder cannot move) and measured by the one measurer, ``bhcore.measure_ref``, against the
+        """The measurer step for a packet: the builder's commit, which the program's commit step
+        brought into the repository as the item's build ref (a ref the builder cannot move), is measured by the one measurer, ``bhcore.measure_ref``, against the
         packet kept in custody; a met build gets the triggered review of its whole diff, recorded
         before any merge. Returns the met commit (None when unmet), the builder's feedback for
         another round (the missed checks' messages, or the critical and major findings), and the
@@ -1275,8 +1275,7 @@ class Orchestrator:
         if not clones:
             self.program_step("measurer", item, t0, digest, 1)
             return None, [], None
-        ref = f"refs/bh/{item}"
-        git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
+        ref = bhpacket.BUILD_REF.format(item=item)  # set by the program's commit of the build
         res = bhcore.measure_ref(self.cfg, ref, orch=root)
         self.outs[item] = res["items"][0]["out"]
         facts += res["facts"]

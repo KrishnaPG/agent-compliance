@@ -93,6 +93,10 @@ def when_bh(ctx, sub, args=None, parallel=1, rerun=False, between_runs=None):
 
 
 def when_program_step(ctx, step, item=None, rerun=False):
+    if step == "commit_build":  # the program commits a builder's change: it follows that builder's launch (R5)
+        if ctx.state.get("clone") is None:
+            _launch(ctx)
+        item = item or ctx.state["packet"]["id"]
     argv = []
     for part in CONTRACT["argv"]["program_step"]:
         argv.append(part.format(step=step))
@@ -156,16 +160,27 @@ def when_hook(ctx, hook):
 # ---------- builder actions ----------
 
 def _pattern_match(entry: str, tool: str, path: str, clone: Path) -> bool:
+    """Claude Code's permission rule match (docs: permissions, "how path patterns match"): Edit rules
+    cover Write too; a path is gitignore-style, ``//p`` absolute, ``~/p`` under home, and a bare or
+    ``./`` pattern relative to the working directory, so it never matches a path outside it."""
     m = re.fullmatch(r"(\w+)(?:\((.*)\))?", entry.strip())
-    if not m or m.group(1) != tool:
+    rule_tool = "Edit" if tool in ("Edit", "Write") else tool
+    if not m or m.group(1) != rule_tool:
         return False
     if m.group(2) is None:
         return True
     from fnmatch import fnmatch
 
     pat = m.group(2)
+    if pat.startswith("//"):
+        return fnmatch(path, pat[1:])
+    if pat.startswith("~/"):
+        return fnmatch(path, os.path.expanduser(pat))
     rel = os.path.relpath(path, clone)
-    return fnmatch(rel, pat) or fnmatch(path, pat) or fnmatch(rel, pat.rstrip("/") + "/*")
+    if rel == ".." or rel.startswith("../"):
+        return False
+    pat = pat.removeprefix("./")
+    return fnmatch(rel, pat) or fnmatch(rel, pat.rstrip("/") + "/*")
 
 
 def _launch(ctx):
@@ -185,9 +200,36 @@ def _launch(ctx):
     ctx.state.update(clone=clones[-1], settings=settings, launch=launch)
 
 
+def _tool_hooks(ctx, event, tool, clone, tool_input, tool_response=None):
+    """Run the plugin's ``event`` hooks whose matcher matches ``tool``, as Claude Code runs them
+    (hooks.json: the matcher is a regex on the tool name, the event JSON goes on stdin, the plugin root
+    is in the environment). Returns (their JSON outputs in order, the deny reason or None): a
+    PreToolUse ``permissionDecision: deny`` or exit code 2 blocks the call before the permission
+    rules and the sandbox see it."""
+    env_name = CONTRACT["argv"]["hook_command_env"]
+    data = {"session_id": "atdd", "cwd": str(clone), "hook_event_name": event, "tool_name": tool, "tool_input": tool_input, "agent_type": "builder"}
+    if tool_response is not None:
+        data["tool_response"] = tool_response
+    outs, deny = [], None
+    hj = ctx.tree / P["hooks_json"]
+    for g in (json.loads(hj.read_text()) if hj.is_file() else {}).get("hooks", {}).get(event, []):  # no hooks.json: no hooks
+        if not re.fullmatch(g.get("matcher") or ".*", tool):
+            continue
+        for h in g.get("hooks", []):
+            cmd = h.get("command", "").replace("${" + env_name + "}", str(ctx.tree))
+            run = execute(ctx, ["sh", "-c", cmd], cwd=clone, stdin=json.dumps(data), env_extra={env_name: str(ctx.tree)})
+            out = run.json if run.json is not None else {"exit_code": run.exit_code, "stderr": run.stderr.strip()}
+            outs.append(out)
+            hso = out.get("hookSpecificOutput", {}) if isinstance(out, dict) else {}
+            if deny is None and (run.exit_code == 2 or hso.get("permissionDecision") == "deny"):
+                deny = hso.get("permissionDecisionReason") or run.stderr.strip()
+    return outs, deny
+
+
 def when_builder_action(ctx, tool, action, target):
     r = repo(ctx)
-    if ctx.state.get("clone") is None:
+    launched = ctx.state.get("clone") is None
+    if launched:
         _launch(ctx)
     clone, settings, launch = ctx.state["clone"], json.loads(ctx.state["settings"].read_text()), ctx.state["launch"]
     pk = ctx.state.get("packet")
@@ -204,13 +246,19 @@ def when_builder_action(ctx, tool, action, target):
         path.write_text("outside\n")
     else:  # source_repo
         path = r
+    if launched:  # the builder acts from the launch's state and its target: what the program and the setup wrote is not its change
+        BEFORE_WHEN(ctx)
     before = digest_files([path]) if Path(path).is_file() else ""
     perms = settings.get("permissions", {})
     deny, allow = perms.get("deny", []), perms.get("allow", [])
     refused, by = False, None
     msg = ""
+    hook_json: list = []
     if tool in ("Edit", "Write"):
-        if any(_pattern_match(e, tool, str(path), clone) for e in deny) or (allow and not any(_pattern_match(e, tool, str(path), clone) for e in allow if e.startswith(tool))):
+        hook_json, hook_deny = _tool_hooks(ctx, "PreToolUse", tool, clone, {"file_path": str(path)})
+        if hook_deny is not None:
+            refused, by, msg = True, "hook", hook_deny
+        elif any(_pattern_match(e, tool, str(path), clone) for e in deny) or not any(_pattern_match(e, tool, str(path), clone) for e in allow):  # dontAsk: no allow rule, denied
             refused, by = True, "file_tools"
             msg = settings.get("messages", {}).get(tool) or f"Permission to use {tool} on {path} has been denied."
         else:
@@ -234,10 +282,14 @@ def when_builder_action(ctx, tool, action, target):
         p = subprocess.run(argv, capture_output=True, text=True, env=base_env(ctx))
         if p.returncode:
             refused, by, msg = True, "sandbox", (p.stderr or p.stdout).strip()
+        hook_json, _ = _tool_hooks(ctx, "PostToolUse", tool, clone, {"command": cmd}, {"stdout": p.stdout, "stderr": p.stderr, "interrupted": False})
+    # what the agent gets back: the tool's own output, then the PostToolUse hooks' additionalContext (Claude Code hooks)
+    notes = [o.get("hookSpecificOutput", {}).get("additionalContext", "") for o in hook_json if isinstance(o, dict)]
+    tool_result = "\n".join(t for t in [msg, *notes] if t)
     after = digest_files([path]) if Path(path).is_file() else ""
     run = Run(["builder_action", tool, action, target], 1 if refused else 0, launch.stdout, msg, 0.0, "builder_action")
     run.runs = [run]
-    run.extra.update(refused=refused, by=by, message=msg, tool_result=msg, changed=before != after, target_path=str(path), primary=msg)
+    run.extra.update(refused=refused, by=by, message=msg, tool_result=tool_result, changed=before != after, target_path=str(path), primary=msg, hook_json=hook_json or None)
     return run
 
 

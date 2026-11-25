@@ -1,0 +1,39 @@
+{
+  "replies": [
+    {
+      "events": [
+        {
+          "type": "system",
+          "subtype": "init",
+          "session_id": "toy-1"
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Added mul."
+              }
+            ]
+          }
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "result": "Added mul.",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 30
+          }
+        }
+      ],
+      "exit": 0,
+      "files": {
+        "src/toy/calc.py": "def add(a, b):\n    return a + b\n\n\ndef sub(a, b):\n    return a - b\n\n\ndef mul(a, b):\n    return a * b\n"
+      }
+    }
+  ]
+}

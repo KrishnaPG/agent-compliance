@@ -27,7 +27,8 @@ def test_the_action_runs_in_the_launch_clone_under_its_settings(tmp_path, monkey
         return SimpleNamespace(stdout=json.dumps({"schema_version": "1", "command": "step", "jobs": [{"packet_sha256": "s"}]}), exit_code=0)
 
     monkeypatch.setattr(when, "when_program_step", launch)
-    ctx = SimpleNamespace(state={"repo": repo, "packet": {"id": "item"}}, work=tmp_path)
+    (tmp_path / "kept.json").write_text("{}\n")  # the orchestrator's kept packet
+    ctx = SimpleNamespace(state={"repo": repo, "packet": {"id": "item", "orchestrator": tmp_path / "kept.json"}}, work=tmp_path, tree=tmp_path)  # a tree with no hooks
     run = when.when_builder_action(ctx, "Edit", "edit", "clone_packet")
     assert launched == [("launch_builder", "item")]
     assert run.extra["refused"] is False and run.extra["changed"]
