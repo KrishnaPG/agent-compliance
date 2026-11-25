@@ -113,6 +113,15 @@
               "description": "The tracker binary's sha256 for this platform when the adapter has none for it."
             }
           }
+        },
+        "repo": {
+          "type": "string",
+          "pattern": "^[\\w.-]+/[\\w.-]+$",
+          "description": "owner/name of the tracker's repository. Default: read from the git remote origin."
+        },
+        "known_issues": {
+          "type": "string",
+          "description": "Ref of the single Known issues list issue."
         }
       }
     },
@@ -188,6 +197,30 @@
             },
             "reopen": {
               "type": "string"
+            },
+            "issues": {
+              "type": "string",
+              "description": "REST issue list (state, limit): objects with id, number, created_at, labels, parent_issue_url, milestone, body"
+            },
+            "issue": {
+              "type": "string",
+              "description": "one REST issue (ref)"
+            },
+            "comments": {
+              "type": "string",
+              "description": "REST comments of an issue (ref)"
+            },
+            "comment": {
+              "type": "string",
+              "description": "post a comment (ref, body)"
+            },
+            "link_parent": {
+              "type": "string",
+              "description": "native sub-issue link (parent, child_id)"
+            },
+            "set_body": {
+              "type": "string",
+              "description": "replace an issue's body (ref, body)"
             }
           }
         },

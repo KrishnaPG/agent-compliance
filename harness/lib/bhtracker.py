@@ -101,6 +101,26 @@ def render(tpl: str, vals: dict[str, Any]) -> str:
     return re.sub(r"\{(\w+)\}", sub, tpl)
 
 
+def _pages(text: str) -> list[Any] | None:
+    """Several JSON documents printed one after another, as a list; None when it is not that."""
+    dec, i, docs = json.JSONDecoder(), 0, []
+    try:
+        while i < len(text):
+            if text[i].isspace():
+                i += 1
+                continue
+            doc, i = dec.raw_decode(text, i)
+            docs.append(doc)
+    except ValueError:
+        return None
+    return docs
+
+
+def _flat(doc: Any) -> list[dict[str, Any]]:
+    """Objects of one page (a list of objects) or of several pages (a list of lists)."""
+    return [o for p in doc for o in (p if isinstance(p, list) else [p])]
+
+
 def _exec(cmd: str, cwd: Path, timeout: float, env: dict[str, str]) -> tuple[int, str, str]:
     """Run one command in its own process group; (exit, stdout, stderr)."""
     p = subprocess.Popen(
@@ -290,7 +310,10 @@ class Tracker:
         try:
             return loads(out)
         except ValueError as e:
-            raise TrackerError(f"tracker.{op} printed no JSON: {e}") from e
+            pages = _pages(out)  # gh api --paginate prints one JSON document per page
+            if pages is None:
+                raise TrackerError(f"tracker.{op} printed no JSON: {e}") from e
+            return pages
 
     def _entries(self, op: str, doc: Any) -> list[dict[str, Any]]:
         if isinstance(doc, dict):
@@ -337,6 +360,31 @@ class Tracker:
         vals = {"limit": limit + 1, "parent": parent, "type": self.native(type)}
         es = self._entries("ready", self._run("ready", vals))
         return {"entries": es[:limit], "more": len(es) > limit}
+
+    # -- the tracker's own REST objects (intake, metrics) ----------------------------
+
+    def comments(self, ref: str) -> list[dict[str, Any]]:
+        return _flat(self.rest("comments", ref=ref))
+
+    @property
+    def repo(self) -> str:
+        """owner/name: config tracker.repo, else the git remote origin (a standard file)."""
+        if self.conf.get("repo"):
+            return str(self.conf["repo"])
+        code, out, _ = _exec("git remote get-url origin", self.cfg.dir, self.timeout, self.env)
+        m = re.search(r"[:/]([\w.-]+/[\w.-]+?)(?:\.git)?\s*$", out) if code == 0 else None
+        if not m:
+            raise TrackerError("no repository: set config tracker.repo (owner/name) or a git remote")
+        return m.group(1)
+
+    def rest(self, op: str, parse: bool = True, **vals: Any) -> Any:
+        """One adapter command that takes the repository ({repo}); its JSON, or None."""
+        return self._run(op, {"repo": self.repo, **vals}, parse)
+
+    def issues(self, state: str = "open") -> list[dict[str, Any]]:
+        """Every issue (not pull request) in ``state`` (open, closed, all), as the REST API
+        prints them: id, number, created_at, closed_at, labels, parent_issue_url, milestone, body."""
+        return [i for i in _flat(self.rest("issues", state=state)) if "pull_request" not in i]
 
     # -- writes ---------------------------------------------------------------------
 

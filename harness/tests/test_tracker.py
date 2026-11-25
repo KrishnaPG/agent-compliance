@@ -312,12 +312,15 @@ def test_close_and_reopen_are_called_only_from_reconcile():
 OPS = {"ready", "show", "list", "claim", "close", "reopen"}
 
 
+REST_OPS = {"issues", "issue", "comments", "comment", "link_parent", "set_body"}  # intake and metrics: gh api (bhintake, bhmetrics)
+
+
 def test_adapters_are_valid_data_with_only_the_operations_the_harness_calls():
     schema = bhcore.load_schema("tracker")
     for n in ("beads", "github"):
         ad = json.loads((ROOT / "adapters" / f"{n}.json").read_text())
         assert bhcore.schema_errors(ad, schema["$defs"]["adapter"], schema) == []
-        assert set(ad["commands"]) == OPS, n
+        assert set(ad["commands"]) == OPS | (REST_OPS if n == "github" else set()), n
         assert "capabilities" not in ad
     beads = json.loads((ROOT / "adapters" / "beads.json").read_text())
     assert beads["types"] == {"goal": "epic", "feature": "feature", "item": "task"}
@@ -471,7 +474,7 @@ def test_github_adapter_renders_every_command_and_reads_its_json(toy, tmp_path, 
 
 
 def test_every_shipped_command_renders_to_valid_shell():
-    vals = {"actor": "a", "ref": "r", "type": "task", "parent": "p", "limit": 3, "reason": "why"}
+    vals = {"actor": "a", "ref": "r", "type": "task", "parent": "p", "limit": 3, "reason": "why", "repo": "o/r", "state": "open", "body": "b", "child_id": 7}
     for n in ("beads", "github"):
         ad = json.loads((ROOT / "adapters" / f"{n}.json").read_text())
         for op, tpl in ad["commands"].items():

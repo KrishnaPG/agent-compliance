@@ -1,0 +1,26 @@
+name: Slice
+description: A ready work packet under a decision's tracking issue.
+labels: [slice]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent
+      description: The decision's tracking issue, as #number. The harness links it as a sub-issue.
+      placeholder: "#12"
+    validations:
+      required: true
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      description: The outcome this slice delivers, one sentence.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: The acceptance criteria ids or lines the measurer will check.
+    validations:
+      required: true

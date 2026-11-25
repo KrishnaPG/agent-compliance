@@ -372,6 +372,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "Entries one tracker read asks for (default 200); a cut is reported as more."
+        },
+        "known_issues": {
+          "type": "integer",
+          "minimum": 1,
+          "description": "Lines the single Known issues list may hold (default 100); at the limit a line is fixed and removed before a new one is added."
         }
       }
     },

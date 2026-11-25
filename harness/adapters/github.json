@@ -12,7 +12,13 @@
     "list": "gh issue list --state open --limit {limit} --json number,title,body,state,assignees,issueType,parent,blockedBy",
     "claim": "gh issue edit {ref} --add-assignee @me",
     "close": "gh issue close {ref} --reason completed --comment {reason}",
-    "reopen": "gh issue reopen {ref} --comment {reason}"
+    "reopen": "gh issue reopen {ref} --comment {reason}",
+    "issues": "gh api --paginate -X GET repos/{repo}/issues -f state={state} -f per_page=100",
+    "issue": "gh api repos/{repo}/issues/{ref}",
+    "comments": "gh api --paginate repos/{repo}/issues/{ref}/comments",
+    "comment": "gh api -X POST repos/{repo}/issues/{ref}/comments -f body={body}",
+    "link_parent": "gh api -X POST repos/{repo}/issues/{parent}/sub_issues -F sub_issue_id={child_id}",
+    "set_body": "gh api -X PATCH repos/{repo}/issues/{ref} -f body={body}"
   },
   "fields": {
     "ref": "number",

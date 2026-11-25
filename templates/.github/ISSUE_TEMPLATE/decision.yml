@@ -1,0 +1,25 @@
+name: Decision
+description: An accepted decision gets one tracking issue; its slices link under it.
+labels: [decision]
+body:
+  - type: input
+    id: goal
+    attributes:
+      label: Goal
+      description: The milestone (goal) this decision serves, as its title.
+    validations:
+      required: true
+  - type: input
+    id: record
+    attributes:
+      label: Decision record
+      description: Path of the decision record (L1) that this issue tracks.
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: What must hold when the decision is done, one measurable line each.
+    validations:
+      required: true

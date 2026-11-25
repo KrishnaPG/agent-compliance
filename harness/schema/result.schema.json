@@ -29,6 +29,19 @@
         }
       }
     },
+    "metrics": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "window", "value", "unit"],
+        "properties": {
+          "id": {"enum": ["change_failure_rate", "lead_time_for_changes", "tokens_per_met_slice", "measurer_rounds"]},
+          "window": {"enum": ["current", "baseline"]},
+          "value": {"type": "number"},
+          "unit": {"enum": ["ratio", "hours", "tokens", "count"]}
+        }
+      }
+    },
     "facts": {
       "type": "array",
       "items": {

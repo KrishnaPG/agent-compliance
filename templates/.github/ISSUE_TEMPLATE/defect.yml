@@ -1,0 +1,26 @@
+name: Defect
+description: A Critical or Major defect, under the slice or decision it breaks. Minor items go in the Known issues list.
+labels: [defect]
+body:
+  - type: input
+    id: parent
+    attributes:
+      label: Parent
+      description: The slice or decision tracking issue the defect breaks, as #number. The harness links it as a sub-issue.
+      placeholder: "#34"
+    validations:
+      required: true
+  - type: dropdown
+    id: severity
+    attributes:
+      label: Severity
+      options: [Critical, Major]
+    validations:
+      required: true
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance
+      description: The failing check that proves the fix (a regression test or measured target).
+    validations:
+      required: true

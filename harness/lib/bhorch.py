@@ -1326,6 +1326,27 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
     return orch.compose(phases, s, [], 0, sellable0)
 
 
+def _intake_cmd(a: argparse.Namespace) -> int:
+    """metrics, forms, intake: one JSON result, printed (QBC-87 to QBC-90, R11)."""
+    import bhintake
+    import bhmetrics
+
+    try:
+        cfg = Config(a.config)
+        if a.cmd == "forms":
+            res = bhintake.install_forms(cfg.dir, a.approve)
+        elif a.cmd == "metrics":
+            res = bhmetrics.metrics(cfg)
+        else:
+            tr = bhtracker.Tracker(cfg)
+            res = bhintake.known_add(cfg, tr, a.known) if a.known else bhintake.check_parents(tr)
+    except (HarnessError, bhtracker.TrackerError) as e:
+        print(json.dumps({"error": str(e)}))
+        return 2
+    print(json.dumps({"command": a.cmd, **res}, indent=2))
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(prog="bh", description="Run the build harness (orchestrator).")
     common = argparse.ArgumentParser(add_help=False)  # accepted before or after the subcommand
@@ -1347,12 +1368,19 @@ def main(argv: list[str] | None = None) -> int:
     )
     m.add_argument("--item", action="append", help="ID[@REF]; none: the ready items at HEAD")
     sub.add_parser("harvest", parents=[common], help="find duplicated helpers")
+    sub.add_parser("metrics", parents=[common], help="DORA measures, baseline and current")
+    fm = sub.add_parser("forms", parents=[common], help="write the shipped issue forms (owner approval)")
+    fm.add_argument("--approve", action="store_true", help="the owner approved writing .github/ISSUE_TEMPLATE/")
+    it = sub.add_parser("intake", parents=[common], help="parent check on open issues; --known LINE adds a Known issues line")
+    it.add_argument("--known", metavar="LINE")
     st = sub.add_parser("step", help="run one program step with no agent and no config")
     st.add_argument("name", choices=bhpacket.STEPS)
     st.add_argument("--item")  # required by every step but merge
     a = ap.parse_args(argv)
     if a.cmd == "step":  # a program step reads only its packet: no orchestrator, no config
         return bhpacket.run_step(a.name, a.item)
+    if a.cmd in ("metrics", "forms", "intake"):  # tracker and git facts only: no orchestrator
+        return _intake_cmd(a)
     try:
         bare = a.cmd == "measure" and not a.item
         cfg = Config(a.config, partial=bare)  # a bare measurement reads the file as an override
