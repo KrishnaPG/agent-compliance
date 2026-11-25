@@ -1,7 +1,7 @@
 {
   "name": "agent-compliance",
   "version": "1.5.2",
-  "description": "Review designs, specs, plans, design decisions, OSS tool choices and bug records against a ready-made rule catalog plus a project's own rules: one HELD, BROKEN or NA verdict per rule. Also a build harness that reports spec gaps and builds a project's build order under a deterministic measurer.",
+  "description": "A build harness that runs the mechanical steps as a program and starts agents only for judgement, plus skills for design decisions judged by a fresh agent, third-party package facts (deps.dev, OpenSSF Scorecard, OSV) and defect records; rules are maintained standards by reference plus house rules.",
   "author": {
     "name": "KrishnaPG"
   },

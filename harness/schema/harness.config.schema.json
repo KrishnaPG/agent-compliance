@@ -221,11 +221,11 @@
     "standards": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The owner's versioned rule catalog: base rules with provenance, technology packs, and the project's overlay (the rule ids or own rules it holds itself to). The harness authors no rules and uses this plugin's skills by name (the catalog's `method.md` is the method of the read-only gaps reviewer, agent-compliance:vet-oss the OSS rule for builders, agent-compliance:vetted-decision is named on owner-level gaps and agent-compliance:bug-analysis on items still unmet after a run; named, never run by the harness). Projects without a catalog list rule documents in paths.standards.",
+      "description": "The rules: catalog/rules.toml (house rules, and maintained standards by reference) with its checks, technology packs of checks, and the project's overlay (the rule ids or own rules it holds itself to). The harness authors no rules. Projects list further rule documents in paths.standards.",
       "properties": {
         "catalog": {
           "type": "string",
-          "description": "Optional: a path to another catalog (a directory holding catalog/ and checks/). Unset, a <placeholder> or the plugin's name means this plugin's own catalog and checks."
+          "description": "Optional: a path to another catalog (a directory holding catalog/rules.toml and checks/). Unset, a <placeholder> or the plugin's name means this plugin's own rules and checks."
         },
         "base_version": {
           "type": "string"

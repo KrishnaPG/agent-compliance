@@ -13,6 +13,7 @@ import re
 from pathlib import Path
 from typing import Any
 
+import bhrules
 from bhcore import RESULT_VERSION, HarnessError
 
 OUTCOME = re.compile(r"^(#+)\s*Decision Outcome\b.*$", re.M | re.I)  # MADR 4.0's outcome section
@@ -36,7 +37,11 @@ async def decide(orch: Any, record: Path) -> dict[str, Any]:
     blind = orch.jobs_dir / f"decide-{record.stem}.md"
     orch.jobs_dir.mkdir(parents=True, exist_ok=True)
     blind.write_text(without_outcome(text))
-    core = {"record": str(blind), "record_sha256": hashlib.sha256(text.encode()).hexdigest()}
+    core = {
+        "record": str(blind),
+        "record_sha256": hashlib.sha256(text.encode()).hexdigest(),
+        "rules": str(bhrules.rules_file(orch.cfg)),
+    }
     j = await orch.job("judge", f"decide:{record.stem}", core, {}, "Judge the options of the record named in the input file.")
     out = j.get("output") or {}
     jobs = orch.job_table()

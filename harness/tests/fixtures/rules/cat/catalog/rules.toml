@@ -1,0 +1,28 @@
+# A fixture catalog: house rules only, as catalog/rules.toml holds them.
+
+[house.HO-01]
+text = "A hand-off is durable."
+
+[house.HO-02]
+text = "A hand-off is idempotent."
+
+[house.ID-01]
+text = "Check identity once at the entry."
+
+[house.NO-01]
+text = "Use the native owner."
+
+[house.NO-02]
+text = "OSS before code."
+
+[house.RL-05]
+text = "A process waits on its dependency's native readiness. Nothing assumes t=0."
+
+[house.RL-06]
+text = "Every wait has a deadline."
+
+[house.RL-08]
+text = "No timer or waiting loop of ours."
+
+[house.DS-01]
+text = "No drop without a backup."

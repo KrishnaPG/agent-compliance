@@ -143,7 +143,7 @@ def test_a_job_is_the_host_cli_with_schema_agent_tools_and_budget(toy, fake, mon
 def test_every_agent_file_allows_the_structured_output_tool():
     # a tools allowlist without it hides the tool: --json-schema is then silently ignored
     files = sorted(bhorch.AGENTS_DIR.glob("harness-*.md"))
-    assert len(files) == 6
+    assert len(files) == 7
     for f in files:
         assert "StructuredOutput" in bhorch.agent_def(f.stem)["tools"], f.name
 
@@ -431,7 +431,7 @@ def test_every_job_has_an_agent_file_with_model_tools_and_a_section():
         assert d["name"] == agent and d["model"] and d["tools"], agent
         body = (bhorch.AGENTS_DIR / f"{agent}.md").read_text()
         assert f"## Job: {job.replace('_', ' ')}" in body, (agent, job)
-        assert phase in ("gaps", "plan", "harvest", "review", "test_author")
+        assert phase in ("gaps", "plan", "harvest", "review", "test_author", "judge")
     assert bhorch.agent_def("harness-reviewer")["tools"] == [
         "Read",
         "Grep",
@@ -456,6 +456,7 @@ def test_job_schemas_are_self_contained_and_check_outputs():
         "review": {"findings": [{"summary": "x -> y", "severity": "S2", "where": "a.py:1"}]},
         "test_author": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
         "regression_row": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
+        "judge": {"options": [{"id": "O1", "targets": [], "rules": [{"id": "RL-08", "verdict": "pass"}]}], "recommended": "O1", "objections": [], "falsifying_calls": []},
     }
     assert set(ok) == set(bhorch.JOBS)
     for job, out in ok.items():

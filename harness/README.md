@@ -100,10 +100,10 @@ mode, overrun the budget or fail. A paid toy run still has to prove what it cann
 `--agents` definitions are accepted under `--bare`, the real result JSON
 (`structured_output`, `total_cost_usd`, `usage`) and the budget-overrun result.
 
-**Skills reused, not copied.** Jobs get this plugin's skills by file path in their input (a headless
-job may have skills disabled): `catalog/method.md` is the method of the gaps and review jobs (read only; they
-return findings and write no verdict record), `vet-oss` is the OSS rule builders follow; `vetted-decision`
-is named on `owner-decides` gaps and `bug-analysis` on `unmet-after-rounds` gaps, reported, never run.
+**Rules by reference.** The gaps, plan and judge jobs get the path of `catalog/rules.toml` in their
+input: the house rules, and the maintained standards a `<standard>:<section>` id cites, read at their
+URLs. `vetted-decision` is named on `owner-decides` gaps and `bug-analysis` on `unmet-after-rounds`
+gaps, reported, never run.
 
 ## The measurer and its tools
 

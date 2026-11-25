@@ -1,22 +1,13 @@
 # agent-compliance
 
-A Claude Code plugin that reviews designs, specs, ADRs, implementation plans, design decisions, third-party tool choices and bug records against a fixed, versioned catalog of rules (332 base rules in 16 domains, plus optional technology packs). Your project adds its own rules in a small overlay file. Every review gives one HELD, BROKEN or NA verdict per rule, with the evidence, so the same artifact is judged against the same rules each time.
+A Claude Code plugin for building software with agents: a build harness (`bh`) that runs the mechanical steps as a program and starts an agent only for judgement, plus three skills for design decisions, third-party package facts and defect records. Rules are maintained standards cited by reference plus a short list of house rules (`catalog/rules.toml`); your project adds its own in an overlay.
 
 ## Why use it
 
-- **Fixed rules.** A review against a fixed catalog has a finite set of rules, so the verdict names which rules hold and which are BROKEN instead of listing whatever the reviewer happens to notice.
-- **Every verdict cites a rule.** A finding is "rule `DS-07` is BROKEN at this location, for this failing input, fix it this way", not an opinion. A rule row is written as a whole testable rule with its numbers and exceptions, so a reviewer judges it from the row alone.
-- **Agents cannot skip reading or verifying.** HELD must cite where the artifact satisfies the rule. A runtime rule is BROKEN only with a concrete failing input or reachable state, and a runtime rule supported only by documentation is UNVERIFIED, never HELD. A third-party tool is judged from its pinned source clone, not from its README.
-- **Decisions and bugs use the same rules.** A design decision judges every option against the catalog and recommends one with no BROKEN rule. A bug record names the catalog rules the defect broke. Rule ids tie reviews, decisions and bugs together, and a rule id that keeps returning in bug records points at a design issue.
-
-## Salient features
-
-- Ready-made base catalog: 332 rules in 16 domains (lifecycle, hand-offs, reliability, identity and secrets, supply chain, observability, performance, concurrency, configuration, native owners and least code, platform reconciliation, data safety, documents, plans, process), and 67 generic scenarios that each name the rules that decide them.
-- Opt-in technology packs: `gcp`, `opentofu`, `nats-jetstream`, `kubernetes-flux`, `react`, `postgresql`, `systemd`, `salt`, `agent-jobs` (63 rules).
-- Project overlay: your own rules, and rows that tighten a base or pack rule.
-- Stable rule ids (a changed rule keeps its id; a removed id is never reused), and `catalog/CHANGES.md` lists each added or changed id, so overlays can see drift.
-- "Possible missing rules": a requirement the reviewer infers but no row states is reported for the catalog owner, never as a design finding.
-- Bundled evals for skill triggering, accuracy against ground truth, and review cost.
+- **A program, not an agent, runs the steps.** `bh` clones, tests, measures, orders and merges; only measured targets move work on.
+- **Nobody grades their own work.** Acceptance tests are written before the build by another agent; a design's options are scored by a fresh judge job that never sees the proposer's pick.
+- **Facts, not verdicts, for packages.** `bh vet` keeps the deps.dev, OpenSSF Scorecard and OSV answers unchanged and prints them as facts.
+- **Rules from maintained standards.** OWASP ASVS, NIST SSDF and SP 800-53, SLSA and Well-Architected are cited by id and read at their source; the house rules are the few no standard states.
 
 ## Install
 
@@ -48,28 +39,26 @@ The plugin ships executables in `bin/` (the harness tools), so it installs in Cl
 
 ## Quick start
 
-1. **Optional: your own rules and bindings.** Without them every skill judges against the base catalog alone and puts its result in the reply. To add them, write two files by hand (the paths can be named in AGENTS.md or CLAUDE.md):
-   - the overlay, `docs/agents/design-compliance.md`: your own rules and rows that tighten a base rule (see "The catalog" below);
-   - the bindings (the file AGENTS.md or CLAUDE.md names; the default path is in `catalog/method.md`): the tracker, where decisions and vettings are posted, the bug ledger and close commands, the evidence environment, and the escalation categories only the project owner rules on. `templates/bug-record.md` holds the bug record lines.
+1. **Optional: your own rules.** Write them as rows `| ID | Rule | Provenance | Test question |` in `docs/agents/design-compliance.md` (another path can be named in AGENTS.md or CLAUDE.md). A check the project opts out of is one line there under `## Check opt-outs`: `- <RULE-ID> not-applicable: <reason>`.
 
 2. **Ask for a decision, a vetting or a bug record:**
 
    > Should we replace our custom retry service with the queue's native redelivery, or keep it?
 
-   Skills load by their descriptions; you can also name the skill in the prompt. The method they share (where the catalog, overlay and bindings are found, how a domain is scoped, what HELD, BROKEN and NA mean) is `catalog/method.md`.
+   Skills load by their descriptions; you can also name the skill in the prompt.
 
 ## Which skill when
 
 | Skill | Use it for | Do not use it for | Produces |
 |---|---|---|---|
-| `vetted-decision` | Choosing or recommending a design: adopt, replace, move or delete a mechanism; X or Y; who owns X; a path that failed twice | Which work to do next; a mechanical edit of a settled design; explaining code; running checks; picking a third-party tool (`vet-oss`) | A `Decision:` record: options, per-rule verdicts, attack on the leading option, a falsifying call, one recommendation with no BROKEN rule |
+| `vetted-decision` | Adopt, replace, move or delete a mechanism; X or Y; who owns X | What to do next; edits of a settled design; picking a package | A MADR 4.0 record whose options a fresh `bh decide` judge scored, with objections and falsifying calls |
 | `vet-oss` | Before suggesting, comparing or adopting a library, tool or image | Upgrading or using an adopted tool | `bh vet` facts per candidate from deps.dev, OpenSSF Scorecard and OSV, compared without a grade |
-| `bug-analysis` | Any defect of any size, with or without a failing test; before any `fix` commit | New features, redesigns, prose edits that change no meaning | A bug record (class, cause, broken rule ids, siblings, test, falsifying call, where), a `fix(#N):` commit, closure only when the test passes |
-| `harness` | Running the build harness: report spec gaps in the project's own documents, plan, build, measure and harvest its build-order items | Choosing between options (`vetted-decision`); fixing one bug (`bug-analysis`) | `.brick-harness/` state: gap report with file:line evidence, items and targets, a scoreboard written only by the measurer, merged code |
+| `bug-analysis` | A reported defect in merged work; before a `fix` commit | A test failing in your own unmerged work; features; redesigns | A defect issue (class, cause, rule ids, siblings, regression test, falsifying call) and a `fix(#N):` commit |
+| `harness` | Running the build harness: spec gaps, plan, test author, build, measure, harvest | Choosing between options; fixing one bug | `.brick-harness/` state, a scoreboard written only by the measurer, merged code |
 
 ### vetted-decision
 
-Traces each value and record hop by hop for every option (keep, native to the owner, delete, and vetted tools), judges each option against the catalog, attacks the leading option, and requires one real falsifying call. Searches for an earlier `Decision:` on the same question first and reuses it if its inputs did not change.
+Writes the options as a MADR 4.0 record (current design, the owner's native mechanism, delete, and vetted packages), each traced hop by hop, with no outcome. `bh decide <record>` hands a copy without its Decision Outcome section to a fresh `claude -p` judge job, which scores every option per driver and rule (`pass`, `fail`, `unknown`) and recommends one. The skill records the judge's recommendation, objections and falsifying calls as the outcome.
 
 > Should we replace our custom retry service with the queue's native redelivery, or keep it?
 
@@ -77,72 +66,49 @@ Traces each value and record hop by hop for every option (keep, native to the ow
 
 Runs `bh vet <system> <package> [<version>]`: the deps.dev version record (licenses, publish date, advisories, source repository), the source repository's published OpenSSF Scorecard result and the OSV vulnerabilities of that version, kept unchanged as `api_results[*]` and printed as facts. No account or key is needed; nothing is scored.
 
-> Find an OSS tool for scheduled backups of our PostgreSQL cluster and vet it before we pick one.
+> Find a library for scheduled PostgreSQL backups and vet the candidates before we pick one.
 
 ### bug-analysis
 
-Records the bug in the turn it is found and before the first edit of a fix. A cause is never rewritten: a changed cause is a new `Analysis:` comment. Records form a ledger that can be grouped by rule id. The fix commit is `fix(#N): ...` with no closing keyword; the bug closes only when the record's `Test:` passes on the fixed product.
+Records a defect someone saw in merged work before the first edit of its fix: the design element at fault, the rule ids it breaks, the sibling search and a regression test that is red on the main branch. A cause is never rewritten; the fix commit is `fix(#N): ...` and the issue closes only when the test passes.
 
-> The export job writes the wrong totals on retry. Analyze it and record the bug.
+> The export job writes the wrong totals on retry since yesterday's release. Analyze it and record the bug.
 
 ### harness
 
-Reports spec gaps in the project's own documents (never decides them) and executes its build order: each item is built in its own git worktree, and a deterministic measurer alone decides what met its targets. The catalog's checks (`checks/`) run with every measurement by default, from this plugin, with nothing to configure; a project opts a rule out only in its overlay. Its tools (`bh-*`) are on `PATH` while the plugin is enabled; its entry is `bh` (`bh run`, or `bh gaps`, `plan`, `build`, `measure`, `harvest`), a program that runs every mechanical step itself and starts a headless agent job (`agents/harness-*.md`) only for judgement work. Reference: [`harness/README.md`](harness/README.md).
+Reports spec gaps in the project's own documents (never decides them) and executes its build order: a test author writes the acceptance tests first, each item is built in its own `git clone --shared`, and a deterministic measurer alone decides what met its targets. The checks in `checks/` run with every measurement. Its entry is `bh` (`bh run`, or `bh gaps`, `plan`, `measure`, `harvest`, `check`, `decide`, `vet`, `metrics`). Reference: [`harness/README.md`](harness/README.md).
 
 > Run the harness on this repo, dry run first.
 
-## The catalog
+## Rules
 
 ```
 catalog/
-  index.md         version, loading order, readings, terms, domain and pack lists, scenario index
-  base/<DOMAIN>.md one file per domain
-  packs/<pack>/<DOMAIN>.md  technology packs a project opts into
-  scenarios.md     generic scenarios with the base and pack rules that decide each
-  method.md        how the catalog, overlay and bindings are found and how a rule is judged
-  CHANGES.md       one line per added or changed rule id
+  rules.toml       maintained standards (title, version, URL) and the house rules (id, text, citations)
 checks/
-  index.json       every static check: rule id, pack, ecosystem, tool, file, project binds
-  base/<RULE>.<ecosystem>.yml  ast-grep rules that find a base rule's breach in code
+  index.json       every static check: house rule id, pack, ecosystem, tool, file, project binds
+  base/<RULE>.<ecosystem>.yml  ast-grep rules that find a house rule's breach in code
   tests/           ast-grep rule tests (valid and invalid cases) and their snapshots
 ```
 
-**Checks** (`checks/README.md`) are static checks that give code evidence for some rules (no polling, publish only after commit, verify once at entry). The harness runs them by default; a project opts a rule out only in its overlay, with a reason.
-
-**A rule row** has four columns: `ID | Rule | Provenance | Test question`. The rule is a full testable statement (must or never, its numbers, its exceptions, the case it governs). Provenance names the project file or external standard it comes from; it is not something a reviewer needs to open. The test question tells the reviewer what to look for. Pack rule ids carry the pack prefix (for example `KF-04`, `TF-02`, `PG-01`).
-
-**Loading order.** A judgement reads `index.md`, then `base/<DOMAIN>.md` only for domains in scope, `base/HS.md` whenever HO is in scope, the pack files for the packs the overlay names, and `scenarios.md` when scoping by scenario. DC, PN and PR (documents, plans, process) apply to every design and plan.
-
-**Readings.** HELD cites the location. BROKEN gives the rule id, location, failing input and fix; for DC, PN and PR the location that breaks the text is enough. NA gives one sentence. An absence is BROKEN only when the rule requires the artifact to state it. The artifact passes when no in-scope rule is BROKEN. A verdict is a review record and never gates a commit or release by itself.
-
-**Overlay.** The overlay is your project's rules, by default `docs/agents/design-compliance.md` (another path can be named in AGENTS.md or CLAUDE.md). Its header names the base version it was built against, the packs it uses, the date, the commit of the sources read, and where verdicts are recorded (`Verdicts:`). An overlay row that names a base or pack id under "Tightens" decides in place of that rule. Where the project's version of a rule is stricter, or adds a number, write a tightening row; do not copy rules the base already states. A check the project opts out of is one line under `## Check opt-outs`: `- <RULE-ID> not-applicable: <reason>`; a line without a reason opts nothing out.
-
-**Versioning and pinning.** The base catalog has a version in `catalog/index.md` (`Version:`) and in the plugin manifest. If an overlay was built against an older base version, a review still runs and lists the base rules added or changed since under "Catalog drift", using `catalog/CHANGES.md` and the release tags. Pin the plugin to a release tag (see Install) to hold the catalog still, and move the tag when you are ready to take new rules.
+A rule id is a house rule id (`RL-08`) or `<standard>:<section>` (`NIST-SP-800-53:SI-7`); the standard's own text is the rule and is read at its URL, never copied. The overlay's rows add the project's own rules or tighten one. **Checks** (`checks/README.md`) give code evidence for the house rules (no polling, publish only after commit, verify once at entry); the harness runs them by default.
 
 ## Templates
 
-`templates/` holds the forms the skills use: `plan-dry-run.md` (the literal-follower dry run of a plan) and `bug-record.md` (the bug record lines).
+`templates/` holds `plan-dry-run.md` (the literal-follower dry run of a plan), `bug-record.md` (the defect record lines) and the issue forms the harness installs.
 
-## Evals and contributing
+## Evals
 
-`evals/` is the plugin's own test suite for `claude plugin eval`. Each case is a `prompt.md` (or `case.yaml`) plus `graders/*.md`:
+`evals/` is the plugin's own suite for `claude plugin eval`: each case is a `prompt.md` plus `graders/*.md` that grade an outcome, which skill loads (`tool_used`), never wording.
 
 | Group | Checks |
 |---|---|
-| `trigger-*` | The right skill fires for decision, OSS and bug prompts, and the others stay silent |
-| `disambiguation` | Close pairs go to the right skill (design review or decision, tool adoption or decision, bug or plan check) |
-| `no-trigger` | Ordinary requests (rename a variable, explain a function, fix a typo) fire no skill |
-| `skills` | Bug records carry rule lines, decisions are reused, OSS verdicts cite rule ids |
-| `accuracy` | Reviews of small sample projects find the BROKEN rules recorded in `truth.json` and locate them |
-| `cost` | Reviews with an unchanged key, a changed rule or an edited section are measured against a full review |
-
-Run it from the repository root:
+| `trigger-*` | The right skill loads for decision, package and bug prompts, and the others stay silent |
+| `disambiguation` | Close pairs go to the right skill (package or decision, decision or bug) |
+| `no-trigger` | Ordinary requests, and a test failing in unmerged work, load no skill |
 
 ```
 claude plugin eval .
-claude plugin eval . --case full-review
 ```
 
-Results are written to `evals/results/` (git-ignored). `evals/_gen/*.py` regenerate the trigger, accuracy, cost and skill cases; run the matching script after changing a prompt in it. Run `claude plugin eval --help` for options such as `--concurrency`. An eval runs on your machine under your own credential, so evaluate only plugins you trust.
-
-To change the catalog, keep to project-independent rules only, a stable id, a testable row with provenance, a version bump and a `CHANGES.md` line per id. Run the evals before sending a change.
+The harness's outcome and cost come from `bh metrics`: change-failure rate, lead time, tokens per met slice and measurer rounds, the last two summed from the run results' `jobs[*]`. Results are written to `evals/results/` (git-ignored); `evals/_gen/triggers.py` regenerates the cases.

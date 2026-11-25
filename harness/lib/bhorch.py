@@ -67,6 +67,7 @@ import bhcore
 import bhinfer
 import bhintake
 import bhpacket
+import bhrules
 import bhreview
 import bhtracker
 from bhcore import Config, HarnessError
@@ -74,10 +75,6 @@ from bhcore import Config, HarnessError
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_DIR = PLUGIN_ROOT / "agents"
 AGENT_PREFIX = "agent-compliance:"  # the plugin name: plugin agents are namespaced by it
-SKILLS = {  # the judging method and skill files an agent reads by path (a headless job may have skills disabled)
-    "method": PLUGIN_ROOT / "catalog" / "method.md",
-    "vet-oss": PLUGIN_ROOT / "skills" / "vet-oss" / "SKILL.md",
-}
 JOBS: dict[str, tuple[str, str]] = {  # job -> (agent, config phase for model/effort override)
     "gaps": ("harness-gaps-reader", "gaps"),
     "plan": ("harness-planner", "plan"),
@@ -738,7 +735,7 @@ class Orchestrator:
             "standards": cfg.data.get("standards"),
             "design_checklist": cfg.data.get("checklist"),
             "not_applicable": cfg.data.get("na"),
-            "skills": {"method": str(SKILLS["method"])},
+            "rules": str(bhrules.rules_file(cfg)),
         }
         extra = {
             "documents": self.files_view(s),
@@ -780,7 +777,7 @@ class Orchestrator:
             "standards": cfg.data.get("standards"),
             "sizing": cfg.data.get("sizing"),
             "admitted_from_tracker": [a for a in adm.get("admit", []) if a.get("id") in admitted],
-            "skills": {"method": str(SKILLS["method"])},
+            "rules": str(bhrules.rules_file(cfg)),
         }
         extra = {
             "documents": self.files_view(s),

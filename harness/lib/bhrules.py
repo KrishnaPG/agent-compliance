@@ -21,6 +21,7 @@ import os
 import platform
 import re
 import subprocess
+import tomllib
 import urllib.request
 import zipfile
 from pathlib import Path
@@ -347,20 +348,34 @@ def suppressions(cfg: Any, top: Path, sha: str) -> list[dict[str, Any]]:
 # ---------------------------------------------------------------- the work packet's rules
 
 
-def rule_rows(cfg: Any, packs: set[str]) -> dict[str, str]:
-    """``{rule id: one line}`` from the catalog's base rows, the packs' rows and the overlay."""
-    root = catalog_root(cfg)
-    files = sorted((root / "catalog" / "base").glob("*.md"))
-    for p in sorted(packs):
-        files += sorted((root / "catalog" / "packs" / p).glob("*.md"))
-    files += [ov] if (ov := overlay_file(cfg)) else []
-    rows: dict[str, str] = {}
-    for f in files:
-        for line in f.read_text(errors="ignore").splitlines():
+def rules_file(cfg: Any) -> Path:
+    """The rules a plan, packet or review cites: ``catalog/rules.toml`` under the catalog root."""
+    return catalog_root(cfg) / "catalog" / "rules.toml"
+
+
+def rule_rows(cfg: Any) -> dict[str, str]:
+    """``{rule id: one line}``: each house rule's text, each standard as ``<title> <version>: <url>``
+    (a ``<standard>:<section>`` id takes its standard's line), then the overlay's rows."""
+    f = rules_file(cfg)
+    data = tomllib.loads(f.read_text()) if f.is_file() else {}
+    rows = {k: f"{v['title']} {v['version']}: {v['url']}" for k, v in data.get("standards", {}).items()}
+    rows |= {k: _first(v["text"]) for k, v in data.get("house", {}).items()}
+    if ov := overlay_file(cfg):
+        for line in ov.read_text(errors="ignore").splitlines():
             m = ROW.match(line)
             if m:
-                rows.setdefault(m.group(1), re.split(r"(?<=[.;:]) ", m.group(2))[0][:160])
+                rows.setdefault(m.group(1), _first(m.group(2)))
     return rows
+
+
+def _first(text: str) -> str:
+    """A rule's first clause, at most 160 characters: the packet's one line per rule."""
+    return re.split(r"(?<=[.;:]) ", text)[0][:160]
+
+
+def rule_text(rows: dict[str, str], rid: str) -> str:
+    std, sep, section = rid.partition(":")
+    return rows.get(rid) or (f"{section} of {rows[std]}" if sep and std in rows else "")
 
 
 def classes(cfg: Any, bricks: list[dict[str, Any]], root: Path) -> dict[str, set[str]]:
@@ -378,8 +393,7 @@ def packet_rules(
 ) -> list[dict[str, str]]:
     """The packet's rules: the item's own ``rules`` (the plan agent picks them) less any a brick it depends on embodies, most often
     broken in findings first, at most ``limits.packet_rules``, each ``{id, text}``."""
-    _, packs = detect(cfg.dir)
-    rows = rule_rows(cfg, packs | set(cfg.data.get("standards", {}).get("packs", [])))
+    rows = rule_rows(cfg)
     broken: dict[str, int] = {}
     for f in _findings(cfg):
         if f.get("rule"):
@@ -392,7 +406,7 @@ def packet_rules(
         for r in x.get("embodies", [])
     }
     ids = sorted(set(brick.get("rules", [])) - used, key=lambda r: (-broken.get(r, 0), r))
-    return [{"id": r, "text": rows.get(r, "")} for r in ids[: cfg.limit("packet_rules")]]
+    return [{"id": r, "text": rule_text(rows, r)} for r in ids[: cfg.limit("packet_rules")]]
 
 
 def _findings(cfg: Any) -> list[dict[str, Any]]:

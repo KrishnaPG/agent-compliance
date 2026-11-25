@@ -3,13 +3,13 @@
   "owner": {
     "name": "KrishnaPG"
   },
-  "description": "Compliance catalogs and skills for design, plan, decision, tool and bug reviews.",
+  "description": "A build harness and skills for design decisions, package facts and defect records.",
   "plugins": [
     {
       "name": "agent-compliance",
       "source": "./",
       "version": "1.5.2",
-      "description": "Review designs, plans, decisions, OSS tools and bugs against a ready-made rule catalog plus a project overlay, and a build harness with a deterministic measurer."
+      "description": "A build harness with a deterministic measurer, and skills for design decisions judged by a fresh agent, package facts and defect records."
     }
   ],
   "metadata": {

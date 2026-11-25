@@ -15,8 +15,8 @@ OSS checked before writing this module:
   markdown-link-check 3.15.0 and remark-validate-links 13.1.0 (Node): all check links, none
   is stdlib Python or emits gaps with file:line evidence and a tag; the few lines below do.
 - Gap merging: no tool found that recomputes mechanical checks and rejects reviewer findings
-  whose file:line does not resolve; rule compliance itself is left to the configured
-  the catalog's judging method (``catalog/method.md``), not re-implemented here.
+  whose file:line does not resolve; rule compliance itself is judged by the gaps reader against
+  ``catalog/rules.toml`` and the overlay, not re-implemented here.
 - Catalogue merges: git's built-in ``union`` merge driver is line-based and can emit
   invalid JSON; the union here works on parsed documents and is schema-checked.
 - Lockfiles (looked up 2026-11-19): @yarnpkg/lockfile 1.1.0 and @pnpm/lockfile-file 9.1.3 (Node), PyYAML 6.0.3 (not
@@ -3342,8 +3342,7 @@ DEFAULT_TEST_TARGETS = {
 
 
 def overlay_file(cfg: Config) -> Path | None:
-    """The project's overlay, found as the skills find it (``catalog/method.md``,
-    "Inputs"): the Overlay row of the bindings file that the project's AGENTS.md or CLAUDE.md
+    """The project's own rules (the overlay): the Overlay row of the bindings file that the project's AGENTS.md or CLAUDE.md
     names, else of ``docs/agents/bindings.md``; failing that
     ``docs/agents/design-compliance.md``. ``None`` when none of these exists."""
     named = [
