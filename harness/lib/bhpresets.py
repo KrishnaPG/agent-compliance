@@ -322,6 +322,31 @@ def write_precommit(root: Path, preset: dict[str, Any]) -> list[str]:
     return [h["id"] for h in add]
 
 
+def write_recipe(root: Path, preset: dict[str, Any]) -> str | None:
+    """Make the project's one test entry (QBC-16; the ``test`` recipe ``bhinfer`` infers) run the
+    preset's lint as its last line, so a human's ``just test`` and the measurer run the hooks a
+    commit runs. With no ``test`` recipe the justfile gets one: the inferred test command, then the
+    lint. Returns the line added, or None when the recipe already runs it."""
+    import bhinfer
+
+    lint, path = preset["lint"], root / "justfile"
+    lines = path.read_text().splitlines() if path.is_file() else []
+    if any(ln.strip() == lint for ln in lines):
+        return None
+    at = next((n for n, ln in enumerate(lines) if bhinfer.RECIPE.match(ln)), None)
+    if at is None:
+        test = bhinfer.infer(root).get("test", {}).get("value", "pytest")
+        lines += ([""] if lines else []) + ["test:", f"    {preset['run']} {test}" if test == "pytest" else f"    {test}"]
+        at = len(lines) - 2
+    end = at + 1
+    while end < len(lines) and lines[end][:1] in (" ", "\t"):
+        end += 1
+    indent = re.match(r"[ \t]+", lines[at + 1]).group(0) if end > at + 1 else "    "  # type: ignore[union-attr]
+    lines.insert(end, indent + lint)
+    path.write_text("\n".join(lines) + "\n")
+    return lint
+
+
 def apply(root: Path, owners_answered: list[tuple[str, str]] | None = None) -> dict[str, Any]:
     """Write every detected stack's presets into the project's standard files."""
     report: dict[str, Any] = {}
@@ -334,6 +359,7 @@ def apply(root: Path, owners_answered: list[tuple[str, str]] | None = None) -> d
             continue
         owners = owner_map(root, p)
         hooks = write_precommit(root, p)
+        recipe = write_recipe(root, p)
         try:
             ruff = write_ruff(root, p, "ruff" in hooks)
             imports = write_importlinter(root, p, owners)
@@ -344,6 +370,7 @@ def apply(root: Path, owners_answered: list[tuple[str, str]] | None = None) -> d
             "ruff": ruff,
             "importlinter": imports,
             "pre-commit": hooks,
+            **({"recipe": recipe} if recipe else {}),
             "owners": owners,
             "ask": sorted(o for o, v in owners.items() if v["source"] == "package folder"),
             **({"codeowners": sorted(set(rec))} if rec else {}),

@@ -171,7 +171,8 @@ agent runs each tool and returns its JSON.
   add-a-dependency command (lockfile), build order and features documents are inferred from the
   project's standard files, each printed as an `inferred` fact naming its file;
   `.brick-harness/config.json` only overrides. What cannot be inferred, and the standard-file
-  writes setup offers (issue forms; the linter presets and pre-commit hooks of `lib/bhpresets.py`),
+  writes setup offers (issue forms; the linter presets and pre-commit hooks of `lib/bhpresets.py`, with the lint as the
+  last line of the `test` recipe, so `just test` is the one entry that tests and lints, QBC-16),
   is one owner question; `bh run --approve` writes what was approved into the project's own
   files, never a plugin file; `bh run --decline NAME ...` keeps a "no" in
   `.brick-harness/config.json` `setup.declined`, asked again only when removed. An owner known only by its package folder is a question too;

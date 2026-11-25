@@ -1836,6 +1836,7 @@ def measure_ref(
     rules = pk.get("verifier", {}).get("rules", [])
     checks_run: list[str] = []
     checks_missed: list[str] = []
+    no_failing: list[tuple[str, dict[str, Any], int]] = []  # missed checks with no failing test
     canary_cases: list[Any] = []
     reports = JUnitXml()  # one JUnit XML for the whole measurement, the reports of every check
     with clean_checkout(top, sha, clone) as co:
@@ -1875,7 +1876,7 @@ def measure_ref(
             if r["exit"] != 0:
                 checks_missed.append(label)
                 if not any(type(x).__name__ in ("Failure", "Error") for c in found for x in c.result):
-                    fact("red", label, _check_lesson(label, r, rules, out / f"check-{n}.txt"))
+                    no_failing.append((label, r, n))
         # lint runs on the installed toolchain and hooks; a failed install is the one fact, not every hook
         lint = {} if setup_error or hooks_error else _lint_sarif(co, env, out, seal, digest, timeout)
         if hooks_error:  # the checks could not start: a gap in the toolchain, not a red finding
@@ -1883,6 +1884,9 @@ def measure_ref(
         for hook, said in lint.items():  # the human's commit runs the same hooks (G2)
             first = _hook_findings(said)[0]["msg"]
             fact("red", f"lint:{hook}", _teach(hook, f"{hook} failed: {first[:120]}", f"fix every {hook} finding in findings.sarif as its message says", "run pre-commit run --all-files before finishing"))
+        for label, r, n in no_failing:  # a check that failed with no failing test and no lint finding: its own fact
+            if not lint:  # the test recipe runs the lint too (QBC-16): its findings are the lint facts above
+                fact("red", label, _check_lesson(label, r, rules, out / f"check-{n}.txt"))
         diff_facts(cfg, top, base, sha, item, facts, co, cases)
         if not self_check:
             junit = co / ".bh-junit-canary.xml"

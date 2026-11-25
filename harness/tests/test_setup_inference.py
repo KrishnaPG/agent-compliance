@@ -228,7 +228,7 @@ def test_setup_asks_once_for_the_presets_and_records_owner_answers_in_codeowners
     commit_all(repo, "app")
     orch = bhorch.Orchestrator(Config(repo / ".brick-harness" / "config.json"))
     asked = {q["id"]: q["summary"] for q in orch.phase_setup()["questions"]}
-    assert "presets (.pre-commit-config.yaml, pyproject.toml)" in asked["Q-setup"]
+    assert "presets (.pre-commit-config.yaml, justfile, pyproject.toml)" in asked["Q-setup"]
     assert "billing" in asked["Q-owners"] and "CODEOWNERS" in asked["Q-owners"]
     assert not (repo / ".pre-commit-config.yaml").exists()  # nothing written without a yes
     setup = orch.phase_setup(owners=[("src/app/billing/", "@billing-team")])

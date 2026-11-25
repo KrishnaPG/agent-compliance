@@ -311,7 +311,7 @@ def setup_presets(root: Path, approved: bool, owners: list[tuple[str, str]] | No
                 bhpresets.record_owner(root, bhpresets.presets()[stack], pattern, who)
     missing = [s for s in bhpresets.stacks(root) if {h["id"] for h in bhpresets.presets()[s]["hooks"]} - have]
     if missing and not approved:
-        out["pending"] = sorted({"pyproject.toml", ".pre-commit-config.yaml"})
+        out["pending"] = sorted({"pyproject.toml", ".pre-commit-config.yaml", "justfile"})  # the recipe runs the lint (QBC-16)
     folder = sorted(
         o
         for s in bhpresets.stacks(root)
