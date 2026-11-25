@@ -198,7 +198,7 @@ def triggers(
 # ---------------------------------------------------------------- severity from the rule (QBC-114)
 
 RANK = {"S1": 1, "S2": 2, "S3": 3, "S4": 4}
-CITE = re.compile(r"([\w./-]+\.\w+):(\d+)")
+CITE = re.compile(r"([\w./-]+):(\d+)")
 
 
 def _cited(root: Path, ref: str, reason: str, where: str) -> bool:
@@ -212,17 +212,18 @@ def _cited(root: Path, ref: str, reason: str, where: str) -> bool:
 
 
 def settle(
-    findings: list[dict[str, Any]], house: dict[str, Any], root: Path, ref: str
+    findings: list[dict[str, Any]], meta: dict[str, dict[str, str]], root: Path, ref: str
 ) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
     """Each finding on a house rule takes the rule's default ``severity`` (SARIF
     ``defaultConfiguration.level``, Semgrep rule ``severity``), not the reviewer's feel. The reviewer
     may lower it only with a ``severity_reason`` citing a file:line of the reviewed tree that shows
     the rule does not apply at full weight, and raise it only with ``reproduced`` evidence; anything
     else is set back to the default. A finding on a triggered domain or an overlay row keeps the
-    reviewer's triage. Returns the settled findings and one record per change or refusal."""
+    reviewer's triage. ``meta`` is ``bhrules.rule_meta``. Returns the settled findings and one
+    record per change or refusal."""
     out, changes = [], []
     for f in findings:
-        rule = house.get(f.get("rule") or "")
+        rule = meta.get(f.get("rule") or "")
         if rule is None:
             out.append(f)
             continue
@@ -244,34 +245,46 @@ def settle(
 # ---------------------------------------------------------------- findings as SARIF facts
 
 
+def _right(rule: str, rule_right: str, wrong: str, here: str, chars: int) -> str:
+    """The rule's right way, then ``here: <the reviewer's concrete application>`` cut to what the
+    message cap leaves once the wrong part keeps its first 60 characters; the rule's own text is
+    never cut for it (QBC-115)."""
+    room = chars - len(f"[{rule}]  ->  . bh rule {rule}") - len(rule_right) - min(len(wrong), 60) - len("; here: ")
+    if not here or room < 20:
+        return rule_right
+    return f"{rule_right}; here: {here if len(here) <= room else here[: room - 3] + '...'}"
+
+
 def sarif(
-    findings: list[dict[str, Any]], item: str, digest: str, chars: int, house: dict[str, Any] | None = None
+    findings: list[dict[str, Any]], item: str, digest: str, chars: int, meta: dict[str, dict[str, str]] | None = None
 ) -> dict[str, Any]:
     """The reviewer's findings as one SARIF 2.1.0 log, checked against the official schema. The
     summary is written ``wrong -> the right way, and how to prevent it`` (the review job schema).
-    On a house rule (QBC-115) the right way is the rule's own ``right`` text, then the reviewer's
-    concrete application of it (``here: ...``), so no finding teaches a weaker remedy than its
-    rule; the rule goes in ``tool.driver.rules`` with its default level and that text as ``help``."""
+    On a house rule (``meta``, ``bhrules.rule_meta``; QBC-115) the right way is the rule's own
+    ``right`` text, then the reviewer's concrete application of it, so no finding teaches a weaker
+    remedy than its rule, and the reference is ``bh rule <id>``; the rule goes in
+    ``tool.driver.rules`` with its default level and that text as ``help``."""
     from jsonschema.validators import validator_for
 
-    house = house or {}
+    meta = meta or {}
     results, described = [], {}
     for f in findings:
-        wrong, _, right = f["summary"].partition("->")
+        wrong, _, right = (x.strip() for x in f["summary"].partition("->"))
         rule = f.get("rule") or "review"
-        right = right.strip()
-        if rule in house:
-            right = f"{house[rule]['right'].rstrip('.')}; here: {right}" if right else house[rule]["right"]
+        ref = STANDARD
+        if rule in meta:
+            m = meta[rule]
+            right, ref = _right(rule, m["right"].rstrip("."), wrong, right, chars), f"bh rule {rule}"
             described[rule] = {
                 "id": rule,
-                "defaultConfiguration": {"level": LEVEL[house[rule]["severity"]]},
-                "help": {"text": house[rule]["right"]},
-                "properties": {"severity": house[rule]["severity"]},
+                "defaultConfiguration": {"level": LEVEL[m["severity"]]},
+                "help": {"text": m["right"]},
+                "properties": {"severity": m["severity"]},
             }
         res: dict[str, Any] = {
             "ruleId": rule,
             "level": LEVEL.get(f.get("severity", ""), "warning"),
-            "message": {"text": _teach(rule, wrong.strip(), right, STANDARD)[:chars]},
+            "message": {"text": _teach(rule, wrong, right, ref)[:chars]},
             "properties": {k: f[k] for k in ("severity", "evidence", "severity_reason") if k in f},
         }
         file, _, line = (f.get("where") or "").partition(":")

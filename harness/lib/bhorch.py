@@ -1566,15 +1566,15 @@ class Orchestrator:
             facts.append({"kind": "gap", "item": item, "detail": f"review of {item} did not finish: {j.get('error')}"})
             return None
         # severity and the right way come from each rule's own metadata (QBC-114, QBC-115)
-        house = bhrules.rules_doc(self.cfg).get("house", {})
-        findings, settled = bhreview.settle(j["output"]["findings"], house, root, sha)
+        meta = bhrules.rule_meta(self.cfg)
+        findings, settled = bhreview.settle(j["output"]["findings"], meta, root, sha)
         misses = self.selector_misses(item, [r["id"] for r in selected], findings, base, sha)
         facts += misses
         # the review rounds of a packet are counted from the state; bh metrics counts the misses
         # from the run result's facts (QBC-108: one source)
         self.stamp(j, packet_sha256=digest)
         chars = bhreview.limits(self.cfg.data)["message_chars"]
-        log = bhreview.sarif(findings, item, digest, chars, house)
+        log = bhreview.sarif(findings, item, digest, chars, meta)
         log["runs"][0]["properties"]["rules"] = [r["id"] for r in rules]  # what the review judged
         if settled:
             log["runs"][0]["properties"]["severity_settled"] = settled

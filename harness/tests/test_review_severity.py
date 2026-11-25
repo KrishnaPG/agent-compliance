@@ -57,7 +57,7 @@ def test_qbc_114_a_finding_takes_its_rules_default_and_only_evidence_moves_it(to
     packet, base, sha = network_build(toy)
     major = next(k for k, r in HOUSE.items() if r["severity"] == "S2")
     minor = next(k for k, r in HOUSE.items() if r["severity"] == "S3")
-    house = bhrules.rules_doc(Config(conf(toy)))["house"]
+    house = bhrules.rule_meta(Config(conf(toy)))
     out, changes = bhreview.settle(
         [
             finding(major, "S3"),  # lowered by feel: set back to the rule's major default
@@ -86,20 +86,27 @@ def test_qbc_114_a_finding_takes_its_rules_default_and_only_evidence_moves_it(to
     assert {g["severity"] for g in gaps if g.get("rule") == major} == {"S2"}  # the recorded finding is the settled one
 
 
-def test_qbc_115_a_findings_right_way_starts_from_its_rule():
-    house = HOUSE
+def test_qbc_115_a_findings_right_way_starts_from_its_rule(toy):
+    plan(toy)
+    meta = bhrules.rule_meta(Config(conf(toy)))
     rid = "ID-15"
-    f = finding(rid, "S2", summary="write() checks the token again -> take the verified principal from the gateway")
-    log = bhreview.sarif([f], "json-writer", "ab" * 32, 300, house)
+    wrong = "write() verifies the bearer token again on every row although the gateway already verified it at entry, so" + " x" * 10
+    here = "take the principal the gateway passes as an argument of write() and delete the second jwt.decode call in json_writer" + " y" * 10
+    f = finding(rid, "S2", summary=f"{wrong} -> {here}")
+    log = bhreview.sarif([f], "json-writer", "ab" * 32, 300, meta)
     (res,) = log["runs"][0]["results"]
-    right = res["message"]["text"].split(" -> ", 1)[1]
-    assert right.startswith(house[rid]["right"].rstrip(".")) and "here: take the verified principal" in right
+    text = res["message"]["text"]
+    head, right = text.split(" -> ", 1)
+    assert len(text) <= 300 and head.startswith(f"[{rid}] {wrong[:55]}")  # what is wrong still teaches
+    assert right.startswith(meta[rid]["right"].rstrip(".") + "; here: take the principal") and right.endswith(f". bh rule {rid}")
     (desc,) = log["runs"][0]["tool"]["driver"]["rules"]
-    assert desc == {"id": rid, "defaultConfiguration": {"level": "error"}, "help": {"text": house[rid]["right"]}, "properties": {"severity": "S2"}}
+    assert desc == {"id": rid, "defaultConfiguration": {"level": "error"}, "help": {"text": meta[rid]["right"]}, "properties": {"severity": "S2"}}
     bare = bhreview.sarif([f], "json-writer", "ab" * 32, 300)  # negative control: without the rule's metadata
-    assert house[rid]["right"][:40] not in bare["runs"][0]["results"][0]["message"]["text"]
-    dom = bhreview.sarif([finding("grants", "S2")], "json-writer", "ab" * 32, 300, house)
+    assert meta[rid]["right"][:40] not in bare["runs"][0]["results"][0]["message"]["text"]
+    dom = bhreview.sarif([finding("grants", "S2")], "json-writer", "ab" * 32, 300, meta)
     assert "rules" not in dom["runs"][0]["tool"]["driver"]  # a triggered domain has no rule to describe
+    # a catalog with no right text teaches its rule's first clause (bhrules.rule_meta)
+    assert bhrules.rule_meta(None, {"house": {"XX-01": {"text": "Do it once. Then more.", "severity": "S2"}}}) == {"XX-01": {"right": "Do it once.", "severity": "S2"}}
     # the reviewer is told to write only the concrete application, never a weaker remedy
     prompt = (PLUGIN / "agents" / "harness-reviewer.md").read_text()
     assert "Never a weaker or different remedy than the rule's" in prompt and "severity_reason" in prompt

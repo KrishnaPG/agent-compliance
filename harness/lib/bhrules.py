@@ -393,18 +393,26 @@ def rules_doc(cfg: Any) -> dict[str, Any]:
 
 
 def rule_rows(cfg: Any) -> dict[str, str]:
-    """``{rule id: one line}``: each house rule's ``right`` way (else its text's first clause),
-    each standard as ``<title> <version>: <url>`` (a ``<standard>:<section>`` id takes its
+    """``{rule id: one line}``: each house rule's ``right`` way (else its text's first clause)
+    with its default severity, ``[S2]`` (QBC-114), the one line builder and reviewer both read; each standard as ``<title> <version>: <url>`` (a ``<standard>:<section>`` id takes its
     standard's line), then the overlay's rows."""
     data = rules_doc(cfg)
     rows = {k: f"{v['title']} {v['version']}: {v['url']}" for k, v in data.get("standards", {}).items()}
-    rows |= {k: (v.get("right") or _first(v["text"]))[:160] for k, v in data.get("house", {}).items()}
+    rows |= {k: f"{m['right']} [{m['severity']}]" for k, m in rule_meta(cfg, data).items()}
     if ov := overlay_file(cfg):
         for line in ov.read_text(errors="ignore").splitlines():
             m = ROW.match(line)
             if m:
                 rows.setdefault(m.group(1), _first(m.group(2)))
     return rows
+
+
+def rule_meta(cfg: Any, data: dict[str, Any] | None = None) -> dict[str, dict[str, str]]:
+    """``{house rule id: {right, severity}}``: the right way a finding on the rule teaches first
+    (its ``right``, else its text's first clause, at most 160 characters; QBC-115) and its default
+    severity (QBC-114)."""
+    house = (data if data is not None else rules_doc(cfg)).get("house", {})
+    return {k: {"right": (v.get("right") or _first(v["text"]))[:160], "severity": v["severity"]} for k, v in house.items()}
 
 
 def _first(text: str) -> str:

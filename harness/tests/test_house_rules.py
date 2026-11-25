@@ -26,5 +26,5 @@ def test_a_standard_section_id_takes_its_standards_line_and_a_house_rule_its_rig
     rows = bhrules.rule_rows(SimpleNamespace(data={}, dir=tmp_path))
     assert bhrules.rule_text(rows, "NIST-SP-800-53:SI-7").startswith("SI-7 of NIST SP 800-53 Security and Privacy Controls Rev. 5: https://")
     right = tomllib.loads((PLUGIN / "catalog" / "rules.toml").read_text())["house"]["RL-08"]["right"]
-    assert bhrules.rule_text(rows, "RL-08") == right and right.startswith("Use no timers")
+    assert bhrules.rule_text(rows, "RL-08") == f"{right} [S2]" and right.startswith("Use no timers")  # with its default severity (QBC-114)
     assert bhrules.rule_text(rows, "XX-99") == "" and bhrules.rule_text(rows, "NOPE:1") == ""

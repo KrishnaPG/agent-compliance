@@ -2468,7 +2468,7 @@ cites = []
 [house.CF-20]
 text = "A business value (a limit, count, threshold, window, rate, default choice, currency or time zone) is read at run time from the policy or configuration record that owns it, with its unit. Code holds no literal for it, no fallback default and no default in an environment lookup; a missing value fails with its key and source."
 why = "A literal business value hides a product decision in code: changing it takes a release, call sites drift apart, and a silent fallback runs with a value nobody chose."
-right = "Read each business value (limit, count, window, rate, default) from its owning policy or configuration record at run time; never a literal or fallback in code."
+right = "Read every business value from its owning policy or configuration record at run time, never a literal or fallback in code: limits, counts, windows, rates."
 question = "Which limit, count, threshold, window, rate or default does the change write as a literal, a fallback or an environment default instead of reading it from its owning record?"
 severity = "S2"
 applies = ["http-server", "config", "money", "time", "database", "messaging"]
@@ -3421,8 +3421,8 @@ cites = ["Unicode-CLDR", "ISO-4217", "RFC-3339"]
 [standards.Google-Benchmark]
 title = "Google Benchmark user guide"
 version = "1.10.0"
-url = "https://github.com/google/benchmark/blob/main/docs/reducing_variance.md"
-summary = "Library and guide for micro-benchmarks; the Reducing Variance page explains why wall-clock timings on a shared or frequency-scaled machine are noisy and how repeated runs, CPU time and aggregates reduce it."
+url = "https://github.com/google/benchmark/blob/v1.10.0/docs/reducing_variance.md"
+summary = "Library and guide for micro-benchmarks; the Reducing Variance page explains why real-time measurements on a busy or frequency-scaled machine are noisy and judges results over repeated runs."
 
 [standards.NIST-SP-800-57]
 title = "NIST SP 800-57 Part 1 Recommendation for Key Management"
