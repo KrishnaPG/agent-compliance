@@ -16,7 +16,7 @@ row_fields:
   when: "one {when-key: params}"
   then: "list of {then-key: params}; all must pass"
   traces_to: "the G, P, R and QBC ids the row proves"
-  method: "one of `methods`"
+  verification: "how the criterion is verified (ISO/IEC/IEEE 29148): one of `verification`"
   deterministic: "true; false only for slice h rows that need a live paid model call"
   spec_ref: "the docs/spec/packet-standards.md Applied-table rows (<stage>.<part slug>, stage = common, L1..L5 or review) or enforcement mechanisms (enforce.<n>) the row proves; a row needs covers, spec_ref or both"
   plan_gap: "one line: what the plan leaves open that the row had to assume"
@@ -24,7 +24,7 @@ row_fields:
 
 types:
   id: "lowercase identifier of a fixture, state or plant, matching ^[a-z0-9][a-z0-9_.-]*$"
-  key: "dotted config key or field path, matching ^[A-Za-z0-9_.\\[\\]*-]+$; a segment [*] means every element"
+  key: "dotted config key or field path, matching ^[A-Za-z0-9_.\\[\\]*=-]+$; a segment [*] means every element and [id=<value>] the element whose id is value; field paths of the packet, result, jobs and config are only those in docs/atdd/fields.yaml"
   string: "literal text; where it is matched against output, the match is a case-insensitive substring"
   integer: "a JSON integer"
   number: "a JSON number"
@@ -34,7 +34,7 @@ types:
   enum: "one of the keys of `values`; each key's text is its definition"
 
 terms:
-  result JSON: "the JSON bh prints for run, measure and check, with its `items` (per-item status), `facts` and `jobs`"
+  result JSON: "the JSON every bh command and program step prints: its `schema_version`, its `command` and that command's fields in docs/atdd/fields.yaml; run, measure and check results hold `items[*]`, `facts[*]` and `jobs[*]`"
   run report: "the line-per-item report bh writes next to the result JSON"
   teaching shape: "`[rule] wrong -> right . ref`, with a non-empty right part, at most limits.message_chars (default 300) characters per finding"
   identifier token: "a whitespace-separated token of a teaching part, stripped of leading and trailing , ; : ( ) quotes and a trailing period, that matches ^(?=.*[/._=`\\d-])\\S+$ (a path, key, file, command, rule code with a digit or dash) or ^[A-Z][A-Z0-9-]+$ (an all-caps code)"
@@ -48,12 +48,10 @@ terms:
 
 placeholders:
   packet_sha256: "the sha256 of the given packet file"
-  packet_id: "the id of the given packet"
-  criteria_ids: "the given packet's acceptance row ids, joined by \", \""
-  acceptance_paths: "the given packet's acceptance test paths; a match of any one satisfies a path parameter"
-  declared_paths: "the given packet's declared paths; a match of any one satisfies a path parameter"
+  acceptance_ids: "the given packet's `acceptance[*].id` values, joined by \", \""
+  packet: "written $packet.<path>: the value at that docs/atdd/fields.yaml packet path of the given packet; a list matches when any one element does"
 
-methods:
+verification:
   test: An executable test drives the system (a command, hook or program step) on fixtures and asserts its outcome.
   lint: A static inspection of the tree (files, text, symbols, schemas); nothing is run but a parser or validator.
   fitness: A property declared once and checked over the whole tree or every instance (all refusals, all limits, all rows).
@@ -75,7 +73,7 @@ negative_checks: >-
   scan_count with value 0 (eq, le) or lt 1; no_fact; fact with count 0; file_unchanged;
   paths with exist false; output_contains or file_contains with negate true; field with op
   absent, ne or not_contains; git source_refs_unchanged, no_git_hook_installed,
-  no_remote_fetch or candidate_not_in_head; jobs none_of_kind; questions_asked 0;
+  no_remote_fetch or candidate_not_in_head; jobs absent; questions_asked 0;
   api_call with count 0. A row of only these passes on any tree without the violation, so it
   must carry red_on_main, or a positive then-entry that fails on main until the feature exists.
 
@@ -424,7 +422,7 @@ then:
           stuck: "the item's status is stuck (round limit reached)"
           not_checked: "the item's status is not_checked (the check could not run on this project)"
       item: {type: id, required: false}
-    passes_when: result JSON items[item].status equals status (the only item when item is omitted).
+    passes_when: result JSON items[id=<item>].status equals status (the only item when item is omitted).
 
   fact:
     meaning: A fact of a closed kind is recorded in the result JSON and listed in the run report.
@@ -557,20 +555,15 @@ then:
       source:
         type: enum
         values:
-          result_json: "the result JSON bh prints"
-          run_report: "the run report file"
+          result_json: "the result JSON of the command or step in `when` (terms.result JSON), including its `jobs[*]` records"
           packet: "the work packet file"
-          job_record: "the bh job record"
           config_effective: "the effective config after defaults and overrides"
-          owners_output: "the output of `bh owners`"
-          metrics_output: "the output of `bh metrics`"
           builder_settings: "the generated builder settings JSON"
           hook_output: "the hook's stdout JSON"
           hooks_json: "hooks/hooks.json"
           skill_md: "a SKILL.md file"
           eval_report: "the report of `claude plugin eval`"
           register: "the safeguard register"
-          vet_output: "the output of `bh vet`"
           baseline_file: "a ratchet baseline file"
           launch_args: "the arguments of a `claude` job launch"
           commit_message: "a commit message"
@@ -600,18 +593,19 @@ then:
     passes_when: "Reading path in source and applying op to value is true. contains on a list = element present; matches = regex; present = exists and is not empty; distinct = the values at path have no duplicate. A path segment [*] applies op to every element, and all must pass (with distinct, the collected values are compared)."
 
   jobs:
-    meaning: The bh job record of the run, as an ordered list of jobs with role, kind and arguments.
+    meaning: "The result JSON's `jobs[*]`, in start order. A job's name is its `role` when `kind` is agent and its `step` when `kind` is program_step."
     after: [bh, program_step]
     params:
       assert:
         type: enum
         values:
-          order: "the given roles occur in this order"
-          distinct: "each given role is a separate job"
-          none_of_kind: "no agent job has any of the given kinds"
-          present: "each given value occurs among the jobs"
+          order: "jobs with the given names occur in this order"
+          distinct: "each given name is a separate job"
+          present: "a job with each given name occurs"
+          absent: "no job has any of the given names"
+          program_only: "every job with one of the given names has kind program_step, and at least one ran"
       values: {type: list, items: string}
-    passes_when: order = these roles occur in this order; distinct = each role is a separate job; none_of_kind = no agent job has any of these kinds; present = each value occurs.
+    passes_when: The named assertion holds over the jobs[*] names (role for agents, step for program steps).
 
   file_unchanged:
     meaning: A file, tree or ref set has the same digest after `when` as before.

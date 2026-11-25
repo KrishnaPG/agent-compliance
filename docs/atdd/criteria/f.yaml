@@ -1,6 +1,6 @@
 # Slice f, Decisions and vetting (#13). Rows follow docs/atdd/catalog.yaml.
 slice: f
-criteria:
+acceptance:
   - id: f1-AC1
     scenario: Proposer and judge are separate jobs and the judge sees only the record and the evidence
     spec_ref: [L1.option-judgement]
@@ -16,7 +16,7 @@ criteria:
       - jobs: {assert: distinct, values: [proposer, judge]}
       - field: {source: launch_args, path: judge.inputs, op: eq, value: [record, evidence]}
     traces_to: [R9, P6, QBC-32, QBC-69]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names no launch-argument shape; the row asserts the judge job's inputs are exactly the record and the evidence"
 
@@ -34,9 +34,8 @@ criteria:
       - field: {source: result_json, path: "options[*].rules", op: present}
       - no_fact: {kind: unknown_rule}
     traces_to: [R9, P2, QBC-70]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the plan names no output shape for scored options; the row uses options[*].targets and options[*].rules and requires every cited rule id to exist in g1's data (no unknown_rule fact)"
 
   - id: f1-AC3
     scenario: An unverified rule reads unknown and a fixture OSS option is not beaten by existing code
@@ -48,13 +47,12 @@ criteria:
     when:
       bh: {sub: run}
     then:
-      - field: {source: result_json, path: "options[oss].rules.unverified.verdict", op: eq, value: unknown}
-      - field: {source: result_json, path: "options[oss].rules.unverified.verdict", op: ne, value: fail}
+      - field: {source: result_json, path: "options[id=oss].rules[id=unverified].verdict", op: eq, value: unknown}
+      - field: {source: result_json, path: "options[id=oss].rules[id=unverified].verdict", op: ne, value: fail}
       - field: {source: result_json, path: recommended, op: eq, value: oss}
     traces_to: [R9, P2, QBC-70]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the plan names no output shape; the row fixes the verdict word unknown and the recommended field"
 
   - id: f1-AC4
     scenario: A falsifying call becomes a measurer target
@@ -66,11 +64,10 @@ criteria:
     when:
       bh: {sub: run}
     then:
-      - field: {source: packet, path: targets, op: contains, value: falsify-1}
+      - field: {source: packet, path: "verifier.targets[*].id", op: contains, value: falsify-1}
     traces_to: [R9, P6, QBC-69]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the plan does not say where a derived target is recorded; the row asserts it appears in the item's packet targets"
 
   - id: f1-AC5
     scenario: A record over limits.record_chars goes back to the proposer with teaching
@@ -84,10 +81,10 @@ criteria:
     when:
       bh: {sub: run}
     then:
-      - jobs: {assert: none_of_kind, values: [judge]}
+      - jobs: {assert: absent, values: [judge]}
       - teaching: {channel: run_report, wrong: limits.record_chars, right: shorten the record, prevent: record_chars}
     traces_to: [R9, P2, QBC-32, QBC-84]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan gives no teaching wording; the row requires the report line to name the limit and say to shorten the record"
 
@@ -101,7 +98,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 1, distinct: true}
     traces_to: [R9, QBC-69]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: f1-AC7
@@ -114,7 +111,7 @@ criteria:
     then:
       - threshold: {metric: skill_md_chars, op: lt, bound: "ref:v1.5.2"}
     traces_to: [R9, QBC-84]
-    method: measure
+    verification: measure
     deterministic: true
 
   - id: f1-AC8
@@ -131,7 +128,7 @@ criteria:
       - field: {source: decision_record, path: front_matter.date, op: present}
       - field: {source: decision_record, path: front_matter.deciders, op: present}
     traces_to: [R9, QBC-84]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the decision_record field paths are the row's choice; the spec names only the three front matter keys"
 
@@ -149,7 +146,7 @@ criteria:
       - field: {source: decision_record, path: sections, op: contains, value: Considered Options}
       - field: {source: decision_record, path: sections, op: contains, value: Decision Outcome}
     traces_to: [R9, QBC-84]
-    method: test
+    verification: test
     deterministic: true
 
   - id: f1-AC10
@@ -165,7 +162,7 @@ criteria:
       - field: {source: decision_record, path: "constraints[*].cites", op: matches, value: "^((G|P|R)[0-9]+|QBC-[0-9]+)$"}
       - no_fact: {kind: gap}
     traces_to: [R9, QBC-69]
-    method: test
+    verification: test
     deterministic: true
 
   - id: f1-AC11
@@ -181,7 +178,7 @@ criteria:
       - fact: {kind: gap, detail: front matter}
       - teaching: {channel: fact, wrong: front matter, right: "add front matter with status, date and deciders", prevent: "MADR 4.0 front matter is checked on every record"}
     traces_to: [R9, P5, QBC-84]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the spec gives no wording; the row requires the report to name the missing front matter and the keys to add"
 
@@ -198,7 +195,7 @@ criteria:
       - fact: {kind: gap, detail: constraint}
       - teaching: {channel: fact, wrong: "constraint without a rule id", right: "cite a G, P, R or QBC id", prevent: "cite the id when writing the constraint"}
     traces_to: [R9, P5, QBC-69]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the spec gives no wording; the row requires the report to say to cite an id"
 
@@ -214,9 +211,8 @@ criteria:
     then:
       - field: {source: packet, path: "acceptance[*].id", op: contains, value: falsify-1}
     traces_to: [R9, P6, QBC-69]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the packet field path for criteria is the row's choice"
 
   - id: f2-AC1
     scenario: bh vet records the three tools' outputs as facts with no model verdict
@@ -235,9 +231,9 @@ criteria:
       - api_call: {service: scorecard, operation: getProject, count: 1}
       - api_call: {service: deps_dev, operation: GetVersion, count: 1}
       - api_call: {service: osv, operation: query, count: 1}
-      - jobs: {assert: none_of_kind, values: [agent]}
+      - jobs: {assert: program_only, values: [vet]}
     traces_to: [R9, P2, QBC-84]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names the three tools, not their request operations; the row uses one operation per service as the recorded fixtures' names"
 
@@ -252,12 +248,12 @@ criteria:
     when:
       bh: {sub: vet, args: [pypi, "example-pkg@1.2.3"]}
     then:
-      - field: {source: vet_output, path: scorecard, op: present}
-      - field: {source: vet_output, path: deps_dev, op: present}
-      - field: {source: vet_output, path: osv, op: present}
-      - field: {source: vet_output, path: verdict, op: absent}
+      - field: {source: result_json, path: scorecard, op: present}
+      - field: {source: result_json, path: deps_dev, op: present}
+      - field: {source: result_json, path: osv, op: present}
+      - field: {source: result_json, path: verdict, op: absent}
     traces_to: [R9, P2, QBC-84]
-    method: test
+    verification: test
     deterministic: true
 
   - id: f2-AC3
@@ -271,7 +267,7 @@ criteria:
       - exit_code: {code: 2}
       - teaching: {channel: stderr, wrong: the package argument has no ecosystem or pinned version, right: "bh vet <ecosystem> <package@version>", prevent: pinned version}
     traces_to: [R9, P5, QBC-84]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states the call shape, not a refusal; the row asserts a teaching refusal that repeats the shape"
 
@@ -287,7 +283,7 @@ criteria:
       - paths: {paths: [skills/vet-oss], exist: false}
     traces_to: [R9, QBC-84]
     red_on_main: "scan_count eq 0 fails on main: skills/vet-oss exists and skills and README.md name it"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: f3-AC1
@@ -301,7 +297,7 @@ criteria:
       - field: {source: skill_md, path: description, op: contains, value: recording a defect}
       - field: {source: skill_md, path: description, op: not_contains, value: commit}
     traces_to: [R9, QBC-84]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the exact trigger wording is not stated; the row requires the phrase recording a defect and no mention of commits"
 
@@ -316,7 +312,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, P4, QBC-84]
     red_on_main: "scan_count eq 0 fails on main: skills/bug-analysis/SKILL.md says a bug is any defect however small and has the Siblings line"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: f3-AC3
@@ -329,7 +325,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 1}
     traces_to: [R9, QBC-84]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: f3-AC4
@@ -344,7 +340,7 @@ criteria:
     then:
       - output_contains: {channel: stdout, text: commitlint}
     traces_to: [R9, P4, QBC-84]
-    method: test
+    verification: test
     deterministic: true
 
   - id: f3-AC5
@@ -360,7 +356,7 @@ criteria:
       - fact: {kind: commitlint, count: 1}
       - exit_code: {code: 0}
     traces_to: [R9, P4, QBC-84]
-    method: test
+    verification: test
     deterministic: true
 
   - id: f3-AC6
@@ -377,7 +373,7 @@ criteria:
       - teaching: {channel: fact, wrong: fix commit without an issue ref, right: reference the defect issue, prevent: run commitlint in bh check over the item's commits}
       - exit_code: {code: 0}
     traces_to: [P5, QBC-84]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan says fact with teaching but gives no wording; the row requires wrong, right and prevent parts and that the commit is not blocked"
 
@@ -393,7 +389,7 @@ criteria:
     then:
       - fact: {kind: commitlint, count: 1}
     traces_to: [R9, P4, QBC-84]
-    method: test
+    verification: test
     deterministic: true
 
   - id: f3-AC8
@@ -408,5 +404,5 @@ criteria:
       - git: {assert: no_git_hook_installed}
       - fact: {kind: commitlint, count: 1}
     traces_to: [R9, P4, QBC-84]
-    method: test
+    verification: test
     deterministic: true

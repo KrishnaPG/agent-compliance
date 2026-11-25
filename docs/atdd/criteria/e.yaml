@@ -1,6 +1,6 @@
 # Slice e, Intake (#12). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
 slice: e
-criteria:
+acceptance:
   - id: e1-AC1
     scenario: The decision form validates against GitHub's issue-form schema
     covers: [1]
@@ -11,7 +11,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R8, QBC-87]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e1-AC2
@@ -24,7 +24,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R8, QBC-87]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e1-AC3
@@ -37,7 +37,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R8, QBC-87]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e1-AC4
@@ -54,7 +54,7 @@ criteria:
       - teaching: {channel: stderr, wrong: "slice.yml fails GitHub's issue-form schema", right: "add a body of form fields to slice.yml", prevent: "validate every form against the issue-form schema before writing it"}
       - paths: {paths: [.github/ISSUE_TEMPLATE/slice.yml], exist: false}
     traces_to: [R8, P5, QBC-83]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan states no message for an invalid form; the row asserts the validator's error names the body path and teaches"
 
@@ -68,7 +68,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 9}
     traces_to: [R8, QBC-87, QBC-88]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e1-AC6
@@ -81,7 +81,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 9}
     traces_to: [R8, QBC-87, QBC-88]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e1-AC7
@@ -94,7 +94,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 3}
     traces_to: [R8, P5, QBC-88]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan does not give the right-way wording for the goal and acceptance descriptions; the row pins only the parent wording from QBC-88"
 
@@ -108,7 +108,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 9}
     traces_to: [R8, P5, QBC-83]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the wording of each description is not stated; the row asserts a description exists on each of the nine required fields"
 
@@ -122,7 +122,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 1}
     traces_to: [R8, QBC-87]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e1-AC10
@@ -136,7 +136,7 @@ criteria:
     then:
       - paths: {paths: [.github/ISSUE_TEMPLATE/decision.yml, .github/ISSUE_TEMPLATE/slice.yml, .github/ISSUE_TEMPLATE/defect.yml, .github/ISSUE_TEMPLATE/config.yml], exist: true}
     traces_to: [R8, G4, QBC-83]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e1-AC11
@@ -151,7 +151,7 @@ criteria:
       - paths: {paths: [.github/ISSUE_TEMPLATE/*], exist: false}
       - questions_asked: {count: 1}
     traces_to: [R8, G4, QBC-83]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e1-AC12
@@ -166,7 +166,7 @@ criteria:
       - file_unchanged: {target: project_config}
       - paths: {paths: [.github/ISSUE_TEMPLATE/slice.yml], exist: true}
     traces_to: [R8, G4, QBC-83]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e1-AC13
@@ -181,7 +181,7 @@ criteria:
       - paths: {paths: [templates/bug-record.md], exist: false}
     traces_to: [R8, QBC-83]
     red_on_main: "paths exist false fails on main: templates/bug-record.md exists and skills name it"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: e2-AC1
@@ -196,7 +196,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 1, with: parentIssueId}
       - api_call: {service: github, operation: addSubIssue, count: 0}
     traces_to: [R8, G4, QBC-88, QBC-89]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan prescribes the GraphQL createIssue(parentIssueId) mechanism; the row asserts the observable result, one create request carrying the parent and no later link request"
 
@@ -212,7 +212,7 @@ criteria:
       - api_call: {service: github, operation: addSubIssue, count: 1, with: "#12"}
       - no_fact: {kind: gap}
     traces_to: [R8, G4, QBC-88, QBC-89]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e2-AC3
@@ -229,7 +229,7 @@ criteria:
       - output_contains: {channel: issue_comment, text: "No parent decision."}
       - output_contains: {channel: issue_comment, text: "Every issue sits under a decision's tracking issue: pick one, or start a decision if this is a new capability."}
     traces_to: [R8, QBC-88]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e2-AC4
@@ -244,7 +244,7 @@ criteria:
       - api_call: {service: github, operation: addComment, count: 0}
       - fact: {kind: gap, detail: parent, count: 1}
     traces_to: [R8, G4, QBC-88]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e2-AC5
@@ -259,7 +259,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 1, with: maintenance}
       - teaching: {channel: issue_comment, wrong: No parent decision, right: use the standing maintenance tracking issue named in CODEOWNERS, prevent: add the code's owner to CODEOWNERS}
     traces_to: [R8, G4, QBC-88]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not give the wording naming the maintenance issue; the row requires the message to name it and its CODEOWNERS source"
 
@@ -275,7 +275,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 0}
       - api_call: {service: github, operation: addSubIssue, count: 1}
     traces_to: [R8, G4, QBC-88]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e2-AC7
@@ -291,7 +291,7 @@ criteria:
       - exit_code: {code: 0}
       - paths: {paths: [.github/workflows/*], exist: false}
     traces_to: [R8, P12, QBC-89]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e2-AC8
@@ -306,7 +306,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 1, with: docs/decisions/}
       - field: {source: decision_record, path: tracking_issue, op: present}
     traces_to: [R8, QBC-87]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not describe the record-to-issue link; the row asserts the created issue body names the record path and the record names the issue"
 
@@ -322,7 +322,7 @@ criteria:
       - api_call: {service: github, operation: listIssues, count: 1, with: label}
       - api_call: {service: github, operation: updateIssue, count: 1}
     traces_to: [R8, G4, QBC-90]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the label name is not stated; the row asserts the lookup request carries a label filter and no issue title"
 
@@ -337,7 +337,7 @@ criteria:
     then:
       - api_call: {service: github, operation: updateIssue, count: 1, with: "#12"}
     traces_to: [R8, G4, QBC-90]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e3-AC3
@@ -352,7 +352,7 @@ criteria:
       - refused: {by: program, wrong: no parent, right: name the parent, prevent: No parent decision}
       - api_call: {service: github, operation: updateIssue, count: 0}
     traces_to: [R8, G4, P5, QBC-88, QBC-90]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states only that each line names its parent, not that a parentless line is refused; the row applies QBC-88's no-parent rule to the list"
 
@@ -368,7 +368,7 @@ criteria:
       - refused: {by: program, wrong: known issues, right: fix and remove one first, prevent: limits.known_issues}
       - api_call: {service: github, operation: updateIssue, count: 0}
     traces_to: [P8, QBC-90]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan gives the right way (fix and remove one first) but not the wrong and prevent wording; limits.known_issues is named as the prevention"
 
@@ -385,7 +385,7 @@ criteria:
       - refused: {by: program, wrong: known issues, right: fix and remove one first, prevent: limits.known_issues}
       - field: {source: config_effective, path: limits.known_issues, op: eq, value: 3}
     traces_to: [R8, P8, QBC-90]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e3-AC6
@@ -399,7 +399,7 @@ criteria:
     then:
       - fact: {kind: second_known_list, count: 1}
     traces_to: [R8, G4, QBC-90]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e4-AC1
@@ -413,7 +413,7 @@ criteria:
     then:
       - field: {source: packet, path: goal, op: contains, value: END-OF-BODY-SENTINEL}
     traces_to: [R8, G6, QBC-83]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e4-AC2
@@ -428,7 +428,7 @@ criteria:
       - api_call: {service: github, operation: listIssues, count: 1, with: example/toy-repo}
       - paths: {paths: [.brick-harness/bindings*], exist: false}
     traces_to: [R8, G6, QBC-75]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e4-AC3
@@ -442,7 +442,7 @@ criteria:
       - exit_code: {code: 1}
       - teaching: {channel: stderr, wrong: no origin remote, right: git remote add origin, prevent: git remote get-url origin}
     traces_to: [R8, G6, P5, QBC-75]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not say what happens without an origin remote; the row asserts a teaching refusal rather than a silent default"
 
@@ -459,7 +459,7 @@ criteria:
       - api_call: {service: github, operation: updateIssue, count: 0, with: OPEN}
       - field: {source: result_json, path: "skipped[*].number", op: contains, value: 15}
     traces_to: [R8, G6, QBC-83]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names no output shape for skipped issues; the row asserts the human-closed issue number is listed as skipped"
 
@@ -476,7 +476,7 @@ criteria:
       - output_contains: {channel: stdout, text: "#7"}
       - output_contains: {channel: stdout, text: "#9"}
     traces_to: [R8, G6, QBC-83]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names no list command or output shape; the row asserts through stdout that both matching issues appear although non-matching issues come first"
 
@@ -490,11 +490,11 @@ criteria:
       bh: {sub: intake}
     then:
       - exit_code: {code: 0}
-      - field: {source: result_json, path: items.claim-a.status, op: present}
-      - field: {source: result_json, path: items.claim-c.status, op: present}
+      - field: {source: result_json, path: "items[id=claim-a].status", op: present}
+      - field: {source: result_json, path: "items[id=claim-c].status", op: present}
       - teaching: {channel: stderr, wrong: claim-b, right: fix the claim, prevent: issue form}
     traces_to: [R8, G6, P5, QBC-83]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not say how the bad claim is reported; the row requires a teaching line naming it"
 
@@ -509,9 +509,9 @@ criteria:
     then:
       - field: {source: result_json, path: admitted_total, op: le, value: 1}
     traces_to: [R8, G6, QBC-83]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the plan states a mechanism (room read under the lock); the row asserts the observable result, and the result field name admitted_total is the row's choice"
+    plan_gap: "the plan states a mechanism (room read under the lock); the row asserts the observable result"
 
   - id: e5-AC1
     scenario: A review finding reopens the slice's checklist line from structured output
@@ -527,7 +527,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 0}
       - fact: {kind: review_finding, count: 1}
     traces_to: [R8, G4, P3, QBC-91]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC2
@@ -543,7 +543,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 1, with: parentIssueId}
       - jobs: {assert: present, values: [test_author]}
     traces_to: [R8, G4, P3, QBC-91, QBC-92]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC3
@@ -560,7 +560,7 @@ criteria:
       - api_call: {service: github, operation: addSubIssue, count: 0}
       - api_call: {service: github, operation: updateIssue, count: 1, with: "- [ ]"}
     traces_to: [R8, G4, QBC-91]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC4
@@ -576,7 +576,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 0}
       - fact: {kind: review_finding, detail: in scope, count: 1}
     traces_to: [R8, G4, QBC-92]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not name how the in-slice fix is reported; the row asserts a review_finding fact marked in scope and no filed issue"
 
@@ -593,7 +593,7 @@ criteria:
       - api_call: {service: github, operation: createIssue, count: 1, with: parentIssueId}
       - api_call: {service: github, operation: addSubIssue, count: 0}
     traces_to: [R8, G4, QBC-92]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC6
@@ -607,7 +607,7 @@ criteria:
     then:
       - api_call: {service: github, operation: updateIssue, count: 1, with: CLOSED}
     traces_to: [R8, G4, QBC-93]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC7
@@ -622,7 +622,7 @@ criteria:
       - api_call: {service: github, operation: updateIssue, count: 0}
       - api_call: {service: github, operation: listSubIssues, count: 1}
     traces_to: [R8, G4, QBC-93]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC8
@@ -631,7 +631,7 @@ criteria:
     given:
       - repo: {name: project, state: tracking_issue_open}
       - history: {fixture: tracking_issue_idle_20_days, period: v2}
-      - config: {state: override, key: limits.idle_days, value: 14}
+      - config: {state: override, key: limits.idle_days, value: 7}
       - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
     when:
       bh: {sub: run}
@@ -639,7 +639,7 @@ criteria:
       - fact: {kind: idle_tracking, count: 1}
       - teaching: {channel: run_report, wrong: no sub-issue activity, right: close or continue the slice, prevent: limits.idle_days}
     traces_to: [R8, G4, QBC-93]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states a fact only; the teaching wording for the idle report line is not given"
 
@@ -649,15 +649,15 @@ criteria:
     given:
       - repo: {name: project, state: tracking_issue_open}
       - history: {fixture: tracking_issue_active_2_days, period: v2}
-      - config: {state: override, key: limits.idle_days, value: 14}
+      - config: {state: override, key: limits.idle_days, value: 7}
       - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
     when:
       bh: {sub: run}
     then:
       - no_fact: {kind: idle_tracking}
-      - field: {source: config_effective, path: limits.idle_days, op: eq, value: 14}
+      - field: {source: config_effective, path: limits.idle_days, op: eq, value: 7}
     traces_to: [R8, G4, QBC-93]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e5-AC10
@@ -666,16 +666,16 @@ criteria:
     given:
       - repo: {name: project, state: tracking_issue_open}
       - history: {fixture: tracking_issue_idle_20_days, period: v2}
-      - config: {state: override, key: limits.idle_days, value: 14}
+      - config: {state: override, key: limits.idle_days, value: 7}
       - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
     when:
       bh: {sub: run}
     then:
       - fact: {kind: idle_tracking, count: 1}
       - exit_code: {code: 0}
-      - jobs: {assert: none_of_kind, values: [timer]}
+      - jobs: {assert: absent, values: [timer]}
     traces_to: [R8, G5, QBC-93]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e6-AC1
@@ -692,7 +692,7 @@ criteria:
       - api_call: {service: github, operation: createProject, count: 1}
       - api_call: {service: github, operation: createLabel, count: 3}
     traces_to: [R8, QBC-87, QBC-94]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names no argument for the setup run and not the label names; the row counts three labels (decision, slice, defect) and uses the arg setup"
 
@@ -711,7 +711,7 @@ criteria:
       - api_call: {service: github, operation: createLabel, count: 0}
       - exit_code: {code: 0}
     traces_to: [R8, G4, QBC-94]
-    method: test
+    verification: test
     deterministic: true
 
   - id: e6-AC3
@@ -730,5 +730,5 @@ criteria:
       - exit_code: {code: 0}
       - questions_asked: {count: 1}
     traces_to: [R8, G4, QBC-94]
-    method: test
+    verification: test
     deterministic: true

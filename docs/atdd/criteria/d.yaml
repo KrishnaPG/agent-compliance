@@ -1,6 +1,6 @@
 # Slice d, Flow (#11). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
 slice: d
-criteria:
+acceptance:
   # ---------------------------------------------------------------- d0
   - id: d0-AC1
     scenario: A valid packet fixture validates against the one packet schema
@@ -14,7 +14,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R5, R3, QBC-24, QBC-31]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the bullet prescribes one contract read by three roles; the row asserts the observable half (the instance validates against the one schema); the enforce rows prove the shared reading"
 
@@ -31,7 +31,7 @@ criteria:
       - field: {source: packet, path: id, op: present}
       - field: {source: packet, path: parent_issue, op: present}
     traces_to: [R5, QBC-24]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d0-AC3
@@ -48,7 +48,7 @@ criteria:
       - field: {source: packet, path: goal, op: present}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, P6, QBC-24, QBC-42]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"the intent and why, with no design\" is checked only through the design-field rejection in d0-AC11"
 
@@ -66,32 +66,35 @@ criteria:
       - field: {source: packet, path: applies, op: contains, value: QBC-24}
       - field: {source: packet, path: "applies[*].text", op: in_file, value: docs/spec/quality-by-construction.md}
     traces_to: [R5, P1, QBC-38]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d0-AC5
-    scenario: constraints and the rest of the field list are present
+    scenario: "constraints and the rest of the field list are present"
     covers: [7, 9, 10, 11]
-    spec_ref: [L2.definition-of-done]
+    spec_ref: ["L2.definition-of-done"]
     given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
+      - repo: {name: "toy", state: "base"}
+      - packet: {fixture: "toy_item", variant: "valid"}
     when:
-      program_step: {step: assemble_packet, item: toy_item}
+      program_step: {step: "assemble_packet", item: "toy_item"}
     then:
-      - field: {source: packet, path: constraints, op: present}
-      - field: {source: packet, path: verifier, op: present}
-      - field: {source: packet, path: paved_road, op: present}
-      - field: {source: packet, path: definition_of_done, op: present}
-    traces_to: [R5, G3, QBC-33, QBC-37, QBC-38]
-    method: test
+      - field: {source: "packet", path: "constraints.decisions[*].id", op: "present"}
+      - field: {source: "packet", path: "constraints.decisions[*].text", op: "present"}
+      - field: {source: "packet", path: "constraints.owners[*]", op: "present"}
+      - field: {source: "packet", path: "constraints.interfaces[*]", op: "present"}
+      - field: {source: "packet", path: "constraints.declared_paths[*]", op: "present"}
+      - field: {source: "packet", path: "constraints.limits", op: "present"}
+      - field: {source: "packet", path: "verifier.checks[*]", op: "present"}
+      - field: {source: "packet", path: "paved_road.check_command", op: "present"}
+      - field: {source: "packet", path: "definition_of_done", op: "present"}
+    traces_to: ["R5", "G3", "QBC-33", "QBC-37", "QBC-38"]
+    verification: test
     deterministic: true
-    plan_gap: "the parts inside constraints (decision lines, owners, interfaces, paths, limits) have no named sub-fields, so only the field's presence is asserted"
-
   - id: d0-AC6
     scenario: Every acceptance scenario carries an id, traces_to and a verification from the closed four
     covers: [8]
-    spec_ref: [L2.ids-traceability-verification-method-per-criterion, L2.acceptance-criteria]
+    spec_ref: [L2.ids-traceability-verification-method-per-acceptance-item, L2.acceptance-criteria]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -102,7 +105,7 @@ criteria:
       - field: {source: packet, path: "acceptance[*].traces_to", op: present}
       - field: {source: packet, path: "acceptance[*].verification", op: matches, value: "^(test|lint|fitness|measure)$"}
     traces_to: [R5, QBC-39]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d0-AC7
@@ -118,8 +121,8 @@ criteria:
       - field: {source: packet, path: "overflow[*].path", op: exists}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, QBC-33]
-    method: test
-    plan_gap: "the field name overflow[*].path is proposed for d0; the plan names no field for the moved text"
+    verification: test
+    plan_gap: "overflow[*].path awaits the owner's decision (docs/atdd/fields.yaml); the plan names no field for the moved text"
     deterministic: true
 
   - id: d0-AC8
@@ -135,14 +138,14 @@ criteria:
       - schema_valid: {valid: false, instance: "packet", schema: "harness/schema/packet.schema.json"}
       - teaching: {channel: stderr, wrong: "packet has a design field", right: "the goal states the intent and why, with no design", prevent: "put the design in the declared contract, schema or role delta file, not in the packet"}
     traces_to: [R5, P1, QBC-42, QBC-37]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets"
 
   - id: d0-AC9
     scenario: A scenario without traces_to fails validation and teaches
     covers: [13]
-    spec_ref: [L2.ids-traceability-verification-method-per-criterion]
+    spec_ref: [L2.ids-traceability-verification-method-per-acceptance-item]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: scenario_without_traces_to}
@@ -152,14 +155,14 @@ criteria:
       - schema_valid: {valid: false, instance: "packet", schema: "harness/schema/packet.schema.json"}
       - teaching: {channel: stderr, wrong: "scenario without traces_to", right: "traces_to lists a G, P, R or QBC id", prevent: "give every acceptance scenario traces_to before the packet is accepted"}
     traces_to: [R5, QBC-39]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets"
 
   - id: d0-AC10
     scenario: A scenario without verification fails validation and teaches
     covers: [13]
-    spec_ref: [L2.ids-traceability-verification-method-per-criterion]
+    spec_ref: [L2.ids-traceability-verification-method-per-acceptance-item]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: scenario_without_verification}
@@ -169,7 +172,7 @@ criteria:
       - schema_valid: {valid: false, instance: "packet", schema: "harness/schema/packet.schema.json"}
       - teaching: {channel: stderr, wrong: "scenario without verification", right: "verification is one of test, lint, fitness, measure", prevent: "give every acceptance scenario a verification (ISO/IEC/IEEE 29148) before the packet is accepted"}
     traces_to: [R5, QBC-39]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets"
 
@@ -186,7 +189,7 @@ criteria:
       - same_result: {a: check_run_checks, b: measure_run_checks, compare: equal}
       - same_result: {a: check_run_checks, b: packet_verifier_list, compare: equal}
     traces_to: [R5, G3, QBC-24, QBC-37]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d0-AC12
@@ -201,7 +204,7 @@ criteria:
     then:
       - snapshot: {name: toy_item_packet_markdown}
     traces_to: [R5, QBC-24, QBC-38]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d1
@@ -217,7 +220,7 @@ criteria:
       - schema_valid: {valid: true}
       - field: {source: packet, path: constraints, op: present}
     traces_to: [R5, QBC-24, QBC-37, QBC-38]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"cited by id\" names no id format, so only the presence of constraints is asserted"
 
@@ -234,7 +237,7 @@ criteria:
       - no_fact: {kind: launch_refused}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R5, P4, QBC-42]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d1-AC3
@@ -249,7 +252,7 @@ criteria:
       - threshold: {metric: planner_fields_tokens, op: le, bound: sizing.packet_tokens, default: 1600}
       - no_fact: {kind: over_cap}
     traces_to: [P8, QBC-33]
-    method: measure
+    verification: measure
     deterministic: true
     plan_gap: "the fixture must hold large program-written fields and small planner-written fields; the plan names no fixture"
 
@@ -267,8 +270,8 @@ criteria:
       - field: {source: packet, path: "overflow[*].path", op: exists}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [P8, QBC-33, QBC-40]
-    method: test
-    plan_gap: "the field name overflow[*].path is proposed for d0; the plan names no field for the moved text"
+    verification: test
+    plan_gap: "overflow[*].path awaits the owner's decision (docs/atdd/fields.yaml); the plan names no field for the moved text"
     deterministic: true
 
   - id: d1-AC5
@@ -283,7 +286,7 @@ criteria:
       - no_fact: {kind: launch_refused}
       - fact: {kind: over_cap}
     traces_to: [P4, QBC-33, QBC-40]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d2
@@ -296,13 +299,13 @@ criteria:
     when:
       program_step: {step: assemble_packet, item: toy_item}
     then:
-      - jobs: {assert: none_of_kind, values: [planner, judge, test_author, builder, reviewer]}
+      - jobs: {assert: absent, values: [planner, judge, test_author, builder, reviewer]}
       - field: {source: packet, path: acceptance, op: present}
       - field: {source: packet, path: verifier, op: present}
       - field: {source: packet, path: paved_road, op: present}
       - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [G3, R5, QBC-24, QBC-38]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d2-AC2
@@ -318,42 +321,47 @@ criteria:
       - file_unchanged: {target: orchestrator_packet}
       - refused: {by: sandbox, wrong: "write to the clone's packet directory", right: "the orchestrator writes the packet; ask to be relaunched with a changed one", prevent: "the packet directory is read-only in the clone"}
     traces_to: [R5, QBC-24, QBC-49]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan gives no refusal text for a write into the packet directory; substrings are best guesses from the packet's read-only role"
 
   - id: d2-AC3
-    scenario: The packet shows the acceptance test paths and the targets with numbers
+    scenario: "The packet shows the acceptance test paths and the targets with numbers"
     covers: [1]
     given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
+      - repo: {name: "toy", state: "base"}
+      - packet: {fixture: "toy_item", variant: "valid"}
     when:
-      program_step: {step: assemble_packet, item: toy_item}
+      program_step: {step: "assemble_packet", item: "toy_item"}
     then:
-      - field: {source: packet, path: verifier, op: matches, value: "[0-9]"}
-      - field: {source: packet, path: "acceptance[*].id", op: present}
-    traces_to: [G3, R5, QBC-24, QBC-38]
-    method: test
+      - field: {source: "packet", path: "verifier.acceptance_paths[*]", op: "present"}
+      - field: {source: "packet", path: "verifier.targets[*].item", op: "present"}
+      - field: {source: "packet", path: "verifier.targets[*].metric", op: "present"}
+      - field: {source: "packet", path: "verifier.targets[*].op", op: "present"}
+      - field: {source: "packet", path: "verifier.targets[*].value", op: "present"}
+      - field: {source: "packet", path: "verifier.targets[*].unit", op: "present"}
+      - field: {source: "packet", path: "acceptance[*].id", op: "present"}
+    traces_to: ["G3", "R5", "QBC-24", "QBC-38"]
+    verification: test
     deterministic: true
-    plan_gap: "the field holding the test paths is not named, so only acceptance ids and a number in the verifier list are asserted"
-
   - id: d2-AC4
-    scenario: On the toy with presets applied the packet carries the enabled rules with their teaching messages and the ratchet baselines
+    scenario: "On the toy with presets applied the packet carries the enabled rules with their teaching messages and the ratchet baselines"
     covers: [2]
     given:
-      - repo: {name: toy, state: presets_applied}
-      - packet: {fixture: toy_item, variant: valid}
+      - repo: {name: "toy", state: "presets_applied"}
+      - packet: {fixture: "toy_item", variant: "valid"}
     when:
-      program_step: {step: render_packet, item: toy_item}
+      program_step: {step: "render_packet", item: "toy_item"}
     then:
-      - output_contains: {channel: packet_markdown, text: DTZ}
-      - output_contains: {channel: packet_markdown, text: baseline}
-      - lines: {channel: stdout, pattern: "DTZ", op: ge, count: 1}
-    traces_to: [G3, QBC-38, QBC-54]
-    method: test
+      - output_contains: {channel: "packet_markdown", text: "DTZ"}
+      - output_contains: {channel: "packet_markdown", text: "baseline"}
+      - lines: {channel: "stdout", pattern: "DTZ", op: "ge", count: 1}
+      - field: {source: "packet", path: "verifier.rules[*].message", op: "present"}
+      - field: {source: "packet", path: "verifier.baselines[*]", op: "present"}
+    traces_to: ["G3", "QBC-38", "QBC-54"]
+    verification: test
     deterministic: true
-    plan_gap: "the right-way line's text and the layout of the rules in the packet are not given; the row asserts the DTZ rule code, its message and the baselines appear in the rendering"
+    plan_gap: "the plan gives no right-way text for the DTZ rule; the row asserts the rule code in the rendering and that each rule carries a message"
   - id: d2-AC5
     scenario: The packet holds the text of every cited rule and decision line
     covers: [3]
@@ -364,42 +372,39 @@ criteria:
       program_step: {step: assemble_packet, item: toy_item}
     then:
       - field: {source: packet, path: applies, op: present}
-      - field: {source: packet, path: "constraints[*].text", op: in_file, value: docs/adr/toy_item.md}
+      - field: {source: packet, path: "constraints.decisions[*].text", op: in_file, value: docs/adr/toy_item.md}
     traces_to: [R5, QBC-24, QBC-38]
-    method: test
+    verification: test
     plan_gap: "the toy fixture decision record path docs/adr/toy_item.md is assumed"
     deterministic: true
 
   - id: d2-AC6
-    scenario: The paved road names bh check
+    scenario: "The paved road names bh check"
     covers: [4]
     given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
+      - repo: {name: "toy", state: "base"}
+      - packet: {fixture: "toy_item", variant: "valid"}
     when:
-      program_step: {step: assemble_packet, item: toy_item}
+      program_step: {step: "assemble_packet", item: "toy_item"}
     then:
-      - field: {source: packet, path: paved_road, op: contains, value: bh check}
-    traces_to: [G1, G3, QBC-24, QBC-49]
-    method: test
+      - field: {source: "packet", path: "paved_road.check_command", op: "eq", value: "bh check"}
+    traces_to: ["G1", "G3", "QBC-24", "QBC-49"]
+    verification: test
     deterministic: true
-
   - id: d2-AC7
-    scenario: The paved road says where the builder's tests go and the dependency command
+    scenario: "The paved road says where the builder's tests go and the dependency command"
     covers: [5]
     given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
+      - repo: {name: "toy", state: "base"}
+      - packet: {fixture: "toy_item", variant: "valid"}
     when:
-      program_step: {step: assemble_packet, item: toy_item}
+      program_step: {step: "assemble_packet", item: "toy_item"}
     then:
-      - field: {source: packet, path: paved_road, op: present}
-      - field: {source: packet, path: paved_road, op: matches, value: "(?i)test"}
-    traces_to: [G3, P7, QBC-24, QBC-38]
-    method: test
+      - field: {source: "packet", path: "paved_road.test_paths[*]", op: "present"}
+      - field: {source: "packet", path: "paved_road.dependency_command", op: "present"}
+    traces_to: ["G3", "P7", "QBC-24", "QBC-38"]
+    verification: test
     deterministic: true
-    plan_gap: "the dependency command comes from c1 and is not named here; the row asserts only that the road mentions where tests go"
-
   - id: d2-AC8
     scenario: The packet names the tier-trigger paths
     covers: [6]
@@ -411,7 +416,7 @@ criteria:
     then:
       - output_contains: {channel: packet_markdown, text: tiers.triggers}
     traces_to: [R5, QBC-24, QBC-38]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not say how the trigger paths are shown; the limits key tiers.triggers from d9 is used as the marker"
 
@@ -426,7 +431,7 @@ criteria:
     then:
       - output_contains: {channel: packet_markdown, text: program commits}
     traces_to: [R5, QBC-24, QBC-57]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "wording of the statement is not given; the row uses the plan's own phrase"
 
@@ -441,7 +446,7 @@ criteria:
     then:
       - output_contains: {channel: packet_markdown, text: final report}
     traces_to: [G3, R5, QBC-24, QBC-54]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d3
@@ -459,7 +464,7 @@ criteria:
       - teaching: {channel: stdout, wrong: "naive datetime without a timezone", right: "use a timezone-aware datetime", prevent: "run bh check before finishing so the lint rule reports it"}
       - file_unchanged: {target: outside_checkout}
     traces_to: [G1, R5, QBC-16]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan prescribes how the check runs (temp dir, shared code); the observable consequence is the teaching output and the equality in d3-AC5"
 
@@ -477,7 +482,7 @@ criteria:
       - exit_code: {code: 0}
       - no_fact: {kind: launch_refused}
     traces_to: [G1, QBC-55]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d3-AC3
@@ -494,7 +499,7 @@ criteria:
     then:
       - exit_code: {code: 0}
     traces_to: [G3, QBC-51, QBC-55]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"tools pinned and installed at setup\" prescribes setup; the row asserts the observable result (a full offline run)"
 
@@ -513,7 +518,7 @@ criteria:
       - output_contains: {channel: stdout, text: fresh-stack}
       - lines: {channel: stdout, pattern: "@teaching_shape|fresh-stack", every: true}
     traces_to: [G3, R5, QBC-16, QBC-55]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d3-AC5
@@ -529,7 +534,7 @@ criteria:
     then:
       - same_result: {a: check_missed_checks, b: measure_missed_checks, compare: equal}
     traces_to: [G1, G3, R5, QBC-16]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d3-AC6
@@ -546,7 +551,7 @@ criteria:
       - no_fact: {kind: stuck}
       - exit_code: {code: 0}
     traces_to: [R5, QBC-51]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d4
@@ -560,9 +565,9 @@ criteria:
       program_step: {step: launch_builder, item: toy_item}
     then:
       - file_unchanged: {target: orchestrator_packet}
-      - field: {source: job_record, path: "jobs[*].packet_sha256", op: eq, value: $packet_sha256}
+      - field: {source: result_json, path: "jobs[*].packet_sha256", op: eq, value: $packet_sha256}
     traces_to: [R5, QBC-24, QBC-48]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the bullet prescribes the storage mechanism; the row asserts the digest of the orchestrator copy is stable across a launch"
 
@@ -579,7 +584,7 @@ criteria:
       - field: {source: hook_output, path: additionalContext, op: present}
       - output_contains: {channel: additional_context, text: goal}
     traces_to: [R5, QBC-46, QBC-49]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d4-AC3
@@ -595,7 +600,7 @@ criteria:
       - field: {source: hook_output, path: additionalContext, op: absent}
       - exit_code: {code: 0}
     traces_to: [R5, QBC-49]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"arrives once\" does not say what a repeat looks like; the row treats a repeat touch as absent context"
 
@@ -611,7 +616,7 @@ criteria:
       - field: {source: launch_args, path: prompt, op: present}
       - field: {source: launch_args, path: prompt, op: not_contains, value: goal}
     traces_to: [R5, QBC-46, QBC-49]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the fixed line's text is not given; the row asserts it is present and that it holds no goal text"
 
@@ -625,9 +630,9 @@ criteria:
       builder_action: {tool: Edit, action: edit, target: clone_packet}
     then:
       - file_unchanged: {target: orchestrator_packet}
-      - field: {source: job_record, path: "jobs[*].packet_sha256", op: eq, value: $packet_sha256}
+      - field: {source: result_json, path: "jobs[*].packet_sha256", op: eq, value: $packet_sha256}
     traces_to: [R5, P6, QBC-24, QBC-48]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d4-AC6
@@ -641,26 +646,26 @@ criteria:
       - scan_count: {op: eq, value: 0}
       - field: {source: hooks_json, path: hooks.SessionStart, op: present}
     traces_to: [R5, QBC-49]
-    method: lint
+    verification: lint
     deterministic: true
 
   # ---------------------------------------------------------------- d5
   - id: d5-AC1
-    scenario: The trigger list is data, each trigger carries the fresh-stack flag
+    scenario: "The trigger list is data, each trigger carries the fresh-stack flag"
     covers: [1]
     given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: absent}
+      - repo: {name: "plugin", state: "candidate"}
+      - config: {state: "absent"}
     when:
-      bh: {sub: owners, args: ["--config"]}
+      bh: {sub: "owners", args: ["--config"]}
     then:
-      - field: {source: config_effective, path: tiers.triggers, op: present}
-      - field: {source: config_effective, path: "tiers.triggers[*].fresh_stack", op: present}
-    traces_to: [R6, P8, QBC-25, QBC-27]
-    method: test
+      - field: {source: "config_effective", path: "tiers.triggers", op: "present"}
+      - field: {source: "config_effective", path: "tiers.triggers[*].fresh_stack", op: "present"}
+      - field: {source: "config_effective", path: "tiers.triggers[*].paths", op: "present"}
+      - field: {source: "config_effective", path: "tiers.triggers[*].tier", op: "eq", value: "design-affecting"}
+    traces_to: ["R6", "P8", "QBC-25", "QBC-27"]
+    verification: test
     deterministic: true
-    plan_gap: "the flag's field name is not given; fresh_stack is assumed from the bullet's wording"
-
   - id: d5-AC2
     scenario: An override of the trigger list changes the tier
     covers: [1]
@@ -675,7 +680,7 @@ criteria:
       - field: {source: config_effective, path: tiers.triggers, op: eq, value: []}
       - no_fact: {kind: re_queue}
     traces_to: [R6, P8, QBC-27]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d5-AC3
@@ -692,7 +697,7 @@ criteria:
       - field: {source: result_json, path: "items[*].tier", op: eq, value: mechanical}
       - no_fact: {kind: re_queue}
     traces_to: [R6, P6, QBC-30]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d5-AC4
@@ -709,7 +714,7 @@ criteria:
       - field: {source: result_json, path: "items[*].tier", op: eq, value: mechanical}
       - no_fact: {kind: re_queue}
     traces_to: [R6, QBC-30]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d5-AC5
@@ -726,7 +731,7 @@ criteria:
       - fact: {kind: re_queue, detail: "from paths"}
       - fact: {kind: tier, detail: design-affecting}
     traces_to: [R6, P6, QBC-25, QBC-30]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the re-queue fact is \"tier X from paths Y\"; tier names are taken from the plan heading (design-affecting, mechanical)"
 
@@ -743,7 +748,7 @@ criteria:
     then:
       - fact: {kind: tier, detail: design-affecting}
     traces_to: [R6, QBC-30]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d5-AC7
@@ -758,7 +763,7 @@ criteria:
       - fact: {kind: tier, detail: "from paths"}
       - field: {source: packet, path: tier, op: present}
     traces_to: [R6, QBC-25]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "which declared path hits a trigger is a fixture choice; the plan gives no example"
 
@@ -775,7 +780,7 @@ criteria:
       - fact: {kind: re_queue, detail: "from paths"}
       - fact: {kind: tier}
     traces_to: [R6, P6, QBC-25, QBC-27]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d6
@@ -793,7 +798,7 @@ criteria:
       - jobs: {assert: distinct, values: [test_author, builder]}
       - field: {source: packet, path: "acceptance[*].verification", op: present}
     traces_to: [R3, P6, QBC-31, QBC-34]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"writes no test code\" has no observable output named in the plan; it is proven only by the generator rows that produce every test"
 
@@ -809,24 +814,24 @@ criteria:
     then:
       - schema_valid: {valid: true, instance: packet, schema: docs/atdd/criteria.schema.json}
     traces_to: [R3, P3, QBC-31]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d6-AC3
     scenario: The generator, with no agent, turns each row into exactly one test and a manifest entry
     covers: [2]
-    spec_ref: [L3.criteria-to-tests, L3.traceability, enforce.2]
+    spec_ref: [L3.acceptance-criteria-to-tests, L3.traceability, enforce.2]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
     when:
       program_step: {step: generate_tests, item: toy_item}
     then:
-      - jobs: {assert: none_of_kind, values: [generator]}
+      - jobs: {assert: program_only, values: [generator]}
       - same_result: {a: manifest_criterion_ids, b: packet_criterion_ids, compare: equal}
       - same_result: {a: manifest_test_node_ids, b: manifest_test_node_ids_distinct, compare: equal}
     traces_to: [R3, P3, QBC-31, QBC-41]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "one test per row is asserted as equal id lists and distinct test node ids"
 
@@ -842,7 +847,7 @@ criteria:
     then:
       - field: {source: manifest, path: "toy_item-AC1", op: contains, value: toy_item-AC1}
     traces_to: [R3, QBC-31]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the marker form is not named; the manifest node id is asserted to carry the criterion id"
 
@@ -855,9 +860,9 @@ criteria:
     when:
       program_step: {step: generate_tests, item: toy_item}
     then:
-      - git: {assert: path_in_plan_commit, path: $acceptance_paths}
+      - git: {assert: path_in_plan_commit, path: $packet.verifier.acceptance_paths}
     traces_to: [R3, QBC-31, QBC-41]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the manifest's own path is not named, so only the acceptance test paths are asserted"
 
@@ -873,16 +878,16 @@ criteria:
     then:
       - file_unchanged: {target: acceptance_tests}
       - refused: {by: file_tools, wrong: "edit of a protected acceptance test", right: "ask the test author to change the row and regenerate the test", prevent: "acceptance test paths are protected from the builder"}
-      - git: {assert: path_in_plan_commit, path: $acceptance_paths}
+      - git: {assert: path_in_plan_commit, path: $packet.verifier.acceptance_paths}
     traces_to: [R3, QBC-31, QBC-41]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan states no refusal text for an edit of a protected test; substrings are best guesses"
 
   - id: d6-AC7
     scenario: A row whose keyword the generator does not implement is a fact with teaching, never an empty test
     covers: [3]
-    spec_ref: [L3.criteria-to-tests]
+    spec_ref: [L3.acceptance-criteria-to-tests]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -894,7 +899,7 @@ criteria:
       - teaching: {channel: fact, wrong: "the generator does not implement the keyword questions_asked", right: "implement questions_asked in the generator or change the row's keyword", prevent: "add the keyword's implementation before the row enters the packet"}
       - field: {source: manifest, path: "toy_item-AC9", op: absent}
     traces_to: [R3, P6, QBC-31, QBC-41]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "which keyword the planted row uses is a fixture choice; questions_asked is assumed"
 
@@ -913,7 +918,7 @@ criteria:
       - fact: {kind: red}
       - no_fact: {kind: red_by_error}
     traces_to: [R3, QBC-31, QBC-41]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d6-AC9
@@ -930,7 +935,7 @@ criteria:
       - fact: {kind: red_by_error}
       - jobs: {assert: order, values: [test_author, generator, test_author, generator, builder]}
     traces_to: [R3, P6, QBC-34, QBC-41]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d6-AC10
@@ -946,7 +951,7 @@ criteria:
       - jobs: {assert: order, values: [test_author, generator, builder]}
       - fact: {kind: regression_recorded, detail: parent}
     traces_to: [R3, R9, QBC-31]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d6-AC11
@@ -962,7 +967,7 @@ criteria:
       - fact: {kind: regression_recorded, detail: parent}
       - jobs: {assert: distinct, values: [finder, builder]}
     traces_to: [R3, R9, QBC-31]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "how the finder's row reaches the packet is not stated; the row asserts the recorded regression fact and distinct finder and builder jobs"
 
@@ -978,9 +983,9 @@ criteria:
     then:
       - jobs: {assert: order, values: [test_author, generator, builder, measurer]}
       - jobs: {assert: distinct, values: [test_author, generator, builder, measurer]}
-      - jobs: {assert: none_of_kind, values: [generator]}
+      - jobs: {assert: program_only, values: [generator]}
     traces_to: [R3, P6, QBC-34, QBC-82]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d6-AC13
@@ -995,7 +1000,7 @@ criteria:
       - junit: {failures: 0, errors: 0, tests_min: 1}
       - field: {source: manifest, path: "a1-AC1", op: present}
     traces_to: [R3, R9, QBC-82]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the bootstrap's manifest location is not named; the row checks the manifest holds a criterion of slice a"
 
@@ -1012,7 +1017,7 @@ criteria:
       - fact: {kind: gap}
       - teaching: {channel: fact, wrong: "test without a criterion", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
     traces_to: [R3, P6, QBC-31]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
 
@@ -1029,7 +1034,7 @@ criteria:
       - fact: {kind: gap}
       - teaching: {channel: fact, wrong: "criterion without a test", right: "tests are generated from the packet's rows, one per criterion", prevent: "regenerate the tests from the packet instead of writing them by hand"}
     traces_to: [R3, P6, QBC-31]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "no message text is given; substrings follow the enforcement paragraph's wording"
   # ---------------------------------------------------------------- d7
@@ -1044,9 +1049,9 @@ criteria:
       bh: {sub: run}
     then:
       - field: {source: packet, path: constraints, op: present}
-      - git: {assert: path_in_plan_commit, path: $declared_paths}
+      - git: {assert: path_in_plan_commit, path: $packet.constraints.declared_paths}
     traces_to: [P6, QBC-26]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the delta file's name and the declared-paths field are not named"
 
@@ -1061,12 +1066,11 @@ criteria:
       bh: {sub: run}
     then:
       - jobs: {assert: present, values: [judge]}
-      - field: {source: job_record, path: objections, op: present}
-      - field: {source: job_record, path: falsifying_calls, op: present}
+      - field: {source: result_json, path: "jobs[*].objections", op: present}
+      - field: {source: result_json, path: "jobs[*].falsifying_calls", op: present}
     traces_to: [P6, QBC-26, QBC-69]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the job record's field paths are assumed to equal the judge's output keys"
 
   - id: d7-AC3
     scenario: Each falsifying call becomes a target and each objection a fact
@@ -1081,7 +1085,7 @@ criteria:
       - fact: {kind: judge_objection, count: 2}
       - same_result: {a: judge_falsifying_calls, b: item_new_targets, compare: equal}
     traces_to: [P4, QBC-26, QBC-41]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "item_new_targets is the targets added by the judge, not all targets; \"shown to the approver\" is read as listed in the run report"
 
@@ -1100,7 +1104,7 @@ criteria:
       - jobs: {assert: present, values: [builder]}
       - exit_code: {code: 0}
     traces_to: [P4, G1, QBC-69]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d7-AC5
@@ -1116,7 +1120,7 @@ criteria:
       - jobs: {assert: order, values: [planner, judge, test_author, builder]}
       - jobs: {assert: distinct, values: [planner, judge, test_author, builder]}
     traces_to: [P6, QBC-26, QBC-41]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d8
@@ -1130,7 +1134,7 @@ criteria:
     then:
       - field: {source: hooks_json, path: "hooks[*].onFailure", op: eq, value: block}
     traces_to: [R5, P5, QBC-43, QBC-44]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the hooks.json layout is not given, so the path is a best guess"
 
@@ -1145,7 +1149,7 @@ criteria:
     then:
       - refused: {by: hook, wrong: "No work packet for this clone", right: "Builders start from a packet the orchestrator writes", prevent: "Stop and ask to be relaunched with one"}
     traces_to: [R5, P5, QBC-44, QBC-47]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC3
@@ -1159,7 +1163,7 @@ criteria:
     then:
       - refused: {by: hook, wrong: "No work packet for this clone", right: "Builders start from a packet the orchestrator writes", prevent: "Stop and ask to be relaunched with one"}
     traces_to: [R5, P5, QBC-44, QBC-47]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC4
@@ -1173,7 +1177,7 @@ criteria:
     then:
       - exit_code: {code: 0}
     traces_to: [R5, QBC-44]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC5
@@ -1189,7 +1193,7 @@ criteria:
       - fact: {kind: h0_bypass, count: 1}
       - exit_code: {code: 0}
     traces_to: [R5, P5, QBC-45, QBC-47]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"adds QBC-47's line\" does not say whether the builder or the orchestrator message; the builder text is asserted"
 
@@ -1206,7 +1210,7 @@ criteria:
       - fact: {kind: h0_bypass}
       - fact: {kind: scope}
     traces_to: [R5, QBC-45, QBC-46]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC7
@@ -1223,7 +1227,7 @@ criteria:
       - fact: {kind: scope}
       - exit_code: {code: 0}
     traces_to: [R5, P5, P4, QBC-29, QBC-50]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"written through the scope-fact writer\" prescribes a mechanism; the observable consequence is the recorded scope fact"
 
@@ -1240,7 +1244,7 @@ criteria:
       - field: {source: hook_output, path: additionalContext, op: absent}
       - exit_code: {code: 0}
     traces_to: [P5, QBC-50]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC9
@@ -1257,7 +1261,7 @@ criteria:
       - no_fact: {kind: scope}
       - exit_code: {code: 0}
     traces_to: [P5, QBC-29, QBC-50]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC10
@@ -1271,7 +1275,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
       - field: {source: hooks_json, path: hooks.PreToolUse, op: present}
     traces_to: [P4, QBC-43]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan states the rule, not the scan pattern; the pattern approximates reading contents"
 
@@ -1287,7 +1291,7 @@ criteria:
       - exit_code: {code: 0}
       - field: {source: hook_output, path: additionalContext, op: absent}
     traces_to: [R5, QBC-46]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d8-AC12
@@ -1302,7 +1306,7 @@ criteria:
       - exit_code: {code: 0}
       - field: {source: hook_output, path: additionalContext, op: absent}
     traces_to: [R5, QBC-46]
-    method: test
+    verification: test
     deterministic: true
 
   # ---------------------------------------------------------------- d9
@@ -1318,7 +1322,7 @@ criteria:
       - field: {source: config_effective, path: limits.message_chars, op: eq, value: 120}
       - field: {source: config_effective, path: limits.findings_shown, op: eq, value: 10}
     traces_to: [P8, QBC-13, QBC-27, QBC-32]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"one table\" prescribes design; the row asserts the effective value of an overridden key and an untouched key"
 
@@ -1337,7 +1341,7 @@ criteria:
       - field: {source: config_effective, path: limits.findings_shown, op: eq, value: 10}
       - field: {source: config_effective, path: limits.h2_chars, op: eq, value: 200}
     traces_to: [P8, QBC-13, QBC-33]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d9-AC3
@@ -1356,29 +1360,31 @@ criteria:
       - field: {source: config_effective, path: limits.idle_days, op: eq, value: 14}
       - field: {source: config_effective, path: limits.known_issues, op: eq, value: 100}
     traces_to: [P8, QBC-27, QBC-32, QBC-90]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d9-AC4
-    scenario: Default overhead, socket, eval, model and tier-trigger settings
+    scenario: "Default overhead, socket, eval, model and tier-trigger settings"
     covers: [12, 13, 14, 15, 16, 17]
     given:
-      - repo: {name: plugin, state: candidate}
-      - config: {state: absent}
+      - repo: {name: "plugin", state: "candidate"}
+      - config: {state: "absent"}
     when:
-      bh: {sub: owners, args: ["--config"]}
+      bh: {sub: "owners", args: ["--config"]}
     then:
-      - field: {source: config_effective, path: limits.measure_overhead_s, op: eq, value: 2}
-      - field: {source: config_effective, path: limits.socket_groups, op: contains, value: docker}
-      - field: {source: config_effective, path: sandbox.allow_all_unix_sockets, op: eq, value: false}
-      - field: {source: config_effective, path: evals.runs, op: eq, value: 3}
-      - field: {source: config_effective, path: models, op: present}
-      - field: {source: config_effective, path: tiers.triggers, op: present}
-    traces_to: [P8, QBC-27, QBC-32, QBC-55]
-    method: test
+      - field: {source: "config_effective", path: "limits.measure_overhead_s", op: "eq", value: 2}
+      - field: {source: "config_effective", path: "limits.socket_groups", op: "contains", value: "docker"}
+      - field: {source: "config_effective", path: "sandbox.network.allowAllUnixSockets", op: "eq", value: false}
+      - field: {source: "config_effective", path: "evals.runs", op: "eq", value: 3}
+      - field: {source: "config_effective", path: "tiers.triggers", op: "present"}
+      - field: {source: "config_effective", path: "models.planner", op: "present"}
+      - field: {source: "config_effective", path: "models.judge", op: "present"}
+      - field: {source: "config_effective", path: "models.test_author", op: "present"}
+      - field: {source: "config_effective", path: "models.builder", op: "present"}
+      - field: {source: "config_effective", path: "models.reviewer", op: "present"}
+    traces_to: ["P8", "QBC-27", "QBC-32", "QBC-55"]
+    verification: test
     deterministic: true
-    plan_gap: "\"models per role\" gives no role names or values, so only the presence of the table is asserted"
-
   - id: d9-AC5
     scenario: "An override changes behaviour: a lower H2 limit shortens the hook line"
     covers: [18]
@@ -1392,7 +1398,7 @@ criteria:
     then:
       - output_contains: {channel: additional_context, text: owner, max_chars: 60}
     traces_to: [P8, QBC-13, QBC-27]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d9-AC6
@@ -1407,7 +1413,7 @@ criteria:
       - threshold: {metric: concurrent_agents, op: le, bound: concurrency, default: 5}
       - fact: {kind: tier}
     traces_to: [P8, QBC-27, QBC-33]
-    method: measure
+    verification: measure
     deterministic: true
 
   - id: d9-AC7
@@ -1420,7 +1426,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 0}
     traces_to: [P8, QBC-27, QBC-90]
-    method: lint
+    verification: lint
     red_on_main: "scan_count eq 0 fails on main: harness/ holds 79 PLR2004 findings"
     deterministic: true
 
@@ -1438,7 +1444,7 @@ criteria:
       - field: {source: skill_md, path: body, op: contains, value: packet}
       - field: {source: skill_md, path: body, op: contains, value: bh check}
     traces_to: [G3, QBC-82]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: d10-AC2
@@ -1451,7 +1457,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, QBC-82]
-    method: lint
+    verification: lint
     red_on_main: "scan_count eq 0 fails on main: skills/harness/SKILL.md names compliance-review and compliance-catalog"
     deterministic: true
 
@@ -1466,7 +1472,7 @@ criteria:
       - field: {source: skill_md, path: body, op: contains, value: bh check}
       - threshold: {metric: skill_chars, op: le, bound: "ref:v1.5.2"}
     traces_to: [R9, QBC-59]
-    method: measure
+    verification: measure
     deterministic: true
 
   # ---------------------------------------------------------------- d11
@@ -1485,7 +1491,7 @@ criteria:
       - jobs: {assert: present, values: [reviewer]}
       - jobs: {assert: distinct, values: [planner, test_author, builder, reviewer]}
     traces_to: [P6, G1, QBC-31, QBC-36]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d11-AC2
@@ -1500,10 +1506,10 @@ criteria:
     when:
       bh: {sub: run}
     then:
-      - jobs: {assert: none_of_kind, values: [reviewer]}
+      - jobs: {assert: absent, values: [reviewer]}
       - jobs: {assert: order, values: [test_author, generator, builder, measurer]}
     traces_to: [P8, QBC-36]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d11-AC3
@@ -1520,7 +1526,7 @@ criteria:
     then:
       - jobs: {assert: present, values: [reviewer]}
     traces_to: [P6, G1, QBC-36]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d11-AC4
@@ -1534,9 +1540,9 @@ criteria:
       bh: {sub: owners, args: ["--review-paths"]}
     then:
       - fact: {kind: inferred, detail: securitySchemes}
-      - field: {source: owners_output, path: review.triggers, op: present}
+      - field: {source: config_effective, path: review.triggers, op: present}
     traces_to: [P4, QBC-36]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "how inferred paths are listed is not stated; the row reads the inferred fact and an effective review.triggers"
 
@@ -1552,7 +1558,7 @@ criteria:
     then:
       - field: {source: config_effective, path: review.triggers, op: eq, value: ["docs/**"]}
     traces_to: [P8, QBC-36]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d11-AC6
@@ -1565,7 +1571,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 0}
     traces_to: [P4, QBC-36]
-    method: lint
+    verification: lint
     red_on_main: "scan_count eq 0 fails on main: harness/lib/bhorch.py holds AUTH_RE"
     deterministic: true
 
@@ -1585,7 +1591,7 @@ criteria:
       - no_fact: {kind: launch_refused}
       - git: {assert: merge_is_one_commit}
     traces_to: [P6, P8, QBC-31, QBC-36]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "\"handed to e5\" is checked only by e5's own rows; here the finding fact is recorded"
 
@@ -1603,7 +1609,7 @@ criteria:
       - schema_valid: {valid: true}
       - field: {source: packet, path: "acceptance[*].verification", op: matches, value: "^(test|lint|fitness|measure)$"}
     traces_to: [R5, QBC-24, QBC-39]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d0-AC14
@@ -1616,12 +1622,12 @@ criteria:
     then:
       - scan_count: {op: ge, value: 1}
     traces_to: [R5, QBC-39]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: d0-AC15
     scenario: Every section 0 item that applies is traced by the packet
-    spec_ref: [L2.ids-traceability-verification-method-per-criterion]
+    spec_ref: [L2.ids-traceability-verification-method-per-acceptance-item]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1631,7 +1637,7 @@ criteria:
       - field: {source: packet, path: applies, op: present}
       - field: {source: packet, path: "applies[*].id", op: covered_by, value: "acceptance[*].traces_to[*]"}
     traces_to: [R5, P1, QBC-38]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d0-AC16
@@ -1646,12 +1652,31 @@ criteria:
     then:
       - file_unchanged: {target: orchestrator_packet}
       - refused: {by: sandbox, wrong: "write to the orchestrator's packet file", right: "only the planner or orchestrator writes the packet", prevent: "the packet file is outside the builder's writable paths"}
-      - field: {source: job_record, path: packet_sha256, op: present}
+      - field: {source: result_json, path: "jobs[*].packet_sha256", op: present}
     traces_to: [R5, P6, QBC-24, QBC-48]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "no refusal text is given for a write to the packet; the sha256 field name in the job record is assumed"
+    plan_gap: "no refusal text is given for a write to the packet"
 
+  - id: d0-AC17
+    scenario: "The packet names its schema version and each acceptance item carries its scenario and its given, when and then steps"
+    covers: [1, 8]
+    spec_ref: ["common.any-json-output", "L2.acceptance-criteria"]
+    given:
+      - repo: {name: "toy", state: "base"}
+      - packet: {fixture: "toy_item", variant: "valid"}
+    when:
+      program_step: {step: "assemble_packet", item: "toy_item"}
+    then:
+      - field: {source: "packet", path: "schema_version", op: "matches", value: "^\\d+\\.\\d+\\.\\d+$"}
+      - field: {source: "packet", path: "acceptance[*].scenario", op: "present"}
+      - field: {source: "packet", path: "acceptance[*].given", op: "present"}
+      - field: {source: "packet", path: "acceptance[*].when", op: "present"}
+      - field: {source: "packet", path: "acceptance[*].then", op: "present"}
+      - schema_valid: {valid: true, instance: "packet", schema: "harness/schema/packet.schema.json"}
+    traces_to: ["R5", "P1", "QBC-24"]
+    verification: test
+    deterministic: true
   - id: d3-AC7
     scenario: bh check reads the same packet and runs the same verifier list as the measurer
     spec_ref: [enforce.3]
@@ -1665,7 +1690,7 @@ criteria:
       - same_result: {a: check_packet_sha256, b: measure_packet_sha256, compare: equal}
       - same_result: {a: check_run_checks, b: measure_run_checks, compare: equal}
     traces_to: [G1, R5, QBC-24, QBC-51]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d4-AC7
@@ -1680,7 +1705,7 @@ criteria:
     then:
       - snapshot: {name: toy_item_packet_markdown}
     traces_to: [R5, QBC-24, QBC-49]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "assumes the delivered context is exactly the rendering, with nothing added by the hook"
 
@@ -1700,7 +1725,7 @@ criteria:
       - field: {source: sarif, path: "runs[*].results[*].level", op: contains, value: warning}
       - schema_valid: {valid: true, instance: sarif, schema: sarif-2.1.0}
     traces_to: [P6, QBC-36]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the mapping Critical or Major to error and Minor to warning needs a fixture whose findings have known severities; assumed in reviewer_mixed_findings"
 
@@ -1719,7 +1744,7 @@ criteria:
       - fact: {kind: review_finding}
       - met: {status: met}
     traces_to: [P6, G1, QBC-36]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the property name for the sha256 is not given; packet_sha256 is assumed"
 
@@ -1737,7 +1762,7 @@ criteria:
       - field: {source: packet, path: verifier, op: present}
       - field: {source: packet, path: paved_road, op: present}
     traces_to: [G3, R5, QBC-24]
-    method: test
+    verification: test
     deterministic: true
 
   - id: d11-AC10
@@ -1753,6 +1778,6 @@ criteria:
     then:
       - field: {source: sarif, path: "runs[*].results[*].properties.cvss_vector", op: matches, value: "^CVSS:4\\.0/"}
     traces_to: [P6, QBC-36]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the property name for the vector is not given; cvss_vector is assumed"

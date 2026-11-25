@@ -6,7 +6,7 @@
   "additionalProperties": false,
   "required": [
     "slice",
-    "criteria"
+    "acceptance"
   ],
   "properties": {
     "slice": {
@@ -21,7 +21,7 @@
         "h"
       ]
     },
-    "criteria": {
+    "acceptance": {
       "type": "array",
       "minItems": 1,
       "items": {
@@ -40,7 +40,7 @@
         "when",
         "then",
         "traces_to",
-        "method",
+        "verification",
         "deterministic"
       ],
       "anyOf": [
@@ -229,7 +229,7 @@
             ]
           }
         },
-        "method": {
+        "verification": {
           "enum": [
             "fitness",
             "lint",
@@ -257,7 +257,7 @@
               "L2.commit-messages-as-facts",
               "L2.definition-of-done",
               "L2.goal-without-method",
-              "L2.ids-traceability-verification-method-per-criterion",
+              "L2.ids-traceability-verification-method-per-acceptance-item",
               "L2.isolation-of-the-measuring-run",
               "L2.measured-results",
               "L2.ratchet-baselines",
@@ -268,7 +268,7 @@
               "L2.success-of-the-whole-flow",
               "L2.teaching-messages",
               "L2.tier-of-a-pin-change",
-              "L3.criteria-to-tests",
+              "L3.acceptance-criteria-to-tests",
               "L3.messages-and-renderings",
               "L3.model-calls-in-tests",
               "L3.results",
@@ -279,9 +279,9 @@
               "L4.tier-of-version-changes",
               "L5.isolation-of-the-run",
               "L5.lint-and-fitness-findings",
-              "L5.per-criterion-verdict-and-facts",
               "L5.success-of-the-flow",
               "L5.test-results",
+              "L5.verdict-for-each-acceptance-id-and-facts",
               "common.any-json-output",
               "common.every-refusal-finding-or-note",
               "common.reference-to-the-contract",
@@ -531,7 +531,7 @@
             },
             "key": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_.\\[\\]*-]+$"
+              "pattern": "^[A-Za-z0-9_.\\[\\]*=-]+$"
             },
             "value": {}
           },
@@ -1228,19 +1228,14 @@
             "source": {
               "enum": [
                 "result_json",
-                "run_report",
                 "packet",
-                "job_record",
                 "config_effective",
-                "owners_output",
-                "metrics_output",
                 "builder_settings",
                 "hook_output",
                 "hooks_json",
                 "skill_md",
                 "eval_report",
                 "register",
-                "vet_output",
                 "baseline_file",
                 "launch_args",
                 "commit_message",
@@ -1251,7 +1246,7 @@
             },
             "path": {
               "type": "string",
-              "pattern": "^[A-Za-z0-9_.\\[\\]*-]+$"
+              "pattern": "^[A-Za-z0-9_.\\[\\]*=-]+$"
             },
             "op": {
               "enum": [
@@ -1276,7 +1271,7 @@
           }
         },
         "jobs": {
-          "description": "The bh job record of the run, as an ordered list of jobs with role, kind and arguments.",
+          "description": "The result JSON's `jobs[*]`, in start order. A job's name is its `role` when `kind` is agent and its `step` when `kind` is program_step.",
           "type": "object",
           "additionalProperties": false,
           "required": [
@@ -1288,8 +1283,9 @@
               "enum": [
                 "order",
                 "distinct",
-                "none_of_kind",
-                "present"
+                "present",
+                "absent",
+                "program_only"
               ]
             },
             "values": {

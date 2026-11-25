@@ -1,6 +1,6 @@
 # Slice g, Standards in place of the catalog (#14). Rows follow docs/atdd/catalog.yaml.
 slice: g
-criteria:
+acceptance:
   - id: g1-AC1
     scenario: Every standards entry has standard, pinned version, control id and URL
     covers: [1, 3]
@@ -11,7 +11,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R9, P1, QBC-13, QBC-72, QBC-85]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan names new standards/ data and schema without file names; the row uses standards/data/*.json and standards/schema.json"
 
@@ -28,7 +28,7 @@ criteria:
       - fact: {kind: gap, detail: standards}
       - teaching: {channel: fact, wrong: "a standards entry has no pinned version", right: "add the pinned version, control id and URL to the entry", prevent: "standards/schema.json validates every entry when bh check runs"}
     traces_to: [R9, P1, P5, QBC-13, QBC-85]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan gives no refusal wording for an invalid entry"
 
@@ -42,7 +42,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 5, distinct: true}
     traces_to: [R9, P1, QBC-13, QBC-85]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: g1-AC4
@@ -55,7 +55,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R9, P1, QBC-18, QBC-72]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan names no file names for the house-rule list; the row uses standards/house-rules.json and its schema"
 
@@ -72,7 +72,7 @@ criteria:
       - fact: {kind: gap, detail: standards}
       - teaching: {channel: fact, wrong: "a house rule names no ladder rung or mechanism", right: "name its ladder rung and mechanism, or write judgement", prevent: "standards/house-rules.schema.json validates every rule when bh check runs"}
     traces_to: [R9, P1, P5, QBC-18]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the plan gives no refusal wording; the row asserts the right way names the judgement alternative"
 
@@ -89,7 +89,7 @@ criteria:
       - teaching: {channel: fact, wrong: "an entry cites only Convention", right: "cite a standard with its pinned version, control id and URL", prevent: "standards/schema.json rejects Convention as the only citation"}
     traces_to: [R9, P1, P5, QBC-72, QBC-85]
     plan_gap: "the plan states the property, not how a violation is reported; the row asserts a gap fact with teaching from bh check"
-    method: test
+    verification: test
     deterministic: true
 
   - id: g2-AC1
@@ -105,7 +105,7 @@ criteria:
       - field: {source: result_json, path: "map[*].old_id", op: present}
     traces_to: [R9, P11, QBC-8, QBC-85]
     plan_gap: "the mapping output shape is not named; the row asserts a map of old ids to standard or house-rule ids"
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the 'only' half (ids nobody reads are not mapped) has no output shape in the plan; the next row covers it through the changelog"
 
@@ -119,7 +119,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 1}
     traces_to: [R9, P11, QBC-8, QBC-72]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the changelog wording is not stated; the row fixes the phrase catalog ids dropped"
 
@@ -132,10 +132,10 @@ criteria:
     when:
       program_step: {step: assemble_packet, item: toy_item}
     then:
-      - field: {source: packet, path: "rules[*]", op: matches, value: "^(ASVS|SSDF|SP800-53|SLSA|WA|HR)[A-Za-z0-9._-]*$"}
+      - field: {source: packet, path: "verifier.rules[*].id", op: matches, value: "^(ASVS|SSDF|SP800-53|SLSA|WA|HR)[A-Za-z0-9._-]*$"}
       - no_fact: {kind: unknown_rule}
     traces_to: [R9, P11, QBC-85]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "g1's id format is not fixed by the plan; the row's regex stands for g1 ids and the no unknown_rule fact is the authoritative check"
 
@@ -150,7 +150,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, P11, QBC-72]
     red_on_main: "scan_count eq 0 fails on main: 11 lines in harness, bin, agents, skills and checks read catalog/"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: g2-AC5
@@ -164,7 +164,7 @@ criteria:
       - paths: {paths: [catalog], exist: false}
     traces_to: [R9, P11, QBC-72]
     red_on_main: "paths exist false fails on main: catalog/ exists"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: g2-AC6
@@ -179,5 +179,5 @@ criteria:
       - paths: {paths: [checks/index.json], exist: true}
       - no_fact: {kind: unmapped_rule_code}
     traces_to: [R9, P11, QBC-8]
-    method: test
+    verification: test
     deterministic: true

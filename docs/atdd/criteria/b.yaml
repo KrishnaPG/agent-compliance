@@ -1,6 +1,6 @@
 # Slice b, Harness core (#9). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
 slice: b
-criteria:
+acceptance:
 - id: b1-AC1
   scenario: Each (ref, mode) is measured in its own shared clone, and two measured at once do not share one
   covers:
@@ -28,7 +28,7 @@ criteria:
   - R4
   - QBC-15
   - QBC-31
-  method: test
+  verification: test
   deterministic: true
   plan_gap: bullet prescribes git clone --shared; the row asserts the clone is shared from base and results are separate
 - id: b1-AC2
@@ -60,7 +60,7 @@ criteria:
   - R4
   - P6
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC3
@@ -91,7 +91,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC4
@@ -119,7 +119,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC5
@@ -144,7 +144,7 @@ criteria:
   traces_to:
   - R4
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
 - id: b1-AC6
   scenario: A builder-added test config file is set aside and recorded
@@ -172,7 +172,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC7
@@ -207,7 +207,7 @@ criteria:
   - R4
   - QBC-31
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
   plan_gap: bullet prescribes bwrap; the row asserts the observable consequence (nothing written outside the checkout, including the orchestrator dir and /tmp), and the plan omits the teaching
   spec_ref:
@@ -241,7 +241,7 @@ criteria:
   - R4
   - QBC-31
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
   plan_gap: bullet prescribes bwrap (no network); the plan omits the teaching
   spec_ref:
@@ -273,7 +273,7 @@ criteria:
   traces_to:
   - P6
   - QBC-31
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC10
@@ -298,7 +298,7 @@ criteria:
   traces_to:
   - R4
   - QBC-31
-  method: test
+  verification: test
   deterministic: true
 - id: b1-AC11
   scenario: A candidate that reads the holdout ref or holdout files finds them absent
@@ -326,7 +326,7 @@ criteria:
   - R4
   - QBC-15
   - QBC-31
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC12
@@ -356,7 +356,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan lists the defaults only as "these paths" (the overlay list); the row asserts the test paths and conftest.py
 - id: b1-AC13
@@ -386,7 +386,7 @@ criteria:
   traces_to:
   - R4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching for the gap
 - id: b1-AC14
@@ -416,7 +416,7 @@ criteria:
   - R4
   - P6
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
 - id: b1-AC15
   scenario: 'G1: a gutted test is unmet with an M tests fact'
@@ -447,7 +447,7 @@ criteria:
   - R4
   - P6
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC16
@@ -479,7 +479,7 @@ criteria:
   - R4
   - P6
   - QBC-31
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC17
@@ -511,7 +511,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
   spec_ref:
@@ -544,7 +544,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
 - id: b1-AC19
@@ -569,7 +569,7 @@ criteria:
   traces_to:
   - R4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
 - id: b1-AC20
   scenario: The measurer's own overhead is within the limit on the toy
@@ -591,7 +591,7 @@ criteria:
   traces_to:
   - R1
   - QBC-80
-  method: measure
+  verification: measure
   deterministic: true
 - id: b1-AC21
   scenario: The plugin's plain pytest entry point accepts the new measurer
@@ -614,7 +614,7 @@ criteria:
   traces_to:
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: '"never the 1.5.2 measurer" is a negative about the old tool; the row asserts the new tree passes plain pytest'
 - id: b2-AC1
@@ -641,7 +641,7 @@ criteria:
   traces_to:
   - R3
   - QBC-34
-  method: test
+  verification: test
   deterministic: true
 - id: b2-AC2
   scenario: A repeated (ref, mode) pair is deduped
@@ -667,7 +667,7 @@ criteria:
   traces_to:
   - R3
   - QBC-34
-  method: test
+  verification: test
   deterministic: true
   plan_gap: dedupe is observable only as an equal second result and one output location
 - id: b2-AC3
@@ -699,7 +699,7 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC4
@@ -731,7 +731,7 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC5
@@ -763,7 +763,7 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC6
@@ -795,7 +795,7 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC7
@@ -827,7 +827,7 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC8
@@ -857,7 +857,7 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC9
@@ -884,7 +884,7 @@ criteria:
   traces_to:
   - R3
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: tree_key is internal; the row asserts its consequence
 - id: b2-AC10
@@ -909,7 +909,7 @@ criteria:
   traces_to:
   - R3
   - QBC-34
-  method: test
+  verification: test
   deterministic: true
 - id: b2-AC11
   scenario: Two refs measured at the same time keep separate results
@@ -931,7 +931,7 @@ criteria:
   traces_to:
   - R3
   - QBC-34
-  method: test
+  verification: test
   deterministic: true
 - id: b3-AC1
   scenario: On a met item the merge leaves nothing unmerged
@@ -957,7 +957,7 @@ criteria:
   - R4
   - P6
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
 - id: b3-AC2
   scenario: An unmet candidate never reaches HEAD
@@ -985,7 +985,7 @@ criteria:
   - R4
   - P6
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b3-AC3
@@ -1015,7 +1015,7 @@ criteria:
   - R4
   - P6
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text; mutation of the guard is the only way to show the test catches it
 - id: b3-AC4
@@ -1039,7 +1039,7 @@ criteria:
   - R4
   - P6
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
 - id: b3-AC5
   scenario: A conflict names its item
@@ -1069,7 +1069,7 @@ criteria:
   - R4
   - P6
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b3-AC6
@@ -1094,7 +1094,7 @@ criteria:
   - R4
   - P6
   - QBC-66
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: a code-structure claim; the row asserts the call text is absent
   red_on_main: 'scan_count eq 0 fails on main: its merge_unmerged calls state(cfg) (bhcore.py)'
@@ -1128,7 +1128,7 @@ criteria:
   - R4
   - P4
   - QBC-11
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b4-AC2
@@ -1154,7 +1154,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
 - id: b4-AC3
   scenario: A grown JUnit skipped count yields exactly its fact and no refusal
@@ -1186,7 +1186,7 @@ criteria:
   - R4
   - P4
   - QBC-11
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b4-AC4
@@ -1212,7 +1212,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
 - id: b4-AC5
   scenario: Grown suppressed findings (ruff and eslint compared with and without inline suppression, at base and candidate) yields exactly its fact and no refusal
@@ -1244,7 +1244,7 @@ criteria:
   - R4
   - P4
   - QBC-11
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b4-AC6
@@ -1270,7 +1270,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
 - id: b4-AC7
   scenario: Grown ban-ts-comment findings yields exactly its fact and no refusal
@@ -1302,7 +1302,7 @@ criteria:
   - R4
   - P4
   - QBC-11
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b4-AC8
@@ -1328,7 +1328,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
 - id: b4-AC9
   scenario: An honest commit yields none of the diff-based facts
@@ -1362,7 +1362,7 @@ criteria:
   traces_to:
   - R4
   - QBC-8
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the paths entry fails on main, which writes no out/<item>/<sha12>-<slot> directory
 - id: b4-AC10
@@ -1394,7 +1394,7 @@ criteria:
   - P11
   - P4
   - QBC-11
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the writer belongs to c4; the row asserts only that the fact appears in the result JSON and run report; plan omits the teaching text
 - id: b4-AC11
@@ -1419,7 +1419,7 @@ criteria:
   traces_to:
   - QBC-8
   - P11
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: the title says "without pattern lists"; the row asserts the flag-based comparison that replaces them
 - id: b5-AC1
@@ -1444,7 +1444,7 @@ criteria:
   traces_to:
   - G5
   - QBC-76
-  method: lint
+  verification: lint
   deterministic: true
   red_on_main: 'scan_count eq 0 fails on main: bhcore.py defines validate() and GAP_KINDS'
 - id: b5-AC2
@@ -1468,7 +1468,7 @@ criteria:
   traces_to:
   - G5
   - P2
-  method: test
+  verification: test
   deterministic: true
   plan_gap: '"kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted'
 - id: b5-AC3
@@ -1499,7 +1499,7 @@ criteria:
   traces_to:
   - P2
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan does not name the keyword; fixture must use one the old validator ignored; plan omits the teaching
 - id: b5-AC4
@@ -1528,7 +1528,7 @@ criteria:
   traces_to:
   - P2
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
 - id: b6-AC1
   scenario: teach takes rule, wrong, right and ref, all required
@@ -1551,7 +1551,7 @@ criteria:
   traces_to:
   - QBC-56
   - P5
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: plan prescribes a signature; the row asserts the definition has exactly the four required parameters
   spec_ref:
@@ -1588,7 +1588,7 @@ criteria:
       count: 1
   traces_to:
   - QBC-55
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the plan names no wording for the count line; the row matches the one non-teaching line holding the remaining count
 - id: b6-AC3
@@ -1618,7 +1618,7 @@ criteria:
       default: 300
   traces_to:
   - QBC-55
-  method: measure
+  verification: measure
   deterministic: true
 - id: b6-AC4
   scenario: The commit gate on targets is a fact with teaching and the item stays ready
@@ -1650,7 +1650,7 @@ criteria:
   - P4
   - QBC-11
   - G3
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
 - id: b6-AC5
@@ -1683,7 +1683,7 @@ criteria:
   - P4
   - QBC-11
   - G3
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
 - id: b6-AC6
@@ -1716,7 +1716,7 @@ criteria:
   - P4
   - QBC-11
   - G3
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
 - id: b6-AC7
@@ -1748,7 +1748,7 @@ criteria:
   traces_to:
   - P4
   - QBC-11
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
 - id: b6-AC8
@@ -1775,7 +1775,7 @@ criteria:
   - P5
   - QBC-12
   - QBC-54
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan names no sample message; the row asserts a refusal that teaches
   spec_ref:
@@ -1804,7 +1804,7 @@ criteria:
   traces_to:
   - QBC-53
   - QBC-68
-  method: fitness
+  verification: fitness
   deterministic: true
   red_on_main: 'scan_count eq 0 fails on main: its bin/ and harness/ exit without teach()'
   spec_ref:
@@ -1833,7 +1833,7 @@ criteria:
   traces_to:
   - G1
   - QBC-30
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: plan does not name the table's file; the row scans docs and the harness skill
 - id: b7-AC2
@@ -1859,7 +1859,7 @@ criteria:
   traces_to:
   - G1
   - QBC-30
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: holds only after c1, c4, c8, d5 and d8 land
 - id: b7-AC3
@@ -1885,7 +1885,7 @@ criteria:
   traces_to:
   - P4
   - QBC-51
-  method: test
+  verification: test
   deterministic: true
 - id: b7-AC4
   scenario: At max_rounds an item is stuck and reported for a re-plan
@@ -1920,7 +1920,7 @@ criteria:
   traces_to:
   - G1
   - QBC-30
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b7-AC5
@@ -1948,7 +1948,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC6
@@ -1976,7 +1976,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC7
@@ -2004,7 +2004,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC8
@@ -2032,7 +2032,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC9
@@ -2060,7 +2060,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC10
@@ -2088,7 +2088,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC11
@@ -2116,7 +2116,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b7-AC12
@@ -2144,7 +2144,7 @@ criteria:
   traces_to:
   - P4
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
 - id: b8-AC1
@@ -2166,7 +2166,7 @@ criteria:
   traces_to:
   - P6
   - QBC-67
-  method: fitness
+  verification: fitness
   deterministic: true
 - id: b8-AC2
   scenario: A vacuous test is caught
@@ -2193,7 +2193,7 @@ criteria:
   traces_to:
   - R4
   - QBC-58
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b8-AC3
@@ -2221,7 +2221,7 @@ criteria:
   traces_to:
   - QBC-31
   - QBC-58
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b8-AC4
@@ -2247,7 +2247,7 @@ criteria:
   traces_to:
   - P6
   - QBC-31
-  method: test
+  verification: test
   deterministic: true
   plan_gap: wording from QBC-47
 - id: b8-AC5
@@ -2269,7 +2269,7 @@ criteria:
       value: ^(harness/tests/planted/|.*(b1|b4|b9|c4|d5|d8)-AC[0-9]+)
   traces_to:
   - QBC-15
-  method: fitness
+  verification: fitness
   deterministic: true
 - id: b8-AC6
   scenario: Register status comes from the markers and the JUnit results
@@ -2293,7 +2293,7 @@ criteria:
   traces_to:
   - P6
   - QBC-67
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan names no status values
 - id: b8-AC7
@@ -2321,7 +2321,7 @@ criteria:
       prevent: mark each planted test with its safeguard id
   traces_to:
   - QBC-67
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b8-AC8
@@ -2351,7 +2351,7 @@ criteria:
   traces_to:
   - QBC-67
   - P6
-  method: test
+  verification: test
   deterministic: true
   plan_gap: '"no hand-kept field" is a data-shape claim; the present entry fails on main, which keeps status by hand'
 - id: b9-AC1
@@ -2377,7 +2377,7 @@ criteria:
   traces_to:
   - R2
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC2
   scenario: The jobs dir and plugin root are not added with --add-dir
@@ -2411,7 +2411,7 @@ criteria:
   traces_to:
   - R2
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC3
   scenario: File tools are scoped and reads outside the working directory are blocked
@@ -2445,7 +2445,7 @@ criteria:
   traces_to:
   - R2
   - QBC-100
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC4
   scenario: Bash is auto-allowed only when sandboxed, never pre-approved, and never unsandboxed
@@ -2479,7 +2479,7 @@ criteria:
   traces_to:
   - R4
   - QBC-100
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC5
   scenario: The sandbox denies writes to the protected locations and has no denyRead
@@ -2532,7 +2532,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan names the locations in prose; the row matches each by a short substring of the path
 - id: b9-AC6
@@ -2554,7 +2554,7 @@ criteria:
   traces_to:
   - P7
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC7
   scenario: Edit or Write of an acceptance test is refused with the SG-01 teaching line and no deny rule on the path
@@ -2587,7 +2587,7 @@ criteria:
   traces_to:
   - QBC-48
   - R4
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
 - id: b9-AC8
@@ -2621,7 +2621,7 @@ criteria:
   traces_to:
   - QBC-15
   - R4
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan gives no SG-01 line text
 - id: b9-AC9
@@ -2650,7 +2650,7 @@ criteria:
   traces_to:
   - R4
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text (file-tool refusals are the tool's own)
 - id: b9-AC10
@@ -2677,7 +2677,7 @@ criteria:
       target: orchestrator_packet
   traces_to:
   - R2
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC11
   scenario: A ref deleted in the clone leaves the source refs unchanged
@@ -2704,7 +2704,7 @@ criteria:
   traces_to:
   - R2
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
 - id: b9-AC12
   scenario: Write outside the clone is refused
@@ -2732,7 +2732,7 @@ criteria:
   traces_to:
   - R2
   - QBC-15
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b10-AC1
@@ -2756,7 +2756,7 @@ criteria:
       count: 1
   traces_to:
   - R10
-  method: test
+  verification: test
   deterministic: true
   plan_gap: '"runs one probe" is observed through the one sandbox_choice fact'
 - id: b10-AC2
@@ -2786,7 +2786,7 @@ criteria:
   traces_to:
   - P5
   - QBC-12
-  method: test
+  verification: test
   deterministic: true
   plan_gap: 'the right-way wording follows the bullet: set network.allowAllUnixSockets true, run under an account outside socket-granting groups, or fix the profile'
 - id: b10-AC3
@@ -2820,7 +2820,7 @@ criteria:
   traces_to:
   - R10
   - P5
-  method: test
+  verification: test
   deterministic: true
 - id: b10-AC4
   scenario: allowAllUnixSockets is set, and recorded as a fact, only when the probe passes with it and fails without it
@@ -2849,7 +2849,7 @@ criteria:
   traces_to:
   - R10
   - QBC-13
-  method: test
+  verification: test
   deterministic: true
 - id: b10-AC5
   scenario: allowAllUnixSockets stays false when the probe passes without it
@@ -2875,7 +2875,7 @@ criteria:
   traces_to:
   - R10
   - QBC-13
-  method: test
+  verification: test
   deterministic: true
 - id: b10-AC6
   scenario: Each probe case is shown with a stubbed probe
@@ -2899,7 +2899,7 @@ criteria:
   traces_to:
   - R4
   - QBC-80
-  method: lint
+  verification: lint
   deterministic: true
 - id: b11-AC1
   scenario: A second concurrent bh run is refused with a teaching message
@@ -2926,7 +2926,7 @@ criteria:
   - R1
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: bullet prescribes a flock; the row asserts a concurrent run is refused; the plan omits the teaching text
 - id: b11-AC2
@@ -2951,7 +2951,7 @@ criteria:
   - R1
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b11-AC3
@@ -2974,7 +2974,7 @@ criteria:
   - R1
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
 - id: b11-AC4
   scenario: The skill says to start bh run in the background and act on its exit notification
@@ -2998,7 +2998,7 @@ criteria:
   - R1
   - G5
   - QBC-80
-  method: lint
+  verification: lint
   deterministic: true
 - id: b12-AC1
   scenario: A re-review that omits an open gap leaves it open
@@ -3027,7 +3027,7 @@ criteria:
   - R9
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text and names no status value
 - id: b12-AC2
@@ -3057,7 +3057,7 @@ criteria:
   - R9
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text and the rank's wording
 - id: b12-AC3
@@ -3086,7 +3086,7 @@ criteria:
   - R9
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
 - id: b12-AC4
   scenario: A missing est_loc is a gap, not 1
@@ -3116,7 +3116,7 @@ criteria:
   - R9
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b12-AC5
@@ -3140,7 +3140,7 @@ criteria:
   - R9
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: '"renders from a template" is a design claim; the snapshot asserts the output'
 - id: b12-AC6
@@ -3170,7 +3170,7 @@ criteria:
   - R9
   - G5
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the plan names lychee, not the fact's wording
 - id: b13-AC1
@@ -3209,7 +3209,7 @@ criteria:
   traces_to:
   - R1
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b13-AC2
@@ -3237,7 +3237,7 @@ criteria:
       value: 0.5
   traces_to:
   - R1
-  method: test
+  verification: test
   deterministic: true
 - id: b13-AC3
   scenario: A round cannot exceed budgets.run_usd
@@ -3264,7 +3264,7 @@ criteria:
   traces_to:
   - R1
   - QBC-13
-  method: measure
+  verification: measure
   deterministic: true
 - id: b13-AC4
   scenario: A changed skill invalidates the job cache
@@ -3285,15 +3285,14 @@ criteria:
       rerun: true
   then:
   - field:
-      source: job_record
+      source: result_json
       path: jobs[*].cached
       op: eq
       value: false
   traces_to:
   - G5
-  method: test
+  verification: test
   deterministic: true
-  plan_gap: plan names no job-record field for a cache hit
 - id: b13-AC5
   scenario: Changed standards data invalidates the job cache
   covers:
@@ -3313,15 +3312,14 @@ criteria:
       rerun: true
   then:
   - field:
-      source: job_record
+      source: result_json
       path: jobs[*].cached
       op: eq
       value: false
   traces_to:
   - G5
-  method: test
+  verification: test
   deterministic: true
-  plan_gap: plan names no job-record field for a cache hit
 - id: b13-AC6
   scenario: Each of the four minors has a test
   covers:
@@ -3343,7 +3341,7 @@ criteria:
       distinct: true
   traces_to:
   - QBC-80
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: the plan names no test; the row scans for one marker per minor
 - id: b13-AC7
@@ -3367,7 +3365,7 @@ criteria:
   traces_to:
   - G5
   - QBC-76
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: one home each is read as one definition each
   red_on_main: 'scan_count eq 3 fails on main: bhcore._git and bhorch.git are two git runners'
@@ -3391,7 +3389,7 @@ criteria:
       value: 0
   traces_to:
   - QBC-76
-  method: lint
+  verification: lint
   deterministic: true
   red_on_main: 'scan_count eq 0 fails on main: bhcore.py still defines and calls _waves'
 - id: b13-AC9
@@ -3414,7 +3412,7 @@ criteria:
       value: 1
   traces_to:
   - QBC-76
-  method: lint
+  verification: lint
   deterministic: true
   plan_gap: one module is read as one occurrence of the literal
   red_on_main: 'scan_count eq 1 fails on main: bhcore.py and bhrules.py both write the literal'
@@ -3438,8 +3436,23 @@ criteria:
       value: 1
   traces_to:
   - QBC-76
-  method: lint
+  verification: lint
   deterministic: true
+- id: b13-AC11
+  scenario: "The job and run budgets have defaults when no config file exists"
+  covers: [2]
+  given:
+    - repo: {name: "toy", state: "base"}
+    - config: {state: "absent"}
+  when:
+    bh: {sub: "owners", args: ["--config"]}
+  then:
+    - field: {source: "config_effective", path: "budgets.job_usd", op: "present"}
+    - field: {source: "config_effective", path: "budgets.run_usd", op: "present"}
+  traces_to: ["R1", "P8"]
+  verification: test
+  deterministic: true
+  plan_gap: "the plan states no default for the budgets; the row asserts only that a default exists"
 - id: b14-AC1
   scenario: A bh run on the toy with the stub claude ends with every item met or stuck with facts
   covers:
@@ -3466,7 +3479,7 @@ criteria:
   traces_to:
   - R1
   - QBC-80
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the stuck item must exist in the fixture so the facts are shown
   spec_ref:
@@ -3490,7 +3503,7 @@ criteria:
       values:
       - builder
   - jobs:
-      assert: none_of_kind
+      assert: program_only
       values:
       - state
       - measure
@@ -3501,7 +3514,7 @@ criteria:
   - P3
   - QBC-9
   - QBC-10
-  method: test
+  verification: test
   deterministic: true
 - id: b14-AC3
   scenario: Tokens are counted per item
@@ -3519,17 +3532,16 @@ criteria:
   then:
   - field:
       source: result_json
-      path: items[*].tokens
+      path: "jobs[*].tokens"
       op: present
   - field:
-      source: run_report
-      path: tokens
+      source: result_json
+      path: "jobs[*].item"
       op: present
   traces_to:
   - QBC-78
-  method: test
+  verification: test
   deterministic: true
-  plan_gap: plan names no field for the token count
 - id: b14-AC4
   scenario: No Workflow tool in any builder's --tools
   covers:
@@ -3555,13 +3567,30 @@ criteria:
       value: Workflow
   traces_to:
   - QBC-10
-  method: test
+  verification: test
+  deterministic: true
+- id: b14-AC5
+  scenario: "Every job record has an id, a kind, its item, a start time and an exit code"
+  covers: [0]
+  given:
+    - repo: {name: "toy", state: "base"}
+    - recorded_model: {fixture: "toy_e2e"}
+  when:
+    bh: {sub: "run"}
+  then:
+    - field: {source: "result_json", path: "jobs[*].id", op: "distinct"}
+    - field: {source: "result_json", path: "jobs[*].kind", op: "matches", value: "^(agent|program_step)$"}
+    - field: {source: "result_json", path: "jobs[*].item", op: "present"}
+    - field: {source: "result_json", path: "jobs[*].started_at", op: "matches", value: "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}(\\.\\d+)?(Z|[+-]\\d{2}:\\d{2})$"}
+    - field: {source: "result_json", path: "jobs[*].exit_code", op: "present"}
+  traces_to: ["R1", "P3", "QBC-78"]
+  verification: test
   deterministic: true
 - id: b2-AC12
   scenario: A measurement writes JUnit XML, a SARIF 2.1.0 log and a schema-valid result JSON that names the packet sha256
   spec_ref:
   - common.any-json-output
-  - L5.per-criterion-verdict-and-facts
+  - L5.verdict-for-each-acceptance-id-and-facts
   - L5.test-results
   - L5.lint-and-fitness-findings
   given:
@@ -3602,9 +3631,9 @@ criteria:
   - P6
   - QBC-35
   - QBC-51
-  method: test
+  verification: test
   deterministic: true
-  plan_gap: plan names no result schema file or output file names; the row assumes result.schema.json and the three file types
+  plan_gap: "the plan names no file names for the JUnit XML and SARIF outputs; the row uses the names in its paths check"
 - id: b2-AC13
   scenario: A lint or fitness finding on a planted violation carries the teaching in the SARIF message, help and fixes
   spec_ref:
@@ -3633,13 +3662,13 @@ criteria:
   - P5
   - QBC-12
   - QBC-53
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan names no sample message
 - id: b2-AC14
   scenario: 'A result file forged and committed by the builder has no effect: the verdict reflects the real run'
   spec_ref:
-  - L5.per-criterion-verdict-and-facts
+  - L5.verdict-for-each-acceptance-id-and-facts
   given:
   - repo:
       name: toy
@@ -3665,7 +3694,7 @@ criteria:
   - P6
   - QBC-15
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b1-AC22
@@ -3705,7 +3734,7 @@ criteria:
   - P6
   - QBC-15
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b1-AC23
@@ -3737,7 +3766,7 @@ criteria:
   - P6
   - QBC-15
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b2-AC15
@@ -3773,7 +3802,7 @@ criteria:
   - R4
   - P6
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the SARIF property name is not named in the spec
 - id: b2-AC16
@@ -3813,7 +3842,7 @@ criteria:
   - P5
   - QBC-12
   - QBC-35
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
 - id: b9-AC13
@@ -3845,19 +3874,19 @@ criteria:
       source: commit_message
       path: trailers
       op: contains
-      value: 'Packet: $packet_id@$packet_sha256'
+      value: 'Packet: $packet.id@$packet_sha256'
   - field:
       source: commit_message
       path: trailers
       op: contains
-      value: 'Criteria: $criteria_ids'
+      value: 'Acceptance: $acceptance_ids'
   - git:
       assert: committed_by_program
   traces_to:
   - R4
   - QBC-51
   - QBC-65
-  method: test
+  verification: test
   deterministic: true
   plan_gap: the commit_message field names are not fixed by the spec
 - id: b9-AC14
@@ -3894,9 +3923,23 @@ criteria:
   - P5
   - QBC-12
   - QBC-53
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan omits the teaching text
+- id: b9-AC15
+  scenario: "The config's sandbox object reaches the builder's settings verbatim"
+  covers: [5]
+  given:
+    - repo: {name: "toy", state: "base"}
+    - config: {state: "override", key: "sandbox", value: {excludedCommands: ["docker"]}}
+    - recorded_model: {fixture: "toy_honest"}
+  when:
+    bh: {sub: "run"}
+  then:
+    - field: {source: "builder_settings", path: "sandbox.excludedCommands", op: "contains", value: "docker"}
+  traces_to: ["R4", "P8", "QBC-13"]
+  verification: test
+  deterministic: true
 - id: b2-AC17
   scenario: The JUnit XML a measurement writes parses and holds the item's tests
   spec_ref:
@@ -3923,6 +3966,42 @@ criteria:
   traces_to:
   - R4
   - QBC-66
-  method: test
+  verification: test
   deterministic: true
   plan_gap: plan names no JUnit file name
+- id: b2-AC18
+  scenario: "A measurement names its schema version and command and gives a verdict for each acceptance criterion"
+  spec_ref: ["L5.verdict-for-each-acceptance-id-and-facts", "common.any-json-output"]
+  given:
+    - repo: {name: "toy", state: "base"}
+    - packet: {fixture: "toy_item", variant: "valid"}
+    - planted: {plant: "honest_commit", class: "honest"}
+  when:
+    bh: {sub: "measure"}
+  then:
+    - met: {status: "met"}
+    - field: {source: "result_json", path: "schema_version", op: "matches", value: "^\\d+\\.\\d+\\.\\d+$"}
+    - field: {source: "result_json", path: "command", op: "eq", value: "measure"}
+    - field: {source: "result_json", path: "items[*].acceptance[*].id", op: "present"}
+    - field: {source: "result_json", path: "items[*].acceptance[*].status", op: "eq", value: "met"}
+  traces_to: ["R4", "QBC-35", "QBC-51"]
+  verification: test
+  deterministic: true
+- id: b2-AC19
+  scenario: "One failing acceptance criterion is unmet by itself and its fact names the item"
+  spec_ref: ["L5.verdict-for-each-acceptance-id-and-facts"]
+  given:
+    - repo: {name: "toy", state: "base"}
+    - packet: {fixture: "toy_item", variant: "valid"}
+    - planted: {plant: "one_criterion_failing", class: "defect"}
+  when:
+    bh: {sub: "measure"}
+  then:
+    - met: {status: "unmet"}
+    - field: {source: "result_json", path: "items[*].acceptance[*].status", op: "matches", value: "^(met|unmet)$"}
+    - fact: {kind: "red"}
+    - field: {source: "result_json", path: "facts[*].item", op: "eq", value: "toy_item"}
+    - teaching: {channel: "stdout", wrong: "toy_item-AC1 failed an assertion", right: "make toy_item-AC1 pass without editing tests/", prevent: "run bh check before finishing"}
+  traces_to: ["R4", "QBC-35", "QBC-51"]
+  verification: test
+  deterministic: true

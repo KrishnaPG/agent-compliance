@@ -1,6 +1,6 @@
 # Slice a, Prune (#8). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
 slice: a
-criteria:
+acceptance:
   - id: a1-AC1
     scenario: The two deleted skills and their eval directories are gone
     covers: [1]
@@ -12,7 +12,7 @@ criteria:
       - paths: {paths: [skills/compliance-review, skills/compliance-catalog, evals/trigger-review, evals/trigger-catalog], exist: false}
     traces_to: [R9, QBC-79]
     red_on_main: "paths exist false fails on main: skills/compliance-review and skills/compliance-catalog still exist"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a1-AC2
@@ -26,7 +26,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, QBC-77, QBC-79]
     red_on_main: "scan_count eq 0 fails on main: 42 lines under skills, agents, templates, harness and README.md name either skill"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a1-AC3
@@ -40,7 +40,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, G5, QBC-79]
     red_on_main: "scan_count eq 0 fails on main: skills/harness/SKILL.md step 5 sends overlay_candidates to compliance-catalog"
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "\"sends overlay_candidates to no skill\" is observable only as text absence; the row asserts the term no longer appears in the harness skill"
 
@@ -56,7 +56,7 @@ criteria:
       - field: {source: skill_md, path: "references[*]", op: not_contains, value: compliance-}
     traces_to: [R9, QBC-79]
     red_on_main: "field not_contains compliance- fails on main: kept skills reference ../compliance-review/SKILL.md"
-    method: fitness
+    verification: fitness
     deterministic: true
 
   - id: a2-AC1
@@ -70,7 +70,7 @@ criteria:
       - paths: {paths: [bin/bh, bin/bh-answer, bin/bh-measure, bin/bh-init], exist: true}
       - paths: {paths: [bin/bh-admit, bin/bh-branch, bin/bh-brief, bin/bh-commit, bin/bh-gaps, bin/bh-merge, bin/bh-rank, bin/bh-reconcile, bin/bh-state], exist: false}
     traces_to: [P10, QBC-76, QBC-79]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a2-AC2
@@ -85,7 +85,7 @@ criteria:
       - paths: {paths: [bin/bh-admit, bin/bh-state], exist: false}
     traces_to: [G5, QBC-79]
     red_on_main: "paths exist false fails on main: bin/bh-admit and bin/bh-state exist"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a2-AC3
@@ -99,7 +99,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [G5, P10, QBC-76]
     red_on_main: "scan_count eq 0 fails on main: bhcore.py defines _write_gaps_doc and _committed_finding_ids"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a2-AC4
@@ -114,7 +114,7 @@ criteria:
       - junit: {failures: 0, errors: 0, tests_min: 1}
       - paths: {paths: [bin/bh-admit, bin/bh-branch, bin/bh-brief, bin/bh-commit, bin/bh-gaps, bin/bh-merge, bin/bh-rank, bin/bh-reconcile, bin/bh-state], exist: false}
     traces_to: [G5, P10, QBC-76]
-    method: test
+    verification: test
     deterministic: true
 
   - id: a2-AC5
@@ -128,7 +128,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [G5, P10, QBC-79]
     red_on_main: "scan_count eq 0 fails on main: 20 lines in skills, README.md and harness/README.md name the nine CLIs"
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "docs/plan and docs/spec name the deleted CLIs as history; the row scans the skills, the README and the harness README, not those two directories"
 
@@ -143,7 +143,7 @@ criteria:
       - paths: {paths: [templates/plan-dry-run.md, templates/bug-record.md], exist: true}
       - scan_count: {op: eq, value: 2}
     traces_to: [R9, QBC-79]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a3-AC2
@@ -158,7 +158,7 @@ criteria:
       - paths: {paths: [templates/catalog-audit.md, templates/compliance-bindings.md, templates/review-brief.md], exist: false}
     traces_to: [R9, QBC-79]
     red_on_main: "scan_count eq 0 fails on main: 12 lines name the three templates, and the three files exist"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a3-AC3
@@ -172,7 +172,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, P4]
     red_on_main: "scan_count eq 0 fails on main: templates/plan-dry-run.md says each guess is a BROKEN plan-format rule"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a3-AC4
@@ -185,7 +185,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 1}
     traces_to: [R9, QBC-79]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a4-AC1
@@ -199,7 +199,7 @@ criteria:
       - threshold: {metric: skill_description_chars, op: lt, bound: "ref:v1.5.2"}
       - field: {source: commit_message, path: body, op: matches, value: "\\d+\\D+\\d+"}
     traces_to: [G5, QBC-71, QBC-79]
-    method: measure
+    verification: measure
     deterministic: true
 
   - id: a4-AC2
@@ -213,7 +213,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [G5, QBC-71]
     red_on_main: "scan_count eq 0 fails on main: the descriptions of compliance-catalog, compliance-review, harness and vetted-decision name another skill"
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "\"names another skill\" is checked against the current skill names; a skill may legitimately name its own name in its description, so the generator must exclude the file's own skill"
 
@@ -228,7 +228,7 @@ criteria:
       - field: {source: skill_md, path: "references[*]", op: not_contains, value: "../"}
     traces_to: [G5, QBC-71]
     red_on_main: "field not_contains ../ fails on main: bug-analysis, vet-oss, vetted-decision and compliance-catalog load ../compliance-review/SKILL.md"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a5-AC1
@@ -242,7 +242,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [G6, P5, QBC-76]
     red_on_main: "scan_count eq 0 fails on main: README.md, both manifests, catalog/CHANGES.md and harness/README.md hold the claims"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a5-AC2
@@ -255,7 +255,7 @@ criteria:
     then:
       - scan_count: {op: eq, value: 1, distinct: true}
     traces_to: [G6, QBC-79]
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: a5-AC3
@@ -269,5 +269,5 @@ criteria:
       - paths: {paths: [harness/docs/lean-plan.md], exist: false}
     traces_to: [G6, QBC-79]
     red_on_main: "paths exist false fails on main: harness/docs/lean-plan.md exists"
-    method: lint
+    verification: lint
     deterministic: true

@@ -1,20 +1,20 @@
 # Slice h, Evals (#15). Rows follow docs/atdd/catalog.yaml. Only h1's live-run rows are non-deterministic.
 slice: h
-criteria:
+acceptance:
   - id: h1-AC1
     scenario: The ablation run covers the toy item set with and without the plugin within its budget
     covers: [1]
     given:
       - repo: {name: toy, state: base}
-      - config: {state: override, key: evals.runs, value: 3}
+      - config: {state: override, key: evals.runs, value: 2}
     when:
-      plugin_eval: {args: [--ablation, --runs, "3", --max-cost-usd, "5"]}
+      plugin_eval: {args: [--ablation, --runs, "2", --max-cost-usd, "5"]}
     then:
       - field: {source: eval_report, path: "arms[*].name", op: contains, value: with_plugin}
       - field: {source: eval_report, path: "arms[*].name", op: contains, value: without_plugin}
       - field: {source: eval_report, path: cost_usd, op: le, value: 5}
     traces_to: [R9, R11, G5, QBC-86]
-    method: measure
+    verification: measure
     deterministic: false
     plan_gap: "the plan names no report field names; the row uses arms[*].name and cost_usd, and the budget and run count come from policy values in the fixture"
 
@@ -32,7 +32,7 @@ criteria:
       - field: {source: eval_report, path: "arms[*].usd", op: present}
       - field: {source: eval_report, path: "arms[*].spread", op: present}
     traces_to: [R11, P2, QBC-28, QBC-86]
-    method: measure
+    verification: measure
     deterministic: false
     plan_gap: "the plan names the quantities, not the field names; the row fixes them"
 
@@ -45,12 +45,12 @@ criteria:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: metrics_output, path: measurer_rounds, op: present}
-      - field: {source: job_record, path: rounds, op: present}
+      - field: {source: result_json, path: measurer_rounds, op: present}
+      - field: {source: result_json, path: "jobs[*].rounds", op: present}
     traces_to: [R11, G5, QBC-28]
-    method: test
+    verification: test
     deterministic: true
-    plan_gap: "the plan does not say which command exposes rounds; the row reads them through bh metrics from the recorded job record"
+    plan_gap: "the plan does not say which command reports measurer rounds; the row reads them through bh metrics"
 
   - id: h1-AC4
     scenario: The paid toy run is committed as evidence
@@ -63,7 +63,7 @@ criteria:
       - paths: {paths: ["evals/evidence/toy-ablation*.json"], exist: true}
       - scan_count: {op: ge, value: 1}
     traces_to: [R9, QBC-9, QBC-86]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the evidence location is not named; the row uses evals/evidence/toy-ablation*.json"
 
@@ -77,7 +77,7 @@ criteria:
     then:
       - schema_valid: {valid: true}
     traces_to: [R11, QBC-28, QBC-86]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "no report schema is named in the plan; the row assumes evals/report.schema.json"
 
@@ -93,7 +93,7 @@ criteria:
     then:
       - junit: {failures: 0, errors: 0}
     traces_to: [G5, QBC-86]
-    method: test
+    verification: test
     deterministic: true
 
   - id: h1-AC7
@@ -108,7 +108,7 @@ criteria:
       - paths: {paths: [evals/ablation/*], exist: true}
     traces_to: [G5, QBC-86]
     plan_gap: "the ablation suite location is not named; the row uses evals/ablation/"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: h2-AC1
@@ -123,7 +123,7 @@ criteria:
     traces_to: [R9, G5, QBC-74]
     red_on_main: "paths exist false fails on main: evals/accuracy/billing-sync/graders and the other graders directories exist"
     plan_gap: "the grader locations are not listed in the plan; the row names the graders directories of the existing accuracy suites"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: h2-AC2
@@ -137,7 +137,7 @@ criteria:
       - paths: {paths: ["evals/_gen", "evals/results"], exist: false}
     traces_to: [R9, G5, QBC-74]
     red_on_main: "paths exist false fails on main: evals/_gen exists"
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "stale results are not located in the plan; the row names evals/results and the evals/_gen generator directory"
 
@@ -152,7 +152,7 @@ criteria:
       - scan_count: {op: eq, value: 0}
     traces_to: [R9, QBC-74]
     red_on_main: "scan_count eq 0 fails on main: 11 lines under evals/ hold an absolute path"
-    method: lint
+    verification: lint
     deterministic: true
 
   - id: h2-AC4
@@ -165,7 +165,7 @@ criteria:
     then:
       - scan_count: {op: ge, value: 1}
     traces_to: [R9, G5, QBC-74]
-    method: lint
+    verification: lint
     deterministic: true
     plan_gap: "the count of kept skills from a4 is not in the plan; the row cannot assert one case per skill and asserts at least one"
 
@@ -181,7 +181,7 @@ criteria:
       - field: {source: eval_report, path: failures, op: eq, value: 0}
       - field: {source: eval_report, path: "cases[*].tool_used", op: present}
     traces_to: [R9, G5, QBC-74]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names no report field names; with the stub claude on PATH the eval run makes no live call"
 
@@ -196,11 +196,11 @@ criteria:
       bh: {sub: metrics}
     then:
       - exit_code: {code: 0}
-      - field: {source: metrics_output, path: v2.change_failure_rate, op: present}
-      - field: {source: metrics_output, path: v2.lead_time_hours, op: present}
-      - field: {source: metrics_output, path: v2.tokens_per_met_slice, op: present}
+      - field: {source: result_json, path: v2.change_failure_rate, op: present}
+      - field: {source: result_json, path: v2.lead_time_hours, op: present}
+      - field: {source: result_json, path: v2.tokens_per_met_slice, op: present}
     traces_to: [R11, QBC-3]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "metric field names and the lead-time unit are not stated; the row fixes change_failure_rate, lead_time_hours and tokens_per_met_slice"
 
@@ -213,9 +213,9 @@ criteria:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: metrics_output, path: v2.change_failure_rate, op: eq, value: 0.25}
+      - field: {source: result_json, path: v2.change_failure_rate, op: eq, value: 0.25}
     traces_to: [R11, QBC-3]
-    method: test
+    verification: test
     deterministic: true
 
   - id: h3-AC3
@@ -227,9 +227,9 @@ criteria:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: metrics_output, path: v2.change_failure_rate, op: eq, value: 0}
+      - field: {source: result_json, path: v2.change_failure_rate, op: eq, value: 0}
     traces_to: [R11, QBC-3]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan says later defects count; the row reads before-merge defects as not counting"
 
@@ -242,9 +242,9 @@ criteria:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: metrics_output, path: v2.lead_time_hours, op: eq, value: 48}
+      - field: {source: result_json, path: v2.lead_time_hours, op: eq, value: 48}
     traces_to: [R11, QBC-3]
-    method: test
+    verification: test
     deterministic: true
 
   - id: h3-AC5
@@ -256,9 +256,9 @@ criteria:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: metrics_output, path: v2.tokens_per_met_slice, op: eq, value: 300000}
+      - field: {source: result_json, path: v2.tokens_per_met_slice, op: eq, value: 300000}
     traces_to: [R11, G5, QBC-28]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan does not say whether tokens of unmet slices count; the row counts all job-record tokens"
 
@@ -275,7 +275,7 @@ criteria:
       - field: {source: baseline_file, path: lead_time_hours, op: present}
       - field: {source: baseline_file, path: tokens_per_met_slice, op: present}
     traces_to: [R11, QBC-3, QBC-28]
-    method: test
+    verification: test
     deterministic: true
     plan_gap: "the plan names no argument for writing the baseline; the row uses --baseline"
 
@@ -291,7 +291,7 @@ criteria:
       - field: {source: baseline_file, path: change_failure_rate, op: present}
       - file_unchanged: {target: baseline_file}
     traces_to: [R11, QBC-3]
-    method: test
+    verification: test
     deterministic: true
 
   - id: h3-AC8
@@ -304,11 +304,11 @@ criteria:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: metrics_output, path: pre_v2.change_failure_rate, op: present}
-      - field: {source: metrics_output, path: v2.change_failure_rate, op: present}
+      - field: {source: result_json, path: pre_v2.change_failure_rate, op: present}
+      - field: {source: result_json, path: v2.change_failure_rate, op: present}
       - snapshot: {name: metrics_side_by_side}
     traces_to: [R11, QBC-28]
-    method: test
+    verification: test
     deterministic: true
 
   - id: h3-AC9
@@ -323,5 +323,5 @@ criteria:
     then:
       - exit_code: {code: 0}
     traces_to: [R11, G5, QBC-3]
-    method: test
+    verification: test
     deterministic: true

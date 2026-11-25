@@ -27,6 +27,8 @@ ROOT = HERE.parent.parent
 SPEC = ROOT / "docs/spec/quality-by-construction.md"
 PLAN = ROOT / "docs/plan/v2-work-plan.md"
 CATALOG = HERE / "catalog.yaml"
+FIELDS = HERE / "fields.yaml"
+FIELDS_MD = HERE / "d0-fields.md"
 SCHEMA = HERE / "criteria.schema.json"
 COVERAGE = HERE / "coverage.md"
 CRITERIA = HERE / "criteria"
@@ -34,7 +36,7 @@ SLICES = "abcdefgh"
 STANDARDS = ROOT / "docs/spec/packet-standards.md"
 
 ID_RE = r"^[a-z0-9][a-z0-9_.-]*$"  # as catalog.yaml `types`
-KEY_RE = r"^[A-Za-z0-9_.\[\]*-]+$"
+KEY_RE = r"^[A-Za-z0-9_.\[\]*=-]+$"
 REJECTING = {
     "exit_code": lambda p: p.get("code", 0) != 0,
     "met": lambda p: p.get("status") in {"unmet", "stuck", "not_checked"},
@@ -84,10 +86,59 @@ def negative(k: str, v: dict) -> bool:
         or (k in ("output_contains", "file_contains") and v.get("negate") is True)
         or (k == "field" and op in ("absent", "ne", "not_contains"))
         or (k == "git" and v.get("assert") in ("source_refs_unchanged", "no_git_hook_installed", "no_remote_fetch", "candidate_not_in_head"))
-        or (k == "jobs" and v.get("assert") == "none_of_kind")
+        or (k == "jobs" and v.get("assert") == "absent")
         or (k == "questions_asked" and v.get("count") == 0)
         or (k == "api_call" and v.get("count") == 0)
     )
+
+
+SOURCE_SCHEMAS = {"packet": ("packet",), "result_json": ("result", "jobs"), "config_effective": ("config",)}
+
+
+def norm_path(path: str) -> str:
+    return re.sub(r"\[(\d+|id=[^\]]*)\]", "[*]", path)
+
+
+def field_matcher(fields: list[dict]):
+    """(schema, row path) -> the fields.yaml entries it names: the entry itself, or an object above it."""
+    pats = [(f, re.compile("^" + re.sub(r"(^|\\\.)\\\*(?=\\\.|$)", lambda m: m.group(1) + r"[^.\[]+", re.escape(f["path"])) + "$")) for f in fields]
+
+    def match(schemas: tuple, path: str) -> list[dict]:
+        p = norm_path(path)
+        exact = [f for f, rx in pats if f["schema"] in schemas and rx.match(p)]
+        if exact:
+            return exact
+        return [f for f, _ in pats if f["schema"] in schemas and f["path"].startswith(p) and f["path"][len(p):][:1] in (".", "[")]
+
+    return match
+
+
+def field_reads(r: dict) -> list[tuple[tuple, str, bool]]:
+    """(schemas, path, exact-only) for every d0 field a row reads, explicitly or through a then-key."""
+    out = []
+    for g in r.get("given", []):
+        if "config" in g and (g["config"] or {}).get("key"):
+            out.append((("config",), g["config"]["key"], False))
+    blob = json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))
+    out += [(("packet",), p, False) for p in re.findall(r"\$packet\.([A-Za-z0-9_.\[\]*=-]+)", blob)]
+    if "$acceptance_ids" in blob:
+        out.append((("packet",), "acceptance[*].id", True))
+    for step in r.get("then", []):
+        for k, v in step.items():
+            v = v or {}
+            if k == "field" and v.get("source") in SOURCE_SCHEMAS and v.get("op") != "absent":
+                out.append((SOURCE_SCHEMAS[v["source"]], v["path"], False))
+                for m in re.finditer(r"\[id=[^\]]*\]", v["path"]):  # selecting by id reads the id
+                    out.append((SOURCE_SCHEMAS[v["source"]], v["path"][: m.start()] + "[*].id", True))
+            elif k == "met":
+                out += [(("result",), "items[*].status", True)] + ([(("result",), "items[*].id", True)] if v.get("item") else [])
+            elif k in ("fact", "no_fact"):
+                out += [(("result",), "facts[*].kind", True)] + ([(("result",), "facts[*].detail", True)] if v.get("detail") else [])
+            elif k == "jobs":
+                out += [(("jobs",), "jobs[*].role", True), (("jobs",), "jobs[*].step", True)]
+                if v.get("assert") == "program_only":
+                    out.append((("jobs",), "jobs[*].kind", True))
+    return out
 
 
 def unused_catalog(catalog: dict, rows: list[dict]) -> list[str]:
@@ -122,7 +173,10 @@ def row_lint(r: dict, catalog: dict) -> list[str]:
     givens = {k for g in r.get("given", []) for k in g}
     placeholder = re.compile(r"\$(" + "|".join(catalog["placeholders"]) + r")\b")
     if placeholder.search(json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))) and "packet" not in givens:
-        out.append("uses a $packet/$criteria/$*_paths placeholder without a packet given")
+        out.append("uses a $packet_sha256, $acceptance_ids or $packet.<path> placeholder without a packet given")
+    for name in re.findall(r"\$([a-z_0-9]+)", json.dumps(r.get("then", [])) + json.dumps(r.get("when", {}))):
+        if name not in catalog["placeholders"]:
+            out.append(f"${name} is not a placeholder in catalog.yaml `placeholders`")
     for step in r.get("then", []):
         for k, v in step.items():
             entry = catalog["then"].get(k, {})
@@ -325,7 +379,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
     row = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["id", "scenario", "given", "when", "then", "traces_to", "method", "deterministic"],
+        "required": ["id", "scenario", "given", "when", "then", "traces_to", "verification", "deterministic"],
         "anyOf": [{"required": ["covers"]}, {"required": ["spec_ref"]}],
         "properties": {
             "id": {"type": "string", "pattern": r"^[a-h]\d+-AC\d+$"},
@@ -335,7 +389,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
             "when": {"$ref": "#/$defs/when"},
             "then": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/then"}},
             "traces_to": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": trace_ids}},
-            "method": {"enum": sorted(catalog["methods"])},
+            "verification": {"enum": sorted(catalog["verification"])},
             "deterministic": {"type": "boolean"},
             "spec_ref": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": sorted(refs)}},
             "plan_gap": {"type": "string", "minLength": 1},
@@ -350,10 +404,10 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
         "title": "Acceptance criteria of one plan slice (generated from catalog.yaml by build.py; do not edit)",
         "type": "object",
         "additionalProperties": False,
-        "required": ["slice", "criteria"],
+        "required": ["slice", "acceptance"],
         "properties": {
             "slice": {"enum": list(SLICES)},
-            "criteria": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/row"}},
+            "acceptance": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/row"}},
         },
         "$defs": {
             "row": row,
@@ -362,6 +416,36 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
             "then": step_schema(catalog["then"], catalog, "then"),
         },
     }
+
+
+def render_fields(fields: dict, freads: dict, key) -> str:
+    out = ["# d0 field names", "",
+           "The only field paths the packet, the result JSON, its jobs and the config may have, as the owner decided them for d0 "
+           "(2026-11-25). Generated by `docs/atdd/build.py` from `docs/atdd/fields.yaml`; do not edit. "
+           "Acceptance rows in `docs/atdd/criteria/` may read no other path; `build.py --check` fails on one.", ""]
+    for schema, meaning in fields["schemas"].items():
+        rows = [f for f in fields["fields"] if f["schema"] == schema and f.get("decided", True)]
+        out += [f"## {schema}", "", meaning[0].upper() + meaning[1:] + ".", ""]
+        cfg = schema == "config"
+        out += ["| path | type |" + (" default |" if cfg else "") + " meaning | rows |", "|---|---|" + ("---|" if cfg else "") + "---|---|"]
+        for f in rows:
+            ids = sorted(set(freads.get((schema, f["path"]), [])), key=key)
+            d = f.get("default", "the plan states none") if cfg else None
+            d = json.dumps(d) if cfg and not isinstance(d, str) else d
+            out.append(f"| `{f['path']}` | {f['type']} |" + (f" {d} |" if cfg else "") + f" {f['meaning']} | {', '.join(ids) or '-'} |")
+        out.append("")
+    pending = [f for f in fields["fields"] if not f.get("decided", True)]
+    out += ["## Awaiting the owner's decision", "",
+            "Names that acceptance rows use but the owner has not decided for d0; each stays out of the tables above until decided.", ""]
+    out += [f"- {f['schema']} `{f['path']}` ({f['type']}): {f['meaning']}; rows "
+            f"{', '.join(sorted(set(freads.get((f['schema'], f['path']), [])), key=key)) or 'none'}." for f in pending] or ["None."]
+    gaps = [f"- {f['schema']} `{f['path']}` ({f['type']}) is a d0 field that no acceptance criterion reads yet."
+            for f in fields["fields"] if f.get("decided", True) and not freads.get((f["schema"], f["path"]))]
+    gaps += [f"- config `{f['path']}` has no default stated in the plan's d9 limits table." for f in fields["fields"]
+             if f["schema"] == "config" and "default" not in f and f["type"] not in ("object",)]
+    out += ["", "## Gaps", "", "Each line is a d0 field that no acceptance criterion tests, or a config key with no stated default.", ""]
+    out += gaps or ["None."]
+    return "\n".join(out) + "\n"
 
 
 # ---------- checks and report ----------
@@ -396,11 +480,22 @@ def main() -> int:
             errors.append(f"{f.name}: /{'/'.join(map(str, e.path))}: {e.message[:200]}")
         if isinstance(doc, dict) and doc.get("slice") != s:
             errors.append(f"{f.name}: slice must be {s!r}")
-        for r in (doc or {}).get("criteria", []) or []:
+        for r in (doc or {}).get("acceptance", []) or []:
             if isinstance(r, dict):
                 rows.append(r)
 
     errors += catalog_lint(catalog)
+    fields = yaml.safe_load(FIELDS.read_text())
+    flist = fields["fields"]
+    seen_f = set()
+    for f in flist:
+        if f["schema"] not in fields["schemas"]:
+            errors.append(f"fields.yaml {f['path']}: schema {f['schema']!r} is not one of {sorted(fields['schemas'])}")
+        if (f["schema"], f["path"]) in seen_f:
+            errors.append(f"fields.yaml {f['schema']} {f['path']}: listed twice")
+        seen_f.add((f["schema"], f["path"]))
+    fmatch = field_matcher(flist)
+    freads: dict[tuple, list[str]] = defaultdict(list)
     seen = set()
     by_task: dict[str, list[dict]] = defaultdict(list)
     incompatible, weak, full_proves = [], [], []
@@ -420,6 +515,14 @@ def main() -> int:
             continue
         by_task[task].append(r)
         incompatible += [f"{rid}: {m}" for m in row_lint(r, catalog)]
+        for schemas, path, _ in field_reads(r):
+            hit = fmatch(schemas, path)
+            if not hit:
+                errors.append(f"[d0-fields] {rid}: {'/'.join(schemas)} path `{path}` is not a d0 field -> use a path from "
+                              f"docs/atdd/fields.yaml (rendered in d0-fields.md); add a new one there only with the owner's decision . fields.yaml")
+            elif norm_path(path) == hit[0]["path"] or len(hit) == 1 or any(re.search(r"(^|\.)\*(\.|$)", h["path"]) for h in hit):
+                for h in hit[:1]:
+                    freads[(h["schema"], h["path"])].append(rid)
         thens_all = [(k, v) for step in r.get("then", []) for k, v in step.items()]
         if thens_all and all(negative(k, v) for k, v in thens_all) and not r.get("red_on_main"):
             incompatible.append(f"{rid}: only negative checks and no red_on_main (catalog negative_checks)")
@@ -510,8 +613,8 @@ def main() -> int:
         out.append(f"| {k} | {len(catalog[k])} |")
     meth = defaultdict(int)
     for r in rows:
-        meth[r.get("method")] += 1
-    out += ["", "Methods: " + ", ".join(f"{m} {meth[m]}" for m in sorted(catalog["methods"])) + ".",
+        meth[r.get("verification")] += 1
+    out += ["", "Verification: " + ", ".join(f"{m} {meth[m]}" for m in sorted(catalog["verification"])) + ".",
             f"Non-deterministic rows (slice h only): {', '.join(sorted(nondet, key=key)) or 'none'}.", ""]
 
     out += ["## §0 items × criteria", "",
@@ -550,6 +653,7 @@ def main() -> int:
     out += ["", "## Plan wording too vague or prescribing design", ""]
     out += [f"- {rid}: {g}" for rid, g in sorted(gaps, key=lambda x: key(x[0]))] or ["None."]
     COVERAGE.write_text("\n".join(out) + "\n")
+    FIELDS_MD.write_text(render_fields(fields, freads, key))
 
     print(f"{len(rows)} criteria; {len(errors)} errors; {len(untaught)} untaught; "
           f"no rows: {no_rows or 'none'}; uncovered leaves: {len(thin)} tasks; "
