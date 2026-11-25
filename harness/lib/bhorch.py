@@ -1181,7 +1181,7 @@ class Orchestrator:
             ]
             return None, self.shown(missed), None
         sha = git(root, "rev-parse", ref).stdout.strip()
-        return sha, self.shown(await self.review_item(packet, digest, sha, facts)), None
+        return sha, self.shown(await self.review_item(packet, digest, sha, tier, facts)), None
 
     async def merge_item(
         self, root: Path, packet: dict[str, Any], sha: str, facts: list[dict[str, Any]]
@@ -1213,7 +1213,7 @@ class Orchestrator:
         return lines[:n] + ([f"... and {len(lines) - n} more"] if len(lines) > n else [])
 
     async def review_item(
-        self, packet: dict[str, Any], digest: str, sha: str, facts: list[dict[str, Any]]
+        self, packet: dict[str, Any], digest: str, sha: str, tier: str, facts: list[dict[str, Any]]
     ) -> list[str]:
         """The triggered review (QBC-36) of a met build, before its merge: the program judges the
         triggers on the item's whole diff, a fresh reviewer that never built the item (P6) judges
@@ -1221,7 +1221,7 @@ class Orchestrator:
         gaps.json. Returns the critical and major findings as the builder's feedback lines."""
         root, item = self.top, packet["id"]
         base = git(root, "merge-base", "HEAD", sha).stdout.strip()
-        trig = bhreview.triggers(root, base, sha, packet.get("tier", ""))
+        trig = bhreview.triggers(root, self.cfg.data, base, sha, tier)  # the tier of the actual diff (R6)
         if not trig:
             return []
         core = {

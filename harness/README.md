@@ -32,7 +32,7 @@ job only for judgement work**.
 | plan | tracker reconcile and admit, gap merge, commit | `plan`: `harness-planner` derives items, targets (each citing the line that states its number), contracts and work packets; adds only what is missing |
 | build | per packet (`bh run`, or `bh step launch_builder`): `git clone --shared` of the recorded base commit, packet registered in the clone, settings generated into that launch's own file, builder started, the program's own commit (`commit_build`), then the measurer on the fetched commit | `harness-builder`, one per packet, in its own clone |
 | harvest | gap merge, commit | `harvest_find`: `harness-harvester` (duplicated helpers); a settled pick is reported, not applied |
-| review | a met item whose whole diff touches a domain of `review-triggers.json`, before its merge (`bhreview.triggers`); findings as SARIF and recorded by `bhcore.add_findings` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
+| review | a met item whose whole diff triggers a review, before its merge (`bhreview.triggers`); findings as SARIF and recorded by `bhcore.add_findings` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
 
 `run` = gaps, plan, rounds of build+measure (stop at `max_rounds`, at a budget, or when a round
 moved no measured number: the scoreboard's numbers are compared before and after), the review of
@@ -249,9 +249,9 @@ from `APIRouter`, `FastAPI(`, `Router(`) and `outbox_modules` (files with SQL `I
 owner-decides gap. Suppression markers a ref adds are a fact per item. The packet's rules are
 the item's own `rules` then judgment rules (not enforced, not `embodies` of a brick it uses)
 chosen by its tags, ranked by findings, at most `limits.packet_rules` (8). A met item whose
-whole diff touches auth, keys, grants, money or signatures, or a design-affecting item (duplication),
-gets one review by a fresh agent before its merge (`bhreview`, triggers in `review-triggers.json`,
-replaced per domain in `.brick-harness/review-triggers.json`); findings are SARIF facts recorded by
+whole diff touches secrets, grants or a declared trigger, or a design-affecting item (duplication),
+gets one review by a fresh agent before its merge (`bhreview`: ruff's preset S findings, changed
+SQL grants, and the owners or paths the project lists in `review.triggers`); findings are SARIF facts recorded by
 `add_findings`, and a critical or major one goes back to the builder within `max_rounds`. The report lists class shares
 (enforced, embodied by a brick's `embodies`, judgment) and check candidates (judgment rules
 broken in two or more findings). Tests use `checks.checker` (a fake command) and a fixture catalog.

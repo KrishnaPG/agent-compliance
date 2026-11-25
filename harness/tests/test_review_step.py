@@ -29,43 +29,45 @@ def write(r, files):
         (r / rel).write_text(text)
 
 
-def domains(r, base, tier="mechanical"):
-    return {t["domain"]: t["detail"] for t in bhreview.triggers(r, base, "HEAD", tier)}
+def domains(r, base, tier="mechanical", cfg=None):
+    return {t["domain"]: t["detail"] for t in bhreview.triggers(r, cfg or {}, base, "HEAD", tier)}
 
 
 # ---------------------------------------------------------------- triggers: facts, never an agent
 
 
-def test_triggers_come_from_parsed_imports_and_sql_statements(tmp_path):
-    r, base = repo(tmp_path, {"db/s.sql": "create table t(a int);\n", "a.py": "x = 1\n", "b.py": "import json\n"})
-    write(r, {"a.py": "import hmac\nfrom decimal import Decimal\n", "db/s.sql": "create table t(a int);\nGRANT SELECT ON t TO app;\n"})
-    write(r, {"b.py": "import json  # hmac in a comment is not an import\ns = 'jwt'\n"})
+def test_triggers_come_from_the_ruff_preset_and_parsed_sql(tmp_path):
+    r, base = repo(tmp_path, {"db/s.sql": "create table t(a int);\n", "a.py": "x = 1\n", "b.py": "y = 1\n"})
+    write(r, {"a.py": 'password = "hunter2"\n', "db/s.sql": "create table t(a int);\nGRANT SELECT ON t TO app;\n"})
+    write(r, {"b.py": "y = 2  # the password lives in the vault\n"})
     commit_all(r, "change")
-    d = domains(r, base)
-    assert d == {"keys": "a.py imports hmac", "grants": "db/s.sql changes a GRANT or REVOKE statement", "money": "a.py imports decimal"}
+    assert domains(r, base) == {
+        "secrets": "a.py: ruff S105 finding changed",
+        "grants": "db/s.sql changes a GRANT or REVOKE statement",
+    }
 
 
-def test_a_removed_import_and_a_revoked_grant_touch_their_domains_too(tmp_path):
-    r, base = repo(tmp_path, {"a.py": "import jwt\n", "s.sql": "REVOKE ALL ON t FROM public;\n"})
+def test_a_removed_secret_and_a_revoked_grant_touch_their_domains_too(tmp_path):
+    r, base = repo(tmp_path, {"a.py": 'token = "abc123"\n', "s.sql": "REVOKE ALL ON t FROM public;\n"})
     write(r, {"a.py": "x = 1\n", "s.sql": "select 1;\n"})
     commit_all(r, "drop")
-    assert set(domains(r, base)) == {"auth", "signatures", "grants"}
+    assert set(domains(r, base)) == {"secrets", "grants"}
 
 
-def test_sql_without_a_dcl_change_and_a_plain_diff_trigger_nothing(tmp_path):
+def test_a_plain_diff_triggers_nothing_and_no_name_list_exists(tmp_path):
     r, base = repo(tmp_path, {"s.sql": "GRANT SELECT ON t TO app;\ncreate table t(a int);\n", "a.py": "x = 1\n"})
-    write(r, {"s.sql": "GRANT SELECT ON t TO app;\ncreate table t(a int, b int);\n", "a.py": "x = 2\n"})
-    commit_all(r, "no grant changed")
-    assert domains(r, base) == {}
+    write(r, {"s.sql": "GRANT SELECT ON t TO app;\ncreate table t(a int, b int);\n", "a.py": "import hmac\nfrom decimal import Decimal\n"})
+    commit_all(r, "no grant changed, no finding")
+    assert domains(r, base) == {}  # money and the like are the project's to declare
 
 
 def test_a_diff_split_over_commits_is_judged_whole(tmp_path):
     r, base = repo(tmp_path, {"a.py": "x = 1\n"})
-    write(r, {"pay/__init__.py": ""})
+    write(r, {"b.py": "y = 1\n"})
     commit_all(r, "harmless first")
-    write(r, {"pay/calc.py": "import decimal\n"})
-    commit_all(r, "money second")
-    assert domains(r, base) == {"money": "pay/calc.py imports decimal"}
+    write(r, {"b.py": 'secret = "k-123"\n'})
+    commit_all(r, "secret second")
+    assert domains(r, base) == {"secrets": "b.py: ruff S105 finding changed"}
 
 
 def test_design_affecting_items_get_the_duplication_check(tmp_path):
@@ -75,22 +77,26 @@ def test_design_affecting_items_get_the_duplication_check(tmp_path):
     assert domains(r, base, "design-affecting") == {"duplication": "the item is design-affecting"}
 
 
-def test_the_project_declares_semantics_by_owner_and_replaces_a_domain(tmp_path):
-    """P8: .brick-harness/review-triggers.json replaces a domain of the plugin's table; owners come
-    from CODEOWNERS (the last matching line wins)."""
+def test_the_project_declares_owners_and_paths_in_review_triggers(tmp_path):
+    """P8: config review.triggers; an owner comes from the one owner map (bhpresets.owner_map)."""
     r, base = repo(
         tmp_path,
         {
-            ".github/CODEOWNERS": "* @all\nsrc/login/ @identity\n",
-            ".brick-harness/review-triggers.json": json.dumps(
-                {"triggers": {"auth": {"owners": ["@identity"]}, "keys": {"python_apis": []}}}
-            ),
-            "src/login/flow.py": "x = 1\n",
+            "pyproject.toml": "[project]\nname = 'app'\n",
+            ".github/CODEOWNERS": "app/pay/ @payments\n",
+            "app/__init__.py": "",
+            "app/pay/__init__.py": "",
+            "app/web/__init__.py": "",
+            "db/money/fx.sql": "select 1;\n",
         },
     )
-    write(r, {"src/login/flow.py": "import hmac\n"})
+    write(r, {"app/pay/calc.py": "x = 1\n", "db/money/fx.sql": "select 2;\n", "app/web/v.py": "y = 1\n"})
     commit_all(r, "c")
-    assert domains(r, base) == {"auth": "src/login/flow.py is owned by @identity"}
+    cfg = {"review": {"triggers": ["@payments", "db/money/", "@nobody"]}}
+    assert domains(r, base, cfg=cfg) == {
+        "@payments": "app/pay/calc.py is under review.triggers @payments",
+        "db/money/": "db/money/fx.sql is under review.triggers db/money/",
+    }
 
 
 # ---------------------------------------------------------------- the owner's interface in the packet
@@ -100,25 +106,28 @@ def test_the_packet_carries_the_touched_owners_published_interfaces(tmp_path):
     r, _ = repo(
         tmp_path,
         {
-            "CODEOWNERS": "src/billing/ @billing\nsrc/web/ @web\n",
-            "src/billing/__init__.py": "__all__ = ['charge', 'refund']\n",
-            "src/billing/core.py": "def charge(): ...\n",
-            "src/web/__init__.py": "__all__ = ['app']\n",
+            "pyproject.toml": "[project]\nname = 'app'\n",
+            "CODEOWNERS": "app/billing/ @billing\n",
+            "app/__init__.py": "",
+            "app/billing/__init__.py": "__all__ = ['charge', 'refund']\n",
+            "app/billing/core.py": "def charge(): ...\n",
+            "app/web/__init__.py": "__all__ = ['serve']\n",
         },
     )
-    got = bhreview.packet_owners(r, ["src/billing/core.py"], 300)
-    assert got == {"owners": ["@billing"], "interfaces": ["src/billing (@billing): charge, refund"]}
-    assert bhreview.packet_owners(r, ["docs/"], 300) == {}  # no owner declared: no field
+    got = bhreview.packet_owners(r, ["app/billing/core.py"], 300)
+    assert got == {"owners": ["@billing"], "interfaces": ["app.billing (@billing): charge, refund"]}
+    assert bhreview.packet_owners(r, ["app/web/"], 300) == {"owners": ["web"], "interfaces": ["app.web (web): serve"]}  # folder name
+    assert bhreview.packet_owners(r, ["docs/"], 300) == {}  # no owner unit: no field
 
 
-def test_plan_packet_fills_owners_and_interfaces_from_codeowners(toy):
-    (toy / "CODEOWNERS").write_text("src/ @toy-team\n")
-    (toy / "src" / "__init__.py").write_text("__all__ = ['read_rows']\n")
-    commit_all(toy, "owners")
+def test_plan_packet_asks_the_one_owner_map_for_its_declared_paths(toy, monkeypatch):
+    asked = []
+    got = {"owners": ["@toy-team"], "interfaces": ["src.toyio (@toy-team): read_rows"]}
+    monkeypatch.setattr(bhreview, "packet_owners", lambda root, declared, cap: asked.append((declared, cap)) or got)
     p = bhpacket.plan_packet(Config(toy / ".brick-harness" / "config.json"), "json-writer")
-    assert p["constraints"]["owners"] == ["@toy-team"]
-    assert p["constraints"]["interfaces"] == ["src (@toy-team): read_rows"]
-    assert "- Interface: src (@toy-team): read_rows" in bhpacket.render_markdown(p)
+    assert asked == [(p["constraints"]["declared_paths"], 300)]
+    assert p["constraints"]["owners"] == got["owners"] and p["constraints"]["interfaces"] == got["interfaces"]
+    assert "- Interface: src.toyio (@toy-team): read_rows" in bhpacket.render_markdown(p)
 
 
 # ---------------------------------------------------------------- findings are SARIF facts
@@ -126,7 +135,7 @@ def test_plan_packet_fills_owners_and_interfaces_from_codeowners(toy):
 
 def test_findings_are_sarif_with_triage_levels_teaching_and_the_packet():
     f = [
-        {"summary": "hand-rolled HMAC compare -> call hmac.compare_digest; reuse auth.verify", "rule": "keys", "severity": "S2", "evidence": "trigger", "where": "src/a.py:7"},
+        {"summary": "hand-rolled HMAC compare -> call hmac.compare_digest; reuse auth.verify", "rule": "secrets", "severity": "S2", "evidence": "trigger", "where": "src/a.py:7"},
         {"summary": "a long name -> rename it", "severity": "S3", "where": "src/a.py"},
         {"summary": "typo -> fix", "severity": "S4", "where": "src/b.py:0"},
     ]
@@ -135,7 +144,7 @@ def test_findings_are_sarif_with_triage_levels_teaching_and_the_packet():
     assert run_["properties"] == {"packet_sha256": "ab" * 32, "item": "i"}
     assert [r["level"] for r in run_["results"]] == ["error", "warning", "note"]
     first = run_["results"][0]
-    assert first["message"]["text"] == "[keys] hand-rolled HMAC compare -> call hmac.compare_digest; reuse auth.verify . NIST SSDF SP 800-218 PW.7"
+    assert first["message"]["text"] == "[secrets] hand-rolled HMAC compare -> call hmac.compare_digest; reuse auth.verify . NIST SSDF SP 800-218 PW.7"
     assert first["locations"][0]["physicalLocation"]["region"] == {"startLine": 7}
     assert bhreview.errors(log) == ["src/a.py:7 " + first["message"]["text"]]
 
@@ -164,7 +173,7 @@ def spec_for(fake, reviews, builds):
     )
 
 
-MAJOR = {"summary": "a secret compared with == -> call hmac.compare_digest . prevent: use the owner's verify", "rule": "keys", "severity": "S2", "evidence": "trigger", "where": "src/json_writer.py:3"}
+MAJOR = {"summary": "a secret compared with == -> call hmac.compare_digest . prevent: use the owner's verify", "rule": "secrets", "severity": "S2", "evidence": "trigger", "where": "src/json_writer.py:3"}
 
 
 def design_affecting(toy):
@@ -178,7 +187,7 @@ def design_affecting(toy):
 
 def test_a_major_finding_goes_back_to_the_same_builder_then_merges(toy, fake):
     design_affecting(toy)
-    first = JSON_WRITER.replace("import json\n", "import hmac\nimport json\n")
+    first = JSON_WRITER + '\napi_token = "t-1"\n'
     spec_for(fake, [[MAJOR], []], [first, first + "\n# compare_digest\n"])
     o = orch(toy)
     res = run(o.run())
@@ -188,11 +197,11 @@ def test_a_major_finding_goes_back_to_the_same_builder_then_merges(toy, fake):
     builders = [c for c in fake.calls() if c["agent"] == "harness-builder"]
     assert len({c["cwd"] for c in builders}) == 1  # the same clone, the same builder's work
     assert builders[0]["stdin"] == bhpacket.LAUNCH_PROMPT
-    assert "[keys] a secret compared with == -> call hmac.compare_digest" in builders[1]["stdin"]
+    assert "[secrets] a secret compared with == -> call hmac.compare_digest" in builders[1]["stdin"]
     review = [c for c in fake.calls() if c["agent"] == "harness-reviewer"][0]
     inp = json.loads(open(review["stdin"].split("Input file (read it first; it names every other path): ")[1].split()[0]).read())
     assert inp["triggers"] == [
-        {"domain": "keys", "detail": "src/json_writer.py imports hmac"},
+        {"domain": "secrets", "detail": "src/json_writer.py: ruff S105 finding changed"},
         {"domain": "duplication", "detail": "the item is design-affecting"},
     ]
     assert inp["diff"].startswith("git diff ") and inp["packet_sha256"] == bhpacket.custody_digest(toy, "json-writer")
@@ -207,7 +216,7 @@ def test_findings_left_at_the_round_limit_never_change_met(toy, fake):
     cfgp = toy / ".brick-harness" / "config.json"
     cfgp.write_text(json.dumps({**json.loads(cfgp.read_text()), "max_rounds": 1}))
     commit_all(toy, "one round")
-    spec_for(fake, [[{**MAJOR, "severity": "S1"}]], [JSON_WRITER.replace("import json\n", "import hmac\nimport json\n")])
+    spec_for(fake, [[{**MAJOR, "severity": "S1"}]], [JSON_WRITER + '\napi_token = "t-1"\n'])
     o = orch(toy)
     res = run(o.run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
@@ -219,9 +228,8 @@ def test_findings_left_at_the_round_limit_never_change_met(toy, fake):
     assert "stuck" not in [f["kind"] for r in res["phases"]["rounds"] for f in r["facts"]]  # met, not stuck
 
 
-def test_a_mechanical_item_whose_diff_triggers_nothing_starts_no_reviewer(toy, fake, monkeypatch):
-    real = bhpacket.plan_packet
-    monkeypatch.setattr(bhpacket, "plan_packet", lambda cfg, item: {**real(cfg, item), "tier": "mechanical"})
+def test_a_mechanical_item_whose_diff_triggers_nothing_starts_no_reviewer(toy, fake):
+    """The toy's src/ is mechanical by the derived tier (R6): no duplication check, no reviewer (G5)."""
     spec_for(fake, [[MAJOR]], [JSON_WRITER])
     res = run(orch(toy).run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
@@ -230,7 +238,7 @@ def test_a_mechanical_item_whose_diff_triggers_nothing_starts_no_reviewer(toy, f
 
 def test_a_later_round_that_misses_never_undoes_the_met_build(toy, fake):
     """Round 1 is met with a major finding, round 2's build misses: the round-1 commit merges."""
-    first = JSON_WRITER.replace("import json\n", "import hmac\nimport json\n")
+    first = JSON_WRITER + '\napi_token = "t-1"\n'
     spec_for(fake, [[MAJOR]], [first, WRONG])
     o = orch(toy)
     res = run(o.run())

@@ -153,6 +153,21 @@
       "minimum": 1,
       "maximum": 20
     },
+    "review": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The triggered review (QBC-36).",
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "minLength": 1
+          },
+          "description": "What the project declares as review-triggering, beside the maintained triggers (ruff S findings, SQL grants, design-affecting tier): a CODEOWNERS owner (@team or an e-mail) whose code the diff touches, or a gitignore path pattern a changed path matches."
+        }
+      }
+    },
     "models": {
       "type": "object",
       "description": "Model per phase agent, passed through as-is; omitted means the session model.",
