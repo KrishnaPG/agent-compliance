@@ -714,13 +714,23 @@ class Orchestrator:
             "features": s["features"],
             "open_gaps": [g["summary"] for g in s["gaps"] if g["kind"] != "unsettled-area"],
         }
-        j = await self.job(
-            "plan", "derive plan", core, extra, "Derive the plan files from the documents."
-        )
-        if j.get("dry_run"):
-            return {"dry_run": True, "job": j}
-        if not j["ok"]:
-            return {"error": j.get("error", "plan job failed"), "reconcile": rec, "admit": adm}
+        core["schemas"] = {  # the plan files' contract, by path: the planner writes them to it
+            k: str(bhcore.SCHEMA_DIR / f"{k}.schema.json") for k in ("bricks", "targets")
+        }
+        for rnd in range(1, int(cfg.data.get("max_rounds", 3)) + 1):
+            j = await self.job(
+                "plan", f"derive plan:{rnd}", core, extra, "Derive the plan files from the documents."
+            )
+            if j.get("dry_run"):
+                return {"dry_run": True, "job": j}
+            if not j["ok"]:
+                return {"error": j.get("error", "plan job failed"), "reconcile": rec, "admit": adm}
+            bad = self.plan_file_errors()
+            if not bad:
+                break
+            core["feedback"] = bad  # back to the planner: the files it wrote break their schema
+        else:
+            return {"error": "; ".join(bad)[:500], "reconcile": rec, "admit": adm}
         out = j["output"]
         report = self.write_gaps(out["not_derivable"], "plan")
         commit = self.commit("plan")
@@ -734,6 +744,18 @@ class Orchestrator:
             "admitted": sorted(admitted),
             **({"error": report["error"]} if report.get("error") else {}),
         }
+
+    def plan_file_errors(self) -> list[str]:
+        """What the plan files the planner wrote break in their schemas (bricks, targets)."""
+        bad = []
+        for k in ("bricks", "targets"):
+            f = self.cfg.file(k)
+            if f is not None and f.exists():
+                try:
+                    bhcore.load_json(f, k)
+                except HarnessError as e:
+                    bad.append(f"{self.rel(f)}: {e}"[:400])
+        return bad
 
     # ------------------------------------------------------------ phase: build
 
@@ -864,7 +886,8 @@ class Orchestrator:
         why: dict[str, str] = {}
         budgets = cfg.data.get("budgets", {})
         tried: set[str] = set()
-        for _ in range(len(self.state()["bricks"])):  # the state again after each item: a merge makes its dependents ready
+        s = self.state()
+        for _ in range(len(s["bricks"])):  # the state again after each item: a merge makes its dependents ready
             s = self.state()
             item = next((i for i in s["ready"] if i not in tried), None)
             if item is None:

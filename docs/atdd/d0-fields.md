@@ -10,7 +10,7 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 |---|---|---|---|
 | `schema_version` | string | version of the packet schema the file follows | d0-AC17 |
 | `id` | string | the item id; names the packet | b9-AC13, d0-AC2 |
-| `parent_issue` | integer | tracker issue number of the item's parent | d0-AC2 |
+| `parent_issue` | integer | tracker issue number of the item's parent, when the project has a tracker | d0-AC2 |
 | `kind` | enum: slice, defect | slice, or defect for a fix of a recorded defect (a sub-issue under parent) | - |
 | `parent` | integer | defect packets only: the GitHub issue number of the slice or decision the defect sits under (intake I2) | - |
 | `found_by` | enum: planner, judge, proposer, test_author, builder, reviewer, person | defect packets only: who found the defect, a jobs[*].role or person; the regression row is written by that agent when it is not the builder, otherwise by the test_author job | - |
@@ -26,11 +26,8 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `constraints.limits` | object | the limits that bind the item, key to effective value | d0-AC5 |
 | `acceptance[*].id` | string | the acceptance criterion id, e.g. d0-AC1 | b9-AC13, d0-AC6, d2-AC3 |
 | `acceptance[*].scenario` | string | the criterion's one-line scenario title | d0-AC17 |
-| `acceptance[*].given` | array | the criterion's given steps, keys of docs/atdd/catalog.yaml | d0-AC17 |
-| `acceptance[*].when` | object | the criterion's when step, a key of docs/atdd/catalog.yaml | d0-AC17 |
-| `acceptance[*].then` | array | the criterion's then steps, keys of docs/atdd/catalog.yaml | d0-AC17 |
-| `acceptance[*].traces_to` | array of string | the G, P, R or QBC ids the criterion proves | d0-AC6 |
-| `acceptance[*].verification` | enum: test, lint, fitness, measure | how the criterion is verified (ISO/IEC/IEEE 29148) | d0-AC6, d0-AC13, d6-AC1 |
+| `acceptance[*].traces_to` | array of string | where the criterion comes from: a project document file:line, or the G, P, R or QBC ids it proves | d0-AC6, d0-AC17 |
+| `acceptance[*].verification` | enum: test, lint, fitness, measure | how the criterion is verified (ISO/IEC/IEEE 29148) | d0-AC6, d0-AC13, d0-AC17, d6-AC1 |
 | `verifier.checks[*]` | string | an exact check the measurer and bh check run | d0-AC5 |
 | `verifier.rules[*].id` | string | a rule id from the standards data (g1) that binds the touched files | - |
 | `verifier.rules[*].message` | string | that rule's teaching message | - |
@@ -41,7 +38,7 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `verifier.targets[*].op` | string | the comparison, as in harness/schema/targets.schema.json | d2-AC3 |
 | `verifier.targets[*].value` | number | the threshold | d2-AC3 |
 | `verifier.targets[*].unit` | string | the threshold's unit | d2-AC3 |
-| `verifier.acceptance_paths[*]` | string | a visible acceptance test path, protected from the builder | d2-AC3, d6-AC5, d6-AC6 |
+| `verifier.acceptance_paths[*]` | string | the test author's acceptance test file in the project's own framework, protected from the builder | d2-AC3, d6-AC5, d6-AC6 |
 | `paved_road.test_paths[*]` | string | where the builder puts its own tests | d2-AC7 |
 | `paved_road.dependency_command` | string | how the builder adds a dependency | d2-AC7 |
 | `paved_road.check_command` | string | the self-check command, bh check | d0-AC5, d2-AC6 |
@@ -66,8 +63,8 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `items[*].acceptance[*].status` | enum: met, unmet | the measurer's verdict for that criterion | b2-AC18, b2-AC19 |
 | `checks_run[*]` | string | an exact check a measure or check command ran (command measure, check) | - |
 | `checks_missed[*]` | string | a planted defect the checks ran and did not report (command measure, check) | - |
-| `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC14, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC14, d6-AC15, d8-AC5, d8-AC6 |
-| `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, d6-AC7, d6-AC10, d6-AC11 |
+| `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC14, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d8-AC5, d8-AC6 |
+| `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, d6-AC10, d6-AC11 |
 | `facts[*].item` | string | the item the fact belongs to | b2-AC19 |
 | `gaps[*].id` | string | a gap id, unique in the run (command gaps) | - |
 | `unmerged[*]` | string | an item left unmerged (command merge) | b3-AC1 |
@@ -99,9 +96,9 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | path | type | meaning | rows |
 |---|---|---|---|
 | `jobs[*].id` | string | the job id, unique in the run | - |
-| `jobs[*].kind` | enum: agent, program_step | whether an agent or a program step ran the job | d6-AC3, d6-AC12 |
-| `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
-| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
+| `jobs[*].kind` | enum: agent, program_step | whether an agent or a program step ran the job | d6-AC12 |
+| `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | d6-AC1, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
+| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | d6-AC1, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
 | `jobs[*].item` | string | the item the job worked on | - |
 | `jobs[*].started_at` | string | start time, RFC 3339 | - |
 | `jobs[*].exit_code` | integer | the job's exit code | - |

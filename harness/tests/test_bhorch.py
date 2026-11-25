@@ -525,3 +525,14 @@ def test_the_owner_is_told_about_overlay_candidates(toy, fake):
     res = run(orch(toy).run(skip=["gaps", "plan", "harvest"]))
     assert res["overlay_candidates"] == []
     assert list(res)[:4] == ["product", "status", "owner_questions", "overlay_candidates"]
+
+
+def test_plan_files_that_break_their_schema_go_back_to_the_planner(toy, fake):
+    """The planner writes the plan files; the program checks them against their schemas and sends
+    the errors back (at most max_rounds), never building from a plan it cannot read."""
+    fake.spec(files={"harness-planner": {".brick-harness/bricks.json": '{"items": []}'}})
+    res = run(orch(toy).phase_plan())
+    plans = [c for c in fake.calls() if c["agent"] == "harness-planner"]
+    assert len(plans) == 2 and "bricks" in res["error"]  # the third round repeats the second: cached
+    inp = json.loads(Path(plans[-1]["stdin"].split("Input file (read it first; it names every other path): ")[1].split()[0]).read_text())
+    assert inp["schemas"]["bricks"].endswith("bricks.schema.json") and "bricks" in inp["feedback"][0]

@@ -8,10 +8,12 @@ Validation command (JSON Schema draft 2020-12, `check-jsonschema`), from the rep
 uv run --script docs/atdd/build.py --check
 ```
 
-Result: 0 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
+Result: 2 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
 
-Teaching parts: 147; 40 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (25): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d6-AC14, d6-AC15, d8-AC2, d8-AC3.
+Teaching parts: 138; 38 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (23): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d8-AC2, d8-AC3.
 
+- ERROR d6-AC13: covers 7, but d6 has 6 leaves
+- ERROR catalog value no row uses: when.program_step.step.generate_tests
 
 ## Counts
 
@@ -19,8 +21,8 @@ Teaching parts: 147; 40 name at least one identifier token that the message must
 |---|---|---|---|
 | a | 5 | 5 | 19 |
 | b | 6 | 6 | 73 |
-| d | 8 | 8 | 67 |
-| all | 19 | 19 | 159 |
+| d | 8 | 8 | 62 |
+| all | 19 | 19 | 154 |
 
 | Catalog | Entries |
 |---|---|
@@ -28,7 +30,7 @@ Teaching parts: 147; 40 name at least one identifier token that the message must
 | when | 7 |
 | then | 20 |
 
-Verification: fitness 1, lint 25, measure 4, test 129.
+Verification: fitness 1, lint 25, measure 4, test 124.
 
 ## §0 items × criteria
 
@@ -42,10 +44,10 @@ Verification: fitness 1, lint 25, measure 4, test 129.
 | G6 | 3 | 0 | 0 | 3 | a5-AC1, a5-AC2, a5-AC3 |
 | P1 | 0 | 0 | 4 | 4 | d0-AC4, d0-AC8, d0-AC15, d0-AC17 |
 | P2 | 0 | 3 | 0 | 3 | b5-AC2, b5-AC3, b5-AC4 |
-| P3 | 0 | 0 | 2 | 2 | d6-AC2, d6-AC3 |
+| P3 | 0 | 0 | 1 | 1 | d6-AC2 |
 | P4 | 1 | 4 | 3 | 8 | a3-AC3, b4-AC1, b4-AC3, b4-AC5, b4-AC7, d1-AC2, d1-AC5, d8-AC10 |
 | P5 | 1 | 3 | 4 | 8 | a5-AC1, b2-AC13, b2-AC16, b9-AC14, d8-AC1, d8-AC2, d8-AC3, d8-AC5 |
-| P6 | 0 | 16 | 9 | 25 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, d0-AC3, d0-AC16, d4-AC5, d6-AC1, d6-AC7, d6-AC9, d6-AC12, d6-AC14, d6-AC15 |
+| P6 | 0 | 16 | 6 | 22 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, d0-AC3, d0-AC16, d4-AC5, d6-AC1, d6-AC9, d6-AC12 |
 | P7 | 0 | 1 | 1 | 2 | b9-AC6, d2-AC7 |
 | P8 | 0 | 1 | 2 | 3 | b9-AC15, d1-AC3, d1-AC4 |
 | P9 | 0 | 0 | 0 | 0 |  |
@@ -54,7 +56,7 @@ Verification: fitness 1, lint 25, measure 4, test 129.
 | P12 | 0 | 0 | 0 | 0 |  |
 | R1 | 0 | 1 | 0 | 1 | b1-AC20 |
 | R2 | 0 | 5 | 0 | 5 | b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
-| R3 | 0 | 5 | 16 | 21 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC3, d6-AC4, d6-AC5, d6-AC6, d6-AC7, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13, d6-AC14, d6-AC15 |
+| R3 | 0 | 5 | 11 | 16 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC5, d6-AC6, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13 |
 | R4 | 0 | 53 | 0 | 53 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC4, b9-AC8, b9-AC13, b9-AC14, b9-AC15 |
 | R5 | 0 | 0 | 41 | 41 | d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d0-AC17, d1-AC1, d1-AC2, d2-AC3, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC11, d8-AC12 |
 | R6 | 0 | 0 | 0 | 0 |  |
@@ -78,6 +80,7 @@ Leaves are numbered by `build.py --bullets`.
 
 - b9: leaves 1, 7, 9
 - d2: leaves 2, 3, 6, 7
+- d6: leaves 3
 
 ## packet-standards.md stage outputs and enforcement × criteria
 
@@ -110,10 +113,10 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 | L2.commit-messages-as-facts | NONE |
 | L2.success-of-the-whole-flow | NONE |
 | L2.ratchet-baselines | NONE |
-| L3.acceptance-criteria-to-tests | d6-AC3, d6-AC7 |
-| L3.test-code | d6-AC4 |
+| L3.acceptance-criteria-to-tests | NONE |
+| L3.test-code | NONE |
 | L3.results | d6-AC8 |
-| L3.traceability | d6-AC3 |
+| L3.traceability | NONE |
 | L3.model-calls-in-tests | NONE |
 | L3.messages-and-renderings | d0-AC12 |
 | L4.commit-message | b9-AC13 |
@@ -128,7 +131,7 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 | review.findings | NONE |
 | review.severity | NONE |
 | enforce.1 | d0-AC16 |
-| enforce.2 | d6-AC3, d6-AC14, d6-AC15 |
+| enforce.2 | NONE |
 | enforce.3 | d3-AC7, d4-AC7 |
 | enforce.4 | b1-AC22, b1-AC23 |
 | enforce.5 | b2-AC15, b2-AC16, b9-AC13 |
@@ -143,10 +146,10 @@ None.
 
 Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.
 
-- packet.fixture: toy_item (63)
-- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), criterion_without_test (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), test_without_criterion (1), unimplemented_keyword_row (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
-- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (5), toy_honest (7), toy_scope (1)
-- repo.state: plugin:candidate (34), toy:base (125)
+- packet.fixture: toy_item (58)
+- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
+- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (6), toy_honest (7), toy_scope (1)
+- repo.state: plugin:candidate (34), toy:base (120)
 
 ## needs-keyword
 
@@ -221,14 +224,7 @@ None.
 - d4-AC3: "arrives once" does not say what a repeat looks like; the row treats a repeat touch as absent context
 - d4-AC4: the fixed line's text is not given; the row asserts it is present and that it holds no goal text
 - d4-AC7: assumes the delivered context is exactly the rendering, with nothing added by the hook
-- d6-AC1: "writes no test code" has no observable output named in the plan; it is proven only by the generator rows that produce every test
-- d6-AC3: one test per row is asserted as equal id lists and distinct test node ids
-- d6-AC4: the marker form is not named; the manifest node id is asserted to carry the criterion id
-- d6-AC5: the manifest's own path is not named, so only the acceptance test paths are asserted
 - d6-AC6: the plan states no refusal text for an edit of a protected test; substrings are best guesses
-- d6-AC7: which keyword the planted row uses is a fixture choice; questions_asked is assumed
 - d6-AC13: the bootstrap's manifest location is not named; the row checks the manifest holds a criterion of slice a
-- d6-AC14: no message text is given; substrings follow the enforcement paragraph's wording
-- d6-AC15: no message text is given; substrings follow the enforcement paragraph's wording
 - d8-AC5: "adds QBC-47's line" does not say whether the builder or the orchestrator message; the builder text is asserted
 - d8-AC10: the plan states the rule, not the scan pattern; the pattern approximates reading contents

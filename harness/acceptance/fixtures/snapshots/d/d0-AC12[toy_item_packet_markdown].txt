@@ -45,10 +45,6 @@ Add a subtract function to the toy calculator so the calculator covers all four 
 
 Verification: test. Traces to: G1, G2, G3, G4, G5, G6, P1, P2, P3, P4, P5, P6, P7, P8, P9, P10, P11, P12, R3, R5, QBC-24.
 
-- Given {"repo": {"name": "toy", "state": "base"}}
-- When {"entry_point": {"entry": "plugin_pytest"}}
-- Then {"exit_code": {"code": 0}}
-
 ## Verifier
 
 - Check: pytest tests/acceptance
