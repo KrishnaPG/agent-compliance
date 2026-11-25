@@ -12,4 +12,7 @@ For each step record: `| Step | Anchor found | Guesses needed | Verify tells pas
 - A Verify that only checks text (or syntax) cannot prove behaviour; say so.
 - Flag any literal host, user, path, IP or account specific to one setup.
 
-Write the table, then a numbered list of blockers and a numbered list of guesses, to `<output file>`. Reply with both lists. Each guess is a BROKEN plan-format rule.
+Write the table, then a numbered list of blockers and a numbered list of guesses, to `<output file>`. Reply with both lists and, as the last line, the count of guesses:
+
+Guesses: <n>
+
