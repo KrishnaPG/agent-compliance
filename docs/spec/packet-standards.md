@@ -1,8 +1,40 @@
-# The L2 packet: standards applied and standards left out
+# Stage outputs: standards applied and standards left out
 
-The packet is the single contract. The test author (L3), the builder (L4) and the measurer (L5) all read it, so there is one definition of success (owner, 2026-11-25). Plan task d0 builds it.
+Every stage of the flow writes one output in a standard format. This file names, for each stage, the standards it applies and those it leaves out, with the reason. The L2 packet is the single contract: the test author (L3), the builder (L4) and the measurer (L5) all read it, so there is one definition of success (owner, 2026-11-25). Plan task d0 builds the schemas and checks.
 
-## Applied
+## Common to every stage
+
+| Concern | Standard | Why |
+|---|---|---|
+| Any JSON output | JSON Schema 2020-12, validated by the `jsonschema` library | Mechanical validation (P3), OSS (P2) |
+| Every refusal, finding or note | ISO 9241-110:2020, user-error robustness and suitability for learning: what is wrong, the right way, how to prevent it | Every rejection teaches (P5) |
+| Reference to the contract | The packet id plus its sha256 in every output | One contract, never two |
+
+## L1 Epic design: decision record
+
+### Applied
+
+| Part | Standard | Why |
+|---|---|---|
+| Decision record | MADR 4.0 (Markdown Architectural Decision Records) | The most widely used ADR template, with tooling (adr-tools, log4brains); it has sections for context, options, the outcome and its consequences |
+| Lineage and size | Nygard ADR: one decision per record, short | Records stay readable and current |
+| Front matter | MADR's status, date and deciders | Checkable by the program |
+| Option judgement | The project's vetted-decision method, with a fresh agent as the judge | Nobody grades themselves (P6) |
+| Link to the work | The decision record links its tracking issue, and the issue links back (as in the Rust RFC process) | Intake I2, nothing free-floating |
+| Hand-off to L2 | Each constraint cites §0 or QBC ids; its falsifying calls become L2 criteria | Traceability (ISO/IEC/IEEE 29148) |
+
+### Left out, and why
+
+| Standard | Why it is left out |
+|---|---|
+| A full ISO/IEC/IEEE 42010 architecture description (viewpoints, models) | Heavyweight for per-epic decisions (P10); MADR keeps the rationale that matters |
+| arc42 | It documents a whole architecture, not one decision |
+| Y-statements (Zimmermann) | Compact, but less structure than MADR for options and consequences, and no front matter to check |
+| C4 diagrams as a requirement | Optional; a decision may include one, but nothing depends on it |
+
+## L2 Plan: the packet
+
+### Applied
 
 | Packet part | Standard or practice | Why |
 |---|---|---|
@@ -23,7 +55,7 @@ The packet is the single contract. The test author (L3), the builder (L4) and th
 | Success of the whole flow | DORA metrics (change-failure rate, lead time) | Industry delivery metrics, against a pre-v2 baseline |
 | Ratchet baselines | Baseline-file practice (ruff `--add-noqa`, detekt and PHPStan baselines) | No formal standard; established practice for applying new rules forward (P11) |
 
-## Left out, and why
+### Left out, and why
 
 | Standard | Why it is left out |
 |---|---|
@@ -36,7 +68,85 @@ The packet is the single contract. The test author (L3), the builder (L4) and th
 | SLSA provenance for packets and builds | No measured need yet. Kept as a later extension |
 | Formal verification of the order engine (TLA+) | Excess for a sequential program with tested steps (P10) |
 
-## Every stage's output format (owner question, 2026-11-25)
+## L3 Tests: generated acceptance tests
+
+### Applied
+
+| Part | Standard | Why |
+|---|---|---|
+| Criteria to tests | Keyword-driven testing (ISTQB; FIT/FitNesse tables): rows from closed catalogs, turned into tests by a generator | No agent judgement; consistent results |
+| Test code | The project's own framework (pytest for the plugin), each test marked with its criterion id | Convention over configuration (P9) |
+| Results | JUnit XML | Every runner emits it |
+| Traceability | A manifest from criterion id to test node id (ISO/IEC/IEEE 29148) | One test per criterion, one criterion per test |
+| Model calls in tests | Record and replay (the VCR pattern) | Deterministic and free (R3) |
+| Messages and renderings | Approval (snapshot) testing | Cheap checks on teaching messages and the rendered packet |
+
+### Left out, and why
+
+| Standard | Why it is left out |
+|---|---|
+| TAP (Test Anything Protocol) | Less tool support than JUnit XML for structured attributes such as the criterion id |
+| CTRF (Common Test Report Format) | Newer and less widely adopted; JUnit XML is the common denominator |
+| A Cucumber runtime | Adds a runtime in every stack; see the L2 table |
+| IEEE 829 / ISO/IEC/IEEE 29119-3 test documents | Heavyweight; the manifest and the criteria carry what is needed (P10) |
+| Allure and similar reporting tools | Presentation only; there is no measured need |
+
+## L4 Build: the commit
+
+### Applied
+
+| Part | Standard | Why |
+|---|---|---|
+| Commit message | Conventional Commits 1.0 (checked by commitlint as a fact, never blocking) | Machine-readable type and scope |
+| Contract reference | git trailers (`git interpret-trailers`): `Packet: <id>@<sha256>`, `Criteria: <ids>` | A standard git feature that ties the commit to the one contract |
+| Tier of version changes | Semantic Versioning 2.0.0 | Patch and minor are mechanical; major is design-affecting (R6) |
+
+### Left out, and why
+
+| Standard | Why it is left out |
+|---|---|
+| Signed commits (GPG, SSH, Sigstore gitsign) | They prove identity, but agents have no identity of their own: bot accounts are out of our control (P12) |
+| DCO sign-off | Contributor licensing, which doesn't apply here |
+| Keep a Changelog | Release-level, not commit-level; it belongs to a release step |
+
+## L5 Verify: the measurement
+
+### Applied
+
+| Part | Standard | Why |
+|---|---|---|
+| Test results | JUnit XML | Every runner emits it |
+| Lint and fitness findings | SARIF 2.1.0 (OASIS), with the teaching message in `message`, `help` and `fixes` | The industry exchange format for analysis results; ruff, ESLint and semgrep emit it |
+| Per-criterion verdict and facts | A result JSON validated by JSON Schema, naming the packet sha256 | Only the measurer writes it |
+| Isolation of the run | Least privilege (NIST SP 800-53 AC-6): a bwrap jail plus a canary | Builder code can't write outside its checkout |
+| Success of the flow | DORA metrics (change-failure rate, lead time), plus tokens per met slice | Industry delivery metrics (R11) |
+
+### Left out, and why
+
+| Standard | Why it is left out |
+|---|---|
+| in-toto attestations and SLSA provenance for results | No measured need yet; a later extension |
+| OpenTelemetry for facts | Excess for facts written as files by one program (P10) |
+| Checkstyle XML, Code Climate JSON | SARIF covers both, and Code Climate is platform-specific |
+
+## Review (triggered): findings
+
+### Applied
+
+| Part | Standard | Why |
+|---|---|---|
+| Trigger | NIST SSDF SP 800-218 PW.7; OWASP SAMM design and implementation review | Independent review of security-sensitive diffs (P6) |
+| Findings | SARIF 2.1.0; triage severity maps to `level` (error = Critical or Major, warning = Minor with value) | Same format as L5 |
+| Severity | ISTQB severity; CVSS 4.0 when a finding is a vulnerability | Standard triage |
+
+### Left out, and why
+
+| Standard | Why it is left out |
+|---|---|
+| GitHub pull-request review comments as the store | Platform lock-in. They can be rendered from SARIF where wanted |
+| A mandatory review for every diff | Not a standard requirement (SSDF targets risk), and it costs every item (P10) |
+
+## Overview: every stage's output
 
 Each stage writes one standard format. Every output carries the packet's id and its sha256, so all of them refer to the same contract.
 
@@ -49,7 +159,7 @@ Each stage writes one standard format. Every output carries the packet's id and 
 | L5 Verify | The measurement: per-criterion met or unmet, plus facts | JUnit XML for tests; SARIF 2.1.0 (OASIS) for lint and fitness findings, with the teaching message in `message`, `help` and `fixes`; a result JSON, schema-validated, that names the packet sha256 | Only the measurer writes it; it reads the packet and tests from the base commit, never from the builder's copy |
 | Review (triggered) | Findings | SARIF 2.1.0, with triage severity mapped to `level` (error = Critical or Major, warning = Minor with value) | Findings are facts that never change "met"; each cites the packet sha256 |
 
-### How "one packet, one definition of success" is enforced
+## How "one packet, one definition of success" is enforced
 
 These are mechanisms, not agent discipline.
 1. **One file.** The packet is one schema-valid file at a path only the planner or orchestrator writes. Its sha256 identifies it.
