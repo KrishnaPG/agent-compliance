@@ -130,7 +130,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `limits.known_issues` | integer | 100 | lines the Known issues list may hold | - |
 | `limits.measure_overhead_s` | number | 2 | measurer overhead on the toy, without the test command | - |
 | `limits.socket_groups[*]` | string | ["docker"] | groups whose members refuse a builder launch | - |
-| `sandbox` | object | the plan states none | the Claude Code sandbox settings object, passed verbatim into the builder's settings | b9-AC15 |
+| `sandbox` | object | the plan states none | the Claude Code sandbox settings object, passed verbatim into the builder's settings | - |
 | `sandbox.network.allowAllUnixSockets` | boolean | false | the host's key; set only when the sandbox probe passes with it and fails without it | - |
 | `evals.runs` | integer | 3 | runs per eval arm | - |
 | `models.*` | string | the plugin's preset per role | the model per job role (planner, judge, test_author, builder, reviewer...) | - |
@@ -206,6 +206,7 @@ Each line is a d0 field that no acceptance criterion tests, or a config key with
 - config `limits.known_issues` (integer) is a d0 field that no acceptance criterion reads yet.
 - config `limits.measure_overhead_s` (number) is a d0 field that no acceptance criterion reads yet.
 - config `limits.socket_groups[*]` (string) is a d0 field that no acceptance criterion reads yet.
+- config `sandbox` (object) is a d0 field that no acceptance criterion reads yet.
 - config `sandbox.network.allowAllUnixSockets` (boolean) is a d0 field that no acceptance criterion reads yet.
 - config `evals.runs` (integer) is a d0 field that no acceptance criterion reads yet.
 - config `models.*` (string) is a d0 field that no acceptance criterion reads yet.

@@ -18,9 +18,9 @@ Teaching parts: 138; 38 name at least one identifier token that the message must
 | Slice | Tasks | Tasks with rows | Criteria |
 |---|---|---|---|
 | a | 5 | 5 | 19 |
-| b | 6 | 6 | 73 |
+| b | 6 | 6 | 68 |
 | d | 8 | 8 | 62 |
-| all | 19 | 19 | 154 |
+| all | 19 | 19 | 149 |
 
 | Catalog | Entries |
 |---|---|
@@ -28,7 +28,7 @@ Teaching parts: 138; 38 name at least one identifier token that the message must
 | when | 7 |
 | then | 20 |
 
-Verification: fitness 1, lint 25, measure 4, test 124.
+Verification: fitness 1, lint 25, measure 4, test 119.
 
 ## §0 items × criteria
 
@@ -46,16 +46,16 @@ Verification: fitness 1, lint 25, measure 4, test 124.
 | P4 | 1 | 4 | 3 | 8 | a3-AC3, b4-AC1, b4-AC3, b4-AC5, b4-AC7, d1-AC2, d1-AC5, d8-AC10 |
 | P5 | 1 | 3 | 4 | 8 | a5-AC1, b2-AC13, b2-AC16, b9-AC14, d8-AC1, d8-AC2, d8-AC3, d8-AC5 |
 | P6 | 0 | 16 | 6 | 22 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, d0-AC3, d0-AC16, d4-AC5, d6-AC1, d6-AC9, d6-AC12 |
-| P7 | 0 | 1 | 1 | 2 | b9-AC6, d2-AC7 |
-| P8 | 0 | 1 | 2 | 3 | b9-AC15, d1-AC3, d1-AC4 |
+| P7 | 0 | 0 | 1 | 1 | d2-AC7 |
+| P8 | 0 | 0 | 2 | 2 | d1-AC3, d1-AC4 |
 | P9 | 0 | 0 | 0 | 0 |  |
 | P10 | 4 | 0 | 0 | 4 | a2-AC1, a2-AC3, a2-AC4, a2-AC5 |
 | P11 | 0 | 1 | 0 | 1 | b4-AC11 |
 | P12 | 0 | 0 | 0 | 0 |  |
 | R1 | 0 | 1 | 0 | 1 | b1-AC20 |
-| R2 | 0 | 5 | 0 | 5 | b9-AC2, b9-AC3, b9-AC10, b9-AC11, b9-AC12 |
+| R2 | 0 | 3 | 0 | 3 | b9-AC10, b9-AC11, b9-AC12 |
 | R3 | 0 | 5 | 11 | 16 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC5, d6-AC6, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13 |
-| R4 | 0 | 53 | 0 | 53 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC4, b9-AC8, b9-AC13, b9-AC14, b9-AC15 |
+| R4 | 0 | 51 | 0 | 51 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC8, b9-AC13, b9-AC14 |
 | R5 | 0 | 0 | 41 | 41 | d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d0-AC17, d1-AC1, d1-AC2, d2-AC3, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC11, d8-AC12 |
 | R6 | 0 | 0 | 0 | 0 |  |
 | R7 | 0 | 0 | 0 | 0 |  |
@@ -66,7 +66,7 @@ Verification: fitness 1, lint 25, measure 4, test 124.
 
 Gaps, §0 items traced by no criterion (their rows left the release scope): G2, G4, P9, P12, R6, R7, R8, R10, R11.
 
-QBC ids traced by no criterion: QBC-1, QBC-2, QBC-3, QBC-4, QBC-5, QBC-6, QBC-7, QBC-9, QBC-10, QBC-14, QBC-18, QBC-19, QBC-20, QBC-21, QBC-22, QBC-23, QBC-25, QBC-26, QBC-27, QBC-28, QBC-29, QBC-30, QBC-32, QBC-36, QBC-50, QBC-54, QBC-56, QBC-57, QBC-58, QBC-60, QBC-61, QBC-62, QBC-63, QBC-64, QBC-67, QBC-68, QBC-69, QBC-70, QBC-72, QBC-73, QBC-74, QBC-75, QBC-78, QBC-81, QBC-83, QBC-84, QBC-85, QBC-86, QBC-87, QBC-88, QBC-89, QBC-90, QBC-91, QBC-92, QBC-93, QBC-94, QBC-95, QBC-96, QBC-97, QBC-98, QBC-99, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
+QBC ids traced by no criterion: QBC-1, QBC-2, QBC-3, QBC-4, QBC-5, QBC-6, QBC-7, QBC-9, QBC-10, QBC-13, QBC-14, QBC-18, QBC-19, QBC-20, QBC-21, QBC-22, QBC-23, QBC-25, QBC-26, QBC-27, QBC-28, QBC-29, QBC-30, QBC-32, QBC-36, QBC-50, QBC-54, QBC-56, QBC-57, QBC-58, QBC-60, QBC-61, QBC-62, QBC-63, QBC-64, QBC-67, QBC-68, QBC-69, QBC-70, QBC-72, QBC-73, QBC-74, QBC-75, QBC-78, QBC-81, QBC-83, QBC-84, QBC-85, QBC-86, QBC-87, QBC-88, QBC-89, QBC-90, QBC-91, QBC-92, QBC-93, QBC-94, QBC-95, QBC-96, QBC-97, QBC-98, QBC-99, QBC-100, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
 
 ## Tasks whose "done when" has no row
 
@@ -76,7 +76,7 @@ None.
 
 Leaves are numbered by `build.py --bullets`.
 
-- b9: leaves 1, 7, 9
+- b9: leaves 1, 2, 3, 4, 5, 6, 7, 9
 - d2: leaves 2, 3, 6, 7
 - d6: leaves 3
 
@@ -146,8 +146,8 @@ Distinct fixture ids the rows name, with how many rows name each; near-duplicate
 
 - packet.fixture: toy_item (58)
 - planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
-- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (6), toy_honest (7), toy_scope (1)
-- repo.state: plugin:candidate (34), toy:base (120)
+- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (6), toy_honest (2), toy_scope (1)
+- repo.state: plugin:candidate (34), toy:base (115)
 
 ## needs-keyword
 
