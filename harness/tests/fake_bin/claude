@@ -16,6 +16,8 @@ It stands in for ``claude -p --agent ... --output-format json`` and behaves from
   budget_overrun [agent, ...]: those agents end with the CLI's ``error_max_budget_usd`` result
   fail           [agent, ...]: those agents exit 1 with an error result
   cost, usage    cost (usd) and usage reported per job
+  files          agent name -> {path relative to the job's cwd: text}: files the agent writes
+  outputs_by_item agent name -> {item: structured output}: per item, read from the job's input file
 
 Every call is appended to ``$FAKE_CLAUDE_LOG`` as one JSON line: argv, mode, agent, cwd, stdin.
 """
@@ -86,5 +88,11 @@ if agent in spec.get("fail", []):
     result(is_error=True, result=spec.get("fail_text", "the model gave up"))
     sys.exit(1)
 
+for rel, text in spec.get("files", {}).get(agent, {}).items():  # what the agent's Write tool would leave
+    Path(rel).parent.mkdir(parents=True, exist_ok=True)
+    Path(rel).write_text(text)
 out = dict(spec.get("outputs", {}).get(agent, {}))
+m = re.search(r"Input file \(read it first; it names every other path\): (\S+)", prompt)
+item = json.loads(Path(m.group(1)).read_text()).get("item") if m else None
+out = dict(spec.get("outputs_by_item", {}).get(agent, {}).get(item, out))
 result(structured_output=out)

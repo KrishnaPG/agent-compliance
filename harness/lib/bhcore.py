@@ -393,11 +393,15 @@ def _jail(
     """The one place that seals a measured command, so the sealing tool can be swapped.
 
     bubblewrap: read-only ``/``, no network, a tmpfs over ``/tmp`` and over each ``hide`` dir
-    (the orchestrator's state and the builder clones), only ``co`` and ``writable`` writable,
+    (the orchestrator's state and the builder clones), the user cache as a throwaway overlay, only
+    ``co`` and ``writable`` writable,
     and the whole jail dies with its parent (no process-group handling of our own).
     """
     seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
     seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
+    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
+    if cache.is_dir():  # the pre-warmed tool caches (uv, pip, pre-commit) read as they are; writes go to a tmpfs and vanish
+        seal += ["--overlay-src", str(cache), "--tmp-overlay", str(cache)]
     for d in hide:
         seal += ["--tmpfs", str(d)] if d.is_dir() else []
     for w in [co, *writable]:
@@ -1261,7 +1265,8 @@ def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
     """The project's test command writing JUnit XML to ``junit``: the recipe the checkout's
     justfile names (a pytest line gets the report flag on its command line, any other recipe gets
     it through ``env``), else pytest."""
-    flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider"
+    # a collection error in one file is that file's error, never a run that hides every other result
+    flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider --continue-on-collection-errors"
     cmd = f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
     if (co / "justfile").is_file() and shutil.which("just"):
         lines = _run("just --dry-run test 2>&1 >/dev/null", co, co, env, 30)["tail"].splitlines()
@@ -1639,13 +1644,14 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
             if not bench:
                 errors.append("bench targets but no bench command")
                 break
+            ctx = {"item": item, "out": out, "root": co, "workdir": co, "ref": sha}  # the config's placeholders
             _run(
-                bench["run"], co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)),
+                _render(bench["run"], ctx), co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)),
                 [top / HDIR], [out],
             )
             spec = bench.get("metrics", {}).get(name, name)
             try:
-                v = extract(co / bench["results"], bench.get("format", "json"), spec)
+                v = extract(co / _render(bench["results"], ctx), bench.get("format", "json"), spec)
             except InputError as e:
                 errors.append(str(e))
                 wrong, right, prevent = (
@@ -1949,6 +1955,14 @@ def _plan_paths(cfg: Config, top: Path, scoreboard: bool = True) -> list[str]:
         cfg.path,
         cfg.dir / HDIR / ".gitignore",
     ]
+    for pk in sorted((cfg.dir / HDIR / "packets").glob("*.json")):  # the packets and their acceptance tests
+        ps.append(pk)
+        try:
+            import bhpacket  # imports this module at load
+
+            ps.append(cfg.dir / bhpacket.acceptance_file(loads(pk.read_text())))
+        except (ValueError, KeyError, TypeError, IndexError):
+            pass  # an unreadable packet is the packet step's fact, not the commit's
     return [_under(p, top) for p in ps if p.exists() and p.is_relative_to(top)]
 
 

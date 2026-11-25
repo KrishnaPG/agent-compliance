@@ -311,26 +311,49 @@ def test_the_mechanical_phases_start_no_agent(toy, fake):
     assert {b["id"]: b["status"] for b in s["bricks"]}["json-writer"] == "met"
 
 
-def test_a_full_run_leads_with_the_product_view_and_records_auth_and_cost(toy, fake):
+ACCEPT = {  # the test author's answer per item: plain pytest files in the project's own framework
+    item: {
+        "acceptance": [
+            {"id": f"{item}-AC1", "scenario": "s", "traces_to": ["PLAN.md:5"], "verification": "test"}
+        ],
+        "test_code": "import importlib\nimport sys\nfrom pathlib import Path\n\n"
+        "sys.path.insert(0, str(Path(__file__).resolve().parents[2] / 'src'))\n\n\n"
+        f"def test_{item.replace('-', '_')}_AC1_works():\n"
+        f'    """{item}-AC1"""\n'
+        f"    assert {check}\n",
+    }
+    for item, check in (
+        ("csv-reader", "importlib.import_module('csv_reader').read_rows('a\\n1\\n') == [{'a': '1'}]"),
+        ("json-writer", "importlib.util.find_spec('json_writer') is not None"),
+    )
+}
+
+
+def test_a_full_run_goes_from_plan_to_packet_to_build_to_merge(toy, fake):
+    """One run: gaps, plan, then per ready item the program's packet, the test author's tests red
+    on main (or green: built before), the builder's clone, the measurer and the merge."""
+    fake.spec(
+        outputs_by_item={"harness-test-author": ACCEPT},
+        files={"harness-builder": {"src/json_writer.py": JSON_WRITER}},
+    )
     o = orch(toy)
     res = run(o.run())
     assert list(res)[:3] == ["product", "status", "owner_questions"]
-    assert res["auth"] == {
-        "mode_at_start": "login",
-        "mode_at_end": "login",
-        "fallbacks_to_login": 0,
-    }
-    kinds = [j["job"] for j in res["jobs"]]
-    assert kinds == ["gaps", "plan"]
-    assert res["totals"]["jobs"] == len(kinds) and res["totals"]["cost_usd"] == pytest.approx(
-        0.01 * len(kinds)
-    )
-    assert all(j["tokens"]["input"] == 10 for j in res["jobs"] if not j.get("skipped"))
+    assert res["auth"] == {"mode_at_start": "login", "mode_at_end": "login", "fallbacks_to_login": 0}
+    rounds = {r["item"]: r["status"] for r in res["phases"]["rounds"]}
+    assert rounds == {"csv-reader": "met", "json-writer": "met"}  # csv2json is a system item
+    roles = [(j.get("job") or j.get("role") or j.get("step"), j.get("item")) for j in res["jobs"]]
+    builds = [r for r in roles if r[0] == "builder"]
+    assert builds == [("builder", "json-writer")]  # csv-reader's tests passed at HEAD already
+    jw = [r[0] for r in roles if r[1] == "json-writer"]
+    assert jw == ["test_author", "red_run", "builder", "measurer", "merge"]
+    log = git(toy, "log", "--format=%s", "main")
+    assert "brick-harness: merge json-writer" in log and "brick-harness: acceptance json-writer" in log
+    assert (toy / "tests" / "acceptance" / "test_json_writer.py").is_file()
+    s = bhcore.state(o.cfg)
+    assert {b["id"]: b["status"] for b in s["bricks"] if b["id"] in rounds} == dict.fromkeys(rounds, "met")
     text = bhorch.summary_text(res, None)
-    assert text.startswith("PRODUCT") and text.index("PRODUCT") < text.index("STATUS") < text.index(
-        "AUTH"
-    )
-    assert res["phases"]["stopped"] == "no packets"  # building is the packet flow's, never a round here
+    assert text.startswith("PRODUCT") and text.index("PRODUCT") < text.index("STATUS") < text.index("AUTH")
 
 
 def test_a_run_over_its_token_budget_stops_before_a_round(toy, fake):
@@ -414,15 +437,7 @@ def test_every_job_has_an_agent_file_with_model_tools_and_a_section():
         assert body.index("## Rules (all jobs)") < body.index("## Job:")
 
 
-ROW = {
-    "id": "a-AC1",
-    "scenario": "s",
-    "given": [{"repo": {"name": "toy", "state": "base"}}],
-    "when": {"entry_point": {"entry": "plugin_pytest"}},
-    "then": [{"exit_code": {"code": 0}}],
-    "traces_to": ["R3"],
-    "verification": "test",
-}
+ROW = {"id": "a-AC1", "scenario": "s", "traces_to": ["R3"], "verification": "test"}
 
 
 def test_job_schemas_are_self_contained_and_check_outputs():
@@ -431,8 +446,8 @@ def test_job_schemas_are_self_contained_and_check_outputs():
         "plan": PLAN_OUT,
         "harvest_find": {"candidates": []},
         "review": {"findings": [{"summary": "x", "severity": "S2"}]},
-        "test_author": {"acceptance": [ROW]},
-        "regression_row": {"acceptance": [ROW]},
+        "test_author": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
+        "regression_row": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
     }
     assert set(ok) == set(bhorch.JOBS)
     for job, out in ok.items():

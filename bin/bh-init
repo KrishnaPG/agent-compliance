@@ -6,8 +6,10 @@
 """Scaffold .brick-harness/ in a project; never overwrites an existing file.
 
 Writes .brick-harness/config.json (paths to the project's own documents, a standards
-section for the rule catalog layers, with placeholders) and .brick-harness/.gitignore
-(out/). It writes no project document unless asked: --missing features writes a features
+section for the rule catalog layers) and .brick-harness/.gitignore (out/, clones/, custody/, launch/).
+What the project's standard files say is inferred (P9): the build order from a build-order
+document under docs/, the ecosystem from pyproject.toml or package.json, the test command from
+the justfile's test recipe or the pytest configuration; a flag overrides an inference. It writes no project document unless asked: --missing features writes a features
 template. Unset values stay
 <placeholders>, which the gaps phase reports. It authors no rules and no decisions.
 Prints {"created", "kept"}. Exit 0, or 2 on error.
@@ -34,6 +36,27 @@ One section per feature. Every number states where it comes from.
 """
 
 
+PLUGIN_VERSION = json.loads(
+    (Path(__file__).resolve().parents[1] / ".claude-plugin" / "plugin.json").read_text()
+)["version"]  # the catalog this plugin ships is the pinned base
+BUILD_ORDER_NAMES = ("docs/build-order.md", "build-order.md", "docs/BUILD_ORDER.md")
+ECOSYSTEM_FILES = (("pyproject.toml", "python"), ("package.json", "node"))
+JUNIT_ENV = "PYTEST_ADDOPTS=--junitxml={out}/junit.xml"
+
+
+def infer_test(root: Path) -> str:
+    """The project's own test command with pytest's JUnit report at {out}/junit.xml: the
+    justfile's test recipe (pytest reads PYTEST_ADDOPTS whatever the recipe runs first), else
+    pytest through the lockfile's runner; a placeholder when neither says."""
+    jf = root / "justfile"
+    if jf.is_file() and any(ln.split(":")[0].strip() == "test" for ln in jf.read_text().splitlines() if ":" in ln and not ln.startswith((" ", "\t"))):
+        return f"{JUNIT_ENV} just test"
+    if (root / "pyproject.toml").is_file():
+        run = "uv run " if (root / "uv.lock").is_file() else ""
+        return f"{run}pytest -q --junitxml={{out}}/junit.xml"
+    return "<test command writing JUnit XML to {out}/junit.xml>"
+
+
 def main() -> int:
     ap = argparse.ArgumentParser(prog="bh-init", description=__doc__.splitlines()[0])
     ap.add_argument("--root", default=".")
@@ -43,8 +66,8 @@ def main() -> int:
     )
     ap.add_argument("--build-order", default=None)
     ap.add_argument("--status", default=None)
-    ap.add_argument("--test", default="<test command writing JUnit XML to {out}/junit.xml>")
-    ap.add_argument("--ecosystem", nargs="*", default=["<ecosystem>"])
+    ap.add_argument("--test", default=None)
+    ap.add_argument("--ecosystem", nargs="*", default=None)
     ap.add_argument(
         "--missing",
         nargs="*",
@@ -54,6 +77,11 @@ def main() -> int:
     )
     a = ap.parse_args()
     root = Path(a.root).resolve()
+    a.build_order = a.build_order or next(
+        (p for p in BUILD_ORDER_NAMES if (root / p).is_file()), None
+    )
+    a.ecosystem = a.ecosystem or [e for f, e in ECOSYSTEM_FILES if (root / f).is_file()] or ["<ecosystem>"]
+    a.test = a.test or infer_test(root)
     paths: dict[str, object] = {"features": a.features if len(a.features) != 1 else a.features[0]}
     for key, val in (
         ("standards", a.standards or None),
@@ -65,7 +93,7 @@ def main() -> int:
     config = {
         "paths": paths,
         "standards": {
-            "base_version": "<pinned catalog version>",
+            "base_version": PLUGIN_VERSION,
             "packs": [],
             "note": "Rules and checks come from this plugin's catalog (base, packs) and the "
             "project overlay; set catalog to a path to use another. Missing layers are gaps.",
@@ -75,7 +103,7 @@ def main() -> int:
     }
     files = {
         root / ".brick-harness" / "config.json": json.dumps(config, indent=2) + "\n",
-        root / ".brick-harness" / ".gitignore": "out/\n",
+        root / ".brick-harness" / ".gitignore": "out/\nclones/\ncustody/\nlaunch/\nrun-report.txt\n",
     }
     if "features" in a.missing:
         for f in a.features:

@@ -210,15 +210,21 @@
     "test_author": {
       "type": "object",
       "required": [
-        "acceptance"
+        "acceptance",
+        "test_code"
       ],
       "properties": {
         "acceptance": {
           "type": "array",
           "minItems": 1,
           "items": {
-            "$ref": "#/$defs/row"
+            "$ref": "#/$defs/criterion"
           }
+        },
+        "test_code": {
+          "type": "string",
+          "minLength": 1,
+          "description": "the complete acceptance test file in the project's own framework; the program writes it at verifier.acceptance_paths[0]"
         }
       }
     },

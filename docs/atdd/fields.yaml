@@ -15,7 +15,7 @@ fields:
   # packet
   - {schema: packet, path: schema_version, type: string, meaning: "version of the packet schema the file follows"}
   - {schema: packet, path: id, type: string, meaning: "the item id; names the packet"}
-  - {schema: packet, path: parent_issue, type: integer, meaning: "tracker issue number of the item's parent"}
+  - {schema: packet, path: parent_issue, type: integer, meaning: "tracker issue number of the item's parent, when the project has a tracker"}
   - {schema: packet, path: kind, type: "enum: slice, defect", default: slice, meaning: "slice, or defect for a fix of a recorded defect (a sub-issue under parent)"}
   - {schema: packet, path: parent, type: integer, meaning: "defect packets only: the GitHub issue number of the slice or decision the defect sits under (intake I2)"}
   - {schema: packet, path: found_by, type: "enum: planner, judge, proposer, test_author, builder, reviewer, person", meaning: "defect packets only: who found the defect, a jobs[*].role or person; the regression row is written by that agent when it is not the builder, otherwise by the test_author job"}
@@ -31,10 +31,7 @@ fields:
   - {schema: packet, path: constraints.limits, type: object, meaning: "the limits that bind the item, key to effective value"}
   - {schema: packet, path: "acceptance[*].id", type: string, meaning: "the acceptance criterion id, e.g. d0-AC1"}
   - {schema: packet, path: "acceptance[*].scenario", type: string, meaning: "the criterion's one-line scenario title"}
-  - {schema: packet, path: "acceptance[*].given", type: array, meaning: "the criterion's given steps, keys of docs/atdd/catalog.yaml"}
-  - {schema: packet, path: "acceptance[*].when", type: object, meaning: "the criterion's when step, a key of docs/atdd/catalog.yaml"}
-  - {schema: packet, path: "acceptance[*].then", type: array, meaning: "the criterion's then steps, keys of docs/atdd/catalog.yaml"}
-  - {schema: packet, path: "acceptance[*].traces_to", type: "array of string", meaning: "the G, P, R or QBC ids the criterion proves"}
+  - {schema: packet, path: "acceptance[*].traces_to", type: "array of string", meaning: "where the criterion comes from: a project document file:line, or the G, P, R or QBC ids it proves"}
   - {schema: packet, path: "acceptance[*].verification", type: "enum: test, lint, fitness, measure", meaning: "how the criterion is verified (ISO/IEC/IEEE 29148)"}
   - {schema: packet, path: "verifier.checks[*]", type: string, meaning: "an exact check the measurer and bh check run"}
   - {schema: packet, path: "verifier.rules[*].id", type: string, meaning: "a rule id from the standards data (g1) that binds the touched files"}
@@ -46,7 +43,7 @@ fields:
   - {schema: packet, path: "verifier.targets[*].op", type: string, meaning: "the comparison, as in harness/schema/targets.schema.json"}
   - {schema: packet, path: "verifier.targets[*].value", type: number, meaning: "the threshold"}
   - {schema: packet, path: "verifier.targets[*].unit", type: string, meaning: "the threshold's unit"}
-  - {schema: packet, path: "verifier.acceptance_paths[*]", type: string, meaning: "a visible acceptance test path, protected from the builder"}
+  - {schema: packet, path: "verifier.acceptance_paths[*]", type: string, meaning: "the test author's acceptance test file in the project's own framework, protected from the builder"}
   - {schema: packet, path: "paved_road.test_paths[*]", type: string, meaning: "where the builder puts its own tests"}
   - {schema: packet, path: paved_road.dependency_command, type: string, meaning: "how the builder adds a dependency"}
   - {schema: packet, path: paved_road.check_command, type: string, meaning: "the self-check command, bh check"}

@@ -115,26 +115,6 @@
     {
       "id": "toy_item-AC1",
       "scenario": "subtract returns the difference of its two arguments",
-      "given": [
-        {
-          "repo": {
-            "name": "toy",
-            "state": "base"
-          }
-        }
-      ],
-      "when": {
-        "entry_point": {
-          "entry": "plugin_pytest"
-        }
-      },
-      "then": [
-        {
-          "exit_code": {
-            "code": 0
-          }
-        }
-      ],
       "verification": "test"
     }
   ],

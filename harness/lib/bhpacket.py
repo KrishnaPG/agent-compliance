@@ -11,9 +11,11 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
+import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
@@ -32,7 +34,6 @@ STEPS = (
     "render_packet",
     "launch_builder",
     "commit_build",
-    "generate_tests",
     "merge",
 )
 CUSTODY_DIR = (
@@ -169,7 +170,9 @@ def render_markdown(p: dict[str, Any]) -> str:
     out = [
         f"# Work packet: {p['id']}",
         "",
-        f"Schema {p['schema_version']}. Parent issue #{p['parent_issue']}. Tier: {p['tier']}.",
+        f"Schema {p['schema_version']}."
+        + (f" Parent issue #{p['parent_issue']}." if p.get("parent_issue") else "")
+        + f" Tier: {p['tier']}.",
         "",
         "## Goal",
         "",
@@ -192,12 +195,6 @@ def render_markdown(p: dict[str, Any]) -> str:
             f"Verification: {a['verification']}. Traces to: {', '.join(a['traces_to'])}.",
             "",
         ]
-        out += [f"- Given {json.dumps(g, sort_keys=True)}" for g in a["given"]]
-        out += (
-            [f"- When {json.dumps(a['when'], sort_keys=True)}"]
-            + [f"- Then {json.dumps(t, sort_keys=True)}" for t in a["then"]]
-            + [""]
-        )
     out += ["## Verifier", ""] + [f"- Check: {x}" for x in v.get("checks", [])]
     out += [f"- Rule {r['id']}: {r['message']}" for r in v.get("rules", [])] + [
         f"- Baseline: {b}" for b in v.get("baselines", [])
@@ -275,6 +272,135 @@ def trailer(packet: dict[str, Any], digest: str) -> str:
     return f"{packet['id']}@{digest}"
 
 
+SPEC_SECTION_0 = Path(__file__).resolve().parents[2] / "docs" / "spec" / "quality-by-construction.md"
+GLOB = re.compile(r"[*?\[]")
+PRINCIPLE_RE = re.compile(r"^- \[[ x]\] \*\*(P\d+)\.\*\* (.+)$")
+LOCK_ADD = (  # lockfile -> the package manager's own add command (the lockfile names the tool)
+    ("uv.lock", "uv add <package>"),
+    ("poetry.lock", "poetry add <package>"),
+    ("pnpm-lock.yaml", "pnpm add <package>"),
+    ("yarn.lock", "yarn add <package>"),
+    ("package-lock.json", "npm install <package>"),
+)
+DONE = (
+    "Every acceptance criterion is met by the measurer: its test in verifier.acceptance_paths "
+    "passes in the project's own test command, and nothing else turns red."
+)
+
+
+def _slug(item: str) -> str:
+    return re.sub(r"\W", "_", item).strip("_").lower() or "item"
+
+
+def test_roots(root: Path) -> list[str]:
+    """The project's test roots as pytest's own config names them (pyproject testpaths)."""
+    py = root / "pyproject.toml"
+    if not py.is_file():
+        return []
+    opts = tomllib.loads(py.read_text()).get("tool", {}).get("pytest", {}).get("ini_options", {})
+    return list(opts.get("testpaths", []))
+
+
+def paved_road(root: Path, cfg_data: dict[str, Any], protected: list[str]) -> dict[str, Any]:
+    """The paved road, inferred from the project's standard files (P9); the config's
+    ``paved_road`` overrides any part. Test paths are the project's test roots the builder may
+    write: a protected root (the default protects tests/) is left out."""
+    import bhcore
+
+    roots = test_roots(root)
+    dep =next((cmd for lock, cmd in LOCK_ADD if (root / lock).is_file()), "add it to the project's manifest")
+    road = {
+        "test_paths": [r for r in roots if not bhcore._matches(r.rstrip("/") + "/", protected)],
+        "dependency_command": dep,
+        "check_command": "bh check",
+    }
+    return {**road, **cfg_data.get("paved_road", {})}
+
+
+def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
+    """The d0 packet of a planned item, filled by the program from the plan (items, targets,
+    cited passages, rules) and the project's standard files; ``acceptance`` is left for the test
+    author. No agent writes any of it."""
+    import bhcore
+    import bhrules
+
+    ctx = bhcore.packet_context(cfg)
+    b = ctx["bricks"].get(item)
+    if b is None:
+        raise HarnessError(f"[packet-unknown-item] {item} is not in the plan -> run bh plan first . {SPEC}")
+    root = cfg.dir
+    principles = [
+        {"id": m[1], "text": m[2].strip()}
+        for ln in SPEC_SECTION_0.read_text().splitlines()
+        if (m := PRINCIPLE_RE.match(ln))
+    ]
+    passages = [bhcore._passage(cfg, ctx, c) for c in b.get("context", [])]
+    road = paved_road(root, cfg.data, cfg.protected)
+    accept_root = (test_roots(root) or ["tests"])[0].rstrip("/")  # protected: the builder cannot edit it
+    targets = [
+        {
+            "id": f"{item}-T{n}",
+            "item": item,
+            "metric": t["metric"],
+            "op": t["op"],
+            "value": t["value"],
+            **({"unit": t["unit"]} if t.get("unit") else {}),
+        }
+        for n, t in enumerate(bhrules.item_targets(cfg, ctx["targets"], item), 1)
+        if isinstance(t.get("value"), int | float)
+    ]
+    goal = b["job"] + (f" Purpose: {b['purpose']}" if b.get("purpose") else "")
+    return {
+        "schema_version": "1.0.0",
+        "id": item,
+        "kind": "slice",
+        "tier": "design-affecting",  # d5 (tier from the diff) is outside the release: the safe tier
+        "goal": goal,
+        "applies": principles,
+        "constraints": {
+            "decisions": [
+                {"id": f"{p['path']}:{p['lines']}", "text": p["text"]} for p in passages if p["text"]
+            ],
+            "declared_paths": bhcore._own_paths(b) or ["."],
+            "limits": {**bhcore.SIZING_DEFAULT, **cfg.data.get("sizing", {})},
+        },
+        "acceptance": [],
+        "verifier": {
+            "acceptance_paths": [f"{accept_root}/acceptance/test_{_slug(item)}.py"],
+            "targets": targets,
+            "rules": [
+                {"id": r["id"], "message": r["text"] or r["id"]}
+                for r in bhcore.packet_rules(cfg, item, ctx)
+            ],
+        },
+        "paved_road": road,
+        "definition_of_done": DONE,
+    }
+
+
+def acceptance_file(packet: dict[str, Any]) -> str:
+    """The test author's file: ``verifier.acceptance_paths[0]`` when it names a file, else
+    ``test_<item>.py`` under the fixed prefix of that glob or directory."""
+    first = packet["verifier"]["acceptance_paths"][0]
+    parts = first.split("/")
+    fixed = parts[: next((i for i, x in enumerate(parts) if GLOB.search(x)), len(parts))]
+    if len(fixed) == len(parts) and first.endswith(".py"):
+        return first
+    prefix = "/".join(x for x in fixed if x)
+    return f"{prefix or '.'}/test_{_slug(packet['id'])}.py"
+
+
+def write_plan_packet(cfg: Any, item: str) -> Path:
+    """Write the item's packet from the plan unless one exists (the test author's rows and a
+    kept packet are never overwritten)."""
+    from bhorch import write_atomic
+
+    path = packet_path(cfg.dir, item)
+    if not path.is_file():
+        write_atomic(path, json.dumps(plan_packet(cfg, item), indent=2) + "\n")
+    return path
+
+
 def assemble(root: Path, item: str) -> tuple[Any, bytes, list[dict[str, str]], str]:
     """Validate the packet and apply the size cap; return (packet, bytes, facts, teaching errors)."""
     from bhorch import write_atomic
@@ -318,7 +444,7 @@ def register(root: Path, clone: Path, digest: str) -> None:
             shutil.copy2(src, clone / o["path"])
 
 
-def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
+def launch_builder(root: Path, item: str, usd: float | None = None) -> tuple[int, str, str]:
     """Launch one builder: keep the packet by digest, make the clone, register the packet in it and
     start the builder with the fixed prompt. SessionStart delivers the packet (hooks/h1.py)."""
     import bhorch
@@ -343,6 +469,7 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
         "--output-format",
         "json",
         "--no-session-persistence",
+        *(["--max-budget-usd", str(usd)] if usd else []),  # the run's per-job cap (budgets.job_usd)
         "--permission-mode",
         "dontAsk",
         "--settings",
@@ -405,28 +532,6 @@ def program_job(
     }
 
 
-def generate_tests(root: Path, item: str) -> tuple[int, str, str]:
-    """The generator, a program step with no agent: the packet's rows become the item's collected tests."""
-    import bhtests
-    from bhorch import write_atomic
-
-    started = datetime.now(UTC)
-    packet, raw, facts, err = assemble(root, item)
-    if err:
-        return 1, "", err
-    more, _ = bhtests.generate(root, packet)
-    facts = [*facts, *more]
-    write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
-    digest = hashlib.sha256(raw).hexdigest()
-    return (
-        0,
-        result_json(
-            "generate_tests", raw, facts, jobs=[program_job("generator", item, started, digest)]
-        ),
-        "",
-    )
-
-
 def step(name: str, root: Path, item: str | None) -> tuple[int, str, str]:
     """Run one program step; return (exit code, stdout, stderr)."""
     if name == "merge":  # the one step that works on a branch, not on a packet: --item is optional
@@ -437,8 +542,6 @@ def step(name: str, root: Path, item: str | None) -> tuple[int, str, str]:
         return 2, "", f"step {name} needs --item\n"
     if name == "launch_builder":
         return launch_builder(root, item)
-    if name == "generate_tests":
-        return generate_tests(root, item)
     if name == "commit_build":
         return commit_build(root, item)
     if name == "assemble_packet":

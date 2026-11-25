@@ -95,6 +95,7 @@ ROLE = {  # job -> jobs[*].role
 READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)"]
 REMEASURE = ("unmeasured", "stale", "conflict", "met-uncommitted")  # no current measurement
 DEFAULT_JOB_USD = 2.0
+FACTS_SHOWN = 20  # facts of one item kept in the run result; the run report has them all
 DEFAULT_JOB_TIMEOUT_S = 1800
 KILL_GRACE_S = 10
 AUTH_RE = re.compile(
@@ -153,11 +154,10 @@ def job_schema(job: str) -> dict[str, Any]:
     """The output schema of a job: ``$defs/<job>`` of jobs.schema.json with every ``$ref`` inlined
     (the CLI gets one self-contained schema) and the finding schema merged in."""
     doc = json.loads((bhcore.SCHEMA_DIR / "jobs.schema.json").read_text())
-    rows = json.loads((PLUGIN_ROOT / "docs" / "atdd" / "criteria.schema.json").read_text())["$defs"]
     defs = {
         **doc["$defs"],
         "finding": bhcore.load_schema("finding")["$defs"]["finding"],
-        **{k: rows[k] for k in ("row", "given", "when", "then")},  # the one row definition
+        "criterion": bhcore.load_schema("packet")["$defs"]["criterion"],  # the packet's one definition
     }
 
     def target(ref: str) -> Any:
@@ -859,13 +859,38 @@ class Orchestrator:
             res["gaps"] = await self.phase_gaps()
         if "plan" not in skip:
             res["plan"] = await self.phase_plan()
-        # Building goes one way only: a packet, the test author, the builder's clone (``run_packets``).
-        # With no packet there is nothing to build, and the run says so.
+        # Building goes one way only: each ready item in plan order gets its packet from the plan,
+        # the test author's acceptance tests, the builder's clone, the measurer and, when met, the merge.
         why: dict[str, str] = {}
         budgets = cfg.data.get("budgets", {})
-        s = self.state()
-        if s["ready"] or s["ready_system"] or s["unmerged"]:
-            res["stopped"] = "budget" if self.over_budget(budgets) else "no packets"
+        tried: set[str] = set()
+        for _ in range(len(self.state()["bricks"])):  # the state again after each item: a merge makes its dependents ready
+            s = self.state()
+            item = next((i for i in s["ready"] if i not in tried), None)
+            if item is None:
+                break
+            tried.add(item)
+            if self.over_budget(budgets):
+                res["stopped"] = "budget"
+                break
+            if self.dry:
+                res["rounds"].append({"item": item, "dry_run": True})
+                continue
+            facts: list[dict[str, Any]] = []
+            try:
+                st = await self.packet_flow(item, facts)
+            except HarnessError as e:
+                st, facts = "unmet", [*facts, {"kind": "gap", "item": item, "detail": str(e)}]
+            res["rounds"].append({"item": item, "status": st, "facts": facts[-FACTS_SHOWN:]})
+            if st != "met":
+                why[item] = st
+                break  # the next item is cut from a HEAD this one did not reach
+        stale = [b["id"] for b in self.state()["bricks"] if b["status"] == "stale"]
+        if stale and not self.dry:  # a later plan commit (acceptance tests) changed what they were measured with
+            res["remeasured"] = await self.measure_all([(i, "HEAD") for i in stale])
+            self.commit("scoreboard")
+        if s["ready_system"]:
+            why.update({i: "system item: measured in its environment" for i in s["ready_system"]})
         if not self.dry:
             self.tracker("reconcile")
         s = self.state()
@@ -895,120 +920,133 @@ class Orchestrator:
 
     # ------------------------------------------------------------ packets: the test author goes first (d6)
 
-    async def run_packets(self, items: list[str]) -> dict[str, Any]:
-        """The packet flow of one run: for each item the test author (or, for a defect found by an agent
-        other than the builder, that agent) writes the acceptance rows, the generator turns them into the
-        collected tests, the red run on main is recorded, then the builder and the measurer run. A row that
-        errors goes back to the author; the rounds are capped by ``max_rounds``."""
-        facts: list[dict[str, Any]] = []
-        status: dict[str, str] = {}
-        for item in items:
-            status[item] = await self.packet_flow(item, facts)
-        write_atomic(
-            self.top / bhpacket.RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts)
-        )
-        return {
-            "schema_version": bhpacket.RESULT_VERSION,
-            "command": "run",
-            "facts": facts,
-            "items": [{"id": i, "status": st} for i, st in status.items()],
-            "jobs": self.job_table(),
-            "errors": self.errors,
-        }
-
     def program_step(
         self, name: str, item: str, started: datetime, digest: str, code: int = 0
     ) -> None:
         self.records.append(bhpacket.program_job(name, item, started, digest, code))
 
     async def packet_flow(self, item: str, facts: list[dict[str, Any]]) -> str:
-        import bhtests
-
+        """One item: the program writes its packet from the plan; the test author (or, for a defect
+        found by an agent other than the builder, that agent) writes the acceptance criteria and their
+        tests in the project's own framework; the program commits them with the packet (the plan
+        commit) and records them red on main; then the builder, the measurer and, when met, the merge.
+        A test that errors, or a criterion with no red test, goes back to the author; rounds are capped
+        by ``max_rounds``."""
         root = self.top
-        packet, raw = bhpacket.load_packet(root, item)
+        bhpacket.write_plan_packet(self.cfg, item)
+        packet, _ = bhpacket.load_packet(root, item)
         defect = packet.get("kind") == "defect"
         job = "regression_row" if defect and packet.get("found_by") == "reviewer" else "test_author"
+        test_path = bhpacket.acceptance_file(packet)
         feedback: list[dict[str, str]] = []
-        for rnd in range(1, int(self.cfg.data.get("max_rounds", 3)) + 1):
+        rounds = range(1, int(self.cfg.data.get("max_rounds", 3)) + 1)
+        if packet["acceptance"] and (root / test_path).is_file():  # a restart: the tests are committed
+            feedback, met_at_head = self.red_on_main(packet, facts)
+            if met_at_head:
+                await self.measure_all([(item, "HEAD")])
+                self.commit("scoreboard")
+                return "met"
+            red = not feedback
+        else:
+            red = False
+        rnd = 0
+        for rnd in [] if red else rounds:
             core = {
                 "task": job,
                 "item": item,
                 "packet": packet,
+                "test_path": test_path,
+                "test_command": "just test" if (root / "justfile").is_file() else "pytest",
                 "feedback": feedback,
-                "catalog": str(PLUGIN_ROOT / "docs" / "atdd" / "catalog.yaml"),
             }
             j = await self.job(
                 job,
                 f"{item}:{rnd}",
                 core,
                 {},
-                f"Write the acceptance rows of packet {item}.",
+                f"Write the acceptance criteria and tests of packet {item}.",
                 cwd=root,
             )
             if not j["ok"]:
                 return "unmet"
             packet = {**packet, "acceptance": j["output"]["acceptance"]}
             errs = bhpacket.validate_packet(packet)
-            if (
-                errs
-            ):  # the rows are outside the closed catalog: back to the author with the teaching
-                facts += [
-                    {"kind": "gap", "item": item, "detail": bhpacket.teaching(e)} for e in errs[:5]
-                ]
+            if errs:  # outside the packet contract: back to the author with the teaching
+                facts += [{"kind": "gap", "item": item, "detail": bhpacket.teaching(e)} for e in errs[:5]]
                 feedback = [{"id": item, "error": bhpacket.teaching(e)} for e in errs[:5]]
-                packet = bhpacket.load_packet(root, item)[0]
                 continue
             write_atomic(bhpacket.packet_path(root, item), json.dumps(packet, indent=2) + "\n")
-            t0 = datetime.now(UTC)
-            code, out, err = bhpacket.generate_tests(root, item)
-            res = (
-                json.loads(out)
-                if code == 0
-                else {"facts": [{"kind": "gap", "item": item, "detail": err.strip()}]}
-            )
-            facts += res["facts"]
-            digest = res.get("packet_sha256", "")
-            self.program_step("generator", item, t0, digest, code)
-            if code:
-                return "unmet"
-            red = bhtests.red_facts(
-                packet,
-                bhtests.run_rows(root, packet),
-                git(root, "rev-parse", "HEAD").stdout.strip(),
-            )
-            facts += red
-            errored = [f for f in red if f["kind"] == "red_by_error"]
-            if not errored:
+            write_atomic(root / test_path, j["output"]["test_code"])
+            digest = bhpacket.custody_store(root, bhpacket.packet_path(root, item).read_bytes())
+            # the plan commit names its packet as a build commit does, so the red run measures against it
+            self.commit(f"acceptance {item}\n\nPacket: {bhpacket.trailer(packet, digest)}")
+            feedback, met_at_head = self.red_on_main(packet, facts)
+            if met_at_head:  # the acceptance tests pass on main: built before, nothing to build
+                await self.measure_all([(item, "HEAD")])
+                self.commit("scoreboard")
+                return "met"
+            if not feedback:
+                red = True
                 break
-            feedback = [{"id": f["detail"].split()[0], "error": f["detail"]} for f in errored]
-        else:
+        if not red:
             facts.append(
-                {
-                    "kind": "stuck",
-                    "item": item,
-                    "detail": f"{item} rows still error on main after {rnd} rounds",
-                }
+                {"kind": "stuck", "item": item, "detail": f"{item} acceptance tests are not red by assertion on main after {rnd} rounds"}
             )
             return "stuck"
-        t0 = datetime.now(UTC)
-        code, out, err = bhpacket.launch_builder(root, item)
+        code, out, err = bhpacket.launch_builder(root, item, self.job_usd("build"))
         built = (
             json.loads(out)
             if code == 0
             else {"facts": [{"kind": "gap", "item": item, "detail": err.strip()}], "jobs": []}
         )
         facts += built["facts"]
+        for b in built["jobs"]:
+            self.spent["cost_usd"] += b.get("cost_usd", 0)
+            self.spent["tokens"] += b.get("tokens", 0)
         self.records += built["jobs"]
         if code:
             return "unmet"
-        return self.measure_packet(root, packet, facts)
+        return await self.measure_packet(root, packet, facts)
 
-    def measure_packet(
+    def red_on_main(
+        self, packet: dict[str, Any], facts: list[dict[str, Any]]
+    ) -> tuple[list[dict[str, str]], bool]:
+        """The red run on main by the one measurer (``bhcore.measure_ref`` at HEAD against the kept
+        packet): every criterion needs a test that fails by an assertion, and no test of the
+        acceptance file may error. Returns the author's feedback (empty when all is red) and
+        whether the measurer says met at HEAD already (an item built before it was planned)."""
+        root, item = self.top, packet["id"]
+        digest = bhpacket.custody_store(root, bhpacket.packet_path(root, item).read_bytes())
+        t0 = datetime.now(UTC)
+        res = bhcore.measure_ref(self.cfg, "HEAD", orch=root)  # HEAD is the plan commit: its trailer names the packet
+        self.program_step("red_run", item, t0, digest)
+        if all(a["status"] == "met" for a in res["items"][0]["acceptance"]):
+            return [], True  # every criterion's test passes at HEAD
+        module = bhpacket.acceptance_file(packet).removesuffix(".py").replace("/", ".")
+        mine = [f for f in res["facts"] if f["kind"] in ("red", "red_by_error") and module in f["detail"]]
+        facts += [{"kind": f["kind"], "item": item, "detail": f["detail"]} for f in mine]
+        feedback = [
+            {"id": f["detail"], "error": f["message"]} for f in mine if f["kind"] == "red_by_error"
+        ]
+        reds = [f["detail"] for f in mine if f["kind"] == "red"]
+        for a in packet["acceptance"]:
+            if not any(bhcore._acceptance_of(d.rsplit("::", 1)[-1], [a["id"]]) for d in reds):
+                feedback.append(
+                    {
+                        "id": a["id"],
+                        "error": f"no test named after {a['id']} (test_{a['id'].replace('-', '_')}...) "
+                        "fails by an assertion on main; write one that does",
+                    }
+                )
+        return feedback, False
+
+    async def measure_packet(
         self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
     ) -> str:
         """The measurer step for a packet: the builder's commit is fetched into the repository (a ref
         the builder cannot move) and measured by the one measurer, ``bhcore.measure_ref``, against the
-        packet kept in custody; met when the measurer says met."""
+        packet kept in custody. Met: it merges into the default branch (``bhcore.merge_refs``) and the
+        item is re-measured at HEAD, which records it in the scoreboard."""
         item, t0 = packet["id"], datetime.now(UTC)
         clones = sorted(
             (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
@@ -1021,7 +1059,10 @@ class Orchestrator:
             res = bhcore.measure_ref(self.cfg, ref, orch=root)
             facts += res["facts"]
             met = res["items"][0]["status"] == "met"
-        if met and packet.get("kind") == "defect":
+        self.program_step("measurer", item, t0, digest)
+        if not met:
+            return "unmet"
+        if packet.get("kind") == "defect":
             facts.append(
                 {
                     "kind": "regression_recorded",
@@ -1029,8 +1070,15 @@ class Orchestrator:
                     "detail": f"the packet's rows pass at the builder's result {item}",
                 }
             )
-        self.program_step("measurer", item, t0, digest)
-        return "met" if met else "unmet"
+        sha = git(root, "rev-parse", ref).stdout.strip()
+        merged, conflicts = bhcore.merge_refs(self.cfg, root, [{"item": item, "ref": sha}])
+        if conflicts:
+            facts += [{"kind": "conflict", "item": item, "detail": ", ".join(c["paths"])} for c in conflicts]
+            return "unmet"
+        self.program_step("merge", item, t0, digest)
+        await self.measure_all([(item, "HEAD")])
+        self.commit("scoreboard")
+        return "met"
 
     def over_budget(self, budgets: dict[str, Any]) -> bool:
         return bool(
@@ -1219,8 +1267,12 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
         c = 0.0 if j.get("skipped") else j.get("cost_usd", 0) or 0  # skipped: nothing spent now
         earlier = j.get("cached_cost_usd") or 0
         note = f" (skipped, cached; earlier ${earlier:.4f})" if j.get("skipped") else ""
+        tok = j.get("tokens") or 0  # an agent job counts by kind, a builder or program step in one number
+        tok = sum(tok.values()) if isinstance(tok, dict) else tok
+        label = j.get("label") or f"{j.get('item')} {j.get('step') or j.get('role')}"
+        ok = j.get("ok", j.get("exit_code") == 0)
         lines.append(
-            f"  {j['label']}: {'ok' if j.get('ok') else 'FAILED'}{note} ${c:.4f} {sum((j.get('tokens') or {}).values())} tok [{j.get('mode')}]"
+            f"  {label}: {'ok' if ok else 'FAILED'}{note} ${c:.4f} {tok} tok [{j.get('mode') or j.get('kind')}]"
         )
     for e in r["errors"][:10]:
         lines.append(f"ERROR {e}")
@@ -1293,11 +1345,7 @@ def main(argv: list[str] | None = None) -> int:
         if bare:
             cfg = Config(a.config)  # a plan exists: the whole config is validated
         orch = Orchestrator(cfg, a.dry_run)
-        packets = sorted(p.stem for p in (orch.top / bhpacket.PACKETS_DIR).glob("*.json"))
-        if a.cmd == "run" and packets:  # the packet flow: the test author goes first
-            result = asyncio.run(orch.run_packets(packets))
-        else:
-            result = asyncio.run(dispatch(orch, a.cmd, a))
+        result = asyncio.run(dispatch(orch, a.cmd, a))
     except HarnessError as e:
         print(json.dumps({"error": str(e)}))
         return 2

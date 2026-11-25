@@ -310,17 +310,16 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4, d6, d8 and d10 come afte
     - a packet edited inside the clone changes nothing the program reads;
     - SubagentStart is not used for program launches.
   - Size: M.
-- [ ] **d6. Test author first (L3): rows, then generated tests** (RH-M2, IR-M2, IR-M4; keyword-driven testing, `docs/spec/packet-standards.md` L3).
-  - Proves: R3, P6, P3, R9. QBC: 31, 34, 41, 82.
-  - Files: new `agents/harness-test-author.md`, new test generator under `harness/lib/`, `harness/lib/bhorch.py`.
+- [ ] **d6. Test author first (L3): plain acceptance tests in the project's own framework** (RH-M2, IR-M2, IR-M4; ATDD, `docs/spec/packet-standards.md` L3).
+  - Proves: R3, P6, P3, R9, G6. QBC: 31, 34, 41, 82.
+  - Files: `agents/harness-test-author.md`, `harness/lib/bhorch.py`, `harness/schema/packet.schema.json`.
   - Done when, with recorded fixtures:
-    - the program launches the test author before the builder, as another job; it writes acceptance rows from the closed catalogs of `docs/atdd/catalog.yaml` into the packet's `acceptance`, valid against the acceptance criteria schema, and writes no test code;
-    - the generator (`bh step generate_tests`), a program with no agent and no generated code, copies each row to `<acceptance path>/criteria/<item>.yaml`, where pytest's row plugin collects it as exactly one test marked with its acceptance id, and writes a manifest from acceptance id to the node id that `pytest --collect-only` reports; both are committed in protected paths in the plan commit;
-    - a row whose keyword the generator does not implement (not in the keyword library, or whose `after` the row's `when` does not satisfy) is a fact with teaching naming the keyword, never a skipped or empty test; a committed row with no packet criterion, or a packet criterion with no committed row, is a fact with teaching;
-    - every generated test is red on main: a test that fails by an assertion is recorded red, one that errors is recorded red-by-error and its row goes back to the test author;
-    - a defect packet carries `kind` `defect`, `parent` (the GitHub issue number of the slice or decision it sits under) and `found_by` (a `jobs[*].role`, or `person`); its regression row is written by the `found_by` agent when that agent is not the builder, and otherwise by the `test_author` job; "fails at the parent" is recorded when the row is red on main, and "passes at the fix" only when the measurer observes it green at the builder's result;
-    - `jobs[*]` shows test author, generator (a `program_step`), builder and measurer (a `program_step`), in that order;
-    - the generator's bootstrap, which generates the plugin's own v2 acceptance tests from `docs/atdd/criteria/`, is accepted by the plugin's plain pytest entry point, as b1 is.
+    - `bh run` takes each ready item from the plan to a packet the program writes (no agent), then the test author, then the builder, the measurer and the merge, in one run;
+    - the test author, another job launched before the builder, returns the packet's `acceptance` criteria (`id`, `scenario`, `traces_to`, `verification`) and one test file in the project's own framework; the program writes it at `verifier.acceptance_paths[0]` (protected) and commits it with the packet, the plan commit; each test's name carries its criterion id;
+    - the red run on main is the one measurer's run of the project's own test command (JUnit XML): every criterion has a test that fails by an assertion, and no test of the file errors (an import or collection error is not red); otherwise the file goes back to the test author, at most `max_rounds` times; criteria whose tests already pass on main make the item met with no build;
+    - a defect packet carries `kind` `defect`, `parent` and `found_by`; its regression test is written by the `found_by` agent when that agent is not the builder, and otherwise by the `test_author` job; "passes at the fix" is recorded only when the measurer observes it green at the builder's result;
+    - `jobs[*]` shows test author, red run (a `program_step`), builder and measurer (a `program_step`), in that order;
+    - the keyword catalog and the row engine stay the plugin's own test tooling; a user project never needs them (G6).
   - Size: L.
 - [ ] **d8. Hook H0; a note for hand-launched Bash** (IR-M1, IR-E2, PC-M10).
   - Proves: R5, P5, P4. QBC: 29, 43, 44, 45, 46, 47, 50.

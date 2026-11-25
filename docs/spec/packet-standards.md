@@ -74,7 +74,7 @@ Every stage of the flow writes one output in a standard format. This file names,
 
 | Part | Standard | Why |
 |---|---|---|
-| Acceptance criteria to tests | Keyword-driven testing (ISTQB; FIT/FitNesse tables): rows from closed catalogs, collected as tests by pytest itself (a `pytest_collect_file` hook), with no generated code | No agent judgement; consistent results |
+| Acceptance criteria to tests | In a project: the test author writes plain tests in the project's own framework, one file per item, each test named after its criterion id; red on main is read from the project's own test command's JUnit XML (an error is not red). In the plugin itself: keyword-driven testing (ISTQB; FIT/FitNesse tables), rows from closed catalogs collected by pytest | A project needs nothing of the plugin to run its tests (G6, P9); the builder never writes them (R3) |
 | Test code | The project's own framework (pytest for the plugin), each test marked with its acceptance id | Convention over configuration (P9) |
 | Results | JUnit XML | Every runner emits it |
 | Traceability | The acceptance id is the test's node id and its JUnit `criterion` property (ISO/IEC/IEEE 29148) | One test per `acceptance[*]` item, one id per test; no manifest to go stale |
@@ -153,8 +153,8 @@ Each stage writes one standard format. Every output carries the packet's id and 
 | Stage | Output | Standard | Checked by the program |
 |---|---|---|---|
 | L1 Epic design | A decision record plus a tracking issue that links to it | MADR 4.0 (Markdown Architectural Decision Records, based on Nygard), with front matter for status, date and deciders. Its constraints cite the §0 items, and its falsifying calls become L2 acceptance criteria | The front matter and the required sections are present; every constraint cites a G, P, R or QBC id |
-| L2 Plan | The work packet (JSON) and its Markdown rendering | All the standards in the L2 section above (JSON Schema 2020-12 is only the container). Acceptance criteria are keyword-driven rows from `docs/atdd/catalog.yaml` | Schema-valid; closed catalogs as enums; every §0 item that applies is traced |
-| L3 Tests | Tests collected from the packet's rows (acceptance id in each node id), and the red-on-main run | pytest (or the project's own framework), with each test marked by its acceptance id; the run in JUnit XML | One test per `acceptance[*]` item and one id per test; every test fails on main with an assertion failure, not an error |
+| L2 Plan | The work packet (JSON) and its Markdown rendering | All the standards in the L2 section above (JSON Schema 2020-12 is only the container). Acceptance criteria are plain criteria (id, scenario, traces_to, verification) the test author's tests implement | Schema-valid; every criterion traced to its source |
+| L3 Tests | The test author's test file (criterion id in each test name), and the red-on-main run | pytest (or the project's own framework), with each test marked by its acceptance id; the run in JUnit XML | One test per `acceptance[*]` item and one id per test; every test fails on main with an assertion failure, not an error |
 | L4 Build | A commit on the builder's branch | Conventional Commits 1.0, with git trailers `Packet: <id>@<sha256>` and `Acceptance: <ids>` | The trailer's sha256 matches the packet; the diff's paths are compared with the packet's declared paths (a fact) |
 | L5 Verify | The measurement: met or unmet for each `acceptance[*]` id, plus facts | JUnit XML for tests; SARIF 2.1.0 (OASIS) for lint and fitness findings, with the teaching message in `message`, `help` and `fixes`; a result JSON (`command` `measure`), schema-validated, that names the packet sha256 | Only the measurer writes it; it reads the packet and tests from the base commit, never from the builder's copy |
 | Review (triggered) | Findings | SARIF 2.1.0, with triage severity mapped to `level` (error = Critical or Major, warning = Minor with value) | Findings are facts that never change "met"; each cites the packet sha256 |
@@ -163,7 +163,7 @@ Each stage writes one standard format. Every output carries the packet's id and 
 
 These are mechanisms, not agent discipline.
 1. **One file.** The packet is one schema-valid file at a path only the planner or orchestrator writes. Its sha256 identifies it.
-2. **L3 is collected from it.** Tests are collected from the packet's rows by pytest, so the tests can't differ from the acceptance criteria, and each node id names its row.
+2. **L3 implements it.** The test author writes one test file for the packet's criteria, each test named after its criterion id; the program commits it with the packet in a protected path, and the measurer maps each JUnit result back to its criterion by that name.
 3. **L4 receives the same bytes.** The builder's session-start context is the packet's rendering. The builder's `bh check` reads the same packet and runs the same verifier list.
 4. **L5 reads it from the base.** The measurer takes the packet and the tests from the base commit by their sha256, never from the builder's clone. A packet or test that changed in the build is recorded as tampering and has no effect.
 5. **Every output names the sha256.** The commit trailer, the result JSON and the SARIF properties do. A mismatch is recorded as a fact and the item is re-run against the right packet; the outputs are never judged against two contracts.

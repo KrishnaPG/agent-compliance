@@ -111,3 +111,19 @@ def test_declared_paths_over_the_cap_are_a_fact_and_never_a_refusal(tmp_path):
     assert code == 0 and err == "" and json.loads(out)["facts"][0]["kind"] == "over_cap"
     again = json.loads(bhpacket.step("assemble_packet", tmp_path, "toy_item")[1])
     assert again["facts"][0]["kind"] == "over_cap"  # still a fact, still no refusal
+
+
+def test_the_program_fills_a_valid_packet_from_the_plan_and_the_project_files(toy):
+    """d1/d2: the packet of a planned item comes from the plan and the project's standard files,
+    with no agent; only ``acceptance`` is left for the test author."""
+    from bhcore import Config
+
+    (toy / "uv.lock").write_text("")
+    cfg = Config(toy / ".brick-harness" / "config.json")
+    p = bhpacket.plan_packet(cfg, "json-writer")
+    assert p["acceptance"] == [] and p["verifier"]["acceptance_paths"] == ["tests/acceptance/test_json_writer.py"]
+    assert p["paved_road"] == {"test_paths": [], "dependency_command": "uv add <package>", "check_command": "bh check"}
+    assert p["constraints"]["declared_paths"] == ["src/json_writer.py"]
+    assert {a["id"] for a in p["applies"]} >= {"P1", "P12"}
+    crit = {"id": "json-writer-AC1", "scenario": "s", "traces_to": ["PLAN.md:6"], "verification": "test"}
+    assert bhpacket.validate_packet({**p, "acceptance": [crit]}) == []
