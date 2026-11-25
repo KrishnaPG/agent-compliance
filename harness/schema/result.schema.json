@@ -1,0 +1,41 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "title": "The JSON a bh command prints (fields named in docs/atdd/fields.yaml); d0 adds the other commands",
+  "type": "object",
+  "required": ["schema_version", "command"],
+  "properties": {
+    "schema_version": {"type": "string"},
+    "command": {"enum": ["run", "measure", "check", "intake", "merge", "decide", "gaps", "owners", "metrics", "vet", "map"]},
+    "packet_sha256": {"type": "string"},
+    "run_report": {"type": "string"},
+    "config": {"type": "object"},
+    "items": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["id", "status"],
+        "properties": {
+          "id": {"type": "string"},
+          "status": {"enum": ["met", "unmet", "stuck", "not_checked"]},
+          "out": {"type": "string"},
+          "acceptance": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["id", "status"],
+              "properties": {"id": {"type": "string"}, "status": {"enum": ["met", "unmet"]}}
+            }
+          }
+        }
+      }
+    },
+    "facts": {
+      "type": "array",
+      "items": {
+        "type": "object",
+        "required": ["kind", "detail"],
+        "properties": {"kind": {"type": "string"}, "detail": {"type": "string"}, "item": {"type": "string"}, "message": {"type": "string"}}
+      }
+    }
+  }
+}

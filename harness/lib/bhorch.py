@@ -1388,6 +1388,11 @@ def main(argv: list[str] | None = None) -> int:
         return bhpacket.run_step(a.name, a.item)
     try:
         cfg = Config(a.config)
+        bricks = cfg.file("bricks")
+        if a.cmd == "measure" and not a.item and not (bricks and bricks.exists()):
+            res = bhcore.measure_ref(cfg)  # no plan: measure HEAD against its plan commit
+            print(json.dumps(res))
+            return 0 if all(i["status"] == "met" for i in res["items"]) else 1
         orch = Orchestrator(cfg, a.dry_run)
         result = asyncio.run(dispatch(orch, a.cmd, a))
     except HarnessError as e:

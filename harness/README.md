@@ -111,10 +111,13 @@ agent runs each tool and returns its JSON.
   numbers with `targets.json` from the invoking checkout. It fails closed on: no targets, a
   pending command, a non-zero exit, a timeout, zero tests, an unreadable or odd result and a
   missing or non-finite metric. No gates: a ref's edits never refuse or fail it. Before
-  measuring, the plan commit's (HEAD's) plan and `protected` paths and the held-out ref
-  `refs/brick-harness/holdout` are laid over the ref's checkout (a guarded file the ref added
-  is deleted), so edits there have no effect; they are listed under the item as
-  `ignored_edits`. Facts recorded on each result in `scoreboard.json`, never changing a
+  measuring, the plan commit's (HEAD's) plan and `protected` paths are laid over the ref's
+  checkout (a `git clone --shared`; a guarded file the ref added is deleted), so edits there have no effect; they are listed under the item as
+  `ignored_edits`. The command runs sealed by bubblewrap (read-only `/`, no network, only the
+  checkout writable), next to a canary test that must fail. With no `bricks.json`, `bh measure`
+  measures HEAD against its merge base with `main` and prints the `measure` result JSON
+  (schema `schema/result.schema.json`); there an edit to a protected path is a `diff` fact and
+  makes the item unmet. Facts recorded on each result in `scoreboard.json`, never changing a
   status: `scope` (paths outside the item's `path`/`paths`; public Python names the
   contract's optional `exports` list lacks), `dependencies` (lockfile packages added or
   changed since the ref's fork, not named in `standards.stack`, or with a new major

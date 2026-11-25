@@ -8,11 +8,10 @@
       "catalog": ["PR-08", "PN-16"],
       "mechanism": [
         {"kind": "structure", "where": "bh-measure", "does": "the measurer overlays the plan commit's protected paths (tests, targets, contracts) on the ref's checkout before measuring, so edits to them in the ref have no effect", "status": "implemented"},
-        {"kind": "structure", "where": "bh-measure", "does": "held-out acceptance cases live on ref refs/brick-harness/holdout, never in a builder's checkout; the measurer overlays that ref's tree too, and the held-out cases are part of the item's tests", "status": "implemented"},
         {"kind": "fact", "where": "scoreboard", "does": "a ref's edits to protected paths are listed under the item as ignored-edits", "status": "implemented"},
         {"kind": "structure", "where": "bh-merge", "does": "after a merge the plan and protected paths are put back as they were before it, so a ref's edits there (ignored by the measurer) never reach HEAD", "status": "implemented"}
       ],
-      "tests": ["test_ref_edits_to_plan_and_protected_paths_have_no_effect_and_are_listed", "test_weakened_tests_and_a_wrong_implementation_are_still_unmet", "test_file_added_under_a_protected_path_is_removed_from_the_checkout", "test_branch_accepts_edits_to_protected_paths", "test_holdout_cases_are_overlaid_and_part_of_the_items_tests", "test_holdout_files_a_ref_also_holds_are_replaced_and_listed", "test_merge_restores_plan_and_protected_paths_a_ref_edited"],
+      "tests": ["test_ref_edits_to_plan_and_protected_paths_have_no_effect_and_are_listed", "test_weakened_tests_and_a_wrong_implementation_are_still_unmet", "test_file_added_under_a_protected_path_is_removed_from_the_checkout", "test_branch_accepts_edits_to_protected_paths", "test_merge_restores_plan_and_protected_paths_a_ref_edited"],
       "status": "implemented"
     },
     {

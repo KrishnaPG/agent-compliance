@@ -52,9 +52,10 @@ import math
 import os
 import re
 import shlex
-import signal
+import shutil
 import statistics
 import subprocess
+import sys
 import tempfile
 import time
 import tomllib
@@ -65,6 +66,9 @@ from datetime import UTC, datetime
 from fractions import Fraction
 from pathlib import Path, PurePosixPath
 from typing import Any
+
+from jsonschema import Draft202012Validator
+from junitparser import JUnitXml, JUnitXmlError, TestSuite
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent  # harness/ inside the plugin
 PLUGIN_ROOT = HARNESS_DIR.parent  # the plugin: bin/, skills/, catalog/, checks/
@@ -112,6 +116,36 @@ PROJECT_KEYS = (
     "status",
     "lockfiles",
 )
+
+
+# What a builder may not change in a measured ref: the tests, the test and lint config (the
+# test and lint tables of pyproject.toml only), the recipes, the ratchet and packet files, the
+# held-out cases' directory, and the files Python runs at start-up.
+DEFAULT_PROTECTED = [
+    "tests/",
+    "conftest.py",
+    "*/conftest.py",
+    "pytest.ini",
+    "tox.ini",
+    "mypy.ini",
+    "ruff.toml",
+    ".ruff.toml",
+    "pyproject.toml",
+    "tsconfig*.json",
+    "*/tsconfig*.json",
+    ".sqlfluff",
+    ".eslintrc*",
+    "eslint.config.*",
+    ".oxlintrc*",
+    "justfile",
+    "Makefile",
+    f"{HDIR}/ratchet.json",
+    f"{HDIR}/baselines/",
+    f"{HDIR}/packets/",
+    "holdout_files/",
+    "sitecustomize.py",
+    "usercustomize.py",
+]
 
 
 class HarnessError(Exception):
@@ -242,7 +276,11 @@ class Config:
     def __init__(self, path: str | Path) -> None:
         self.path = Path(path).resolve()
         self.config_dir = self.path.parent
-        self.data: dict[str, Any] = load_json(self.path, "harness.config")
+        raw = json.loads(self.path.read_text()) if self.path.exists() else {}
+        # a file with no commands is an override over the defaults (measure_ref); a full one is validated
+        self.data: dict[str, Any] = (
+            load_json(self.path, "harness.config") if "commands" in raw else raw
+        )
         if "root" in self.data:
             self.dir = (self.config_dir / self.data["root"]).resolve()
         elif self.config_dir.name == HDIR:
@@ -251,9 +289,10 @@ class Config:
             self.dir = self.config_dir
         self.root = self.dir
         self.paths: dict[str, Any] = {**DEFAULT_PATHS, **self.data.get("paths", {})}
-        self.commands: dict[str, Any] = self.data["commands"]
+        self.commands: dict[str, Any] = self.data.get("commands", {})
         self.sections: dict[str, str] = self.data.get("sections", {})
-        self.protected: list[str] = self.data.get("protected", [])
+        self.protected: list[str] = self.data.get("protected") or DEFAULT_PROTECTED
+        self.protected_gap = "protected" in self.data and not self.data["protected"]
         self.na: dict[str, str] = self.data.get("na", {})
         if self.data.get("tracker"):
             ts = load_schema("tracker")
@@ -294,39 +333,41 @@ class Config:
 # ---------------------------------------------------------------- results parsing
 
 
-def _count(s: ET.Element, attr: str, path: Path) -> int:
-    raw = s.get(attr, "0") or "0"
+def _suites(xml: Any) -> list[Any]:
+    """The innermost <testsuite> elements: a suite nested in another repeats its children's counts."""
+    out: list[Any] = []
+    for s in [xml] if isinstance(xml, TestSuite) else list(xml):
+        inner = list(s.testsuites())
+        out += _suites(inner) if inner else [s]
+    return out
+
+
+def read_junit(path: Path) -> Any:
+    """The JUnit XML file as junitparser reads it; HarnessError when unreadable or not a report."""
     try:
-        v = float(raw)
-    except ValueError as e:
-        raise HarnessError(f"junit {path}: {attr}={raw!r} is not a number") from e
-    if not math.isfinite(v) or v < 0 or v != int(v):
-        raise HarnessError(f"junit {path}: {attr}={raw!r} is not a count")
-    return int(v)
+        return JUnitXml.fromfile(str(path))
+    except (OSError, ET.ParseError, JUnitXmlError) as e:
+        raise HarnessError(f"junit {path}: {e}") from e
 
 
 def parse_junit(path: Path) -> dict[str, int]:
-    """Sum JUnit XML counts over the innermost <testsuite> elements; HarnessError when unreadable.
-
-    Only leaf suites are summed: a <testsuite> nested in another repeats its children's counts.
-    """
+    """Sum JUnit XML counts over the innermost suites; HarnessError when unreadable or not counts."""
     try:
-        root = ET.parse(path).getroot()
-    except (OSError, ET.ParseError) as e:
-        raise HarnessError(f"junit {path}: {e}") from e
-    suites = [s for s in root.iter("testsuite") if s.find(".//testsuite") is None]
-    if root.tag not in ("testsuite", "testsuites"):
-        raise HarnessError(f"junit {path}: root element <{root.tag}> is not a test report")
-    c = {"total": 0, "failed": 0, "errors": 0, "skipped": 0}
-    for s in suites:
-        c["total"] += _count(s, "tests", path)
-        c["failed"] += _count(s, "failures", path)
-        c["errors"] += _count(s, "errors", path)
-        c["skipped"] += _count(s, "skipped", path)
-    c["passed"] = c["total"] - c["failed"] - c["errors"] - c["skipped"]
-    if c["passed"] < 0:
-        raise HarnessError(f"junit {path}: more failed/errors/skipped than tests")
-    return c
+        got = [(s.tests, s.failures, s.errors, s.skipped) for s in _suites(read_junit(path))]
+    except (ValueError, TypeError) as e:
+        raise HarnessError(f"junit {path}: a count is not a number: {e}") from e
+    total, failed, errors, skipped = (sum(c) for c in zip(*got, strict=True)) if got else (0,) * 4
+    if min(total, failed, errors, skipped) < 0 or total - failed - errors - skipped < 0:
+        raise HarnessError(
+            f"junit {path}: counts are not valid (more failed/errors/skipped than tests)"
+        )
+    return {
+        "total": total,
+        "failed": failed,
+        "errors": errors,
+        "skipped": skipped,
+        "passed": total - failed - errors - skipped,
+    }
 
 
 def extract(results: Path, fmt: str, spec: str) -> float:
@@ -376,27 +417,50 @@ def _render(template: str, ctx: dict[str, Any]) -> str:
     return re.sub(r"\{(" + "|".join(TEMPLATE_VARS) + r")\}", sub, template)
 
 
-def _run(cmd: str, cwd: Path, env: dict[str, str], timeout: float) -> dict[str, Any]:
-    """Run in its own process group so a timeout kills the command's children too."""
+def _jail(
+    argv: list[str], co: Path, cwd: Path, hide: list[Path], writable: list[Path]
+) -> list[str]:
+    """The one place that seals a measured command, so the sealing tool can be swapped.
+
+    bubblewrap: read-only ``/``, no network, a tmpfs over ``/tmp`` and over each ``hide`` dir
+    (the orchestrator's state and the builder clones), only ``co`` and ``writable`` writable,
+    and the whole jail dies with its parent (no process-group handling of our own).
+    """
+    seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
+    seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
+    for d in hide:
+        seal += ["--tmpfs", str(d)] if d.is_dir() else []
+    for w in [co, *writable]:
+        seal += ["--bind", str(w), str(w)]
+    return [*seal, "--chdir", str(cwd), "--", *argv]
+
+
+def _run(
+    cmd: str,
+    co: Path,
+    cwd: Path,
+    env: dict[str, str],
+    timeout: float,
+    hide: list[Path] | None = None,
+    writable: list[Path] | None = None,
+) -> dict[str, Any]:
+    """Run ``cmd`` sealed in ``_jail`` with ``cwd`` inside the checkout ``co``; ``hide=None`` runs it open."""
     t0 = time.monotonic()
-    p = subprocess.Popen(
-        cmd,
-        shell=True,
-        cwd=cwd,
-        env=env,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        start_new_session=True,
-    )
-    exit_code: int | None
+    argv = ["sh", "-c", cmd]
+    if hide is not None:
+        argv = _jail(argv, co, cwd, hide, writable or [])
     try:
-        output, _ = p.communicate(timeout=timeout)
-        exit_code, tail = p.returncode, output[-2000:]
-    except subprocess.TimeoutExpired:
-        with contextlib.suppress(ProcessLookupError):
-            os.killpg(p.pid, signal.SIGKILL)
-        p.communicate()
+        p = subprocess.run(
+            argv,
+            cwd=cwd,
+            env=env,
+            capture_output=True,
+            text=True,
+            stdin=subprocess.DEVNULL,
+            timeout=timeout,
+        )
+        exit_code, tail = p.returncode, (p.stdout + p.stderr)[-2000:]
+    except subprocess.TimeoutExpired:  # --die-with-parent takes the jail's children with it
         exit_code, tail = None, f"timeout after {timeout}s"
     return {"cmd": cmd, "exit": exit_code, "seconds": round(time.monotonic() - t0, 3), "tail": tail}
 
@@ -484,7 +548,16 @@ def measure_item(
         mine = mine + [{"item": item, "metric": "rules.violations", "op": "==", "value": 0}]
 
     def step(name: str, cmd: str) -> bool:
-        r = _run(_render(cmd, ctx), root, env, timeout)
+        sealed = name != "env_setup"  # installing dependencies needs the network
+        r = _run(
+            _render(cmd, ctx),
+            workdir,
+            root,
+            env,
+            timeout,
+            [cfg.dir / HDIR] if sealed else None,
+            [out],
+        )
         r["name"] = name
         runs.append(r)
         if r["exit"] != 0:
@@ -652,17 +725,23 @@ def _matches(path: str, patterns: list[str]) -> bool:
 
 
 @contextlib.contextmanager
-def clean_checkout(top: Path, ref: str) -> Iterator[Path]:
-    """Detached worktree of ``ref`` in a temp dir, removed afterwards by git."""
+def clean_checkout(top: Path, ref: str, dest: Path | None = None) -> Iterator[Path]:
+    """A ``git clone --shared`` of ``top`` at ``ref`` (detached); a temp dir unless ``dest`` is given,
+    which is kept."""
     tmp = Path(tempfile.mkdtemp(prefix="bh-measure-"))
-    co = tmp / "co"
-    _git(top, "worktree", "add", "--detach", str(co), ref)
+    co = dest or tmp / "co"
+    p = subprocess.run(
+        ["git", "clone", "-q", "--shared", "--no-checkout", str(top), str(co)],
+        capture_output=True,
+        text=True,
+    )
+    if p.returncode != 0:
+        raise HarnessError(f"git clone --shared: {p.stderr.strip()}")
+    _git(co, "checkout", "-q", "--detach", ref)
     try:
         yield co
     finally:
-        _git(top, "worktree", "remove", "--force", str(co))
-        with contextlib.suppress(OSError):
-            tmp.rmdir()
+        shutil.rmtree(tmp)
 
 
 _HELD: dict[str, int] = {}
@@ -750,9 +829,6 @@ def changed_paths(top: Path, sha: str) -> list[str]:
     return _git(top, "diff", "--name-only", "--no-renames", base, sha).splitlines()
 
 
-HOLDOUT_REF = "refs/brick-harness/holdout"
-
-
 def guarded_paths(cfg: Config, top: Path) -> list[str]:
     """Paths the measurer takes from the plan commit, whatever a ref holds there: the plan,
     results, config and ignore file, and the protected tests, benches and runner scripts."""
@@ -763,13 +839,6 @@ def _tree_files(top: Path, rev: str) -> dict[str, str]:
     """Repository-relative file name -> blob sha of ``rev``'s tree."""
     out = _git(top, "ls-tree", "-r", "-z", rev).split("\0")
     return {e.split("\t", 1)[1]: e.split()[2] for e in out if e}
-
-
-def holdout_files(top: Path) -> dict[str, str]:
-    """The held-out cases (ref ``refs/brick-harness/holdout``); empty when the ref is absent."""
-    if not _git_ok(top, "rev-parse", "--verify", "-q", HOLDOUT_REF + "^{commit}"):
-        return {}
-    return _tree_files(top, HOLDOUT_REF)
 
 
 def _checkout_paths(co: Path, rev: str, names: list[str]) -> None:
@@ -786,21 +855,50 @@ def _checkout_paths(co: Path, rev: str, names: list[str]) -> None:
         raise HarnessError(f"overlay of {rev[:12]} failed: {p.stderr.strip()}")
 
 
-def overlay_plan(cfg: Config, top: Path, co: Path, head: str) -> None:
-    """Make a ref's checkout use the plan commit's guarded paths and the held-out cases.
+TOOL_TABLE = re.compile(r"^\[\[?tool\.(pytest|ruff|mypy)\b")
 
-    Whatever the ref holds under a guarded path is replaced by HEAD's version, a guarded file
-    the ref added is deleted, and the held-out ref's tree is laid over the checkout. Nothing is
-    refused: the ref's edits there simply have no effect (they are listed as ignored edits).
+
+def _tool_cfg(text: str) -> dict[str, Any]:
+    """The test and lint sections of a pyproject.toml ([tool.pytest*], [tool.ruff*], [tool.mypy*])."""
+    try:
+        tool = tomllib.loads(text).get("tool", {})
+    except tomllib.TOMLDecodeError:
+        return {"unreadable": text}
+    return {k: v for k, v in tool.items() if k in ("pytest", "ruff", "mypy")}
+
+
+def _with_base_tool_tables(ours: str, base: str) -> str:
+    """``ours`` with its test and lint tables swapped for ``base``'s; dependencies stay ours."""
+    kept, prot = {"ours": [], "base": []}, {"ours": [], "base": []}
+    for who, text in (("ours", ours), ("base", base)):
+        into = kept[who]
+        for line in text.splitlines(keepends=True):
+            if line.startswith("["):
+                into = prot[who] if TOOL_TABLE.match(line) else kept[who]
+            into.append(line)
+    return "".join(kept["ours"]) + "\n" + "".join(prot["base"])
+
+
+def overlay_plan(cfg: Config, top: Path, co: Path, head: str) -> None:
+    """Make a ref's checkout use the plan commit's guarded paths.
+
+    Whatever the ref holds under a guarded path is replaced by the plan commit's version and a
+    guarded file the ref added is deleted. In ``pyproject.toml`` only the test and lint tables are
+    taken from the plan commit, so a dependency the builder declared stays. Nothing is refused:
+    the ref's edits there simply have no effect (they are listed as ``ignored_edits``).
     """
     guard = guarded_paths(cfg, top)
-    want = [n for n in _tree_files(top, head) if _matches(n, guard)]
+    want = [n for n in _tree_files(top, head) if _matches(n, guard) and n != "pyproject.toml"]
     _checkout_paths(co, head, want)
     for n in _git(co, "ls-files", "-z").split("\0"):
-        if n and _matches(n, guard) and n not in want:
+        if n and n != "pyproject.toml" and _matches(n, guard) and n not in want:
             (co / n).unlink(missing_ok=True)
-    held = list(holdout_files(top))
-    _checkout_paths(co, HOLDOUT_REF, held)
+    py = co / "pyproject.toml"
+    if _matches("pyproject.toml", guard) and py.is_file():
+        base = _git_ok(top, "cat-file", "-e", f"{head}:pyproject.toml") and _git(
+            top, "show", f"{head}:pyproject.toml"
+        )
+        py.write_text(_with_base_tool_tables(py.read_text(), base or ""))
 
 
 def ref_facts(cfg: Config, top: Path, sha: str) -> dict[str, Any]:
@@ -813,8 +911,8 @@ def ref_facts(cfg: Config, top: Path, sha: str) -> dict[str, Any]:
     except HarnessError as e:
         changed = []
         notes.append(f"ref has no merge base with HEAD, its edits are not listed: {e}")
-    guard, held = guarded_paths(cfg, top), holdout_files(top)
-    ignored = sorted(c for c in changed if _matches(c, guard) or c in held)
+    guard = guarded_paths(cfg, top)
+    ignored = sorted(c for c in changed if _matches(c, guard))
     if ignored:
         facts["ignored_edits"] = ignored[:200]
     ph = plan_head(cfg, top)
@@ -868,7 +966,7 @@ def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[st
 
     Config, items and targets are read from the invoking checkout, never from the measured
     ref. A ref is measured on its checkout with the plan commit's plan and protected paths and
-    the held-out cases laid over it (``overlay_plan``); its edits there have no effect and
+    laid over it (``overlay_plan``); its edits there have no effect and
     are listed as ``ignored_edits``. A result at HEAD is current; any other ref is a candidate,
     which never replaces a met current result.
     """
@@ -948,6 +1046,305 @@ def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[st
     return run
 
 
+# ---------------------------------------------------------------- measuring one ref against its plan commit
+
+RESULT_VERSION = "1"
+CANARY = HARNESS_DIR / "canary" / "test_bh_canary.py"
+AUTORUN = (
+    "conftest.py",
+    "sitecustomize.py",
+    "usercustomize.py",
+)  # run by Python/pytest before a test
+RECIPES = ("justfile", "Makefile")
+
+
+def _teach(rule: str, wrong: str, right: str, ref: str) -> str:
+    return f"[{rule}] {wrong} -> {right} . {ref}"[:300]
+
+
+def _lesson(status: str, path: str, accept: list[str]) -> tuple[str, str, str, str, bool]:
+    """(rule, wrong, right, prevent, tampered) for a change to a protected path."""
+    name = path.rsplit("/", 1)[-1]
+    if path.startswith(f"{HDIR}/packets/"):
+        return (
+            "packet",
+            "packet changed in the build",
+            "the packet from the base commit is used",
+            "only the planner writes the packet",
+            True,
+        )
+    if _matches(path, accept):
+        return (
+            "generated-test",
+            f"generated test {path} changed in the build",
+            "the generated test from the base commit is used",
+            "only the generator writes acceptance tests",
+            True,
+        )
+    if name in ("sitecustomize.py", "usercustomize.py"):
+        return (
+            "autorun-file",
+            f"{path} added in the build runs at interpreter start and can patch the test report",
+            "it is removed; the jail keeps writes inside the checkout",
+            "do not patch the test report or runner at import",
+            True,
+        )
+    if name == "conftest.py" and status == "A":
+        return (
+            "conftest",
+            "a conftest.py was added in the build",
+            "remove conftest.py; the plan commit's version is used",
+            "add test config only through a plan change",
+            True,
+        )
+    if path.startswith("holdout_files/"):
+        return (
+            "holdout",
+            f"{path} added: the holdout ref or holdout_files were read",
+            "they are removed from the measured checkout",
+            "do not read holdout files in tests",
+            False,
+        )
+    if name in RECIPES:
+        return (
+            "recipe",
+            "the test recipe was edited in the build",
+            "the base commit's recipe is used for the measurement",
+            "change the recipe only through a plan change",
+            False,
+        )
+    if path.startswith(f"{HDIR}/"):
+        return (
+            "ratchet",
+            "ratchet file changed by the builder",
+            "the plan commit's ratchet file is used for the measurement",
+            "change ratchet files only through a plan change",
+            False,
+        )
+    if path.startswith("tests/"):
+        return (
+            "protected-path",
+            "tests/ file edited by the builder",
+            "restore the test to its plan-commit content",
+            "protect tests/ so edits to it have no effect",
+            False,
+        )
+    if status == "A":
+        return (
+            "config",
+            f"test config file {path} added in the build",
+            "it is set aside; put test settings in the plan commit",
+            "ask the planner to add test config, not the builder",
+            False,
+        )
+    return (
+        "config",
+        f"lint or test config section changed in {path}",
+        "the base commit's config section is used for the measurement",
+        "keep [tool.pytest*], [tool.ruff*] and [tool.mypy*] unchanged in a build",
+        False,
+    )
+
+
+def _claim(root: Path, stem: str) -> tuple[int, Path]:
+    """Create the first free ``root/<stem>-<slot>`` (mkdir is atomic, so parallel runs never share one)."""
+    root.mkdir(parents=True, exist_ok=True)
+    for slot in range(10_000):
+        try:
+            d = root / f"{stem}-{slot}"
+            d.mkdir()
+            return slot, d
+        except FileExistsError:
+            continue
+    raise HarnessError(f"no free slot under {root}")
+
+
+def _protected_changes(cfg: Config, top: Path, base: str, sha: str) -> list[tuple[str, str]]:
+    """(status, path) of what the ref changed under a protected path; pyproject.toml counts only
+    when its test or lint tables differ."""
+    out = []
+    for ln in _git(top, "diff", "--name-status", "--no-renames", base, sha).splitlines():
+        st, _, path = ln.partition("\t")
+        if not _matches(path, cfg.protected):
+            continue
+        if path == "pyproject.toml" and st == "M":
+            old, new = (_git(top, "show", f"{r}:{path}") for r in (base, sha))
+            if _tool_cfg(old) == _tool_cfg(new):
+                continue
+        out.append((st, path))
+    return out
+
+
+def _works(tool: str) -> bool:
+    """True when ``tool`` is installed and runs (a version-manager shim without a version does not)."""
+    return (
+        bool(shutil.which(tool))
+        and subprocess.run([tool, "--version"], capture_output=True).returncode == 0
+    )
+
+
+def _canary_into(co: Path) -> None:
+    """Put the canary where the project's own test run collects it."""
+    dest = co / "tests" if (co / "tests").is_dir() else co
+    shutil.copy2(CANARY, dest / CANARY.name)
+
+
+def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
+    """Measure ``ref`` of the repository against its plan commit (merge base with the default
+    branch), without a plan or scoreboard: a ``git clone --shared`` checkout, the plan commit's
+    protected paths laid over it, the project's test recipe and a canary run sealed by ``_jail``.
+
+    The packets the orchestrator holds (``$BH_ORCHESTRATOR_DIR/packets``, default the repo's own
+    ``.brick-harness``) name the items; none means one item named after the repository.
+    """
+    top = git_top(cfg.dir)
+    if top is None:
+        raise HarnessError("not a git repository")
+    sha = _git(top, "rev-parse", "--verify", ref + "^{commit}")
+    main = next(
+        (b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), "HEAD"
+    )
+    base = _git(top, "merge-base", sha, main)
+    orch = Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top / HDIR)
+    packets = []
+    for f in sorted((orch / "packets").glob("*.json")):
+        try:
+            packets.append((json.loads(f.read_bytes()), hashlib.sha256(f.read_bytes()).hexdigest()))
+        except ValueError:
+            pass
+    pk = packets[0][0] if packets else {}
+    accept = pk.get("verifier", {}).get("acceptance_paths") or ["tests/acceptance/"]
+    item = pk.get("id") or top.name
+    facts: list[dict[str, Any]] = []
+
+    def fact(kind: str, detail: str, message: str) -> None:
+        facts.append({"kind": kind, "detail": detail, "item": item, "message": message})
+
+    if cfg.protected_gap:
+        fact(
+            "gap",
+            "protected",
+            _teach(
+                "gap",
+                "protected list is empty",
+                "declare the protected paths in the packet",
+                "leave protected at its default test and config paths",
+            ),
+        )
+    tampered = False
+    changes = _protected_changes(cfg, top, base, sha)
+    for st, path in changes:
+        rule, wrong, right, prevent, t = _lesson(st, path, accept)
+        fact("diff", f"{st} {path}", _teach(rule, wrong, right, prevent))
+        if t:
+            tampered = True
+            fact("tampered", f"{st} {path}", _teach(rule, wrong, right, prevent))
+    slot, clone = _claim(top / HDIR / "clones", sha[:12])
+    out = top / HDIR / "out" / item / f"{sha[:12]}-{slot}"
+    out.mkdir(parents=True, exist_ok=True)
+    errors: list[str] = []
+    cases: list[Any] = []
+    with clean_checkout(top, sha, clone) as co:
+        overlay_plan(cfg, top, co, base)
+        _canary_into(co)
+        junit = co / ".bh-junit.xml"
+        env = dict(
+            os.environ, PYTEST_ADDOPTS=f"--junitxml={junit} -p no:cacheprovider", BH_OUT=str(out)
+        )
+        cmd = (
+            "just test"
+            if (co / "justfile").is_file() and _works("just")
+            else f"{shlex.quote(sys.executable)} -m pytest -q"
+        )
+        r = _run(
+            cmd,
+            co,
+            co,
+            env,
+            float(cfg.data.get("commands", {}).get("timeout_s", 600)),
+            [top / HDIR],
+        )
+        try:
+            cases = [c for s in _suites(read_junit(junit)) for c in s]
+            shutil.copy2(junit, out / "junit.xml")
+        except HarnessError as e:
+            errors.append(f"{e}; the test command said: {r['tail'][-300:]}")
+    canary = [c for c in cases if CANARY.stem in (c.name or "")]
+    real = [c for c in cases if c not in canary]
+    if cases and not any(
+        type(x).__name__ in ("Failure", "Error") for c in canary for x in c.result
+    ):
+        tampered = True
+        fact(
+            "tampered",
+            "canary",
+            _teach(
+                "canary",
+                "the canary test passed",
+                "a canary must fail; a passing canary records tampered",
+                "do not patch the test report or runner",
+            ),
+        )
+    for c in real:
+        bad = [x for x in c.result if type(x).__name__ in ("Failure", "Error")]
+        if bad:
+            kind = "red_by_error" if type(bad[0]).__name__ == "Error" else "red"
+            fact(
+                kind,
+                f"{c.classname}::{c.name}",
+                _teach(
+                    kind,
+                    f"{c.name} did not pass",
+                    "make it pass in the measured run",
+                    "run the tests before committing",
+                ),
+            )
+    if not real:
+        errors.append("no test was collected")
+    acceptance = [
+        {
+            "id": a["id"],
+            "status": "met"
+            if any(
+                a["id"].replace("-", "_").lower() in (c.name or "").lower() and not c.result
+                for c in real
+            )
+            else "unmet",
+        }
+        for a in pk.get("acceptance", [])
+    ]
+    met = not (
+        errors or tampered or changes or any(f["kind"] in ("red", "red_by_error") for f in facts)
+    ) and all(a["status"] == "met" for a in acceptance)
+    report = out / "run-report.txt"
+    report.write_text(
+        "".join(f"{f['kind']} {f['detail']}: {f['message']}\n" for f in facts) or "no facts\n"
+    )
+    result: dict[str, Any] = {
+        "schema_version": RESULT_VERSION,
+        "command": "measure",
+        "items": [
+            {
+                "id": item,
+                "status": "met" if met else "unmet",
+                "out": str(out.relative_to(top)),
+                "acceptance": acceptance,
+                **({"errors": errors} if errors else {}),
+            }
+        ],
+        "facts": facts,
+        "config": {**cfg.data, "protected": cfg.protected},
+        "run_report": str(report),
+        **({"packet_sha256": packets[0][1]} if packets else {}),
+    }
+    schema = load_schema("result")
+    bad_result = next(iter(Draft202012Validator(schema).iter_errors(result)), None)
+    if bad_result:
+        raise HarnessError(f"result JSON invalid at {bad_result.json_path}: {bad_result.message}")
+    (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    return result
+
+
 def _scope_facts(
     cfg: Config, top: Path, co: Path, brick: dict[str, Any], sha: str
 ) -> dict[str, Any]:
@@ -961,7 +1358,7 @@ def _scope_facts(
     root = _under(cfg.dir, top)
     own = _own_paths(brick)
     pats = [p if root == "." else f"{root}/{p}" for p in own]
-    skip = guarded_paths(cfg, top) + list(holdout_files(top))
+    skip = guarded_paths(cfg, top)
     cat = cfg.file("catalogue")
     if cat is not None and cat.is_relative_to(top):
         skip.append(_under(cat, top))
@@ -1076,7 +1473,7 @@ def tree_key(
     targets_digest: str,
 ) -> str | None:
     """What a result depends on, as git blob shas: the item's and its dependencies' files at
-    the ref, the guarded files and held-out cases the measurer overlays, and the targets.
+    the ref, the guarded files the measurer overlays, and the targets.
     Two runs with the same key ran the same thing."""
     try:
         pats = [p for p in _item_pathspec(cfg, top, bricks, item) if not p.startswith(":(")]
@@ -1098,7 +1495,6 @@ def tree_key(
             [
                 sorted(mine.items()),
                 sorted(plan.items()),
-                sorted(holdout_files(top).items()),
                 targets_digest,
             ]
         )

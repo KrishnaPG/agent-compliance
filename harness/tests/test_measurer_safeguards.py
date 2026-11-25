@@ -5,17 +5,9 @@ Fixtures are git repositories built from examples/toy, as in test_toy.py.
 """
 
 import json
-import subprocess
 
 import pytest
-from test_toy import ENV, JSON_WRITER, build, cli, commit_all, copy_toy, git
-
-HOLDOUT = "refs/brick-harness/holdout"
-HOLDOUT_TEST = (
-    "from json_writer import write_rows\n\n\n"
-    "def test_held_out():\n"
-    '    assert write_rows([{"k": "v", "n": "2"}]) == \'[{"k": "v", "n": "2"}]\'\n'
-)
+from test_toy import JSON_WRITER, build, cli, commit_all, copy_toy, git
 
 
 @pytest.fixture
@@ -38,25 +30,6 @@ def append(path):
         p.write_text((p.read_text() if p.exists() else "") + "\n\ndef test_fail():\n    assert 0\n")
 
     return edit
-
-
-def hold_out(repo, files):
-    """Commit ``files`` (path -> text) as the held-out ref, outside every branch."""
-
-    index = repo.parent / "holdout-index"  # a throwaway index: nothing touches the checkout
-    env = dict(ENV, GIT_INDEX_FILE=str(index))
-
-    def run(*a, stdin=None):
-        p = subprocess.run(
-            ["git", "-C", str(repo), *a], input=stdin, capture_output=True, text=True, env=env
-        )
-        assert p.returncode == 0, p.stderr
-        return p.stdout.strip()
-
-    for path, text in files.items():
-        blob = run("hash-object", "-w", "--stdin", stdin=text)
-        run("update-index", "--add", "--cacheinfo", f"100644,{blob},{path}")
-    run("update-ref", HOLDOUT, run("commit-tree", run("write-tree"), "-m", "held-out"))
 
 
 # ------------------------------------------------------------------ SG-01
@@ -144,35 +117,6 @@ def test_ref_not_built_on_the_plan_commit_is_measured_and_noted(toy):
     assert any(c["metric"] == "tests.errors" for c in r["targets"])  # the plan's targets scored it
 
 
-def test_holdout_cases_are_overlaid_and_part_of_the_items_tests(toy):
-    hold_out(toy, {"tests/json-writer/test_holdout.py": HOLDOUT_TEST})
-    assert not (toy / "tests" / "json-writer" / "test_holdout.py").exists()  # never in a checkout
-    code, r = result(toy, build(toy))
-    assert code == 0 and r["metrics"]["tests.total"] == 3, r  # 2 visible + 1 held out
-
-    def special_case(r):  # passes what a builder can see, fails the held-out case
-        (r / "src" / "json_writer.py").write_text(
-            "import json\n\n\ndef write_rows(rows):\n"
-            "    if rows == [{'k': 'v', 'n': '2'}]:\n        return 'wrong'\n"
-            "    return json.dumps(rows, ensure_ascii=False)\n"
-        )
-
-    code, r = result(toy, build(toy, edit=special_case))
-    assert code == 1 and r["status"] == "unmet" and r["metrics"]["tests.failed"] == 1
-
-
-def test_holdout_files_a_ref_also_holds_are_replaced_and_listed(toy):
-    hold_out(toy, {"tests/json-writer/test_holdout.py": HOLDOUT_TEST})
-
-    def edit(r):
-        (r / "tests" / "json-writer" / "test_holdout.py").write_text("def test_x():\n    pass\n")
-
-    sha = build(toy, edit=edit, touched=["tests"])
-    code, r = result(toy, sha)
-    assert code == 0 and r["metrics"]["tests.total"] == 3
-    assert r["ignored_edits"] == ["tests/json-writer/test_holdout.py"]
-
-
 def test_merge_restores_plan_and_protected_paths_a_ref_edited(toy):
     original = (toy / "tests" / "json-writer" / "test_writer.py").read_text()
 
@@ -235,11 +179,12 @@ def test_scope_is_absent_when_the_ref_stays_inside_the_item(toy):
 
 
 def test_same_tree_passing_and_failing_is_recorded_as_flaky_without_changing_status(toy):
-    flag = toy.parent / "flag"
+    flag = toy / ".brick-harness" / "out" / "json-writer" / "flag"  # the jail's writable out dir
+    flag.parent.mkdir(parents=True, exist_ok=True)
     flag.write_text("")
     cfgp = toy / ".brick-harness" / "config.json"
     cfg = json.loads(cfgp.read_text())
-    cfg["commands"]["test"]["run"] += f" $(cat {flag})"
+    cfg["commands"]["test"]["run"] += " $(cat $BH_OUT/flag)"
     cfgp.write_text(json.dumps(cfg))
     cli("bh-commit", toy, "--message", "flaky test command")
     sha = build(toy)
@@ -274,7 +219,7 @@ BENCH_RUN = (
 def bench_toy(toy, runs):
     cfgp = toy / ".brick-harness" / "config.json"
     cfg = json.loads(cfgp.read_text())
-    cfg["commands"]["bench"]["run"] = BENCH_RUN.replace("{cnt}", str(toy.parent / "cnt"))
+    cfg["commands"]["bench"]["run"] = BENCH_RUN.replace("{cnt}", "$BH_OUT/cnt")
     cfgp.write_text(json.dumps(cfg))
     tp = toy / ".brick-harness" / "targets.json"
     doc = json.loads(tp.read_text())
@@ -344,8 +289,8 @@ def test_no_dependency_fact_when_the_lockfiles_are_unchanged(toy):
 def with_environment(toy, env):
     cfgp = toy / ".brick-harness" / "config.json"
     cfg = json.loads(cfgp.read_text())
-    marker = toy.parent / "marker"
-    cfg["environments"] = {"staging": {"run": f"echo staged >> {marker}; sh -c {{cmd}}"}}
+    marker = toy / ".brick-harness" / "out" / "csv2json" / "marker"
+    cfg["environments"] = {"staging": {"run": "echo staged >> $BH_OUT/marker; sh -c {cmd}"}}
     if env:
         cfg["commands"]["test"]["environment"] = env
     cfgp.write_text(json.dumps(cfg))

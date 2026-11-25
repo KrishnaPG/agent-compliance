@@ -127,10 +127,8 @@ def test_no_targets_unmet(tmp_path):
 
 def bench(tmp_path, content, metrics, fmt="json"):
     """A bench command that writes `content` as its result (the measurer unlinks old results)."""
-    src = tmp_path / ("src." + fmt)
-    src.write_text(content)
-    res = tmp_path / ("b." + fmt)
-    return {"run": f"cp {src} {res}", "results": str(res), "format": fmt, "metrics": metrics}
+    run = f"{PY} -c \"import sys,pathlib; pathlib.Path(sys.argv[1]).write_text(sys.argv[2])\" {{out}}/b.{fmt} '{content}'"
+    return {"run": run, "results": f"{{out}}/b.{fmt}", "format": fmt, "metrics": metrics}
 
 
 def test_bench_json_and_csv_extractors(tmp_path):
