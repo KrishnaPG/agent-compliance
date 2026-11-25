@@ -68,6 +68,7 @@ from pathlib import Path, PurePosixPath
 from typing import Any
 
 from jsonschema import Draft202012Validator
+from jsonschema.validators import validator_for
 from junitparser import JUnitXml, JUnitXmlError, TestSuite
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent  # harness/ inside the plugin
@@ -1183,6 +1184,30 @@ def _works(tool: str) -> bool:
     )
 
 
+def merge_sarif(logs: list[Path]) -> dict[str, Any]:
+    """One SARIF 2.1.0 log holding the runs of the tools' own logs (ruff, semgrep emit SARIF),
+    checked against the official schema; HarnessError names the first violation."""
+    runs = [r for p in logs for r in json.loads(p.read_text()).get("runs", [])]
+    log = {"version": "2.1.0", "runs": runs}
+    schema = json.loads((SCHEMA_DIR / "sarif-2.1.0.json").read_text())
+    bad = next(iter(validator_for(schema)(schema).iter_errors(log)), None)
+    if bad:
+        raise HarnessError(f"SARIF log invalid at {bad.json_path}: {bad.message}")
+    return log
+
+
+def _lint_sarif(co: Path, env: dict[str, str], out: Path, hide: list[Path]) -> None:
+    """Lint the checkout with ruff (its own SARIF output, sealed like the tests) when it has a ruff config."""
+    if not _works("ruff") or not any(
+        (co / f).is_file() for f in ("ruff.toml", ".ruff.toml", "pyproject.toml")
+    ):
+        return
+    raw = co / ".bh-ruff.sarif"
+    _run(f"ruff check --output-format sarif --output-file {raw} .", co, co, env, 60, hide)
+    if raw.is_file():
+        (out / "findings.sarif").write_text(json.dumps(merge_sarif([raw])))
+
+
 def _canary_into(co: Path) -> None:
     """Put the canary where the project's own test run collects it."""
     dest = co / "tests" if (co / "tests").is_dir() else co
@@ -1264,6 +1289,7 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
             float(cfg.data.get("commands", {}).get("timeout_s", 600)),
             [top / HDIR],
         )
+        _lint_sarif(co, env, out, [top / HDIR])
         try:
             cases = [c for s in _suites(read_junit(junit)) for c in s]
             shutil.copy2(junit, out / "junit.xml")

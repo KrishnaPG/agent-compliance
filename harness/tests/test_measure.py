@@ -351,3 +351,15 @@ def test_newer_record_decides_when_current_is_not_met():
     newer_cur = {**R_UNMET, "measured_at": "2026-01-01T00:00:09"}
     assert bhcore.pick_status((newer_cur, "unmet"), (R_MET, "met"))[0] == "unmet"
     assert bhcore.pick_status((None, None), (None, None)) == ("unmeasured", None)
+
+
+def test_merged_sarif_is_checked_against_the_official_schema(tmp_path):
+    ok = tmp_path / "a.sarif"
+    ok.write_text(
+        json.dumps({"version": "2.1.0", "runs": [{"tool": {"driver": {"name": "ruff"}}}]})
+    )
+    assert len(bhcore.merge_sarif([ok, ok])["runs"]) == 2
+    bad = tmp_path / "b.sarif"
+    bad.write_text(json.dumps({"runs": [{"tool": {}}]}))
+    with pytest.raises(bhcore.HarnessError, match="SARIF log invalid"):
+        bhcore.merge_sarif([bad])
