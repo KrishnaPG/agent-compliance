@@ -18,6 +18,7 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+import bhbuilder
 from bhcore import RESULT_VERSION, SIZING_DEFAULT, HarnessError, load_schema
 
 PACKETS_DIR = ".brick-harness/packets"
@@ -30,6 +31,7 @@ STEPS = (
     "validate_packet",
     "render_packet",
     "launch_builder",
+    "commit_build",
     "generate_tests",
     "merge",
 )
@@ -304,9 +306,14 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
         return 1, "", err
     digest = custody_store(root, raw)
     clone = root / CLONES_DIR / f"{item}-{digest[:12]}"
-    if not clone.exists():
-        bhorch.git(root, "clone", "-q", "--shared", str(root), str(clone))
+    base = bhorch.git(root, "rev-parse", "HEAD").stdout.strip()  # the base commit the program records
+    bhbuilder.make_clone(root, clone, base)
     register(root, clone, digest, packet)
+    cfg = root / ".brick-harness" / "config.json"
+    sandbox = json.loads(cfg.read_bytes()).get("sandbox") if cfg.is_file() else None
+    settings = bhbuilder.write_settings(
+        root, bhbuilder.builder_settings(packet, root, clone, Path(__file__).resolve().parents[2], sandbox)
+    )
     # A login-mode launch with the plugin: bare mode runs no hooks, and the packet arrives by a hook.
     argv = [
         os.environ.get("BH_CLAUDE", "claude"),
@@ -316,8 +323,10 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
         "--no-session-persistence",
         "--permission-mode",
         "dontAsk",
-        "--allowedTools",
-        ",".join(bhorch.agent_def(BUILDER_AGENT)["tools"]),
+        "--settings",
+        str(settings),
+        "--allowedTools",  # Bash is never pre-approved: the sandbox's auto-allow is its only way in
+        ",".join(t for t in bhorch.agent_def(BUILDER_AGENT)["tools"] if t != "Bash"),
         *bhorch.mode_flags("login", None, BUILDER_AGENT),
     ]
     started = datetime.now(UTC)
@@ -329,6 +338,7 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
         facts = [*facts, {"kind": "launch_failed", "detail": f"cannot start {argv[0]}: {e}"}]
     cli = bhorch.parse_cli_result(out) or {}
     t = bhorch.tokens_of(cli.get("usage"))
+    bhbuilder.commit_build(clone, packet, digest)  # the program stages and commits, never the builder
     job = {
         "id": f"{item}-builder-{digest[:12]}",
         "kind": "agent",
@@ -342,6 +352,17 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
         "packet_sha256": digest,
     }
     return 0, result_json("launch_builder", raw, facts, jobs=[job]), ""
+
+
+def commit_build(root: Path, item: str) -> tuple[int, str, str]:
+    """The program's own commit of the builder's change in the item's clone (also run by launch)."""
+    packet, raw = load_packet(root, item)
+    digest = hashlib.sha256(raw).hexdigest()
+    clones = sorted((root / CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime)
+    if not clones:
+        return 1, "", f"[commit_build] no clone of {item} under {CLONES_DIR} -> launch the builder first . {SPEC}\n"
+    sha = bhbuilder.commit_build(clones[-1], packet, digest)
+    return 0, result_json("commit_build", raw, [], commit=sha), ""
 
 
 def program_job(
@@ -396,6 +417,8 @@ def step(name: str, root: Path, item: str | None) -> tuple[int, str, str]:
         return launch_builder(root, item)
     if name == "generate_tests":
         return generate_tests(root, item)
+    if name == "commit_build":
+        return commit_build(root, item)
     if name == "assemble_packet":
         packet, raw, facts, err = assemble(root, item)
     else:

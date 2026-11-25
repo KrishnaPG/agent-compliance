@@ -17,6 +17,14 @@ H0_TO_ORCHESTRATOR = (
     "Builder {id} started without a packet. Launch builders through the harness launch step, "
     "which writes the packet first; mechanical work gets a minimal one."
 )
+SG01_PRE = (
+    "[SG-01] acceptance test is protected (SG-01): {path} -> ask the orchestrator to change it in the plan; "
+    "tests sit in protected paths . docs/spec/packet-standards.md"
+)
+SG01_NOTE = (
+    "SG-01 note: tests are protected: the sandbox made the path read-only. Ask the orchestrator to change them; "
+    "tests sit in protected paths."
+)
 H2_DEFAULT_CHARS = 200  # d9 moves this into the one limits table (limits.h2_chars)
 
 
@@ -78,6 +86,12 @@ def declared_globs(root: Path) -> list:
     return out
 
 
+def acceptance_globs(root: Path) -> list:
+    """The packet's protected acceptance paths: the one list the builder settings' denyWrite is made from."""
+    out = []
+    for f in packet_files(root):
+        out += json.loads(f.read_bytes()).get("verifier", {}).get("acceptance_paths", [])
+    return out
 def inside(path: str, globs: list) -> bool:
     return any(fnmatch.fnmatch(path, g) or path == g.rstrip("/*") for g in globs)
 

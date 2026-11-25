@@ -354,6 +354,10 @@
         }
       }
     },
+    "sandbox": {
+      "type": "object",
+      "description": "The Claude Code sandbox settings object, merged verbatim into the builder's generated settings."
+    },
     "limits": {
       "type": "object",
       "additionalProperties": false,
