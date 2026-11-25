@@ -14,7 +14,7 @@ import shutil
 from pathlib import Path
 from typing import Any
 
-from bhcore import HARNESS_DIR, Config
+from bhcore import HARNESS_DIR, PRJ_ID, Config
 from bhtracker import Tracker, TrackerError
 
 FORMS_DIR = HARNESS_DIR.parent / "templates" / ".github" / "ISSUE_TEMPLATE"
@@ -28,7 +28,7 @@ NO_GOAL = (
     "which goal this capability serves."
 )
 _LINE = re.compile(r"^\s*- \[[ xX]\] ", re.M)
-_RULE_ID = re.compile(r"\b[A-Z][A-Z0-9]*-\d+\b")
+_RULE_ID = re.compile(rf"\b(?:{PRJ_ID}|[A-Z][A-Z0-9]*-\d+)\b")
 
 
 def form_field(body: str | None, label: str) -> str:

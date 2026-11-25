@@ -37,10 +37,12 @@ async def decide(orch: Any, record: Path) -> dict[str, Any]:
     blind = orch.jobs_dir / f"decide-{record.stem}.md"
     orch.jobs_dir.mkdir(parents=True, exist_ok=True)
     blind.write_text(without_outcome(text))
+    # the record's own lines (its outcome among them, QBC-112) never reach the judge of that record
+    own = {k for k, v in bhrules.project_rule_rows(orch.cfg).items() if (orch.cfg.dir / v["source"].rsplit(":", 1)[0]).resolve() == record.resolve()}
     core = {
         "record": str(blind),
         "record_sha256": hashlib.sha256(text.encode()).hexdigest(),
-        "rules": bhrules.project_rules(orch.cfg),  # the selection, never the whole catalog (QBC-106)
+        "rules": [r for r in bhrules.project_rules(orch.cfg) if r["id"] not in own],  # the selection, never the whole catalog (QBC-106)
     }
     j = await orch.job("judge", f"decide:{record.stem}", core, {}, "Judge the options of the record named in the input file.")
     out = j.get("output") or {}

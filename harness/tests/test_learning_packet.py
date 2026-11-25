@@ -243,6 +243,9 @@ def test_bh_brief_assembles_the_packet_from_citations_with_digest_and_dependency
     assert brief(toy, "nope")[0] == 2
 
 
+TOY_RULE = {"id": "PRJ-0001-1", "text": "write the toy in Python with the standard library only. (decisions/0001-python-stdlib.md:3)"}
+
+
 def test_packet_rules_is_the_one_function_that_chooses_the_rules(toy):
     with_context(toy, ("RL-01", "RL-02"))
     overlay(toy, "- RL-01 Name the delimiter. covers: x")
@@ -250,8 +253,9 @@ def test_packet_rules_is_the_one_function_that_chooses_the_rules(toy):
     assert bhcore.packet_rules(cfg, "csv-reader") == [
         {"id": "RL-01", "text": "Name the delimiter."},
         {"id": "RL-02", "text": ""},
+        TOY_RULE,  # the toy's own decision record (QBC-112)
     ]
-    assert bhcore.packet_rules(cfg, "json-writer") == []
+    assert bhcore.packet_rules(cfg, "json-writer") == [TOY_RULE]
 
 
 def test_a_passage_whose_lines_changed_since_the_plan_commit_is_stale_context(toy):

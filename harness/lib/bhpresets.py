@@ -116,18 +116,49 @@ def _codeowners(root: Path, files: list[str]) -> list[tuple[pathspec.PathSpec, s
     return rules
 
 
+def openapi_ops(root: Path, files: list[Path]) -> list[dict[str, str]]:
+    """Each operation of the OpenAPI documents ``files`` that names an owner: ``{owner, id, route,
+    file}``. The owner is the operation's ``x-owner`` (an OpenAPI 3.1 specification extension),
+    else its first tag (OpenAPI's grouping)."""
+    yaml = YAML(typ="safe")
+    out = []
+    for f in files:
+        try:
+            doc = yaml.load(f.read_text()) or {}
+        except Exception:  # noqa: BLE001 - a document that does not parse publishes nothing
+            continue
+        for path, ops in (doc.get("paths") or {}).items() if isinstance(doc, dict) else []:
+            for method, op in (ops or {}).items():
+                owner = isinstance(op, dict) and (op.get("x-owner") or (op.get("tags") or [None])[0])
+                if owner:
+                    rel = f.relative_to(root).as_posix() if f.is_relative_to(root) else str(f)
+                    out.append({"owner": str(owner), "id": str(op.get("operationId", "")), "route": f"{method.upper()} {path}", "file": rel})
+    return out
+
+
 def _openapi_owners(root: Path, globs: list[str]) -> dict[str, str]:
     """module -> owner tag, from operations that name their handler (``operationId: pkg.mod.fn``)."""
-    yaml = YAML(typ="safe")
-    out: dict[str, str] = {}
-    for g in globs:
-        for f in sorted(root.glob(g)):
-            doc = yaml.load(f.read_text()) or {}
-            for ops in (doc.get("paths") or {}).values():
-                for op in (ops or {}).values():
-                    if isinstance(op, dict) and op.get("tags") and "." in str(op.get("operationId", "")):
-                        out[op["operationId"].rsplit(".", 1)[0]] = op["tags"][0]
-    return out
+    files = [f for g in globs for f in sorted(root.glob(g))]
+    return {op["id"].rsplit(".", 1)[0]: op["owner"] for op in openapi_ops(root, files) if "." in op["id"]}
+
+
+def importlinter_modules(root: Path) -> list[str]:
+    """The modules the project's import-linter contracts name (``.importlinter``, ``setup.cfg`` or
+    ``[tool.importlinter]``): each is a boundary the project declared."""
+    keys = ("modules", "containers", "layers", "packages_with_private_modules", "source_modules")
+    found: list[str] = []
+    for name in (".importlinter", "setup.cfg"):
+        if (root / name).is_file():
+            cp = configparser.ConfigParser()
+            try:
+                cp.read(root / name)
+            except configparser.Error:
+                continue
+            found += [m for s in cp.sections() if s.startswith("importlinter:contract:") for k in keys for m in cp[s].get(k, "").split()]
+    py = root / "pyproject.toml"
+    il = tomllib.loads(py.read_text()).get("tool", {}).get("importlinter", {}) if py.is_file() else {}
+    found += [m for c in il.get("contracts", []) for k in keys for m in c.get(k, [])]
+    return list(dict.fromkeys(m.strip("()|:") for m in found if m.strip("()|:")))
 
 
 def owner_map(root: Path, preset: dict[str, Any]) -> dict[str, dict[str, Any]]:

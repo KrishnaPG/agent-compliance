@@ -18,7 +18,8 @@ maintained or declared:
 Every review judges the diff against exactly the packet's rule lines, the ones its builder got.
 
 Money and any other domain no maintained tool sees are the project's to declare there. Owners come
-from the one owner map (``bhpresets.owner_map``). Findings are SARIF 2.1.0 results (the L5 format),
+from the one owner index (``owner_index``: CODEOWNERS, the import-linter contracts, the packages and
+the OpenAPI documents). Findings are SARIF 2.1.0 results (the L5 format),
 triage severity mapped to ``level`` (ISTQB S1 critical and S2 major = error, S3 minor = warning,
 S4 = note), each message in the teaching shape (QBC-53), the run naming the packet sha256. They are
 facts: nothing here changes "met" (P4, QBC-35).
@@ -48,30 +49,78 @@ def limits(cfg_data: dict[str, Any]) -> dict[str, int]:
 # ---------------------------------------------------------------- owners: the one owner map
 
 
-def unit_owners(root: Path) -> dict[str, tuple[str, str]]:
-    """Each owner unit's directory (relative, with a trailing slash) -> (owner, dotted package), from
-    ``bhpresets.owner_map`` (CODEOWNERS, then OpenAPI tags, then the folder name)."""
+def _tracked(root: Path) -> list[str]:
+    """The project's files, tracked or new and not ignored (git's view: no vendored tree is walked)."""
+    try:
+        return [p for p in _git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard").split("\0") if p]
+    except HarnessError:
+        return []
+
+
+def owner_index(root: Path) -> dict[str, Any]:
+    """The project's owners, read from its standard files at 0 tokens, as ``{codeowners, units,
+    ops}``. ``units``: each owner unit's directory or file (relative, a directory with a trailing
+    slash) -> ``(owner, label, interface file)``, from, later sources winning on the same path:
+    the Python preset's owner map (``bhpresets.owner_map``: CODEOWNERS, OpenAPI handler tags, the
+    folder name); each PyPA src-layout package (``<project>/src/<pkg>``, owned by its project
+    folder); each import-linter contract module; and each folder or file named for an owner the
+    OpenAPI documents declare (``x-owner`` or a tag). ``ops``: owner -> its published operations."""
     import bhpresets
+    from bhrules import EXT
 
-    preset = bhpresets.presets().get("python")
-    if not preset:
-        return {}
-    dirs = {
-        f"{name}.{u.name}": u.relative_to(root).as_posix() + "/"
-        for name, d in bhpresets.root_packages(root)
-        for u in d.iterdir()
-        if (u / "__init__.py").is_file()
-    }
-    return {
-        dirs[unit]: (owner, unit)
-        for owner, o in bhpresets.owner_map(root, preset).items()
-        for unit in o["units"]
-        if unit in dirs
-    }
+    code = {x for v in EXT.values() for x in v}
+    files = _tracked(root)
+    units: dict[str, tuple[str, str, str]] = {}
+    if preset := bhpresets.presets().get("python"):
+        dirs = {
+            f"{name}.{u.name}": u.relative_to(root).as_posix()
+            for name, d in bhpresets.root_packages(root)
+            for u in d.iterdir()
+            if (u / "__init__.py").is_file()
+        }
+        for owner, o in bhpresets.owner_map(root, preset).items():
+            for unit in o["units"]:
+                if unit in dirs:
+                    units[dirs[unit] + "/"] = (owner, unit, dirs[unit] + "/__init__.py")
+    inits = [f for f in files if f.endswith("/__init__.py")]
+    for f in inits:
+        parts = f.split("/")
+        if len(parts) >= 3 and parts[-3] == "src":  # <project>/src/<pkg>/__init__.py (PyPA src layout)
+            project = "/".join(parts[:-3])
+            units.setdefault((project + "/") if project else f.rsplit("/", 1)[0] + "/", (Path(project).name or parts[-2], parts[-2], f))
+    for mod in bhpresets.importlinter_modules(root):
+        tail = "/" + mod.replace(".", "/") + "/__init__.py"
+        for f in inits:
+            if ("/" + f).endswith(tail):
+                units[f[: -len("__init__.py")]] = (mod.rsplit(".", 1)[-1], mod, f)
+    ops: dict[str, list[dict[str, str]]] = {}
+    docs = [root / f for f in files if re.fullmatch(r"(?:.*/)?openapi\.(?:ya?ml|json)", f)]
+    for op in bhpresets.openapi_ops(root, docs):
+        ops.setdefault(op["owner"], []).append(op)
+    for f in files:  # a folder or file named for a declared owner (``apps/<owner>/``, ``<owner>.sql``)
+        parts = f.split("/")
+        for i, part in enumerate(parts):
+            last = i == len(parts) - 1
+            name = part.split(".", 1)[0] if last and Path(part).suffix in code else part
+            if name in ops and not (last and name == part):
+                key = "/".join(parts[: i + 1]) + ("/" if i < len(parts) - 1 else "")
+                if key not in units or units[key][0] != name:
+                    units[key] = (name, name, "")
+    rules = bhpresets._codeowners(root, preset["owner_files"]) if preset else []
+    return {"codeowners": rules, "units": units, "ops": ops}
 
 
-def owner_of(units: dict[str, tuple[str, str]], path: str) -> tuple[str, str] | None:
-    return next((v for d, v in units.items() if path.startswith(d) or path + "/" == d), None)
+def owner_of(index: dict[str, Any], path: str) -> str | None:
+    """A path's owner: CODEOWNERS' last matching line (GitHub's rule), else the deepest owner unit
+    holding it."""
+    who = None
+    for spec, owner in index["codeowners"]:
+        if spec.match_file(path) or spec.match_file(path.rstrip("/") + "/"):
+            who = owner
+    if who:
+        return who
+    hit = [k for k in index["units"] if path == k or path.startswith(k) or path + "/" == k]
+    return index["units"][max(hit, key=len)][0] if hit else None
 
 
 def _published(init: Path) -> list[str]:
@@ -91,21 +140,28 @@ def _published(init: Path) -> list[str]:
     return []
 
 
-def packet_owners(root: Path, declared: list[str], cap: int) -> dict[str, list[str]]:
-    """The owners of an item's declared paths and each touched owner's published interface: its
-    units' ``__all__`` names, as ``package (owner): names``."""
-    units = unit_owners(root)
-    tracked = [p for p in _git(root, "ls-files", "-z", "--", *declared).split("\0") if p] if declared else []
-    hit = {o for p in [*declared, *tracked] if p and p != "." and (o := owner_of(units, p))}
-    owners = sorted({o for o, _ in hit})
+def packet_owners(root: Path, paths: list[str], cap: int) -> dict[str, list[str]]:
+    """The owners of the given paths (an item's declared paths, or a diff's changed files) and
+    each touched owner's published interface, one line each, at most ``cap`` characters: its
+    packages' ``__all__`` names (PEP 8), as ``package (owner): names``, and its OpenAPI operations,
+    as ``file (owner): operationId METHOD /path; ...``. A path no owner holds adds nothing."""
+    index = owner_index(root)
+    tracked = [p for p in _git(root, "ls-files", "-z", "--", *paths).split("\0") if p] if paths else []
+    owners = sorted({o for p in [*paths, *tracked] if p and p != "." and (o := owner_of(index, p))})
     if not owners:
         return {}
     interfaces = []
-    for d, (owner, unit) in sorted(units.items()):
-        names = _published(root / d / "__init__.py") if owner in owners else []
+    for d, (_, unit, init) in sorted(index["units"].items()):
+        names = _published(root / init) if init and owner_of(index, d) in owners else []
+        owner = owner_of(index, d)
         if names:
             interfaces.append(f"{unit} ({owner}): {', '.join(names)}"[:cap])
-    return {"owners": owners, "interfaces": interfaces}
+    for owner in owners:
+        by_file: dict[str, list[str]] = {}
+        for op in index["ops"].get(owner, []):
+            by_file.setdefault(op["file"], []).append(f"{op['id']} {op['route']}".strip())
+        interfaces += [f"{f} ({owner}): {'; '.join(o)}"[:cap] for f, o in by_file.items()]
+    return {"owners": owners, "interfaces": list(dict.fromkeys(interfaces))}
 
 
 # ---------------------------------------------------------------- triggers on the whole diff
@@ -179,10 +235,10 @@ def triggers(
     sql = next((p for p in sides if p.endswith(".sql") and _dcl_changed(*(t or "" for t in sides[p]))), None)
     if sql:
         hits["grants"] = f"{sql} changes a GRANT or REVOKE statement"
-    units = unit_owners(root)
+    index = owner_index(root)
     for t in cfg_data.get("review", {}).get("triggers", []):
         if "@" in t:  # a CODEOWNERS owner (GitHub's owner syntax)
-            p = next((p for p in changed if (o := owner_of(units, p)) and o[0] == t), None)
+            p = next((p for p in changed if owner_of(index, p) == t), None)
         else:
             spec = pathspec.PathSpec.from_lines("gitignore", [t])
             p = next((p for p in changed if spec.match_file(p)), None)

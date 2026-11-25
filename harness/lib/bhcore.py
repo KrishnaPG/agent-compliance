@@ -105,6 +105,8 @@ DEFAULT_PATHS = {
     "answers": f"{HDIR}/decisions",
     "measure_out": f"{HDIR}/out",
 }
+# A project rule id: ``PRJ-<file>-<n>``, read from the project's own files (QBC-112).
+PRJ_ID = r"PRJ-[A-Za-z0-9.]+-\d+"
 HARNESS_KEYS = tuple(k for k in DEFAULT_PATHS if k != "measure_out")
 # The project's own documents: read only; the harness reports gaps in them, never writes them.
 PROJECT_KEYS = (
@@ -4738,7 +4740,7 @@ def value_queue(cfg: Config, state: dict[str, Any]) -> list[str]:
 
 # ---------------------------------------------------------------- learning from answers (SG-16)
 
-RULE_ID = re.compile(r"\b[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9.]*\b")
+RULE_ID = re.compile(rf"\b(?:{PRJ_ID}|[A-Z][A-Z0-9]*-[A-Za-z0-9][A-Za-z0-9.]*)\b")
 
 
 def load_decisions(cfg: Config, problems: list[str] | None = None) -> list[dict[str, Any]]:

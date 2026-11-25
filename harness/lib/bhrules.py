@@ -31,6 +31,7 @@ from typing import Any
 from bhcore import (
     HARNESS_DIR,
     PLUGIN_ROOT,
+    PRJ_ID,
     HarnessError,
     _git,
     _own_paths,
@@ -47,7 +48,7 @@ EXT = {
     "sql": (".sql",),
 }
 SKIP_DIRS = {"node_modules", "__pycache__", "venv", "dist", "build"}
-RULE_ID = r"[A-Z]{2}-\d+"
+RULE_ID = rf"(?:{PRJ_ID}|[A-Z]{{2}}-\d+)"  # a catalog rule, or a project rule (QBC-112)
 ROW = re.compile(rf"^\|\s*({RULE_ID})\s*\|\s*(.+?)\s*\|")
 # Facts a check may bind, each inferred from the code: files that define routes or an app,
 ENTRY = re.compile(r"\b(?:APIRouter|FastAPI)\(|\bRouter\(")
@@ -392,13 +393,169 @@ def rules_doc(cfg: Any) -> dict[str, Any]:
     return doc
 
 
+# ---------------------------------------------------------------- the project's own rules (QBC-112)
+
+# Where a project keeps its rules, as standard files: agent instruction files (the AGENTS.md open
+# format; CLAUDE.md, Claude Code's memory file), nearest file scoping its folder, and architecture
+# decision records (Nygard ADRs as adr-tools writes them under doc/adr, MADR under docs/decisions),
+# numbered ``NNNN-title.md``. Read on every run, never copied into the plugin.
+INSTRUCTION_FILES = ("AGENTS.md", "CLAUDE.md")
+ADR_DIRS = ("adr", "adrs", "decisions", "decision-records", "architecture-decisions")
+ADR_FILE = re.compile(r"^(\d{3,})[-_ ].*\.md$")
+LABEL = re.compile(r"^(?:#{1,6}\s+(?P<h>.+?)\s*#*|\*\*(?P<b>[^*]+?)\*\*\s*(?P<brest>.*)|[-*+]\s+(?P<l>[A-Za-z][\w' ]{1,30}?):\s+(?P<lrest>.+))$")
+ITEM = re.compile(r"^(?:[-*+]|\d+[.)])\s+(.*)$")
+DECIDED = {"decision", "decision outcome", "decided"}
+DONT = {"do not", "don't", "never"}
+CONSEQ = {"consequences", "consequence", "negative consequences"}
+KNOWN = DECIDED | DONT | CONSEQ | {"status", "why", "context", "outcome", "checked"}
+RETIRED = re.compile(r"(?is)\bstatus\W{0,8}(superseded|deprecated|rejected)")
+
+
+def _items(lines: list[str]) -> list[tuple[int, str | None, str]]:
+    """A markdown file as ``(line, section label, item)``: each top-level bullet or paragraph, its
+    continuation lines joined; headings, ``**Label.**`` leads and ``- Label:`` bullets of a known
+    label start a section (their text is its first item); fenced code, tables and sub-bullets are
+    skipped."""
+    out: list[tuple[int, str | None, str]] = []
+    label: str | None = None
+    fence = False
+    cur: list[Any] | None = None
+    for n, raw in enumerate(lines, 1):
+        line = raw.rstrip()
+        if line.lstrip().startswith(("```", "~~~")):
+            fence, cur = not fence, None
+            continue
+        if fence or not line.strip() or line.lstrip().startswith(("|", "<!--", ">")):
+            cur = None
+            continue
+        m = LABEL.match(line)
+        name = m and (m.group("h") or m.group("b") or m.group("l") or "").strip(" .:").lower()
+        if m and (m.group("h") or m.group("b") or name in KNOWN):
+            label, cur = name, None
+            rest = (m.group("brest") or m.group("lrest") or "").strip()
+            if rest:
+                cur = [n, label, rest]
+                out.append(cur)  # type: ignore[arg-type]
+            continue
+        if line[0] in " \t":
+            if cur is not None and not ITEM.match(line.strip()):
+                cur[2] += " " + line.strip()
+            continue
+        i = ITEM.match(line)
+        if i or cur is None:
+            cur = [n, label, (i.group(1) if i else line).strip()]
+            out.append(cur)  # type: ignore[arg-type]
+        else:
+            cur[2] += " " + line.strip()
+    return [(n, lab, text) for n, lab, text in out]
+
+
+def _applies(text: str, root: Path, owners: set[str]) -> list[str]:
+    """A project rule's ``applies``: ``path:<p>`` for each existing path and ``owner:<o>`` for each
+    owner it names in backticks, else ``always``."""
+    out = []
+    for tok in re.findall(r"`([^`\s]+)`", text):
+        if tok in owners:
+            out.append(f"owner:{tok}")
+        elif ("/" in tok or "." in tok) and not tok.startswith(("/", "..")) and (root / tok).exists() and tok not in (".", "./"):
+            out.append(f"path:{tok}")
+    return list(dict.fromkeys(out)) or ["always"]
+
+
+def _line(text: str) -> str:
+    """One rule line: at most 160 characters, cut at a word."""
+    text = " ".join(text.split())
+    return text if len(text) <= 160 else text[:157].rsplit(" ", 1)[0] + "..."
+
+
+def _project_files(root: Path, cfg: Any) -> list[tuple[str, str]]:
+    """``(relative path, kind)`` of the project's instruction files and decision records, tracked
+    or new; ``paths.decisions_dir`` in config adds its folder to the standard ones."""
+    try:
+        files = _git(root, "ls-files", "-z", "--cached", "--others", "--exclude-standard", "--", "*.md").split("\0")
+    except HarnessError:
+        files = []
+    declared = cfg.file("decisions_dir") if hasattr(cfg, "file") else None
+    ddir = declared.relative_to(root.resolve()).as_posix() if declared and declared.is_relative_to(root.resolve()) else None
+    out = []
+    for f in sorted(p for p in files if p):
+        parent, _, name = f.rpartition("/")
+        if name in INSTRUCTION_FILES:
+            out.append((f, "instructions"))
+        elif ADR_FILE.match(name) and (parent.rpartition("/")[2] in ADR_DIRS or parent == ddir):
+            out.append((f, "decision"))
+    return out
+
+
+def project_rule_rows(cfg: Any) -> dict[str, dict[str, Any]]:
+    """The project's own rules, read from its standard files at 0 tokens (QBC-112): ``{id: {text,
+    source, applies}}``. An instruction file gives each rule bullet and paragraph; a decision
+    record (not superseded, deprecated or rejected) its decision line, each "Do not" item (worded
+    "Do not ...") and each consequence. Ids are ``PRJ-<file>-<n>``: ``<file>`` a record's number, else the file's path
+    with dots, ``<n>`` the item's order in the file; ``source`` is ``path:line``; ``within`` the
+    folder a nested instruction file governs (AGENTS.md: the nearest file applies)."""
+    import bhreview
+
+    root = cfg.dir
+    files = _project_files(root, cfg)
+    if not files:
+        return {}
+    index = bhreview.owner_index(root)
+    owners = set(index["ops"]) | {o for o, _, _ in index["units"].values()}
+    out: dict[str, dict[str, Any]] = {}
+    for rel, kind in files:
+        try:
+            text = (root / rel).read_text(errors="ignore")
+        except OSError:
+            continue
+        parent, _, name = rel.rpartition("/")
+        if kind == "decision":
+            if RETIRED.search(text):
+                continue
+            key = ADR_FILE.match(name).group(1)  # type: ignore[union-attr]
+            picked, decided = [], False
+            for n, lab, item in _items(text.splitlines()):
+                if lab in DECIDED and not decided:  # the decision line: its section's first item
+                    picked.append((n, lab, item))
+                    decided = True
+                elif lab in DONT:
+                    picked.append((n, lab, "Do not " + (item[:1].lower() + item[1:] if item[1:2].islower() else item)))
+                elif lab in CONSEQ:
+                    picked.append((n, lab, item))
+            folder = ""
+        else:
+            key = re.sub(r"[^A-Za-z0-9.]+", ".", rel[: -len(".md")].replace("/", "."))
+            picked = _items(text.splitlines())
+            folder = parent
+        for i, (n, _lab, item) in enumerate(picked, 1):
+            out[f"PRJ-{key}-{i}"] = {"text": _line(item), "full": item, "source": f"{rel}:{n}", "applies": _applies(item, root, owners), "within": folder}
+    return out
+
+
+def _under(path: str, folder: str) -> bool:
+    p, f = path.rstrip("/"), folder.rstrip("/")
+    return p == f or p.startswith(f + "/") or f.startswith(p + "/")
+
+
+def _hit(applies: list[str], paths: set[str], owners: set[str]) -> bool:
+    """Whether the paths, or their owners, are ones a project rule names (``path:``, ``owner:``)."""
+    for a in applies:
+        kind, _, val = a.partition(":")
+        if kind == "owner" and val in owners:
+            return True
+        if kind == "path" and any(_under(p, val) for p in paths):
+            return True
+    return False
+
+
 def rule_rows(cfg: Any) -> dict[str, str]:
     """``{rule id: one line}``: each house rule's ``right`` way (else its text's first clause)
     with its default severity, ``[S2]`` (QBC-114), the one line builder and reviewer both read; each standard as ``<title> <version>: <url>`` (a ``<standard>:<section>`` id takes its
-    standard's line), then the overlay's rows."""
+    standard's line), each project rule as its line and ``(path:line)`` (QBC-112), then the overlay's rows."""
     data = rules_doc(cfg)
     rows = {k: f"{v['title']} {v['version']}: {v['url']}" for k, v in data.get("standards", {}).items()}
     rows |= {k: f"{m['right']} [{m['severity']}]" for k, m in rule_meta(cfg, data).items()}
+    rows |= {k: f"{v['text']} ({v['source']})" for k, v in project_rule_rows(cfg).items()}
     if ov := overlay_file(cfg):
         for line in ov.read_text(errors="ignore").splitlines():
             m = ROW.match(line)
@@ -432,6 +589,8 @@ def rule_detail(cfg: Any, rid: str) -> str:
     data = rules_doc(cfg)
     std = data.get("standards", {})
     r = data.get("house", {}).get(rid)
+    if r is None and (p := project_rule_rows(cfg).get(rid)):
+        return f"{rid}: {p['full']}\nSource: {p['source']}\nApplies: {', '.join(p['applies'])}\n"
     if r is None:
         line = rule_text(rule_rows(cfg), rid)
         if not line:
@@ -643,6 +802,14 @@ def touched(cfg: Any, base: str = "HEAD", ref: str | None = None) -> list[str]:
     return sorted(set(out))
 
 
+def touched_files(cfg: Any, base: str = "HEAD", ref: str | None = None) -> list[str]:
+    """``touched``, or none when git cannot say."""
+    try:
+        return touched(cfg, base, ref)
+    except HarnessError:
+        return []
+
+
 CC_TYPE = re.compile(r"^(\w+)(?:\([^)]*\))?!?: ")  # Conventional Commits 1.0.0: type(scope)!: subject
 
 
@@ -697,6 +864,7 @@ def select_rules(
     bricks: list[dict[str, Any]],
     diff: dict[str, list[str]] | None = None,
     base: str | None = None,
+    touched: list[str] | None = None,
 ) -> dict[str, Any]:
     """Which rules apply to ``brick``, with no agent: ``{item, tags: {source: {tag: evidence}},
     chosen, added_by_diff, embodied}``. Chosen: the planner's added rules, then the house rules one
@@ -707,10 +875,17 @@ def select_rules(
     applying domain's first rules come first. ``chosen`` is the first ``limits.packet_rules``;
     ``more`` the rest, never dropped for size (QBC-105 (iv)); ``added_by_diff`` every rule the
     diff's tags add; with ``base`` the contract's code facts are read as committed at ``base``,
-    where the diff starts, so the diff's own imports count as added."""
+    where the diff starts, so the diff's own imports count as added. The project's own rules
+    (``project_rule_rows``, QBC-112) join by their scope: ``always``, or a path or owner the
+    item's declared paths (b) or the diff's ``touched`` files (c) hold. A named path or owner
+    ranks, never excludes (in decision records it is mostly where a rule is built or checked, not
+    the only place it can be broken; QBC-104 leans to recall): a rule whose paths or owners the
+    item or diff touch ranks with the added and gets a full line; a nested instruction file's
+    rules join only for paths in its folder."""
     house = rules_doc(cfg).get("house", {})
     own = _own_paths(brick) or None  # an item with no paths: the whole project's stack
     src = {"core": {"always": ["every item"]}, "stack": stack_tags(cfg, own, base), "contract": contract_tags(cfg, brick, base)}
+    prj = project_rule_rows(cfg)
     if diff is not None:
         src["diff"] = diff
     off = set(_opt_outs(cfg))
@@ -721,9 +896,20 @@ def select_rules(
                 used.setdefault(r, []).append(x["id"])
     pins = _pins(brick)
 
-    def pick(tags: set[str]) -> list[str]:
+    def owners(paths: set[str]) -> set[str]:
+        import bhreview
+
+        named = any(a.startswith("owner:") for v in prj.values() for a in v["applies"])
+        return set(bhreview.packet_owners(cfg.dir, sorted(paths), 1).get("owners", [])) if named and paths else set()
+
+    def pick(tags: set[str], paths: set[str]) -> list[str]:
         hit = [k for k, v in house.items() if set(v.get("applies", [])) & tags]
+        hit += [k for k, v in prj.items() if not v["within"] or any(_under(p, v["within"]) for p in paths)]
         return [r for r in dict.fromkeys([*pins, *hit]) if r not in off]
+
+    def named(paths: set[str]) -> set[str]:
+        who = owners(paths)
+        return {k for k, v in prj.items() if _hit(v["applies"], paths, who)}
 
     broken: dict[str, int] = {}
     for f in _findings(cfg):
@@ -733,7 +919,7 @@ def select_rules(
     def domain(r: str) -> str:
         return "core" if house.get(r, {}).get("applies") == ["always"] else r.split("-")[0]
 
-    order = ["core", *dict.fromkeys(r.split("-")[0] for r in house)]
+    order = ["core", "PRJ", *dict.fromkeys(r.split("-")[0] for r in house)]
 
     def ranked(ids: list[str]) -> list[str]:
         seen: dict[str, int] = {}
@@ -741,11 +927,14 @@ def select_rules(
         for r in ids:
             rank[r] = seen.get(domain(r), 0)
             seen[domain(r)] = rank[r] + 1
-        key = lambda r: (r not in pins, -broken.get(r, 0), rank[r], order.index(domain(r)) if domain(r) in order else len(order), r)  # noqa: E731
+        key = lambda r: (r not in pins and r not in scoped, -broken.get(r, 0), rank[r], order.index(domain(r)) if domain(r) in order else len(order), r)  # noqa: E731
         return sorted(ids, key=key)
 
     base_tags = set().union(*(src[k] for k in ("core", "stack", "contract")))
-    every = ranked(pick(base_tags | set(src.get("diff", {}))))
+    declared = set(_own_paths(brick))
+    paths = declared | set(touched or [])
+    scoped = named(paths)
+    every = ranked(pick(base_tags | set(src.get("diff", {})), paths))
     cap = cfg.limit("packet_rules")
     chosen = every[:cap]
     out: dict[str, Any] = {"item": brick["id"], "tags": src, "chosen": chosen, "more": every[cap:]}
@@ -754,8 +943,10 @@ def select_rules(
     if used.keys() & set(every):
         out["embodied"] = {r: used[r] for r in every if r in used}
     if diff is not None:
-        planned = set(pick(base_tags))
-        out["added_by_diff"] = [r for r in every if r not in planned]
+        planned = set(pick(base_tags, declared))
+        known = named(declared)  # a project rule the diff's paths newly name comes back as a full line
+        out["named_by_diff"] = [r for r in every if r in scoped and r not in known]
+        out["added_by_diff"] = [r for r in every if r not in planned or r in out["named_by_diff"]]
     return out
 
 
@@ -820,8 +1011,13 @@ def review_lines(cfg: Any, have: list[dict[str, str]], add: list[str]) -> list[d
 
 def title(rows: dict[str, str], rid: str) -> str:
     """A rule's title: its line up to the first ``;``, ``,`` or ``:``, at most 60 characters, and
-    where to read the rest."""
-    return re.split(r"[;,:]", rule_text(rows, rid), maxsplit=1)[0][:60].rstrip() + f" (bh rule {rid})"
+    where to read the rest. A project rule's line is prose, not ``clause: detail``: its first 60
+    characters, cut at a word."""
+    text = rule_text(rows, rid)
+    if re.fullmatch(PRJ_ID, rid):
+        head = text if len(text) <= 60 else text[:61].rsplit(" ", 1)[0]
+        return head.rstrip(" ,;:") + f" (bh rule {rid})"
+    return re.split(r"[;,:]", text, maxsplit=1)[0][:60].rstrip() + f" (bh rule {rid})"
 
 
 def rule_cmd(config: str, rid: str) -> str:
@@ -858,7 +1054,8 @@ def rules_cmd(
             b = unit(cfg, ctx["bricks"], None, *(diff or ["HEAD"])) if diff is not None else {"id": "(project)"}
         dt = diff_tags(cfg, *(diff or ["HEAD"])) if diff is not None else None
         base = (diff or ["HEAD"])[0] if diff is not None else None
-        sel = select_rules(cfg, b, list(ctx["bricks"].values()), dt, base)
+        files = touched_files(cfg, *(diff or ["HEAD"])) if diff is not None else None
+        sel = select_rules(cfg, b, list(ctx["bricks"].values()), dt, base, files)
         ls = lines(cfg, sel)
         sel["chosen"], sel["more"] = ls[: len(sel["chosen"])], ls[len(sel["chosen"]) :]
         return json.dumps(sel, indent=2) + "\n"

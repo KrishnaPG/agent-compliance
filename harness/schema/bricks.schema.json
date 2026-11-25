@@ -55,7 +55,7 @@
           },
           "breaks": {
             "type": "array",
-            "items": {"type": "string", "pattern": "^[A-Z][A-Z0-9]*-[0-9]+$"},
+            "items": {"type": "string", "pattern": "^(PRJ-[A-Za-z0-9.]+|[A-Z][A-Z0-9]*)-[0-9]+$"},
             "description": "defect items only: each catalog rule id the defect breaks (bug-analysis Rule:), never invented; one its parent's packet lacked is a selector_miss (QBC-108)."
           },
           "found_by": {

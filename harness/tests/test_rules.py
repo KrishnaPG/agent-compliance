@@ -309,10 +309,10 @@ def test_the_packet_has_the_items_own_rules_with_one_line_each(toy):
     with_catalog(toy)
     tagged(toy)
     got = {r["id"]: r["text"] for r in rules_of(toy)}
-    assert set(got) == {"NO-02", "HO-01", "HO-02", "RL-05", "RL-06"}
+    assert set(got) == {"NO-02", "HO-01", "HO-02", "RL-05", "RL-06", "PRJ-0001-1"}  # and the toy's decision record (QBC-112)
     assert got["NO-02"] == "OSS before code. [S2]"  # with its default severity (QBC-114)
     assert got["RL-05"] == "A process waits on its dependency's native readiness. [S2]"
-    assert rules_of(toy, "json-writer") == []  # no rules of its own
+    assert [r["id"] for r in rules_of(toy, "json-writer")] == ["PRJ-0001-1"]  # no catalog rules of its own
     plan_edit(toy, "bricks.json", lambda d: d["bricks"][0].update(depends_on=["json-writer"]))
     got = {r["id"]: r["text"] for r in rules_of(toy)}  # embodied by a brick it uses: kept, marked (QBC-106)
     assert got["HO-02"].endswith("[embodied by json-writer]") and "embodied" not in got["HO-01"]
@@ -325,11 +325,11 @@ def test_findings_rank_the_rules_and_the_limit_caps_them(toy):
     f.write_text(json.dumps([{"summary": f"s{i}", "rule": "RL-06"} for i in range(3)]))
     assert cli("bh-rank", toy, "--add", str(f), "--write")[0] == 0
     ids = [r["id"] for r in rules_of(toy)]
-    assert ids[0] == "RL-06" and len(ids) == 5  # most broken first, among the item's own
+    assert ids[0] == "RL-06" and len(ids) == 6  # most broken first, among the item's own (and the toy's PRJ-0001-1)
     cfg_edit(toy, limits={"packet_rules": 2})
     capped = rules_of(toy)  # the first two are full lines; the rest by id and title (QBC-105 (iv))
-    assert [r["id"] for r in capped[:2]] == ["RL-06", "HO-01"] and len(capped) == 5
-    assert [r["text"].endswith(f"(bh rule {r['id']})") for r in capped] == [False, False, True, True, True]
+    assert [r["id"] for r in capped[:2]] == ["RL-06", "HO-01"] and len(capped) == 6
+    assert [r["text"].endswith(f"(bh rule {r['id']})") for r in capped] == [False, False, True, True, True, True]
     assert (
         len(
             bhcore.work_packet(bhcore.Config(toy / ".brick-harness" / "config.json"), "csv-reader")[

@@ -182,7 +182,7 @@ def test_qbc_106_agents_add_owners_remove(toy, fake):  # noqa: F811
     run(orch(toy).phase_gaps())
     (gaps,) = [c for c in fake.calls() if c["agent"] == "harness-gaps-reader"]
     given = input_of(gaps)["rules"]  # the gaps job's actual input: the project's selection
-    assert given == lines and {r["id"] for r in given} == CORE
+    assert given == lines and {r["id"] for r in given} == CORE | {"PRJ-0001-1"}  # and the toy's decision record (QBC-112)
     assert {r["id"] for r in given} != set(HOUSE)  # negative control: the whole catalog is not it
 
 

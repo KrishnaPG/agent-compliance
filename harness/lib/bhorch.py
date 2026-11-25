@@ -1539,7 +1539,10 @@ class Orchestrator:
         if not trig:
             return None
         selected = packet["verifier"].get("rules", [])
-        rules = selected + self.diff_rules(item, base, sha, selected)
+        touched = git(root, "diff", "--name-only", "--no-renames", base, sha).stdout.splitlines()
+        extra = self.diff_rules(item, base, sha, selected)
+        # a rule the packet listed by title that the diff's paths name comes back as its full line (QBC-112)
+        rules = [r for r in selected if r["id"] not in {e["id"] for e in extra}] + extra
         core = {
             "task": "review",
             "item": item,
@@ -1547,19 +1550,18 @@ class Orchestrator:
             "diff": f"git diff {base} {sha}",
             "triggers": trig,
             "rules": rules,  # the builder's lines plus those the actual diff's facts add (QBC-105 ii)
-            # the published interfaces only where duplication is judged: the input stays small (M4)
-            **(
-                {"interfaces": packet["constraints"].get("interfaces", [])}
-                if any(t["domain"] == "duplication" for t in trig)
-                else {}
-            ),
+            # the owners the diff touches and their published interfaces, from the owner index (QBC-113)
+            "owners": [],
+            "interfaces": [],
+            **bhreview.packet_owners(root, touched, bhreview.limits(self.cfg.data)["message_chars"]),
         }
         j = await self.job(
             "review",
             f"{item}:review:{sha[:12]}",
             core,
             {},
-            f"Review the whole diff of item {item} against its packet's rules and the triggered domains.",
+            f"Review the whole diff of item {item} against its packet's rules and the triggered domains."
+            " When a rule needs code outside the diff (an owner, a published interface, a duplicate), read it before you judge.",
             cwd=root,
         )
         if not j["ok"]:
@@ -1593,9 +1595,11 @@ class Orchestrator:
         ctx = bhcore.packet_context(self.cfg)
         brick = bhrules.unit(self.cfg, ctx["bricks"], item, base, sha)
         diff = bhrules.diff_tags(self.cfg, base, sha)
-        sel = bhrules.select_rules(self.cfg, brick, list(ctx["bricks"].values()), diff=diff, base=base)
+        sel = bhrules.select_rules(self.cfg, brick, list(ctx["bricks"].values()), diff=diff, base=base, touched=bhrules.touched_files(self.cfg, base, sha))
         ids = {r["id"] for r in have}
-        return bhrules.review_lines(self.cfg, have, [r for r in sel["added_by_diff"] if r not in ids])
+        named = list(sel.get("named_by_diff", []))  # project rules the diff's paths name: first, so in full (QBC-112)
+        add = named + [r for r in sel["added_by_diff"] if r not in ids and r not in named]
+        return bhrules.review_lines(self.cfg, [r for r in have if r["id"] not in named], add)
 
     def selector_misses(
         self, item: str, selected: list[str], findings: list[dict[str, Any]], base: str | None = None, sha: str | None = None
