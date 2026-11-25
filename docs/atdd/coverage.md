@@ -63,10 +63,11 @@ Verification: fitness 1, lint 25, measure 4, test 117.
 | R9 | 8 | 0 | 5 | 13 | a1-AC1, a1-AC2, a1-AC3, a1-AC4, a3-AC1, a3-AC2, a3-AC3, a3-AC4, d6-AC10, d6-AC11, d6-AC13, d10-AC2, d10-AC3 |
 | R10 | 0 | 0 | 0 | 0 |  |
 | R11 | 0 | 0 | 0 | 0 |  |
+| R12 | 0 | 0 | 0 | 0 |  |
 
-Gaps, §0 items traced by no criterion (their rows left the release scope): G2, G4, P9, P12, R6, R7, R8, R10, R11.
+Gaps, §0 items traced by no criterion (their rows left the release scope): G2, G4, P9, P12, R6, R7, R8, R10, R11, R12.
 
-QBC ids traced by no criterion: QBC-1, QBC-2, QBC-3, QBC-4, QBC-5, QBC-6, QBC-7, QBC-9, QBC-10, QBC-13, QBC-14, QBC-18, QBC-19, QBC-20, QBC-21, QBC-22, QBC-23, QBC-25, QBC-26, QBC-27, QBC-28, QBC-29, QBC-30, QBC-32, QBC-36, QBC-50, QBC-54, QBC-56, QBC-57, QBC-58, QBC-60, QBC-61, QBC-62, QBC-63, QBC-64, QBC-67, QBC-68, QBC-69, QBC-70, QBC-72, QBC-73, QBC-74, QBC-75, QBC-78, QBC-81, QBC-83, QBC-84, QBC-85, QBC-86, QBC-87, QBC-88, QBC-89, QBC-90, QBC-91, QBC-92, QBC-93, QBC-94, QBC-95, QBC-96, QBC-97, QBC-98, QBC-99, QBC-100, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
+QBC ids traced by no criterion: QBC-1, QBC-2, QBC-3, QBC-4, QBC-5, QBC-6, QBC-7, QBC-9, QBC-10, QBC-13, QBC-14, QBC-18, QBC-19, QBC-20, QBC-21, QBC-22, QBC-23, QBC-25, QBC-26, QBC-27, QBC-28, QBC-29, QBC-30, QBC-32, QBC-36, QBC-50, QBC-54, QBC-56, QBC-57, QBC-58, QBC-103, QBC-104, QBC-105, QBC-106, QBC-107, QBC-108, QBC-110, QBC-111, QBC-109, QBC-60, QBC-61, QBC-62, QBC-63, QBC-64, QBC-67, QBC-68, QBC-69, QBC-70, QBC-72, QBC-73, QBC-74, QBC-75, QBC-78, QBC-81, QBC-83, QBC-84, QBC-85, QBC-86, QBC-87, QBC-88, QBC-89, QBC-90, QBC-91, QBC-92, QBC-93, QBC-94, QBC-95, QBC-96, QBC-97, QBC-98, QBC-99, QBC-100, QBC-101, QBC-102. Withdrawn, not traceable: QBC-17, QBC-52.
 
 ## Tasks whose "done when" has no row
 
@@ -145,7 +146,7 @@ None.
 
 Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.
 
-- packet.fixture: toy_item (59)
+- packet.fixture: toy_item (61)
 - planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), conflicting_candidates (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
 - recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (5), toy_honest (1), toy_honest_build (1), toy_scope (1)
 - repo.state: plugin:candidate (34), toy:base (113)

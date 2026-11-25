@@ -1514,6 +1514,9 @@ acceptance:
       state: base
   - host:
       condition: builder_sandbox
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     builder_action:
       tool: Edit
@@ -1585,6 +1588,9 @@ acceptance:
       state: base
   - host:
       condition: builder_sandbox
+  - packet:
+      fixture: toy_item
+      variant: valid
   when:
     builder_action:
       tool: Write
@@ -1592,7 +1598,7 @@ acceptance:
       target: orchestrator_packet
   then:
   - refused:
-      by: file_tools
+      by: hook
       wrong: packet is orchestrator-owned
       right: the orchestrator writes the packet
       prevent: file tools are scoped to the clone
