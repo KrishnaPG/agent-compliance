@@ -171,13 +171,34 @@
           "rules": {
             "type": "array",
             "items": {
-              "type": "string"
+              "anyOf": [
+                {"type": "string"},
+                {
+                  "type": "object",
+                  "required": ["id", "reason"],
+                  "additionalProperties": false,
+                  "properties": {"id": {"type": "string"}, "reason": {"type": "string", "description": "One line: why this rule applies though the item's facts do not select it."}}
+                }
+              ]
             },
-            "description": "Catalog rule ids that apply to the item; printed in its work packet."
+            "description": "Rules the planner adds to those the item's facts select (never removes); printed in its work packet."
           },
           "split_from": {
             "type": "string",
             "description": "Id of the item this one was split from. Children own disjoint paths taken from the parent's; the parent keeps its targets and depends on every child, so it is measured after them."
+          },
+          "interfaces": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "required": ["kind", "name"],
+              "additionalProperties": false,
+              "properties": {
+                "kind": {"enum": ["publishes", "consumes", "serves", "calls", "stores"]},
+                "name": {"type": "string", "description": "The channel, route, remote service or store, as the documents name it."}
+              }
+            },
+            "description": "The item's declared interfaces by kind: publishes or consumes a message, serves requests, calls a remote service, stores persistent data. The program derives the item's rule tags from them (catalog/rules.toml tags.*.interfaces)."
           },
           "embodies": {
             "type": "array",

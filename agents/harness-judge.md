@@ -15,7 +15,7 @@ You are a job of the build harness. Someone else wrote the decision record and i
 
 ## Job: judge
 
-The input file names the record (MADR 4.0, its outcome section cut away) and the rules file (house rules, and standards by reference: cite one as `<standard>:<section>`, by its id, never by copied text).
+The input file names the record (MADR 4.0, its outcome section cut away) and the rules that apply to the project (`rules`: id and one line each; house rules, or standards cited as `<standard>:<section>`, by its id, never by copied text).
 
 1. Per option (its id is the option's heading or list label in "Considered Options"), per decision driver of the record: `targets` lists the drivers the option meets, with the number or `path:line` that shows it.
 2. Per option, per rule the record's drivers cite, and per house rule its options touch: `rules[*]` with `verdict` `pass` (a `path:line` or a real answer shows it holds), `fail` (one shows it breaks) or `unknown` (nothing read settles it; documentation alone never settles a runtime behaviour).

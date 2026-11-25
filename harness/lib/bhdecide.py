@@ -40,7 +40,7 @@ async def decide(orch: Any, record: Path) -> dict[str, Any]:
     core = {
         "record": str(blind),
         "record_sha256": hashlib.sha256(text.encode()).hexdigest(),
-        "rules": str(bhrules.rules_file(orch.cfg)),
+        "rules": bhrules.project_rules(orch.cfg),  # the selection, never the whole catalog (QBC-106)
     }
     j = await orch.job("judge", f"decide:{record.stem}", core, {}, "Judge the options of the record named in the input file.")
     out = j.get("output") or {}

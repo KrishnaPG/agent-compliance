@@ -735,7 +735,7 @@ class Orchestrator:
             "standards": cfg.data.get("standards"),
             "design_checklist": cfg.data.get("checklist"),
             "not_applicable": cfg.data.get("na"),
-            "rules": str(bhrules.rules_file(cfg)),
+            "rules": bhrules.project_rules(cfg),  # the selection, never the whole catalog (QBC-106)
         }
         extra = {
             "documents": self.files_view(s),
@@ -777,7 +777,6 @@ class Orchestrator:
             "standards": cfg.data.get("standards"),
             "sizing": cfg.data.get("sizing"),
             "admitted_from_tracker": [a for a in adm.get("admit", []) if a.get("id") in admitted],
-            "rules": str(bhrules.rules_file(cfg)),
         }
         extra = {
             "documents": self.files_view(s),
@@ -1717,7 +1716,28 @@ def main(argv: list[str] | None = None) -> int:
     st = sub.add_parser("step", help="run one program step with no agent and no config")
     st.add_argument("name", choices=bhpacket.STEPS)
     st.add_argument("--item")  # required by every step but merge
+    ru = sub.add_parser("rule", parents=[common], help="print a rule in full: text, why, right way, question, sources")
+    ru.add_argument("id")
+    rs = sub.add_parser("rules", parents=[common], help="the candidate and chosen rules of an item; no agent")
+    rs.add_argument("--item", help="a planned item (default: the project, core and stack only)")
+    rs.add_argument("--at", metavar="REV", help="select as at this commit (default: the working tree)")
+    rs.add_argument(
+        "--diff", nargs="*", metavar="BASE [REF]",
+        help="add the rules the change's facts add: the working tree against BASE (default HEAD), or BASE..REF",
+    )  # fmt: skip
     a = ap.parse_args(argv)
+    if a.cmd in ("rule", "rules"):  # catalog, plan and code facts only: no orchestrator, no agent
+        if a.cmd == "rules" and a.diff is not None and len(a.diff) > 2:
+            ap.error("--diff takes at most BASE and REF")
+        import bhrules
+
+        try:
+            out = bhrules.rule_cmd(a.config, a.id) if a.cmd == "rule" else bhrules.rules_cmd(a.config, a.item, a.at, a.diff)
+        except HarnessError as e:
+            print(str(e), file=sys.stderr)
+            return 2
+        print(out, end="")
+        return 0
     if a.cmd == "vet":  # public services only: no orchestrator, no config
         import bhvet
 

@@ -174,7 +174,7 @@ class InputError(HarnessError):
 # Output limits (config ``limits``): they bound what is printed per call, never
 # what is measured.
 SUMMARY_CAP = 25  # rows a printed summary or a report lists; the full data is in the state dict
-LIMIT_DEFAULTS = {"packet_rules": 8, "tracker_read": 200, "known_issues": 100}
+LIMIT_DEFAULTS = {"packet_rules": 15, "tracker_read": 200, "known_issues": 100}
 
 
 # ---------------------------------------------------------------- schema validation
@@ -4857,10 +4857,10 @@ def _passage(cfg: Config, ctx: dict[str, Any], c: dict[str, Any]) -> dict[str, A
 
 
 def packet_rules(cfg: Config, item: str, ctx: dict[str, Any] | None = None) -> list[dict[str, str]]:
-    """The rules a work packet carries for ``item``: ``[{id, text}]`` (SG-19). The item's own
-    ``rules`` ids first, then judgment rules chosen by its tags and ranked by findings
-    (``bhrules.packet_rules``), at most ``limits.packet_rules``. A rule the catalog has no row
-    for takes the line that states it in the overlay or in a catalog given as a path."""
+    """The rules a work packet carries for ``item``: ``[{id, text}]`` (SG-19), as
+    ``bhrules.select_rules`` chooses them from the item's fact tags and pins, at most
+    ``limits.packet_rules``. A rule the catalog has no row for takes the line that states it in
+    the overlay or in a catalog given as a path."""
     import bhrules
 
     ctx = ctx or packet_context(cfg)
@@ -4874,7 +4874,7 @@ def packet_rules(cfg: Config, item: str, ctx: dict[str, Any] | None = None) -> l
         docs += sorted(c.rglob("*.md")) if c.is_dir() else [c]
     docs += [ov] if (ov := overlay_file(cfg)) else []
     lines = [ln for d in docs if d.is_file() for ln in _lines(d)]
-    out = bhrules.packet_rules(cfg, b, list(ctx["bricks"].values()))
+    out = bhrules.packet_rules(cfg, b, list(ctx["bricks"].values()), ctx["versions"])
     for r in out:
         if not r["text"]:
             pat = _bounded(r["id"])
@@ -4940,7 +4940,7 @@ def work_packet(cfg: Config, item: str, ctx: dict[str, Any] | None = None) -> di
             out.append(
                 f"- {e['library']} {ctx['versions'].get(norm(e['library'])) or 'unpinned'} ({e['job']})"
             )
-    out += ["", "## Rules"]
+    out += ["", f"## Rules (before you finish, `bh rules --item {item} --diff` lists the rules your change adds; `bh rule ID` prints one in full)"]
     out += [
         f"- {r['id']}" + (f": {r['text']}" if r["text"] else "")
         for r in packet_rules(cfg, item, ctx)

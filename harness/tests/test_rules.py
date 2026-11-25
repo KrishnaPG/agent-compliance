@@ -326,7 +326,9 @@ def test_findings_rank_the_rules_and_the_limit_caps_them(toy):
     ids = [r["id"] for r in rules_of(toy)]
     assert ids[0] == "RL-06" and len(ids) == 5  # most broken first, among the item's own
     cfg_edit(toy, limits={"packet_rules": 2})
-    assert [r["id"] for r in rules_of(toy)] == ["RL-06", "HO-01"]
+    capped = rules_of(toy)  # the first two are full lines; the rest by id and title (QBC-105 (iv))
+    assert [r["id"] for r in capped[:2]] == ["RL-06", "HO-01"] and len(capped) == 5
+    assert [r["text"].endswith(f"(bh rule {r['id']})") for r in capped] == [False, False, True, True, True]
     assert (
         len(
             bhcore.work_packet(bhcore.Config(toy / ".brick-harness" / "config.json"), "csv-reader")[

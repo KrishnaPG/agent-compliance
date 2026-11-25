@@ -421,7 +421,7 @@
         "packet_rules": {
           "type": "integer",
           "minimum": 1,
-          "description": "Judgment rules in one work packet (default 8)."
+          "description": "Rule lines in one work packet (default 15: the pre-registered median packet of at most 15 rule lines, about 600 tokens)."
         },
         "tracker_read": {
           "type": "integer",

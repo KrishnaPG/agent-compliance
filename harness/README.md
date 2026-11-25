@@ -250,8 +250,17 @@ project config is needed: a project opts a rule out only in its overlay, in the 
 (`- RULE-ID not-applicable: reason` under `## Check opt-outs`; no reason opts nothing out; listed as a fact); a bound project fact is the check's one allowed place and the check scans every module except those: `entry_modules` (inferred
 from `APIRouter`, `FastAPI(`, `Router(`) and `outbox_modules` (files with SQL `INTO`/`FROM`/`UPDATE`/`TABLE`/`EXISTS` followed by a table name holding `outbox`, a `class ...Outbox...`, `__tablename__ = "...outbox..."`, or `Table(`/`pgTable(`/`sqliteTable(`/`mysqlTable(` with such a name); a fact the code does not show skips that check and is an
 owner-decides gap. Suppression markers a ref adds are a fact per item. The packet's rules are
-the item's own `rules` then judgment rules (not enforced, not `embodies` of a brick it uses)
-chosen by its tags, ranked by findings, at most `limits.packet_rules` (8). A met item whose
+chosen by facts, at 0 tokens (`bhrules.select_rules`): each house rule's `applies` names fact
+tags from the closed set in `catalog/rules.toml`; the `always` core goes to every item, and the
+others by the tags the stack (lock files, `standards.stack`) and the item's contract (declared
+`interfaces`, `oss_checked`, kind, owned paths' imports and file kinds) show. The planner only
+adds rules (`rules`, each `{id, reason}`); only the overlay's opt-out removes one. Added rules
+first, then most broken in findings, then round-robin over the domains, at most
+`limits.packet_rules` (15), one line each (the rule's right way). `bh rules --item X [--at REV]
+[--diff]` prints the tags with their evidence and the chosen rules (`--diff` adds the working
+change's imports and file kinds: the builder's self-check); `bh rule ID` prints a rule's text,
+why, right way, question and sources; `bhrules.selector_misses` turns a finding on an unselected
+rule into a `selector_miss` fact naming the missing tag. A met item whose
 whole diff touches secrets, grants or a declared trigger, or a design-affecting item (duplication),
 gets one review by a fresh agent before its merge (`bhreview`: ruff's preset S findings, changed
 SQL grants, and the owners or paths the project lists in `review.triggers`); findings are SARIF facts recorded by

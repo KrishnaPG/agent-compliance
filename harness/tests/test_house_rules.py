@@ -22,8 +22,9 @@ def test_every_check_rule_is_a_house_rule_and_every_citation_names_a_listed_stan
     assert not set(standards) & set(house)
 
 
-def test_a_standard_section_id_takes_its_standards_line_and_a_house_rule_its_first_clause(tmp_path):
+def test_a_standard_section_id_takes_its_standards_line_and_a_house_rule_its_right_way(tmp_path):
     rows = bhrules.rule_rows(SimpleNamespace(data={}, dir=tmp_path))
     assert bhrules.rule_text(rows, "NIST-SP-800-53:SI-7").startswith("SI-7 of NIST SP 800-53 Security and Privacy Controls Rev. 5: https://")
-    assert bhrules.rule_text(rows, "RL-08").startswith("No timer or waiting loop of ours")
+    right = tomllib.loads((PLUGIN / "catalog" / "rules.toml").read_text())["house"]["RL-08"]["right"]
+    assert bhrules.rule_text(rows, "RL-08") == right and right.startswith("Use no timers")
     assert bhrules.rule_text(rows, "XX-99") == "" and bhrules.rule_text(rows, "NOPE:1") == ""

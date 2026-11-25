@@ -197,7 +197,12 @@ def render_markdown(p: dict[str, Any]) -> str:
             "",
         ]
     out += ["## Verifier", ""] + [f"- Check: {x}" for x in v.get("checks", [])]
-    out += [f"- Rule {r['id']}: {r['message']}" for r in v.get("rules", [])] + [
+    rules = v.get("rules", [])
+    out += [  # the paved road to the rest: the rules a change adds, and a rule in full, just in time
+        f"- Rules: before you finish, run `bh rules --item {p['id']} --diff` for the rules your change adds;"
+        " `bh rule ID` prints a rule's why, question and sources"
+    ] if rules else []
+    out += [f"- Rule {r['id']}: {r['message']}" for r in rules] + [
         f"- Baseline: {b}" for b in v.get("baselines", [])
     ]
     out += [
