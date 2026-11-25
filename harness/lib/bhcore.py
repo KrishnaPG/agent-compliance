@@ -2861,6 +2861,51 @@ def _lock_versions(p: Path | PurePosixPath, text: str | None = None) -> dict[str
 
 LOCKFILES = ("uv.lock", "poetry.lock", "Cargo.lock", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "go.sum", "Gemfile.lock")
 PEP440_LOCKS = ("uv.lock", "poetry.lock")  # Python versions: PEP 440, read by packaging
+MANIFESTS = ("pyproject.toml", "package.json")  # PEP 621 / PEP 735 / Poetry; npm
+
+
+def dependency_file(name: str) -> bool:
+    """A lock file, a manifest or a requirements file: where a package's dependencies are named."""
+    return name in LOCKFILES or name in MANIFESTS or bool(re.fullmatch(r"requirements.*\.txt", name))
+
+
+def dependency_names(p: Path | PurePosixPath, text: str) -> set[str]:
+    """The normalised package names a dependency file names: a lock file's resolved packages
+    (``_lock_versions``); a ``pyproject.toml``'s PEP 621 ``dependencies`` and
+    ``optional-dependencies``, PEP 735 ``dependency-groups``, uv's ``dev-dependencies`` and
+    Poetry's dependency tables; a ``package.json``'s dependencies of every kind; a requirements
+    file's PEP 508 lines, pinned or not (names read by ``packaging.requirements``). A malformed
+    file names nothing, never a crash."""
+    from packaging.requirements import InvalidRequirement, Requirement
+
+    def pep508(specs: Any) -> set[str]:
+        out = set()
+        for s in specs if isinstance(specs, list) else []:
+            try:
+                out.add(norm(Requirement(s).name)) if isinstance(s, str) else None
+            except InvalidRequirement:
+                continue
+        return out
+
+    try:
+        if p.name == "pyproject.toml":
+            d = tomllib.loads(text)
+            proj, tool = d.get("project", {}), d.get("tool", {})
+            specs = [*proj.get("dependencies", []), *tool.get("uv", {}).get("dev-dependencies", [])]
+            specs += [s for g in [*proj.get("optional-dependencies", {}).values(), *d.get("dependency-groups", {}).values()] for s in g]
+            poetry = tool.get("poetry", {})
+            tables = [poetry.get("dependencies", {}), poetry.get("dev-dependencies", {})]
+            tables += [g.get("dependencies", {}) for g in poetry.get("group", {}).values()]
+            return pep508(specs) | {norm(k) for t in tables for k in t if k != "python"}
+        if p.name == "package.json":
+            d = loads(text)
+            keys = ("dependencies", "devDependencies", "peerDependencies", "optionalDependencies")
+            return {norm(k) for key in keys for k in d.get(key, {})}
+        if p.suffix == ".txt":
+            return pep508([ln.split("#", 1)[0].strip() for ln in text.splitlines() if not ln.lstrip().startswith(("-", "#"))])
+        return set(_lock_versions(p, text))
+    except (ValueError, KeyError, TypeError, AttributeError, tomllib.TOMLDecodeError):
+        return set()
 
 
 def _major(version: str, lock: str = "") -> int | None:
@@ -4963,7 +5008,7 @@ def packet_rules(cfg: Config, item: str, ctx: dict[str, Any] | None = None) -> l
         docs += sorted(c.rglob("*.md")) if c.is_dir() else [c]
     docs += [ov] if (ov := overlay_file(cfg)) else []
     lines = [ln for d in docs if d.is_file() for ln in _lines(d)]
-    out = bhrules.packet_rules(cfg, b, list(ctx["bricks"].values()), ctx["versions"])
+    out = bhrules.packet_rules(cfg, b, list(ctx["bricks"].values()))
     for r in out:
         if not r["text"]:
             pat = _bounded(r["id"])

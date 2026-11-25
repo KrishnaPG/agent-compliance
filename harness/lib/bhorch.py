@@ -1539,7 +1539,7 @@ class Orchestrator:
         if not trig:
             return None
         selected = packet["verifier"].get("rules", [])
-        rules = selected + self.diff_rules(item, base, sha, {r["id"] for r in selected})
+        rules = selected + self.diff_rules(item, base, sha, selected)
         core = {
             "task": "review",
             "item": item,
@@ -1565,7 +1565,7 @@ class Orchestrator:
         if not j["ok"]:
             facts.append({"kind": "gap", "item": item, "detail": f"review of {item} did not finish: {j.get('error')}"})
             return None
-        misses = self.selector_misses(item, [r["id"] for r in selected], j["output"]["findings"], base)
+        misses = self.selector_misses(item, [r["id"] for r in selected], j["output"]["findings"], base, sha)
         facts += misses
         # the review rounds of a packet are counted from the state; bh metrics counts the misses
         # from the run result's facts (QBC-108: one source)
@@ -1580,22 +1580,25 @@ class Orchestrator:
             self.commit(f"review {item}")
         return log
 
-    def diff_rules(self, item: str, base: str, sha: str, have: set[str]) -> list[dict[str, str]]:
+    def diff_rules(self, item: str, base: str, sha: str, have: list[dict[str, str]]) -> list[dict[str, str]]:
         """The rule lines the diff ``base..sha``'s own facts (c) add beyond ``have`` (QBC-105 ii):
-        a capability the builder added without plan is still judged, and the finding teaches it."""
+        a capability the builder added without plan is still judged, and the finding teaches it.
+        An unplanned item is the change itself, scoped to the packages it touches (QBC-116); the
+        input keeps at most ``limits.packet_rules`` full lines (``bhrules.review_lines``)."""
         ctx = bhcore.packet_context(self.cfg)
-        brick = ctx["bricks"].get(item) or {"id": item}
+        brick = bhrules.unit(self.cfg, ctx["bricks"], item, base, sha)
         diff = bhrules.diff_tags(self.cfg, base, sha)
-        sel = bhrules.select_rules(self.cfg, brick, list(ctx["bricks"].values()), ctx["versions"], diff=diff, base=base)
-        rows = bhrules.rule_rows(self.cfg)
-        return [{"id": r, "message": bhrules.rule_text(rows, r) or r} for r in sel["added_by_diff"] if r not in have]
+        sel = bhrules.select_rules(self.cfg, brick, list(ctx["bricks"].values()), diff=diff, base=base)
+        ids = {r["id"] for r in have}
+        return bhrules.review_lines(self.cfg, have, [r for r in sel["added_by_diff"] if r not in ids])
 
     def selector_misses(
-        self, item: str, selected: list[str], findings: list[dict[str, Any]], base: str | None = None
+        self, item: str, selected: list[str], findings: list[dict[str, Any]], base: str | None = None, sha: str | None = None
     ) -> list[dict[str, Any]]:
         """A finding whose rule the item's selection missed, as a ``selector_miss`` fact in teach
         form naming the entry that would have selected it (QBC-108): the mapping's ratchet."""
-        brick = bhcore.packet_context(self.cfg)["bricks"].get(item) or {"id": item}
+        bricks = bhcore.packet_context(self.cfg)["bricks"]
+        brick = bhrules.unit(self.cfg, bricks, item, base, sha) if base and sha else bricks.get(item) or {"id": item}
         out = []
         for m in bhrules.selector_misses(self.cfg, brick, selected, findings, base=base):  # tags as planned
             wrong = f"rule {m['rule']} judged a finding but was not in {item}'s packet"
@@ -1637,7 +1640,8 @@ class Orchestrator:
             raise HarnessError(f"[review-unknown-item] {item} is not in the plan -> name a planned item or leave --item out")
         # the item's selection as of BASE, where the diff starts, else the project's core and stack
         # (QBC-107): read from a worktree at BASE, so the diff's own facts are not taken as planned
-        at = json.loads(bhrules.rules_cmd(str(self.cfg.path), item, at=base))
+        scope = None if item else bhrules.unit(self.cfg, {}, None, base, sha).get("paths")  # QBC-116: the touched packages
+        at = json.loads(bhrules.rules_cmd(str(self.cfg.path), item, at=base, scope=scope))
         rules = [{"id": r["id"], "message": r["text"] or r["id"]} for r in [*at["chosen"], *at["more"]]]
         kind = "defect" if item and bricks[item].get("kind") == "defect" else "slice"
         packet = {

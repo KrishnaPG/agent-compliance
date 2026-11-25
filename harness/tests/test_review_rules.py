@@ -164,7 +164,7 @@ def added_by_diff(toy, base, sha):
     ctx = bhcore.packet_context(cfg)
     diff = bhrules.diff_tags(cfg, base, sha)
     assert "network-client" in diff
-    sel = bhrules.select_rules(cfg, ctx["bricks"]["json-writer"], list(ctx["bricks"].values()), ctx["versions"], diff=diff, base=base)
+    sel = bhrules.select_rules(cfg, ctx["bricks"]["json-writer"], list(ctx["bricks"].values()), diff=diff, base=base)
     return sel["added_by_diff"]
 
 

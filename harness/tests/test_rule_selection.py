@@ -200,7 +200,7 @@ def test_qbc_106_embodies_marks_a_rule_and_never_removes_it(toy):
     assert line["message"].endswith("[embodied by json-writer]")
     cfg = bhcore.Config(conf(toy))
     ctx = bhcore.packet_context(cfg)
-    sel = bhrules.select_rules(cfg, ctx["bricks"]["csv-reader"], list(ctx["bricks"].values()), ctx["versions"])
+    sel = bhrules.select_rules(cfg, ctx["bricks"]["csv-reader"], list(ctx["bricks"].values()))
     assert sel["embodied"] == {rid: ["json-writer"]}
 
 

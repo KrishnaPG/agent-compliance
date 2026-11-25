@@ -10,7 +10,8 @@
 # The closed set of fact tags a house rule's `applies` names (bhrules.select_rules). The program
 # derives each tag with no agent: `names` are import roots and declared or locked package names,
 # `files` are path globs of file kinds, `facts` are code facts the checks also bind, `kinds` are
-# item kinds, `interfaces` are the kinds of the item's declared interfaces (bricks.schema.json).
+# item kinds, `interfaces` are the kinds of the item's declared interfaces (bricks.schema.json),
+# `commits` are the Conventional Commits types of a change's commits.
 # Detection follows how linters choose rule sets (language, framework, file globs) and how
 # dependency tools read manifests and lock files.
 
@@ -73,6 +74,7 @@ files = ["pyproject.toml", "requirements*.txt", "uv.lock", "poetry.lock", "Pipfi
 [tags.defect]
 means = "fixes a defect"
 kinds = ["defect"]
+commits = ["fix"]  # Conventional Commits 1.0.0 types of a change's commits
 
 [standards.Azure-Architecture]
 title = "Azure Architecture Center cloud design patterns"

@@ -19,12 +19,13 @@ import hashlib
 import json
 import os
 import platform
+import posixpath
 import re
 import subprocess
 import tomllib
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 from typing import Any
 
 from bhcore import (
@@ -34,6 +35,8 @@ from bhcore import (
     _git,
     _own_paths,
     all_findings,
+    dependency_file,
+    dependency_names,
     overlay_file,
     tool_cache,
 )
@@ -444,11 +447,14 @@ def classes(cfg: Any, bricks: list[dict[str, Any]], root: Path) -> dict[str, set
 # framework (Semgrep, CodeQL), and risk-based test selection (ISTQB) takes its triggers from what
 # the change touches. A house rule's ``applies`` names tags from the closed set ``[tags.*]`` of
 # rules.toml; ``always`` is the small core every item gets. The program derives an item's tags
-# at 0 tokens from three sources, erring toward recall: (a) the stack, the lock files' packages
-# and the config's ``standards.stack`` through the tags' ``names``; (b) the contract, the item's
+# at 0 tokens from three sources, erring toward recall: (a) the stack, the packages named by the
+# lock files and manifests of the packages the item's paths are in (every one in the repo, a
+# monorepo's included; per package, as analysers scope rule packs per project: QBC-116) and the
+# config's ``standards.stack`` through the tags' ``names``; (b) the contract, the item's
 # declared ``interfaces`` kinds, the tools it declares (``oss_checked``), its kind, and the
-# imports, file kinds and code facts of its owned paths; (c) the diff, the imports a change adds
-# and the kinds of the files it touches. The packet gets the core, (a) and (b); ``bh rules
+# imports, file kinds and code facts of its owned paths; (c) the diff, the whole imports, kinds
+# and packages of the files a change touches and its commits' Conventional Commits types (a
+# ``fix`` is a defect: QBC-117). The packet gets the core, (a) and (b); ``bh rules
 # --diff`` and the review add (c). The planner only adds rules (``rules``, each with a reason);
 # only the overlay removes one, with a reason; a dependency's ``embodies`` only marks a line. A finding whose rule was not selected is a
 # ``selector_miss`` fact naming the missing tag, so the tag table is corrected from measurements.
@@ -513,15 +519,69 @@ def _tags_of(tags: dict[str, Any], names: set[str], files: list[str]) -> dict[st
     return out
 
 
-def stack_tags(cfg: Any, versions: dict[str, str] | None = None) -> dict[str, list[str]]:
-    """(a) The tags the project's stack shows: its lock files' packages and ``standards.stack``."""
-    if versions is None:
-        from bhcore import lock_versions
+def _dep_files(cfg: Any, rev: str | None = None) -> list[str]:
+    """Every lock file and manifest of the project (``bhcore.dependency_file``), ``cfg.dir``
+    relative, in the working tree or, with ``rev``, as committed there: a monorepo's or a
+    workspace's sub-packages included, with no setup (G6); plus the config's ``lockfiles``."""
+    root = cfg.dir
+    if rev is None:
+        found = [f.relative_to(root).as_posix() for f in _files(root)]
+    else:
+        try:
+            found = _git(root, "ls-tree", "-r", "--name-only", rev, "--", ".").splitlines()
+        except HarnessError:
+            found = []
+    skip = SKIP_DIRS | {".venv"}
+    out = {f for f in found if dependency_file(f.rsplit("/", 1)[-1]) and not any(d in skip or d.startswith(".") for d in f.split("/")[:-1])}
+    out |= {os.path.relpath(p, root).replace(os.sep, "/") for p in cfg.files("lockfiles")}
+    return sorted(out)
 
-        versions = lock_versions(cfg.files("lockfiles"))
+
+def _nearest(files: list[str], paths: list[str]) -> list[str]:
+    """The dependency files that govern ``paths``: for each path, those of its nearest enclosing
+    directory that has any (its package), and every one inside it when the path is a directory
+    (a unit spanning packages). Rule packs are scoped per project or module, as CodeQL builds one
+    database per project and Semgrep applies rules per path (QBC-116)."""
+    by_dir: dict[str, list[str]] = {}
+    for f in files:
+        by_dir.setdefault(posixpath.dirname(posixpath.normpath(f)), []).append(f)
+    out: set[str] = set()
+    for p in paths:
+        cur = posixpath.normpath(p.rstrip("/") or ".")
+        cur = "" if cur == "." else cur
+        out |= {f for d, fs in by_dir.items() if cur and d.startswith(cur + "/") for f in fs}
+        up = [cur, *(str(a) for a in PurePosixPath(cur).parents)] if cur else [""]
+        near = next((d if d != "." else "" for d in up if (d if d != "." else "") in by_dir), None)
+        out |= set(by_dir[near]) if near is not None else set()
+    return sorted(out)
+
+
+def _read(cfg: Any, rel: str, rev: str | None) -> str:
+    """A project file's text in the working tree or as committed at ``rev`` ("" when absent)."""
+    if rev is None:
+        f = cfg.dir / rel
+        return f.read_text(errors="ignore") if f.is_file() and f.stat().st_size < 50_000_000 else ""
+    try:
+        return _git(cfg.dir, "show", f"{rev}:./{rel}")
+    except HarnessError:
+        return ""
+
+
+def stack_tags(cfg: Any, paths: list[str] | None = None, rev: str | None = None) -> dict[str, list[str]]:
+    """(a) The tags the stack shows: the packages named by the lock files and manifests that
+    govern ``paths`` (``_nearest``; None: every one in the project), as in the working tree or at
+    ``rev``, and the config's ``standards.stack``. A sub-package's messaging client selects the
+    messaging rules for a change in that package, not for one in another (QBC-116)."""
+    tags = rules_doc(cfg).get("tags", {})
+    files = _dep_files(cfg, rev)
+    out: dict[str, list[str]] = {}
+    for f in files if paths is None else _nearest(files, paths):
+        for t, hit in _name_tags(tags, dependency_names(PurePosixPath(f), _read(cfg, f, rev))).items():
+            out.setdefault(t, []).extend(f"{n} ({f})" for n in hit)
     declared = {re.split(r"[=@<>~! ]", s.lstrip("@"), maxsplit=1)[0] for s in cfg.data.get("standards", {}).get("stack", [])}
-    names = {_norm(n) for n in versions} | {_norm(n) for n in declared if n}
-    return _name_tags(rules_doc(cfg).get("tags", {}), names)
+    for t, hit in _name_tags(tags, {_norm(n) for n in declared if n}).items():
+        out.setdefault(t, []).extend(f"{n} (standards.stack)" for n in hit)
+    return {t: ev[:3] for t, ev in out.items()}
 
 
 def contract_tags(cfg: Any, brick: dict[str, Any], rev: str | None = None) -> dict[str, list[str]]:
@@ -555,21 +615,56 @@ def contract_tags(cfg: Any, brick: dict[str, Any], rev: str | None = None) -> di
     return out
 
 
-def diff_tags(cfg: Any, base: str = "HEAD", ref: str | None = None) -> dict[str, list[str]]:
-    """(c) The tags a change shows: imports on its added lines and the kinds of the files it
-    touches. ``ref`` None: the working tree against ``base``, untracked files whole (``bh rules
-    --diff``); ``ref`` set: ``git diff base ref`` only (a build commit the review judges while
-    the tree is elsewhere)."""
+def touched(cfg: Any, base: str = "HEAD", ref: str | None = None) -> list[str]:
+    """The files a change touches and keeps, ``cfg.dir`` relative: ``git diff base [ref]`` (with
+    no ``ref`` the working tree, untracked files included). HarnessError when git cannot say."""
     root = cfg.dir
+    out = _git(root, "diff", "--name-only", "--no-renames", "--relative", "--diff-filter=d", base, *([ref] if ref else []), "--", ".").splitlines()
+    out += [] if ref else _git(root, "ls-files", "--others", "--exclude-standard").splitlines()
+    return sorted(set(out))
+
+
+CC_TYPE = re.compile(r"^(\w+)(?:\([^)]*\))?!?: ")  # Conventional Commits 1.0.0: type(scope)!: subject
+
+
+def diff_tags(cfg: Any, base: str = "HEAD", ref: str | None = None) -> dict[str, list[str]]:
+    """(c) The tags a change shows: the imports of each file it touches (the whole file, not only
+    its added lines: a change to code that already uses a broker is a messaging change), the
+    kinds of those files, the stack of the packages they are in (``stack_tags``), and the
+    Conventional Commits types of its commits (a ``fix`` is a defect: QBC-117). ``ref`` None: the
+    working tree against ``base`` (``bh rules --diff``); ``ref`` set: ``base..ref``, read as
+    committed at ``ref`` (a build commit the review judges while the tree is elsewhere)."""
+    tags = rules_doc(cfg).get("tags", {})
     try:
-        diff = _git(root, "diff", "-U0", "--no-renames", base, *([ref] if ref else []), "--", ".")
-        new = [] if ref else _git(root, "ls-files", "--others", "--exclude-standard").splitlines()
+        files = touched(cfg, base, ref)
     except HarnessError:
         return {}
-    added = "\n".join(ln[1:] for ln in diff.splitlines() if ln.startswith("+") and not ln.startswith("+++"))
-    touched = [ln[6:] for ln in diff.splitlines() if ln.startswith("+++ b/")] + new
-    names = _imports_in(added) | {n for f in new if _code(root / f) for n in _imports_in((root / f).read_text(errors="ignore"))}
-    return _tags_of(rules_doc(cfg).get("tags", {}), names, touched)
+    names = {n for f in files if Path(f).suffix in EXT["python"] + EXT["typescript"] for n in _imports_in(_read(cfg, f, ref))}
+    out = _tags_of(tags, names, files)
+    for t, ev in stack_tags(cfg, files, ref).items():
+        out.setdefault(t, []).extend(ev)
+    if ref:
+        try:
+            subjects = _git(cfg.dir, "log", "--format=%s", f"{base}..{ref}").splitlines()
+        except HarnessError:
+            subjects = []
+        for t, s in tags.items():
+            hit = [x for x in subjects if (m := CC_TYPE.match(x)) and m.group(1).lower() in s.get("commits", [])]
+            if hit:
+                out.setdefault(t, []).extend(f"commit {x[:60]}" for x in hit[:3])
+    return out
+
+
+def unit(cfg: Any, bricks: dict[str, Any], item: str | None, base: str, ref: str | None = None) -> dict[str, Any]:
+    """What a review or ``bh rules --diff`` judges: the planned item, else the change itself as a
+    unit owning the files it touches, so its stack is their packages', not the whole repo's
+    (QBC-116)."""
+    if item in bricks:
+        return bricks[item]
+    try:
+        return {"id": item or "(project)", "paths": touched(cfg, base, ref)}
+    except HarnessError:
+        return {"id": item or "(project)"}
 
 
 def _pins(brick: dict[str, Any]) -> dict[str, str]:
@@ -581,7 +676,6 @@ def select_rules(
     cfg: Any,
     brick: dict[str, Any],
     bricks: list[dict[str, Any]],
-    versions: dict[str, str] | None = None,
     diff: dict[str, list[str]] | None = None,
     base: str | None = None,
 ) -> dict[str, Any]:
@@ -596,7 +690,8 @@ def select_rules(
     diff's tags add; with ``base`` the contract's code facts are read as committed at ``base``,
     where the diff starts, so the diff's own imports count as added."""
     house = rules_doc(cfg).get("house", {})
-    src = {"core": {"always": ["every item"]}, "stack": stack_tags(cfg, versions), "contract": contract_tags(cfg, brick, base)}
+    own = _own_paths(brick) or None  # an item with no paths: the whole project's stack
+    src = {"core": {"always": ["every item"]}, "stack": stack_tags(cfg, own, base), "contract": contract_tags(cfg, brick, base)}
     if diff is not None:
         src["diff"] = diff
     off = set(_opt_outs(cfg))
@@ -667,7 +762,7 @@ def selector_misses(
     ``base`` reads the contract's code facts before the diff, as ``select_rules`` does, so a
     review run with HEAD checked out still names the tag the diff brought in."""
     house = rules_doc(cfg).get("house", {})
-    have = {"always"} | set(stack_tags(cfg)) | set(contract_tags(cfg, brick, base))
+    have = {"always"} | set(stack_tags(cfg, _own_paths(brick) or None, base)) | set(contract_tags(cfg, brick, base))
     out = []
     for r in dict.fromkeys(f.get("rule") for f in findings if f.get("rule") in house and f.get("rule") not in selected):
         miss = sorted(set(house[r].get("applies", [])) - have)
@@ -675,12 +770,10 @@ def selector_misses(
     return out
 
 
-def packet_rules(
-    cfg: Any, brick: dict[str, Any], bricks: list[dict[str, Any]], versions: dict[str, str] | None = None
-) -> list[dict[str, str]]:
+def packet_rules(cfg: Any, brick: dict[str, Any], bricks: list[dict[str, Any]]) -> list[dict[str, str]]:
     """The packet's rules (``select_rules``): ``{id, text}``, the chosen with their one line and
     the rest by id and title only (``title``), to read with ``bh rule ID`` (QBC-105 (iv))."""
-    return lines(cfg, select_rules(cfg, brick, bricks, versions))
+    return lines(cfg, select_rules(cfg, brick, bricks))
 
 
 def lines(cfg: Any, sel: dict[str, Any]) -> list[dict[str, str]]:
@@ -697,6 +790,15 @@ def lines(cfg: Any, sel: dict[str, Any]) -> list[dict[str, str]]:
     ]
 
 
+def review_lines(cfg: Any, have: list[dict[str, str]], add: list[str]) -> list[dict[str, str]]:
+    """The lines for rules ``add`` joining a review input that already holds ``have``: in full
+    while the whole input has fewer than ``limits.packet_rules`` full lines, the rest by title, so
+    the cap of QBC-105 (iv) holds for the input the reviewer reads, not only for the packet."""
+    rows = rule_rows(cfg)
+    room = cfg.limit("packet_rules") - sum(r["message"] != title(rows, r["id"]) for r in have)
+    return [{"id": r, "message": (rule_text(rows, r) or r) if i < room else title(rows, r)} for i, r in enumerate(add)]
+
+
 def title(rows: dict[str, str], rid: str) -> str:
     """A rule's title: its line up to the first ``;``, ``,`` or ``:``, at most 60 characters, and
     where to read the rest."""
@@ -710,27 +812,34 @@ def rule_cmd(config: str, rid: str) -> str:
     return rule_detail(Config(config, partial=True), rid)
 
 
-def rules_cmd(config: str, item: str | None, at: str | None = None, diff: list[str] | None = None) -> str:
+def rules_cmd(
+    config: str, item: str | None, at: str | None = None, diff: list[str] | None = None, scope: list[str] | None = None
+) -> str:
     """``bh rules [--item X] [--at REV] [--diff [BASE [REF]]]``: the item's (else the project's)
     tags by source with their evidence and its chosen rules with their lines, as JSON, at 0
     tokens; ``--diff`` adds the tags (c) of the change (the working tree against BASE, default
     HEAD, or BASE..REF) and lists the rules it adds in ``added_by_diff`` (QBC-105 (i): the
     builder's self-check before finishing). With ``--at``
     the project is read at that commit from a detached ``git worktree`` (removed after), so a
-    human or a history replay gets the selection of any past commit with no agent."""
+    human or a history replay gets the selection of any past commit with no agent. With no item
+    the unit is the files ``scope`` names, else those the diff touches (``unit``), else the whole
+    project (QBC-116)."""
     import tempfile
 
-    from bhcore import Config, git_top, lock_versions, packet_context
+    from bhcore import Config, git_top, packet_context
 
     def run(conf: Path) -> str:
         cfg = Config(conf)
         ctx = packet_context(cfg)
-        b = ctx["bricks"].get(item) if item else {"id": "(project)"}
-        if b is None:
+        if item and item not in ctx["bricks"]:
             raise HarnessError(f"[rules-unknown-item] {item} is not in the plan -> run bh plan first")
+        if item or scope is not None:
+            b = ctx["bricks"][item] if item else {"id": "(project)", "paths": scope}
+        else:
+            b = unit(cfg, ctx["bricks"], None, *(diff or ["HEAD"])) if diff is not None else {"id": "(project)"}
         dt = diff_tags(cfg, *(diff or ["HEAD"])) if diff is not None else None
         base = (diff or ["HEAD"])[0] if diff is not None else None
-        sel = select_rules(cfg, b, list(ctx["bricks"].values()), lock_versions(cfg.files("lockfiles")), dt, base)
+        sel = select_rules(cfg, b, list(ctx["bricks"].values()), dt, base)
         ls = lines(cfg, sel)
         sel["chosen"], sel["more"] = ls[: len(sel["chosen"])], ls[len(sel["chosen"]) :]
         return json.dumps(sel, indent=2) + "\n"
