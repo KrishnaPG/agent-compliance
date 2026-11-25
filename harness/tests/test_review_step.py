@@ -68,6 +68,11 @@ def test_a_diff_split_over_commits_is_judged_whole(tmp_path):
     write(r, {"b.py": 'secret = "k-123"\n'})
     commit_all(r, "secret second")
     assert domains(r, base) == {"secrets": "b.py: ruff S105 finding changed"}
+    # QBC-36: the trigger in an earlier commit still counts when a later commit is harmless
+    write(r, {"c.py": "z = 1\n"})
+    commit_all(r, "harmless third")
+    assert domains(r, base) == {"secrets": "b.py: ruff S105 finding changed"}
+    assert domains(r, "HEAD~1") == {}  # negative control: the harmless last commit alone
 
 
 def test_design_affecting_items_get_the_duplication_check(tmp_path):

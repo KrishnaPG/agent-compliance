@@ -3,6 +3,7 @@
 import json
 import shutil
 import subprocess
+import tomllib
 from pathlib import Path
 
 import bhcore
@@ -72,7 +73,11 @@ def test_a_fresh_judge_scores_the_options_without_the_proposers_pick(tmp_path, m
     assert "-p" in argv and "--no-session-persistence" in argv
     assert not {"--resume", "-r", "--continue", "-c", "--session-id"} & set(argv)  # never the proposer's session
     inp = next(ln.split(": ", 1)[1] for ln in launches[0]["stdin"].splitlines() if ln.startswith("Input file"))
-    seen = Path(json.loads(Path(inp).read_text())["record"]).read_text()
+    given = json.loads(Path(inp).read_text())
+    seen = Path(given["record"]).read_text()
+    house = tomllib.loads((bhcore.PLUGIN_ROOT / "catalog" / "rules.toml").read_text())["house"]
+    core = {k for k, v in house.items() if "always" in v.get("applies", [])}
+    assert {r["id"] for r in given["rules"]} == core != set(house)  # QBC-106: the selection, never the whole catalog
     assert "Considered Options" in seen
     assert "Decision Outcome" not in seen and "proposer" not in seen  # the pick never reaches the judge
     assert "## Pros and Cons of the Options" in seen and "nothing new runs" in seen  # MADR's later sections stay

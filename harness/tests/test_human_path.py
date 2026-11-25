@@ -116,3 +116,7 @@ def test_a_push_is_reviewed_only_when_design_affecting_and_never_blocked(tmp_pat
     code, out = push(sha, docs)
     assert code == 0 and len(reviews(fake)) == 1, out  # mechanical: no review job, 0 tokens
     assert "no review ran" in out
+    code, out = push("0" * 40, sha)  # bh review itself fails on a range it cannot read: still never blocks
+    assert code == 0 and len(reviews(fake)) == 1, out
+    code, out = push("", sha)  # no pushed range (a new branch's first push in some clients)
+    assert code == 0 and "[review] no pushed range" in out, out

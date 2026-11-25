@@ -5,7 +5,10 @@ imports a broker client, json-writer a pure library."""
 
 import copy
 import json
+import os
 import re
+import subprocess
+import sys
 import tomllib
 from pathlib import Path
 from types import SimpleNamespace
@@ -18,6 +21,8 @@ import jsonschema
 import pytest
 from bhcore import HarnessError
 from test_toy import commit_all, copy_toy, git
+from test_bhorch import fake, input_of, orch, run  # noqa: F401  (fake is a fixture)
+from test_rank import edit_json
 from test_work_tracking import cfg_edit, plan_edit
 
 PLUGIN = Path(__file__).resolve().parents[2]
@@ -28,6 +33,7 @@ CLOSED = {"always", "messaging", "network-client", "http-server", "database", "a
           "concurrency", "money", "time", "config", "dependency-change", "defect"}  # fmt: skip
 MESSAGING = {k for k, v in HOUSE.items() if {"messaging", "deploy"} & set(v["applies"])}
 NETWORK = {k for k, v in HOUSE.items() if "network-client" in v["applies"]}
+CORE = {k for k, v in HOUSE.items() if "always" in v["applies"]}
 
 
 @pytest.fixture
@@ -73,14 +79,27 @@ def test_qbc_103_core_and_closed_tags(tmp_path):
     core = [k for k, r in HOUSE.items() if "always" in r["applies"]]
     assert 0 < len(core) <= 10
     assert bhrules.rules_doc(catalog(tmp_path, '[house.XX-01]\ntext = "t"\napplies = ["time"]\n'))
+    ten = "".join(f'[house.XX-{i}]\ntext = "t"\napplies = ["always"]\n' for i in range(10))
+    assert len(bhrules.rules_doc(catalog(tmp_path, ten))["house"]) == 10  # a core of exactly 10 is allowed
     for bad in ('[house.XX-01]\ntext = "t"\napplies = ["queues"]\n', "[tags.queues]\n",
                 "".join(f'[house.XX-{i}]\ntext = "t"\napplies = ["always"]\n' for i in range(11))):  # fmt: skip
         with pytest.raises(HarnessError, match="catalog-tags"):  # negative control: refused
             bhrules.rules_doc(catalog(tmp_path, bad))
 
 
+def fresh_selection(repo, item, seed):
+    """``bh rules --item`` in a new interpreter with its own hash seed: no state shared in-process."""
+    lib = str(PLUGIN / "harness" / "lib")
+    code = f"import sys; sys.path.insert(0, {lib!r}); import bhorch; sys.exit(bhorch.main(['rules', '--config', {conf(repo)!r}, '--item', {item!r}]))"
+    r = subprocess.run([sys.executable, "-c", code], env={**os.environ, "PYTHONHASHSEED": seed}, capture_output=True, text=True, check=True)
+    sel = json.loads(r.stdout)
+    return [x["id"] for x in sel["chosen"] + sel["more"]]
+
+
 def test_qbc_104_facts_decide_at_0_tokens(toy):
     worker, library = chosen(toy, "csv-reader"), chosen(toy, "json-writer")
+    assert CORE <= set(worker) and CORE <= set(library)  # the core reaches every item
+    assert fresh_selection(toy, "csv-reader", "1") == fresh_selection(toy, "csv-reader", "2") == worker  # any process, any hash seed
     assert {"HO-01", "HO-02"} <= set(worker)  # (b) the owned path imports a broker client
     assert library and not set(library) & MESSAGING  # negative control: a pure library gets the core
     assert chosen(toy, "csv-reader") == worker  # the same inputs give the same selection
@@ -89,6 +108,11 @@ def test_qbc_104_facts_decide_at_0_tokens(toy):
     plan_edit(toy, "bricks.json", lambda d: d["bricks"][1].pop("interfaces"))
     cfg_edit(toy, standards={"stack": ["nats-py==2.9.0"]})
     assert {"HO-01", "HO-02"} <= set(chosen(toy, "json-writer"))  # (a) the stack
+    cfg_edit(toy, standards={})
+    (toy / "requirements.txt").write_text("nats-py==2.9.0\n")
+    edit_json(toy / ".brick-harness" / "config.json", lambda c: c["paths"].update(lockfiles=["requirements.txt"]))
+    commit_all(toy, "lock")
+    assert {"HO-01", "HO-02"} <= set(chosen(toy, "json-writer"))  # (a) the lock file's dependencies
 
 
 def test_qbc_105_i_bh_rules_diff_prints_the_rules_the_change_adds(toy, capsys):
@@ -130,7 +154,7 @@ def test_qbc_105_iv_no_rule_is_dropped_for_size(toy):
     assert sum(not r["message"].endswith(f"(bh rule {r['id']})") for r in small) == 2  # negative control
 
 
-def test_qbc_106_agents_add_owners_remove(toy):
+def test_qbc_106_agents_add_owners_remove(toy, fake):  # noqa: F811
     plan_edit(toy, "bricks.json", lambda d: d["bricks"][1].update(rules=[{"id": "DS-01", "reason": "it overwrites its output"}]))
     assert chosen(toy, "json-writer")[0] == "DS-01"  # the planner adds, with a reason
     schema = json.loads((PLUGIN / "harness" / "schema" / "bricks.schema.json").read_text())
@@ -149,8 +173,13 @@ def test_qbc_106_agents_add_owners_remove(toy):
     cfg = bhcore.Config(conf(toy))
     lines = bhrules.project_rules(cfg)  # what a gaps or judge job gets: never the whole catalog
     assert 0 < len(lines) < len(HOUSE) and str(bhrules.rules_file(cfg)) not in json.dumps(lines)
-    for agent in ("harness-planner", "harness-gaps-reader", "harness-judge"):
-        assert "rules.toml" not in (PLUGIN / "agents" / f"{agent}.md").read_text()
+    agents = sorted((PLUGIN / "agents").glob("harness-*.md"))
+    assert len(agents) >= 7 and not [a.name for a in agents if "rules.toml" in a.read_text()]
+    run(orch(toy).phase_gaps())
+    (gaps,) = [c for c in fake.calls() if c["agent"] == "harness-gaps-reader"]
+    given = input_of(gaps)["rules"]  # the gaps job's actual input: the project's selection
+    assert given == lines and {r["id"] for r in given} == CORE
+    assert {r["id"] for r in given} != set(HOUSE)  # negative control: the whole catalog is not it
 
 
 def no_rule_lost(house):
@@ -190,7 +219,13 @@ def test_qbc_111_explained_in_the_repo():
 def ids_without_test(spec: str, names: set[str]) -> list[str]:
     section = re.split(r"\n#{2,3} ", spec.split("### 6.6", 1)[1], maxsplit=1)[0]
     ids = sorted(set(re.findall(r"^- QBC-(\d+)\.", section, re.M)) - {"109"})
-    return [i for i in ids if not any(n.startswith(f"test_qbc_{i}_") for n in names)]
+    missing = [i for i in ids if not any(n.startswith(f"test_qbc_{i}_") for n in names)]
+    # a requirement split into (i), (ii) ... gets a test per clause, named test_qbc_<id>_<clause>_
+    for i, body in re.findall(r"^- QBC-(\d+)\.(.*?)(?=^- |\Z)", section, re.M | re.S):
+        for c in re.findall(r"^  - \(([ivx]+)\)", body, re.M):
+            if i != "109" and not any(n.startswith(f"test_qbc_{i}_{c}_") for n in names):
+                missing.append(f"{i}-{c}")
+    return missing
 
 
 # Ids whose test is still owed; empty: every section 6.6 requirement has its test.
@@ -204,6 +239,8 @@ def test_qbc_109_every_section_6_6_requirement_has_a_test_named_for_it():
     assert set(missing) <= OWED, missing
     assert not OWED & {i for i in OWED if i not in missing}, "a QBC-107/108 test landed: empty OWED"
     assert ids_without_test(spec, names - {"test_qbc_110_no_rule_lost"}) == sorted(["110", *missing])  # negative control
+    gone = {n for n in names if n.startswith("test_qbc_105_ii_")}
+    assert gone and "105-ii" in ids_without_test(spec, names - gone)  # negative control: one clause's test removed
 
 
 def test_selection_replays_at_any_commit_with_no_agent(toy, capsys):

@@ -16,6 +16,7 @@ from bhcore import Config
 from test_bhorch import fake, orch, run  # noqa: F401, F811  (fake is a fixture)
 from test_review_step import STRICT, spec_for  # noqa: F401
 from test_toy import JSON_WRITER, commit_all, git
+from test_work_tracking import cfg_edit
 
 RULES = ["ID-15", "RL-08"]
 RULE_TAGS = {
@@ -193,6 +194,8 @@ def test_qbc_108_a_finding_whose_rule_was_not_selected_is_a_selector_miss(toy, f
     (miss,) = [f for f in facts if f["kind"] == "selector_miss"]
     assert miss["rule"] == net and "network-client" in miss["missing_tag"]
     assert miss["message"].startswith(f"[selector_miss] rule {net} judged a finding but was not in json-writer's packet ->")
+    fix = miss["message"].split(" -> ", 1)[1]  # teach form: the entry that would have selected it
+    assert "network-client" in fix and "capability table" in fix and f"{net}'s applies" in fix
     (rec,) = [j for j in o.recorded("json-writer") if j.get("job") == "review"]
     assert "selector_misses" not in rec  # one source: bh metrics counts the run result's facts
     selected = [r["id"] for r in packet["verifier"]["rules"]]
@@ -225,7 +228,10 @@ def test_qbc_107_review_any_author(toy, fake, capsys):  # noqa: F811
     """One entry point, `bh review BASE..HEAD [--item X]`, judges any author's diff: with --item
     against the item's selection at BASE plus the diff's rules, without against the core, the
     stack's and the diff's rules. It commits nothing, so a pre-push hook leaves the branch as is."""
+    # a database stack, and a packet cap of 1 so the item's selection has rules past the cap (QBC-105 iv)
+    cfg_edit(toy, limits={"packet_rules": 1}, standards={"stack": ["psycopg==3.2.0"]})
     packet, base, sha = network_build(toy)
+    assert len(packet["verifier"]["rules"]) > 1
     added = added_by_diff(toy, base, sha)
     net = next(r for r in added if "network-client" in RULE_TAGS[r])
     fake.spec(outputs_seq={"harness-reviewer": [{"findings": [MAJOR, {**MAJOR, "rule": net}]}]})
@@ -245,6 +251,8 @@ def test_qbc_107_review_any_author(toy, fake, capsys):  # noqa: F811
     res = run(orch(toy).phase_review(f"{base}..HEAD", None))
     project = [r["id"] for r in bhrules.project_rules(Config(cfg))]
     assert res["reviewed"] and set(project) <= set(res["rules"])
+    stack = {r for r, tags in RULE_TAGS.items() if "database" in tags and not {"always", "network-client"} & set(tags)}
+    assert stack & set(res["rules"]) and net in res["rules"]  # without --item: core + (a) the stack + (c) the diff
     assert res["findings"][0].startswith("[ID-15] json_writer re-checks the token")
     assert not {"ID-15", "RL-08"} <= set(res["rules"])  # negative control: the item's own picks need --item
 
@@ -288,3 +296,14 @@ def test_a_defect_intake_issue_is_admitted_as_a_defect_item_under_its_slice(toy,
     (d,) = [b for b in items if b.get("refs") == [bug]]
     assert d["kind"] == "defect" and d["parent"] == slice_ref and d["found_by"] == "person"
     assert all(b["kind"] == "change" for b in items if b.get("refs") and b["refs"] != [bug])
+
+
+def test_qbc_36_requested_changes_follow_limits_review_rounds(toy, fake):  # noqa: F811
+    """QBC-36: at most ``limits.review_rounds`` requested-change rounds per packet; the default 1 is
+    the negative control in test_a_major_finding_gets_one_more_round_with_its_teaching_and_no_further."""
+    cfg_edit(toy, limits={"review_rounds": 2})
+    plan(toy)
+    spec_for(fake, [[MAJOR]], [JSON_WRITER + f"\n# round {n}\n" for n in range(4)])
+    res = run(orch(toy).run())
+    item_jobs = [j.get("job") or j.get("role") or j.get("step") for j in res["jobs"] if j.get("item") == "json-writer"]
+    assert item_jobs.count("builder") == 3  # two requested-change rounds, never a third
