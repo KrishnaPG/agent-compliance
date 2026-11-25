@@ -935,7 +935,6 @@
             "by": {
               "enum": [
                 "hook",
-                "sandbox",
                 "file_tools",
                 "program"
               ]

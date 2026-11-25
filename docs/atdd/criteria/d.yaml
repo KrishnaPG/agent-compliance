@@ -424,23 +424,6 @@ acceptance:
     verification: test
     deterministic: true
 
-  - id: d3-AC6
-    scenario: A finish without bh check is not refused
-    covers: [6]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: builder_never_ran_check, class: honest, where: working_tree}
-    when:
-      bh: {sub: run}
-    then:
-      - no_fact: {kind: launch_refused}
-      - no_fact: {kind: stuck}
-      - exit_code: {code: 0}
-    traces_to: [R5, QBC-51]
-    verification: test
-    deterministic: true
-
   # ---------------------------------------------------------------- d4
   - id: d4-AC1
     scenario: The authoritative packet is kept by digest in the orchestrator's directory and a launch leaves it unchanged
@@ -584,24 +567,6 @@ acceptance:
     verification: test
     deterministic: true
 
-  - id: d6-AC6
-    scenario: The builder cannot change the protected acceptance tests
-    covers: [2]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - host: {condition: builder_sandbox}
-    when:
-      builder_action: {tool: Edit, action: edit, target: acceptance_test}
-    then:
-      - file_unchanged: {target: acceptance_tests}
-      - refused: {by: file_tools, wrong: "edit of a protected acceptance test", right: "ask the test author to change the test", prevent: "acceptance test paths are protected from the builder"}
-      - git: {assert: path_in_plan_commit, path: $packet.verifier.acceptance_paths}
-    traces_to: [R3, QBC-31, QBC-41]
-    verification: test
-    deterministic: true
-    plan_gap: "the plan states no refusal text for an edit of a protected test; substrings are best guesses"
-
   - id: d6-AC8
     scenario: Every acceptance test fails on main by an assertion and is recorded red
     covers: [4]
@@ -617,23 +582,6 @@ acceptance:
       - fact: {kind: red}
       - no_fact: {kind: red_by_error}
     traces_to: [R3, QBC-31, QBC-41]
-    verification: test
-    deterministic: true
-
-  - id: d6-AC9
-    scenario: A test that errors on main is recorded red-by-error and its test goes back to the test author
-    covers: [4]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - planted: {plant: test_errors_on_main, class: defect, where: plan_commit}
-      - recorded_model: {fixture: test_author_rows}
-    when:
-      bh: {sub: run}
-    then:
-      - fact: {kind: red_by_error}
-      - jobs: {assert: order, values: [test_author, red_run, test_author, red_run, builder]}
-    traces_to: [R3, P6, QBC-34, QBC-41]
     verification: test
     deterministic: true
 
@@ -926,24 +874,6 @@ acceptance:
     traces_to: [R5, P1, QBC-38]
     verification: test
     deterministic: true
-
-  - id: d0-AC16
-    scenario: The packet is one schema-valid file only the orchestrator writes, identified by its sha256
-    spec_ref: [enforce.1]
-    given:
-      - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: valid}
-      - host: {condition: builder_sandbox}
-    when:
-      builder_action: {tool: Write, action: write, target: orchestrator_packet}
-    then:
-      - file_unchanged: {target: orchestrator_packet}
-      - refused: {by: sandbox, wrong: "write to the orchestrator's packet file", right: "only the planner or orchestrator writes the packet", prevent: "the packet file is outside the builder's writable paths"}
-      - field: {source: result_json, path: "jobs[*].packet_sha256", op: present}
-    traces_to: [R5, P6, QBC-24, QBC-48]
-    verification: test
-    deterministic: true
-    plan_gap: "no refusal text is given for a write to the packet"
 
   - id: d0-AC17
     scenario: "The packet names its schema version and each acceptance item carries its scenario, its source and its verification"

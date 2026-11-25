@@ -396,7 +396,6 @@ then:
         type: enum
         values:
           hook: "a PreToolUse or launch hook refused it"
-          sandbox: "the Bash sandbox refused it (read-only or denied path)"
           file_tools: "the scoped Edit and Write tool permissions refused it"
           program: "bh refused the order step"
       wrong: {type: string, doc: "what is wrong, in plain words; its identifier tokens bind (see terms.teaching match)"}

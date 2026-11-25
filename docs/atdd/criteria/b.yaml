@@ -1504,6 +1504,40 @@ acceptance:
   - QBC-80
   verification: test
   deterministic: true
+- id: b9-AC7
+  scenario: Edit or Write of an acceptance test is refused with the SG-01 teaching line and no deny rule on the path
+  covers:
+  - 7
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Edit
+      action: edit
+      target: acceptance_test
+  then:
+  - refused:
+      by: hook
+      wrong: acceptance test is protected (SG-01)
+      right: ask the orchestrator to change it in the plan
+      prevent: tests sit in protected paths
+  - file_unchanged:
+      target: acceptance_tests
+  - field:
+      source: builder_settings
+      path: permissions.deny
+      op: not_contains
+      value: tests
+  traces_to:
+  - QBC-48
+  - R4
+  verification: test
+  deterministic: true
+  plan_gap: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
 - id: b9-AC8
   scenario: Bash rm or a write into tests gets the sandbox read-only error plus the PostToolUse SG-01 note
   covers:
@@ -1538,6 +1572,35 @@ acceptance:
   verification: test
   deterministic: true
   plan_gap: plan gives no SG-01 line text
+- id: b9-AC9
+  scenario: Write of the orchestrator's packet is refused by the scoped file tools
+  covers:
+  - 9
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Write
+      action: write
+      target: orchestrator_packet
+  then:
+  - refused:
+      by: file_tools
+      wrong: packet is orchestrator-owned
+      right: the orchestrator writes the packet
+      prevent: file tools are scoped to the clone
+  - file_unchanged:
+      target: orchestrator_packet
+  traces_to:
+  - R4
+  - QBC-15
+  verification: test
+  deterministic: true
+  plan_gap: plan omits the teaching text (file-tool refusals are the tool's own)
 - id: b9-AC10
   scenario: A Bash append to the orchestrator's packet leaves its digest unchanged
   covers:

@@ -38,7 +38,7 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `verifier.targets[*].op` | string | the comparison, as in harness/schema/targets.schema.json | d2-AC3 |
 | `verifier.targets[*].value` | number | the threshold | d2-AC3 |
 | `verifier.targets[*].unit` | string | the threshold's unit | d2-AC3 |
-| `verifier.acceptance_paths[*]` | string | the test author's acceptance test file in the project's own framework, protected from the builder | d2-AC3, d6-AC5, d6-AC6 |
+| `verifier.acceptance_paths[*]` | string | the test author's acceptance test file in the project's own framework, protected from the builder | d2-AC3, d6-AC5 |
 | `paved_road.test_paths[*]` | string | where the builder puts its own tests | d2-AC7 |
 | `paved_road.dependency_command` | string | how the builder adds a dependency | d2-AC7 |
 | `paved_road.check_command` | string | the self-check command, bh check | d0-AC5, d2-AC6 |
@@ -63,7 +63,7 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `items[*].acceptance[*].status` | enum: met, unmet | the measurer's verdict for that criterion | b2-AC18, b2-AC19 |
 | `checks_run[*]` | string | an exact check a measure or check command ran (command measure, check) | - |
 | `checks_missed[*]` | string | a check of checks_run that exited non-zero: a missed check, whose messages go back to the builder (QBC-51, QBC-55; command measure, check) | - |
-| `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC14, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d8-AC5, d8-AC6 |
+| `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC14, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d6-AC8, d6-AC10, d6-AC11, d8-AC5, d8-AC6 |
 | `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, d6-AC10, d6-AC11 |
 | `facts[*].item` | string | the item the fact belongs to | b2-AC19 |
 | `gaps[*].id` | string | a gap id, unique in the run (command gaps) | - |
@@ -97,8 +97,8 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 |---|---|---|---|
 | `jobs[*].id` | string | the job id, unique in the run | - |
 | `jobs[*].kind` | enum: agent, program_step | whether an agent or a program step ran the job | d6-AC12 |
-| `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | d6-AC1, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
-| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | d6-AC1, d6-AC9, d6-AC10, d6-AC11, d6-AC12 |
+| `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | d6-AC1, d6-AC10, d6-AC11, d6-AC12 |
+| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | d6-AC1, d6-AC10, d6-AC11, d6-AC12 |
 | `jobs[*].item` | string | the item the job worked on | - |
 | `jobs[*].started_at` | string | start time, RFC 3339 | - |
 | `jobs[*].exit_code` | integer | the job's exit code | - |
@@ -109,7 +109,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `jobs[*].cost_usd` | number | Claude CLI total_cost_usd of the job; 0 for a program step | - |
 | `jobs[*].tokens` | integer | Claude CLI usage input plus output tokens; the only stored token count, item and report totals are sums | - |
 | `jobs[*].cached` | boolean | true when a cached job result was reused | - |
-| `jobs[*].packet_sha256` | string | sha256 of the packet the job read | d0-AC16, d4-AC1, d4-AC5 |
+| `jobs[*].packet_sha256` | string | sha256 of the packet the job read | d4-AC1, d4-AC5 |
 | `jobs[*].objections[*]` | string | a judge objection, shown to the approver | - |
 | `jobs[*].falsifying_calls[*]` | string | a judge call that would falsify the design; becomes a target | - |
 | `jobs[*].round` | integer | the builder round the job ran in, 1 to max_rounds, counted per packet across runs; builder jobs only (the item's rounds are computed from it, never stored) | - |

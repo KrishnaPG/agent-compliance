@@ -10,7 +10,7 @@ uv run --script docs/atdd/build.py --check
 
 Result: 0 schema, catalog or reference errors; 0 rejections without teaching; 0 then-entries that cannot read their when or lack a given; 0 one-word generic teaching parts.
 
-Teaching parts: 138; 38 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (23): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d0-AC16, d6-AC6, d8-AC2, d8-AC3.
+Teaching parts: 138; 40 name at least one identifier token that the message must contain (catalog `terms.teaching match`); the rest state intent only and rely on the teaching shape plus the approval snapshot. Teaching assertions naming no identifier at all (21): b1-AC4, b1-AC7, b1-AC8, b1-AC9, b1-AC13, b1-AC17, b1-AC18, b1-AC22, b1-AC23, b2-AC5, b2-AC6, b2-AC7, b3-AC2, b3-AC5, b4-AC1, b4-AC3, b9-AC12, b9-AC14, d0-AC8, d8-AC2, d8-AC3.
 
 
 ## Counts
@@ -18,9 +18,9 @@ Teaching parts: 138; 38 name at least one identifier token that the message must
 | Slice | Tasks | Tasks with rows | Criteria |
 |---|---|---|---|
 | a | 5 | 5 | 19 |
-| b | 6 | 6 | 68 |
-| d | 8 | 8 | 62 |
-| all | 19 | 19 | 149 |
+| b | 6 | 6 | 70 |
+| d | 8 | 8 | 58 |
+| all | 19 | 19 | 147 |
 
 | Catalog | Entries |
 |---|---|
@@ -28,7 +28,7 @@ Teaching parts: 138; 38 name at least one identifier token that the message must
 | when | 7 |
 | then | 20 |
 
-Verification: fitness 1, lint 25, measure 4, test 119.
+Verification: fitness 1, lint 25, measure 4, test 117.
 
 ## §0 items × criteria
 
@@ -45,7 +45,7 @@ Verification: fitness 1, lint 25, measure 4, test 119.
 | P3 | 0 | 0 | 1 | 1 | d6-AC2 |
 | P4 | 1 | 4 | 3 | 8 | a3-AC3, b4-AC1, b4-AC3, b4-AC5, b4-AC7, d1-AC2, d1-AC5, d8-AC10 |
 | P5 | 1 | 3 | 4 | 8 | a5-AC1, b2-AC13, b2-AC16, b9-AC14, d8-AC1, d8-AC2, d8-AC3, d8-AC5 |
-| P6 | 0 | 16 | 6 | 22 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, d0-AC3, d0-AC16, d4-AC5, d6-AC1, d6-AC9, d6-AC12 |
+| P6 | 0 | 16 | 4 | 20 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, d0-AC3, d4-AC5, d6-AC1, d6-AC12 |
 | P7 | 0 | 0 | 1 | 1 | d2-AC7 |
 | P8 | 0 | 0 | 2 | 2 | d1-AC3, d1-AC4 |
 | P9 | 0 | 0 | 0 | 0 |  |
@@ -54,9 +54,9 @@ Verification: fitness 1, lint 25, measure 4, test 119.
 | P12 | 0 | 0 | 0 | 0 |  |
 | R1 | 0 | 1 | 0 | 1 | b1-AC20 |
 | R2 | 0 | 3 | 0 | 3 | b9-AC10, b9-AC11, b9-AC12 |
-| R3 | 0 | 5 | 11 | 16 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC5, d6-AC6, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d6-AC13 |
-| R4 | 0 | 51 | 0 | 51 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC8, b9-AC13, b9-AC14 |
-| R5 | 0 | 0 | 41 | 41 | d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC16, d0-AC17, d1-AC1, d1-AC2, d2-AC3, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC6, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC11, d8-AC12 |
+| R3 | 0 | 5 | 9 | 14 | b2-AC1, b2-AC2, b2-AC9, b2-AC10, b2-AC11, d0-AC1, d6-AC1, d6-AC2, d6-AC5, d6-AC8, d6-AC10, d6-AC11, d6-AC12, d6-AC13 |
+| R4 | 0 | 53 | 0 | 53 | b1-AC1, b1-AC2, b1-AC3, b1-AC4, b1-AC5, b1-AC6, b1-AC7, b1-AC8, b1-AC10, b1-AC11, b1-AC12, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC18, b1-AC19, b1-AC22, b1-AC23, b2-AC3, b2-AC4, b2-AC5, b2-AC6, b2-AC7, b2-AC8, b2-AC12, b2-AC14, b2-AC15, b2-AC16, b2-AC17, b2-AC18, b2-AC19, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC7, b9-AC8, b9-AC9, b9-AC13, b9-AC14 |
+| R5 | 0 | 0 | 39 | 39 | d0-AC1, d0-AC2, d0-AC3, d0-AC4, d0-AC5, d0-AC6, d0-AC7, d0-AC8, d0-AC9, d0-AC10, d0-AC11, d0-AC12, d0-AC13, d0-AC14, d0-AC15, d0-AC17, d1-AC1, d1-AC2, d2-AC3, d2-AC11, d3-AC1, d3-AC4, d3-AC5, d3-AC7, d4-AC1, d4-AC2, d4-AC3, d4-AC4, d4-AC5, d4-AC6, d4-AC7, d8-AC1, d8-AC2, d8-AC3, d8-AC4, d8-AC5, d8-AC6, d8-AC11, d8-AC12 |
 | R6 | 0 | 0 | 0 | 0 |  |
 | R7 | 0 | 0 | 0 | 0 |  |
 | R8 | 0 | 0 | 0 | 0 |  |
@@ -76,8 +76,9 @@ None.
 
 Leaves are numbered by `build.py --bullets`.
 
-- b9: leaves 1, 2, 3, 4, 5, 6, 7, 9
+- b9: leaves 1, 2, 3, 4, 5, 6
 - d2: leaves 2, 3, 6, 7
+- d3: leaves 6
 - d6: leaves 3
 
 ## packet-standards.md stage outputs and enforcement × criteria
@@ -128,7 +129,7 @@ Rows that prove a stage-output row or an enforcement mechanism of `docs/spec/pac
 | review.trigger | NONE |
 | review.findings | NONE |
 | review.severity | NONE |
-| enforce.1 | d0-AC16 |
+| enforce.1 | NONE |
 | enforce.2 | NONE |
 | enforce.3 | d3-AC7, d4-AC7 |
 | enforce.4 | b1-AC22, b1-AC23 |
@@ -144,10 +145,10 @@ None.
 
 Distinct fixture ids the rows name, with how many rows name each; near-duplicates should be merged.
 
-- packet.fixture: toy_item (58)
-- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), builder_never_ran_check (1), conflicting_candidates (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), test_errors_on_main (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
-- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (6), toy_honest (2), toy_scope (1)
-- repo.state: plugin:candidate (34), toy:base (115)
+- packet.fixture: toy_item (54)
+- planted.plant: added_dependency (1), added_pytest_ini (1), background_child_holds_stdout (1), ban_ts_comment_grown (1), ban_ts_comment_shrunk (1), bash_edit_without_packet (1), conflicting_candidates (1), edited_generated_test (1), edited_packet (1), edited_ratchet_file (1), edited_test_recipe (1), forged_result_file (1), forging_conftest (1), gutted_other_test (1), gutted_test (3), honest_change (8), honest_commit (1), junit_error (1), junit_failure (1), junit_ids_added (1), junit_ids_missing (1), kind_added_to_schema_only (1), lint_violation (1), main_diverges (1), malformed_junit (1), merge_guard_removed (1), missing_junit (1), naive_datetime (2), nan_sample (1), network_call (1), one_criterion_failing (1), out_of_scope_edit (1), passing_canary (1), planned_config_change (1), reads_holdout (1), report_patch_writes_outside (1), skipped_grown (1), skipped_shrunk (1), suppressions_grown (1), suppressions_removed (1), unreadable_target (1), weakened_lint_config (1), writes_outside_checkout (1), wrong_packet_trailer (1)
+- recorded_model.fixture: finder_regression_row (1), test_author_regression (1), test_author_rows (5), toy_honest (2), toy_scope (1)
+- repo.state: plugin:candidate (34), toy:base (113)
 
 ## needs-keyword
 
@@ -202,7 +203,9 @@ None.
 - b4-AC11: the title says "without pattern lists"; the row asserts the flag-based comparison that replaces them
 - b5-AC2: "kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted
 - b5-AC3: the plan names no keyword; minLength is one the old hand-written validator ignored, and the packet fixture empty_goal breaks it
+- b9-AC7: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
 - b9-AC8: plan gives no SG-01 line text
+- b9-AC9: plan omits the teaching text (file-tool refusals are the tool's own)
 - b9-AC12: plan omits the teaching text
 - b9-AC13: the commit_message field names are not fixed by the spec
 - b9-AC14: plan omits the teaching text
@@ -212,7 +215,6 @@ None.
 - d0-AC8: the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets
 - d0-AC9: the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets
 - d0-AC10: the plan states no teaching text for a failed packet; the wording names the field and the rule from the d0 bullets
-- d0-AC16: no refusal text is given for a write to the packet
 - d1-AC1: "cited by id" names no id format, so only the presence of constraints is asserted
 - d1-AC3: the fixture must hold large program-written fields and small planner-written fields; the plan names no fixture
 - d1-AC4: overflow[*].path awaits the owner's decision (docs/atdd/fields.yaml); the plan names no field for the moved text
@@ -222,7 +224,6 @@ None.
 - d4-AC3: "arrives once" does not say what a repeat looks like; the row treats a repeat touch as absent context
 - d4-AC4: the fixed line's text is not given; the row asserts it is present and that it holds no goal text
 - d4-AC7: assumes the delivered context is exactly the rendering, with nothing added by the hook
-- d6-AC6: the plan states no refusal text for an edit of a protected test; substrings are best guesses
 - d6-AC13: the bootstrap's manifest location is not named; the row checks the manifest holds a criterion of slice a
 - d8-AC5: "adds QBC-47's line" does not say whether the builder or the orchestrator message; the builder text is asserted
 - d8-AC10: the plan states the rule, not the scan pattern; the pattern approximates reading contents
