@@ -1245,6 +1245,18 @@ def _acceptance_of(name: str, ids: list[str]) -> str | None:
     )
 
 
+def _project_environ() -> dict[str, str]:
+    """The environment the project's own recipe runs in: the harness's interpreter (the
+    ``uv run --script`` environment ``bin/bh`` started in) is taken off PATH, so ``python`` is the
+    project's, not a private environment with only the harness's dependencies."""
+    env = dict(os.environ)
+    env.pop("VIRTUAL_ENV", None)
+    mine = Path(sys.prefix).resolve()
+    keep = [p for p in env.get("PATH", "").split(os.pathsep) if not Path(p).resolve().is_relative_to(mine)]
+    env["PATH"] = os.pathsep.join(keep)
+    return env
+
+
 def measure_ref(
     cfg: Config, ref: str = "HEAD", packet: str | None = None, orch: Path | None = None
 ) -> dict[str, Any]:
@@ -1352,7 +1364,7 @@ def measure_ref(
         _canary_into(co)
         junit = co / ".bh-junit.xml"
         flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider"
-        env = dict(os.environ, BH_OUT=str(out))
+        env = dict(_project_environ(), BH_OUT=str(out))
         cmd = f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
         if (co / "justfile").is_file() and shutil.which("just"):
             # the base commit's recipe, run as it names itself; a pytest line gets the report flag
@@ -1896,39 +1908,9 @@ def merge_unmerged(cfg: Config) -> dict[str, Any]:
         board, bad = read_board(cfg.file("scoreboard"))  # type: ignore[arg-type]
         if bad:
             raise HarnessError(bad)
-        cat = cfg.file("catalogue")
-        cat_rel = _under(cat, top) if cat and cat.is_relative_to(top) else None
-        guard = guarded_paths(cfg, top)
-        tip = _git(top, "rev-parse", "HEAD")
-        merged, conflicts = [], []
-        for u in _merge_candidates(cfg, top, bricks, targets, board):
-            item, sha = u["item"], u["ref"]
-            if _git_ok(top, "merge-base", "--is-ancestor", sha, tip):
-                merged.append(u)  # another item's merge brought it in
-                continue
-            tree, unresolved = _merge_tree(top, tip, sha)
-            if not tree or (unresolved and unresolved != [cat_rel]):
-                paths = unresolved or ["(merge refused: unrelated history)"]
-                conflicts.append({"item": item, "ref": sha, "paths": paths})
-                _record_conflict(cfg, item, sha, paths)
-                continue
-            with _ScratchIndex(top, tree) as ix:  # the merge as git made it, edited off the tree
-                if unresolved and not _union_catalogue_into(ix, tip, sha, unresolved[0]):
-                    conflicts.append({"item": item, "ref": sha, "paths": unresolved})
-                    _record_conflict(cfg, item, sha, unresolved)
-                    continue
-                _restore_guarded(ix, tip, guard)
-                tree = ix.write_tree()
-            if _git_ok(top, "merge-base", "--is-ancestor", tip, sha) and tree == _git(
-                top, "rev-parse", f"{sha}^{{tree}}"
-            ):
-                tip = sha  # a fast-forward: the builder's own commits are the whole change
-            else:
-                msg = f"brick-harness: merge {item} {sha[:12]}"
-                tip = _git(top, "commit-tree", tree, "-p", tip, "-p", sha, "-m", msg)
-            merged.append(u)
-        if tip != _git(top, "rev-parse", "HEAD"):
-            _git(top, "merge", "--ff-only", "-q", tip)  # git moves the ref and the tree together
+        merged, conflicts = merge_refs(cfg, top, _merge_candidates(cfg, top, bricks, targets, board))
+        for c in conflicts:
+            _record_conflict(cfg, c["item"], c["ref"], c["paths"])
         remeasure = _with_dependents(bricks, {m["item"] for m in merged})
         return {
             "merged": merged,
@@ -1936,6 +1918,108 @@ def merge_unmerged(cfg: Config) -> dict[str, Any]:
             "remeasure": remeasure,
             "head": _git(top, "rev-parse", "HEAD"),
         }
+
+
+def merge_refs(
+    cfg: Config, top: Path, cands: list[dict[str, str]]
+) -> tuple[list[dict[str, str]], list[dict[str, Any]]]:
+    """The git mechanics of a merge, for candidates the caller got from the measurer's verdict
+    (the scoreboard in ``merge_unmerged``, the step's own measurement in ``merge_step``)."""
+    cat = cfg.file("catalogue")
+    cat_rel = _under(cat, top) if cat and cat.is_relative_to(top) else None
+    guard = guarded_paths(cfg, top)
+    tip = _git(top, "rev-parse", "HEAD")
+    merged, conflicts = [], []
+    for u in cands:
+        item, sha = u["item"], u["ref"]
+        if _git_ok(top, "merge-base", "--is-ancestor", sha, tip):
+            merged.append(u)  # another item's merge brought it in
+            continue
+        tree, unresolved = _merge_tree(top, tip, sha)
+        if not tree or (unresolved and unresolved != [cat_rel]):
+            paths = unresolved or ["(merge refused: unrelated history)"]
+            conflicts.append({"item": item, "ref": sha, "paths": paths})
+            continue
+        with _ScratchIndex(top, tree) as ix:  # the merge as git made it, edited off the tree
+            if unresolved and not _union_catalogue_into(ix, tip, sha, unresolved[0]):
+                conflicts.append({"item": item, "ref": sha, "paths": unresolved})
+                continue
+            _restore_guarded(ix, tip, guard)
+            tree = ix.write_tree()
+        msg = f"brick-harness: merge {item} {sha[:12]}"  # always a merge commit: one per item
+        tip = _git(top, "commit-tree", tree, "-p", tip, "-p", sha, "-m", msg)
+        merged.append(u)
+    if tip != _git(top, "rev-parse", "HEAD"):
+        _git(top, "merge", "--ff-only", "-q", tip)  # git moves the ref and the tree together
+    return merged, conflicts
+
+
+def merge_step(root: Path, item: str | None) -> tuple[int, str, str]:
+    """``bh step merge``: the candidate (the branch checked out, or ``bh/<item>``) is measured
+    against the default branch's plan, and only a met verdict lets it merge into that branch.
+    Returns (exit code, result JSON, teaching on stderr)."""
+    cfg = Config(root / HDIR / "config.json")
+    top = git_top(root)
+    if top is None:
+        raise HarnessError("not a git repository")
+    main = next(
+        (b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), None
+    )
+    here = _git(top, "rev-parse", "--abbrev-ref", "HEAD")
+    cand = f"bh/{item}" if item else here
+    if main is None or cand == main or not _git_ok(top, "rev-parse", "--verify", "-q", cand):
+        raise HarnessError(f"no candidate branch to merge: {cand!r} (check one out, or pass --item)")
+    sha = _git(top, "rev-parse", cand)
+    with harness_lock(cfg):
+        if _merging(top):
+            raise HarnessError("a merge is in progress; finish or abort it first")
+        if here != main:
+            _git(top, "checkout", "-q", main)  # the merge lands on the default branch only
+        res = measure_ref(cfg, sha)
+        name = res["items"][0]["id"]
+        facts: list[dict[str, Any]] = list(res["facts"])
+        doc: dict[str, Any] = {"merged": [], "conflicts": [], "unmerged": [], "candidate": sha}
+        if res["items"][0]["status"] != "met":
+            facts.append(
+                {
+                    "kind": "unmet",
+                    "item": name,
+                    "detail": "; ".join(res["items"][0].get("errors", []))[:400] or cand,
+                    "message": _teach(
+                        "merge",
+                        "the candidate is unmet",
+                        "fix the failing criteria, then measure again",
+                        "merge only after the measurer reports met",
+                    ),
+                }
+            )
+            err = facts[-1]["message"] + "\n"
+            doc["unmerged"] = [{"item": name, "ref": sha}]
+            code = 1
+        else:
+            merged, conflicts = merge_refs(cfg, top, [{"item": name, "ref": sha}])
+            doc["merged"], doc["conflicts"] = merged, conflicts
+            doc["unmerged"] = [{"item": c["item"], "ref": c["ref"]} for c in conflicts]
+            err = "".join(
+                _teach(
+                    "merge",
+                    f"merge conflict in item {c['item']}'s files: {', '.join(c['paths'])}",
+                    "resolve the conflict named in the message",
+                    "merge items in plan order",
+                )
+                + "\n"
+                for c in conflicts
+            )
+            code = 1 if conflicts else 0
+        doc["head"] = _git(top, "rev-parse", "HEAD")
+        doc = {
+            "schema_version": RESULT_VERSION,
+            "command": "step",
+            "step": "merge",
+            "facts": facts,
+            **doc,
+        }
+        return code, json.dumps(doc, indent=2) + "\n", err
 
 
 def _merge_tree(top: Path, ours: str, theirs: str) -> tuple[str | None, list[str]]:

@@ -70,9 +70,9 @@ def _finish(ctx, runs, kind, what, sub=None):
     return last
 
 
-def _run_many(ctx, argv, n, rerun, stdin=""):
+def _run_many(ctx, argv, n, rerun, stdin="", env_extra=None):
     def once(_):
-        return execute(ctx, argv, stdin=stdin)
+        return execute(ctx, argv, stdin=stdin, env_extra=env_extra)
 
     runs = parallel(once, n) if n > 1 else [once(0)]
     if rerun:
@@ -94,7 +94,7 @@ def when_program_step(ctx, step, item=None, rerun=False):
     for part in CONTRACT["argv"]["program_step"]:
         argv.append(part.format(step=step))
     argv = sut_argv(ctx, argv) + (["--item", item] if item else [])
-    runs = _run_many(ctx, argv, 1, rerun)
+    runs = _run_many(ctx, argv, 1, rerun, env_extra={"HOME": os.environ["HOME"], "UV_OFFLINE": "1", "MISE_JUST_VERSION": "1.59.0"})
     return _finish(ctx, runs, "program_step", f"step {step}", "step")
 
 

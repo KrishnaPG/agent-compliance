@@ -585,14 +585,15 @@ def _measure_and_commit(toy, sha):
 
 
 def test_merge_of_a_met_item_leaves_nothing_unmerged_in_one_commit(toy):
-    """R4/P6: the merge consumes what the scoreboard holds, and a clean merge is exactly the
-    builder's commit (no separate restore commit); the candidate is then in HEAD."""
+    """R4/P6: the merge consumes what the scoreboard holds, and a merge is one commit (no
+    separate restore commit on top of it); the candidate is then in HEAD."""
     sha = build(toy)
     assert cli("bh-measure", toy, "--item", f"json-writer@{sha}")[0] == 0
     before = git(toy, "rev-parse", "HEAD")
     code, m = cli("bh-merge", toy)
     assert code == 0 and m["merged"] == [{"item": "json-writer", "ref": sha}], m
-    assert git(toy, "rev-list", "--count", f"{before}..HEAD") == "1"
+    assert git(toy, "rev-list", "--count", f"{sha}..HEAD") == "1"  # the merge commit alone
+    assert git(toy, "rev-list", "--count", "--first-parent", f"{before}..HEAD") == "1"
     assert git(toy, "merge-base", "--is-ancestor", sha, "HEAD") == ""
     guard_holds(status(toy)[1]["unmerged"] == [])
 

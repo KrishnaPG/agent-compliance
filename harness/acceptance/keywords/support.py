@@ -207,7 +207,7 @@ def overlay(src: Path, dest: Path):
         if rel.name in (".atdd-delete", ".atdd-message") or p.is_dir():
             continue
         (dest / rel).parent.mkdir(parents=True, exist_ok=True)
-        shutil.copy2(p, dest / rel)
+        shutil.copy(p, dest / rel)  # not copy2: an old mtime and an equal size make git see no change
     d = src / ".atdd-delete"
     if d.exists():
         for line in d.read_text().split():

@@ -1552,7 +1552,7 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("harvest", parents=[common], help="find duplicated helpers; apply settled picks")
     st = sub.add_parser("step", help="run one program step with no agent and no config")
     st.add_argument("name", choices=bhpacket.STEPS)
-    st.add_argument("--item", required=True)
+    st.add_argument("--item")  # required by every step but merge
     a = ap.parse_args(argv)
     if a.cmd == "step":  # a program step reads only its packet: no orchestrator, no config
         return bhpacket.run_step(a.name, a.item)

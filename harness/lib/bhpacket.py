@@ -25,7 +25,14 @@ RUN_REPORT = ".brick-harness/run-report.txt"
 
 SPEC = "docs/spec/packet-standards.md"
 CRITERIA_SCHEMA = Path(__file__).resolve().parents[2] / "docs" / "atdd" / "criteria.schema.json"
-STEPS = ("assemble_packet", "validate_packet", "render_packet", "launch_builder", "generate_tests")
+STEPS = (
+    "assemble_packet",
+    "validate_packet",
+    "render_packet",
+    "launch_builder",
+    "generate_tests",
+    "merge",
+)
 CUSTODY_DIR = (
     ".brick-harness/custody"  # the authoritative packets, one file per digest, outside every clone
 )
@@ -377,8 +384,14 @@ def generate_tests(root: Path, item: str) -> tuple[int, str, str]:
     )
 
 
-def step(name: str, root: Path, item: str) -> tuple[int, str, str]:
+def step(name: str, root: Path, item: str | None) -> tuple[int, str, str]:
     """Run one program step; return (exit code, stdout, stderr)."""
+    if name == "merge":  # the one step that works on a branch, not on a packet: --item is optional
+        import bhcore
+
+        return bhcore.merge_step(root, item)
+    if item is None:
+        return 2, "", f"step {name} needs --item\n"
     if name == "launch_builder":
         return launch_builder(root, item)
     if name == "generate_tests":
@@ -396,7 +409,7 @@ def step(name: str, root: Path, item: str) -> tuple[int, str, str]:
     return 0, result_json(name, raw, facts), ""
 
 
-def run_step(name: str, item: str) -> int:
+def run_step(name: str, item: str | None) -> int:
     """The ``bh step`` entry: run the step in the current directory, print its streams."""
     try:
         code, out, err = step(name, Path.cwd(), item)
