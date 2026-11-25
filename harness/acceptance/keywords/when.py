@@ -428,6 +428,9 @@ def load_instance(ctx, name: str):
     for base in (r, ctx.tree):
         if (base / name).is_file():
             return yaml.safe_load((base / name).read_text())
+    pk = ctx.state.get("packet")  # a row names the given packet as <id>_packet or assembled_<id>_packet
+    if pk and name in (f"{pk['id']}_packet", f"assembled_{pk['id']}_packet") and pk["repo_copy"].is_file():
+        return json.loads(pk["repo_copy"].read_text())
     missing(f"the instance file {name} does not exist", "produce the file before it is validated")
 
 
