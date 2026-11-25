@@ -15,12 +15,12 @@ import re
 import shutil
 import subprocess
 import sys
-import tomllib
 from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
 import bhbuilder
+import bhinfer
 from bhcore import RESULT_VERSION, SIZING_DEFAULT, HarnessError, load_schema
 
 PACKETS_DIR = ".brick-harness/packets"
@@ -275,13 +275,6 @@ def trailer(packet: dict[str, Any], digest: str) -> str:
 SPEC_SECTION_0 = Path(__file__).resolve().parents[2] / "docs" / "spec" / "quality-by-construction.md"
 GLOB = re.compile(r"[*?\[]")
 PRINCIPLE_RE = re.compile(r"^- \[[ x]\] \*\*(P\d+)\.\*\* (.+)$")
-LOCK_ADD = (  # lockfile -> the package manager's own add command (the lockfile names the tool)
-    ("uv.lock", "uv add <package>"),
-    ("poetry.lock", "poetry add <package>"),
-    ("pnpm-lock.yaml", "pnpm add <package>"),
-    ("yarn.lock", "yarn add <package>"),
-    ("package-lock.json", "npm install <package>"),
-)
 DONE = (
     "Every acceptance criterion is met by the measurer: its test in verifier.acceptance_paths "
     "passes in the project's own test command, and nothing else turns red."
@@ -293,12 +286,8 @@ def _slug(item: str) -> str:
 
 
 def test_roots(root: Path) -> list[str]:
-    """The project's test roots as pytest's own config names them (pyproject testpaths)."""
-    py = root / "pyproject.toml"
-    if not py.is_file():
-        return []
-    opts = tomllib.loads(py.read_text()).get("tool", {}).get("pytest", {}).get("ini_options", {})
-    return list(opts.get("testpaths", []))
+    """The project's test roots as its test runner's own config names them (``bhinfer``)."""
+    return list((bhinfer.test_roots(root) or {}).get("value", []))
 
 
 def paved_road(root: Path, cfg_data: dict[str, Any], protected: list[str]) -> dict[str, Any]:
@@ -308,7 +297,7 @@ def paved_road(root: Path, cfg_data: dict[str, Any], protected: list[str]) -> di
     import bhcore
 
     roots = test_roots(root)
-    dep =next((cmd for lock, cmd in LOCK_ADD if (root / lock).is_file()), "add it to the project's manifest")
+    dep = bhinfer.infer(root).get("dependency", {}).get("value", "add it to the project's manifest")
     road = {
         "test_paths": [r for r in roots if not bhcore._matches(r.rstrip("/") + "/", protected)],
         "dependency_command": dep,
@@ -337,7 +326,8 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
     ]
     passages = [bhcore._passage(cfg, ctx, c) for c in b.get("context", [])]
     road = paved_road(root, cfg.data, cfg.protected)
-    accept_root = (test_roots(root) or ["tests"])[0].rstrip("/")  # protected: the builder cannot edit it
+    lang = cfg.inferred.get("language", {}).get("value")
+    accept_root = (test_roots(root) or ["test" if lang == "node" else "tests"])[0].rstrip("/")  # protected: the builder cannot edit it
     targets = [
         {
             "id": f"{item}-T{n}",
@@ -371,7 +361,7 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
         },
         "acceptance": [],
         "verifier": {
-            "acceptance_paths": [f"{accept_root}/acceptance/test_{_slug(item)}.py"],
+            "acceptance_paths": [f"{accept_root}/acceptance/{bhinfer.acceptance_name(lang, _slug(item))}"],
             "targets": targets,
             "rules": [
                 {"id": r["id"], "message": r["text"] or r["id"]}
@@ -389,7 +379,7 @@ def acceptance_file(packet: dict[str, Any]) -> str:
     first = packet["verifier"]["acceptance_paths"][0]
     parts = first.split("/")
     fixed = parts[: next((i for i, x in enumerate(parts) if GLOB.search(x)), len(parts))]
-    if len(fixed) == len(parts) and first.endswith(".py"):
+    if len(fixed) == len(parts) and first.endswith((".py", ".js", ".mjs", ".cjs", ".ts")):
         return first
     prefix = "/".join(x for x in fixed if x)
     return f"{prefix or '.'}/test_{_slug(packet['id'])}.py"

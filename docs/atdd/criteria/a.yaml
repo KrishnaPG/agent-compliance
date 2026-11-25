@@ -67,7 +67,7 @@ acceptance:
     when:
       scan: {paths: ["bin/*"], kind: path}
     then:
-      - paths: {paths: [bin/bh, bin/bh-answer, bin/bh-measure, bin/bh-init], exist: true}
+      - paths: {paths: [bin/bh, bin/bh-answer, bin/bh-measure], exist: true}
       - paths: {paths: [bin/bh-admit, bin/bh-branch, bin/bh-brief, bin/bh-commit, bin/bh-gaps, bin/bh-merge, bin/bh-rank, bin/bh-reconcile, bin/bh-state], exist: false}
     traces_to: [P10, QBC-76, QBC-79]
     verification: lint

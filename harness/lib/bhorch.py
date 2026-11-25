@@ -64,6 +64,8 @@ from pathlib import Path
 from typing import Any
 
 import bhcore
+import bhinfer
+import bhintake
 import bhpacket
 import bhreview
 import bhtracker
@@ -825,10 +827,48 @@ class Orchestrator:
 
     # ------------------------------------------------------------ the run
 
-    async def run(self, skip: list[str] | None = None) -> dict[str, Any]:
+    # Standard-file writes setup offers (QBC-61 D): name -> writer(root, approved) returning
+    # {"written", ...} when approved, else {"pending": [...]} naming what it would write.
+    SETUP_WRITES = {"forms": bhintake.install_forms}
+
+    def phase_setup(self, approve: list[str] | None = None) -> dict[str, Any]:
+        """The one setup path, at the start of every run: what the project's standard files say
+        (``bhinfer.infer``, each value a fact naming its file), the harness's own state ignored
+        by git, then the standard-file writes the owner approved (``--approve``). What is not
+        approved yet is one owner question for all of them together, asked again only while a
+        write is still pending; the files written are the answer, so nothing is stored in a
+        plugin file (QBC-60 to QBC-63)."""
+        root = self.cfg.dir
+        facts = bhinfer.infer(root)
+        out: dict[str, Any] = {"facts": bhinfer.facts_lines(facts), "written": {}, "questions": bhinfer.questions(facts)}
+        if not self.dry:
+            bhcore.ignore_state(self.cfg)
+        pending: list[str] = []
+        for name, write in self.SETUP_WRITES.items():
+            yes = approve is not None and (not approve or name in approve) and not self.dry
+            r = write(root, yes)
+            if yes:
+                out["written"][name] = r
+            elif r.get("pending"):
+                pending.append(f"{name} ({', '.join(r['pending'])})")
+        if pending:
+            out["questions"].append(
+                {
+                    "id": "Q-setup",
+                    "kind": "setup-approval",
+                    "summary": "the harness would write into the project's own standard files: "
+                    + "; ".join(pending)
+                    + ". Ask the owner once; on yes rerun `bh run --approve` (or name the ones approved)",
+                    "evidence": ", ".join(p.split(" (")[0] for p in pending),
+                }
+            )
+        return out
+
+    async def run(self, skip: list[str] | None = None, approve: list[str] | None = None) -> dict[str, Any]:
         cfg, skip = self.cfg, skip or []
         res: dict[str, Any] = {
             "dry_run": self.dry,
+            "setup": self.phase_setup(approve),
             "gaps": None,
             "plan": None,
             "rounds": [],
@@ -935,7 +975,7 @@ class Orchestrator:
                 "item": item,
                 "packet": packet,
                 "test_path": test_path,
-                "test_command": "just test" if (root / "justfile").is_file() else "pytest",
+                "test_command": self.cfg.inferred.get("test", {}).get("value", "pytest"),
                 "feedback": feedback,
             }
             j = await self.job(
@@ -1017,7 +1057,13 @@ class Orchestrator:
         if all(a["status"] == "met" for a in res["items"][0]["acceptance"]):
             return [], True  # every criterion's test passes at HEAD
         module = bhpacket.acceptance_file(packet).removesuffix(".py").replace("/", ".")
-        mine = [f for f in res["facts"] if f["kind"] in ("red", "red_by_error") and module in f["detail"]]
+        ids = [a["id"] for a in packet["acceptance"]]
+        mine = [  # this file's cases: by module (pytest's classname) or by criterion id (any runner)
+            f
+            for f in res["facts"]
+            if f["kind"] in ("red", "red_by_error")
+            and (module in f["detail"] or bhcore._acceptance_of(f["detail"].rsplit("::", 1)[-1], ids))
+        ]
         facts += [{"kind": f["kind"], "item": item, "detail": f["detail"]} for f in mine]
         feedback = [
             {"id": f["detail"], "error": f["message"]} for f in mine if f["kind"] == "red_by_error"
@@ -1206,7 +1252,7 @@ class Orchestrator:
         counts: dict[str, int] = {}
         for b in s["bricks"]:
             counts[b["status"]] = counts.get(b["status"], 0) + 1
-        questions = []
+        questions = list((res.get("setup") or {}).get("questions", []))
         gp = cfg.file("gaps")
         if gp and gp.exists() and not self.dry:
             for g in json.loads(gp.read_text()).get("gaps", []):
@@ -1304,6 +1350,10 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
     if r["owner_questions"]:
         lines.append(f"OWNER QUESTIONS ({len(r['owner_questions'])})")
         lines += [f"  {q['id']}: {q['summary']}" for q in r["owner_questions"][:20]]
+    setup = (r.get("phases") or {}).get("setup") or {}
+    if setup.get("facts"):
+        lines.append("SETUP (inferred from the project's standard files)")
+        lines += [f"  {f['kind']} {f['detail']}" for f in setup["facts"]]
     if r.get("overlay_candidates"):
         lines.append(
             f"OVERLAY RULES TO BUILD ({len(r['overlay_candidates'])}): areas the owner answered often"
@@ -1338,7 +1388,7 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
 
 async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[str, Any]:
     if cmd == "run":
-        return await orch.run(a.skip)
+        return await orch.run(a.skip, a.approve)
     s0 = orch.state()
     sellable0 = set(s0["value"]["sellable_at_head"])
     phases: dict[str, Any]
@@ -1361,15 +1411,12 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
 
 
 def _intake_cmd(a: argparse.Namespace) -> int:
-    """metrics, forms, intake: one JSON result, printed (QBC-87 to QBC-90, R11)."""
-    import bhintake
+    """metrics, intake: one JSON result, printed (QBC-87 to QBC-90, R11)."""
     import bhmetrics
 
     try:
         cfg = Config(a.config)
-        if a.cmd == "forms":
-            res = bhintake.install_forms(cfg.dir, a.approve)
-        elif a.cmd == "metrics":
+        if a.cmd == "metrics":
             res = bhmetrics.metrics(cfg)
         else:
             tr = bhtracker.Tracker(cfg)
@@ -1395,6 +1442,12 @@ def main(argv: list[str] | None = None) -> int:
     sub = ap.add_subparsers(dest="cmd", required=True)
     r = sub.add_parser("run", parents=[common], help="gaps, plan, then each packet (test author, builder clone, measurer); harvest")
     r.add_argument("--skip", nargs="*", default=[], choices=["gaps", "plan", "harvest"])
+    r.add_argument(
+        "--approve",
+        nargs="*",
+        choices=list(Orchestrator.SETUP_WRITES),
+        help="the owner approved the setup's standard-file writes (none named: all it asked for)",
+    )
     sub.add_parser("gaps", parents=[common], help="find spec gaps")
     sub.add_parser("plan", parents=[common], help="derive items, targets, contracts")
     m = sub.add_parser(
@@ -1403,8 +1456,6 @@ def main(argv: list[str] | None = None) -> int:
     m.add_argument("--item", action="append", help="ID[@REF]; none: the ready items at HEAD")
     sub.add_parser("harvest", parents=[common], help="find duplicated helpers")
     sub.add_parser("metrics", parents=[common], help="DORA measures, baseline and current")
-    fm = sub.add_parser("forms", parents=[common], help="write the shipped issue forms (owner approval)")
-    fm.add_argument("--approve", action="store_true", help="the owner approved writing .github/ISSUE_TEMPLATE/")
     it = sub.add_parser("intake", parents=[common], help="parent check on open issues; --known LINE adds a Known issues line")
     it.add_argument("--known", metavar="LINE")
     sub.add_parser(
@@ -1416,7 +1467,7 @@ def main(argv: list[str] | None = None) -> int:
     a = ap.parse_args(argv)
     if a.cmd == "step":  # a program step reads only its packet: no orchestrator, no config
         return bhpacket.run_step(a.name, a.item)
-    if a.cmd in ("metrics", "forms", "intake"):  # tracker and git facts only: no orchestrator
+    if a.cmd in ("metrics", "intake"):  # tracker and git facts only: no orchestrator
         return _intake_cmd(a)
     try:
         bare = (a.cmd == "measure" and not a.item) or a.cmd == "check"

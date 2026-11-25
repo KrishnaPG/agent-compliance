@@ -95,14 +95,15 @@ def install_forms(root: Path, approved: bool) -> dict[str, Any]:
     """Write the shipped issue forms into the project's .github/ISSUE_TEMPLATE/ (a standard
     file, QBC-61 D), only when the owner approved; never over a file the project already has."""
     forms = sorted(FORMS_DIR.glob("*.yml"))
+    dest = root / ".github" / "ISSUE_TEMPLATE"
     if not approved:
+        missing = [f".github/ISSUE_TEMPLATE/{f.name}" for f in forms if not (dest / f.name).exists()]
         ask = (
             f"The plugin ships {len(forms)} issue files (decision, slice, defect forms and "
-            "config with blank issues off). Ask the owner once; on yes, run `bh forms --approve` "
+            "config with blank issues off). Ask the owner once; on yes, run `bh run --approve forms` "
             "to write them to .github/ISSUE_TEMPLATE/."
         )
-        return {"written": [], "skipped": [], "ask": ask}
-    dest = root / ".github" / "ISSUE_TEMPLATE"
+        return {"written": [], "skipped": [], "pending": missing, "ask": ask}
     dest.mkdir(parents=True, exist_ok=True)
     written, skipped = [], []
     for f in forms:

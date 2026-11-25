@@ -66,9 +66,10 @@ from fractions import Fraction
 from pathlib import Path, PurePosixPath
 from typing import Any
 
+import bhinfer
 from jsonschema import Draft202012Validator
 from jsonschema.validators import validator_for
-from junitparser import JUnitXml, JUnitXmlError, TestSuite
+from junitparser import JUnitXml, JUnitXmlError, TestCase, TestSuite
 
 HARNESS_DIR = Path(__file__).resolve().parent.parent  # harness/ inside the plugin
 PLUGIN_ROOT = HARNESS_DIR.parent  # the plugin: bin/, skills/, catalog/, checks/
@@ -259,8 +260,16 @@ class Config:
         else:
             self.dir = self.config_dir
         self.root = self.dir
-        self.paths: dict[str, Any] = {**DEFAULT_PATHS, **self.data.get("paths", {})}
-        self.commands: dict[str, Any] = self.data.get("commands", {})
+        # what the project's standard files say (P9), under what the config overrides (P8)
+        self.inferred = bhinfer.infer(self.dir)
+        found = {k: self.inferred[k]["value"] for k in ("build_order", "features") if k in self.inferred}
+        self.paths: dict[str, Any] = {**DEFAULT_PATHS, **found, **self.data.get("paths", {})}
+        lang = self.inferred.get("language", {}).get("value")
+        self.ecosystems: list[str] = self.data.get("ecosystems") or ([lang] if lang else [])
+        self.commands: dict[str, Any] = dict(self.data.get("commands", {}))
+        run = bhinfer.test_run(self.inferred)
+        if "test" not in self.commands and run:  # the project's own test entry (P9)
+            self.commands["test"] = {"run": run, "junit": "{out}/junit.xml"}
         self.sections: dict[str, str] = self.data.get("sections", {})
         self.protected: list[str] = self.data.get("protected") or DEFAULT_PROTECTED
         self.protected_gap = "protected" in self.data and not self.data["protected"]
@@ -319,6 +328,13 @@ def read_junit(path: Path) -> Any:
         return JUnitXml.fromfile(str(path))
     except (OSError, ET.ParseError, JUnitXmlError) as e:
         raise HarnessError(f"junit {path}: {e}") from e
+
+
+def _cases(xml: Any) -> list[Any]:
+    """Every test case of a JUnit report: those of its innermost suites, and those a reporter
+    writes straight under ``<testsuites>`` (node's test runner does, for tests outside a describe)."""
+    top = [] if isinstance(xml, TestSuite) else list(xml.iterchildren(TestCase))
+    return [c for s in _suites(xml) for c in s] + top
 
 
 def parse_junit(path: Path) -> dict[str, int]:
@@ -404,7 +420,7 @@ def _jail(
     and the whole jail dies with its parent (no process-group handling of our own). A
     toolchain's cache (uv, mise, pip: XDG Base Directory spec ``XDG_CACHE_HOME``) and temp
     files (POSIX ``TMPDIR``) go to the jail's own ``/tmp``, thrown away with it; what the
-    tools need was installed into ``co`` before the seal (``PREPARE``).
+    tools need was installed into ``co`` before the seal (``bhinfer.PREPARE``).
     """
     seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
     seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
@@ -1330,10 +1346,19 @@ def _lint_sarif(
     return failures
 
 
-def _canary_into(co: Path) -> None:
-    """Put the canary where the project's own test run collects it."""
+def _canary_into(co: Path, junit: Path, pytest_flags: str) -> tuple[str, Path]:
+    """Put the canary of the project's language where its own test runner collects it (pytest's
+    ``tests/``, node's ``test/``) and return the command that runs it alone with its JUnit report
+    at ``junit``, and the directory it runs in."""
+    if bhinfer.infer(co).get("language", {}).get("value") == "node":
+        canary = CANARY.with_name(f"{CANARY.stem}.test.mjs")
+        dest = co / "test" if (co / "test").is_dir() else co
+        shutil.copy2(canary, dest / canary.name)
+        reporter = f"--test-reporter=junit --test-reporter-destination={shlex.quote(str(junit))}"
+        return f"node --test {reporter} {canary.name}", dest
     dest = co / "tests" if (co / "tests").is_dir() else co
     shutil.copy2(CANARY, dest / CANARY.name)
+    return f"python -m pytest -q {CANARY.name} {pytest_flags}", dest  # the project's own pytest
 
 
 def _hook_facts(top: Path) -> list[dict[str, Any]]:
@@ -1388,27 +1413,12 @@ def _project_environ() -> dict[str, str]:
     return env
 
 
-# Each toolchain's own standard install from its lockfile, run open (it needs the network)
-# before the sealed run, in file order: tools first, then packages. The install goes into the
-# checkout (copied, not hardlinked to the host cache, which a test could then rewrite) and
-# runs no package scripts. Each install is the locked one: it fails when the lockfile no longer
-# matches the manifest (uv --locked, npm ci, pnpm --frozen-lockfile), so an unlocked dependency
-# is the same fact a human's install reports. mise checks only a mise.lock the project keeps.
-PREPARE = (
-    ("mise.toml", "mise install"),
-    (".tool-versions", "mise install"),
-    ("uv.lock", "uv sync --locked --link-mode=copy"),
-    ("package-lock.json", "npm ci --ignore-scripts"),
-    ("pnpm-lock.yaml", "pnpm install --frozen-lockfile --ignore-scripts"),
-)
-
-
 def _prepare(cfg: Config, co: Path, env: dict[str, str], slot: int) -> str | None:
     """Install checkout ``co``'s declared toolchain: the configured ``commands.env_setup``,
-    else the ``PREPARE`` rows whose lockfile ``co`` holds. The error, or None."""
+    else the install its lockfiles name (``bhinfer.PREPARE``). The error, or None."""
     own = cfg.data.get("commands", {}).get("env_setup")
     ctx = {"out": env.get("BH_OUT", co), "workdir": co, "root": co, **cfg.slot(slot)}
-    cmds = [_render(own, ctx)] if own else list(dict.fromkeys(c for f, c in PREPARE if (co / f).is_file()))
+    cmds = [_render(own, ctx)] if own else bhinfer.infer(co).get("install", {}).get("value", [])
     for cmd in cmds:
         r = _run(cmd, co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)))
         if r["exit"] != 0:
@@ -1429,20 +1439,24 @@ def _prepare_hooks(co: Path, env: dict[str, str], timeout: float) -> str | None:
 
 
 def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
-    """The project's test command writing JUnit XML to ``junit``: the recipe the checkout's
-    justfile names (a pytest line gets the report flag on its command line, any other recipe gets
-    it through ``env``), else pytest."""
+    """The project's test entry (``bhinfer.infer``: justfile, Makefile, package.json, else
+    pytest) writing JUnit XML to ``junit``: pytest gets the report flags through
+    ``PYTEST_ADDOPTS`` (a one-line pytest recipe gets them on its command line), node's test
+    runner through ``NODE_OPTIONS`` (``bhinfer.junit_env``)."""
     # a collection error in one file is that file's error, never a run that hides every other result
     flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider --continue-on-collection-errors"
-    cmd = f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
-    if (co / "justfile").is_file() and shutil.which("just"):
+    facts = bhinfer.infer(co)
+    test = facts.get("test", {}).get("value", "pytest")
+    env.update(bhinfer.junit_env(facts.get("language", {}).get("value"), junit))
+    if test == "pytest" or (test == "just test" and not shutil.which("just")):
+        return f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
+    if test == "just test":
         lines = _run("just --dry-run test 2>&1 >/dev/null", co, co, env, 30)["tail"].splitlines()
         line = lines[-1].strip() if lines else ""
         if len(lines) == 1 and "pytest" in line:
             return f"{line} {flags}"
-        env["PYTEST_ADDOPTS"] = flags
-        return "just test"
-    return cmd
+    env["PYTEST_ADDOPTS"] = flags
+    return test
 
 
 # ---------------------------------------------------------------- facts against the base
@@ -1665,7 +1679,7 @@ def diff_facts(
         )
         old = _lint_view(bco, {t: changed[t][0] for t in changed}, benv, hide, tools)
         try:
-            base_ids, base_skipped = _case_ids([c for s in _suites(read_junit(junit)) for c in s])
+            base_ids, base_skipped = _case_ids(_cases(read_junit(junit)))
         except HarnessError:
             base_ids, base_skipped = set(), 0
     if base_ids and cand_ids:
@@ -1815,7 +1829,11 @@ def measure_ref(
             fact("gap", "env_setup", _teach("env_setup", f"the locked toolchain install failed: {setup_error[-120:]}", "update the lockfile with the manifest (uv lock, npm install) and commit both", "run the install before finishing"))
         flags = lambda n: f"--junitxml={shlex.quote(str(co / f'.bh-junit-{n}.xml'))} -p no:cacheprovider"  # noqa: E731
         listed = pk.get("verifier", {}).get("checks") or []
-        plan = [(c, c, {"PYTEST_ADDOPTS": flags(n)}) for n, c in enumerate(listed)]
+        lang = bhinfer.infer(co).get("language", {}).get("value")
+        plan = [
+            (c, c, {"PYTEST_ADDOPTS": flags(n), **bhinfer.junit_env(lang, co / f".bh-junit-{n}.xml")})
+            for n, c in enumerate(listed)
+        ]
         if not plan:  # no list in the packet: the base commit's test recipe, run as it names itself
             recipe_env = dict(env)
             cmd = _test_cmd(co, co / ".bh-junit-0.xml", recipe_env)
@@ -1827,7 +1845,7 @@ def measure_ref(
             found: list[Any] = []
             try:
                 xml = read_junit(junit)
-                found = [c for s in _suites(xml) for c in s]
+                found = _cases(xml)
                 reports += xml
             except HarnessError as e:
                 if (len(plan) == 1 or "pytest" in cmd) and not setup_error:
@@ -1849,18 +1867,11 @@ def measure_ref(
             fact("red", f"lint:{hook}", _teach(hook, f"{hook} failed: {first[:120]}", f"fix every {hook} finding in findings.sarif as its message says", "run pre-commit run --all-files before finishing"))
         diff_facts(cfg, top, base, sha, item, facts, co, cases)
         if not self_check:
-            _canary_into(co)
             junit = co / ".bh-junit-canary.xml"
-            r = _run(
-                f"python -m pytest -q {CANARY.name} {flags('canary')}",  # the project's own pytest
-                co,
-                co / "tests" if (co / "tests").is_dir() else co,
-                env,
-                timeout,
-                seal,
-            )
+            cmd, where = _canary_into(co, junit, flags("canary"))
+            r = _run(cmd, co, where, env, timeout, seal)
             try:
-                canary_cases = [c for s in _suites(read_junit(junit)) for c in s]
+                canary_cases = _cases(read_junit(junit))
             except HarnessError as e:
                 errors.append(f"{e}; the canary run said: {r['tail'][-300:]}")
         bench = cfg.data.get("commands", {}).get("bench")
@@ -2182,6 +2193,19 @@ def _with_dependents(bricks: list[dict[str, Any]], seed: set[str]) -> list[str]:
                 out.add(b["id"])
                 grew = True
     return [b["id"] for b in bricks if b["id"] in out]
+
+
+STATE_IGNORED = ("out/", "clones/", "custody/", "launch/", "run-report.txt")
+
+
+def ignore_state(cfg: Config) -> None:
+    """Keep the harness's run state out of git: ``.brick-harness/.gitignore`` lists it, written
+    once by the harness itself as a tool's own cache folder carries its ignore file (pytest,
+    ruff); an existing file is the project's and stays as it is."""
+    path = cfg.dir / HDIR / ".gitignore"
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with contextlib.suppress(FileExistsError), path.open("x") as fh:
+        fh.write("".join(f"{p}\n" for p in STATE_IGNORED))
 
 
 def out_ignored(cfg: Config, top: Path) -> bool:
@@ -2841,7 +2865,7 @@ def state(cfg: Config) -> dict[str, Any]:
     if top is not None and not out_ignored(cfg, top):
         problems.append(
             f"measure_out {cfg.paths['measure_out']} is not git-ignored: add it to .gitignore "
-            f"(bh-init writes {HDIR}/.gitignore with out/ for the default location)"
+            f"(bh run writes {HDIR}/.gitignore with out/ for the default location)"
         )
     bricks, targets, catalogue = _load_plan(cfg, problems)
     board, bad = read_board(cfg.file("scoreboard"))  # type: ignore[arg-type]
@@ -2914,7 +2938,7 @@ def state(cfg: Config) -> dict[str, Any]:
     for ob in out_bricks:  # finish before start: a later feature's items wait
         if ob["id"] in plan["held"]:
             ob["ready"], ob["held_by"] = False, plan["held"][ob["id"]]
-    ecos = cfg.data.get("ecosystems", [])
+    ecos = cfg.ecosystems
     have: dict[tuple[str, str], set[str]] = {}  # (job, ecosystem) -> libraries
     for e in catalogue:
         have.setdefault((e["job"], e["ecosystem"]), set()).add(e["library"])
@@ -3621,7 +3645,7 @@ def check_gaps(
                     blocks=[b["id"]],
                 )
             )
-    for eco, jobs in _missing_jobs(cfg, catalogue, cfg.data.get("ecosystems", [])).items():
+    for eco, jobs in _missing_jobs(cfg, catalogue, cfg.ecosystems).items():
         if jobs:
             msg = f"{eco}: no library named for helper jobs {', '.join(jobs)}"
             gaps.append(

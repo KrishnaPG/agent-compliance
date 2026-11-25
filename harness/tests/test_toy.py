@@ -74,7 +74,7 @@ def commit_all(repo, msg, *paths):
 
 
 def call(name, argv, cwd=None, stdin=None):
-    """Run a harness command: ``bh-measure`` and ``bh-init`` as the programs they are, the rest as
+    """Run a harness command: ``bh-measure`` as the program it is, the rest as
     the library calls (``cmds.py``). ``(exit code, stdout text)``."""
     if name in cmds.COMMANDS:
         return cmds.run(name, argv, cwd=cwd, env=ENV, stdin=stdin)
@@ -490,38 +490,6 @@ def test_state_summary_is_small_and_the_file_holds_the_full_state(toy):
     for key in ("queue", "oscillating", "learning", "value", "features", "merged"):
         assert key in on_disk
     assert on_disk["learning"]["overlay_candidates"] == []
-
-
-def test_init_on_an_empty_dir_never_overwrites(tmp_path):
-    def init(*a):
-        p = subprocess.run(
-            [sys.executable, str(BIN / "bh-init"), "--root", str(tmp_path), *a],
-            capture_output=True,
-            text=True,
-        )
-        return p.returncode, json.loads(p.stdout)
-
-    git(tmp_path, "init", "-q")
-    code, r = init()
-    assert code == 0
-    assert set(r["created"]) == {".brick-harness/config.json", ".brick-harness/.gitignore"}
-    conf = json.loads((tmp_path / ".brick-harness" / "config.json").read_text())
-    assert "$schema" not in conf and "overlay" not in conf["standards"]
-    code, r = init("--missing", "features")
-    assert set(r["created"]) == {"docs/features.md"}
-    assert "numeric" in (tmp_path / "docs" / "features.md").read_text()
-    (tmp_path / "docs" / "features.md").write_text("# mine\n")
-    code, r = init("--missing", "features")
-    assert r["created"] == [] and (tmp_path / "docs" / "features.md").read_text() == "# mine\n"
-    import bhcore
-
-    cfg = bhcore.Config(tmp_path / ".brick-harness" / "config.json")
-    assert cfg.dir == tmp_path
-    st = bhcore.state(cfg)
-    assert st["problems"] == []
-    kinds = {g["kind"] for g in st["gaps"]}
-    assert "target-without-command" in kinds and "unsettled-area" not in kinds  # agent-found
-    assert not any("standards.catalog" in g["summary"] for g in st["gaps"])  # its own catalog
 
 
 def test_catalog_skill_named_on_owner_gaps(toy):

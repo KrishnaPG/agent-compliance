@@ -283,7 +283,7 @@ def test_target_source_is_resolved_through_show_by_bh_gaps_and_never_by_state(to
 
 
 def test_measure_build_and_merge_never_call_the_tracker():
-    for n in ("bh-measure", "bh-init"):
+    for n in ("bh-measure",):
         assert "bhtracker" not in (BIN / n).read_text(), n
     assert "bhtracker" not in (ROOT / "lib" / "bhcore.py").read_text()
 

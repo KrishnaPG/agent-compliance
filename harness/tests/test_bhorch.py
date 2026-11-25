@@ -411,8 +411,9 @@ def test_owner_decides_gaps_become_the_owner_questions(toy, fake):
     }
     fake.spec(outputs={**OUTPUTS, "harness-gaps-reader": {"gaps": [gap]}})
     res = run(orch(toy).run(skip=["plan", "harvest"]))
-    assert [q["summary"] for q in res["owner_questions"]] == ["the speed target is missing"]
-    assert res["owner_questions"][0]["id"].startswith("review:no-numeric-target:")
+    gaps = [q for q in res["owner_questions"] if q["id"] != "Q-setup"]  # setup asks its own
+    assert [q["summary"] for q in gaps] == ["the speed target is missing"]
+    assert gaps[0]["id"].startswith("review:no-numeric-target:")
 
 
 # ---------------------------------------------------------------- the agent files and schemas

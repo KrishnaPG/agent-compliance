@@ -166,8 +166,13 @@ agent runs each tool and returns its JSON.
   itself: a build round works only on items the measurer reports not met (an unmeasured ready
   item is measured at HEAD first; stale, conflict and met-uncommitted items are redone), so a
   finding becomes work only as a failing test or target.
-- `bh-init`: writes `.brick-harness/config.json` with placeholders and never overwrites;
-  `--missing features` opts in to starter documents.
+- Setup (`lib/bhinfer.py`, the first step of `bh run`): no config file is needed. The test entry
+  (justfile, Makefile, package.json, pytest config), language, toolchain install and
+  add-a-dependency command (lockfile), build order and features documents are inferred from the
+  project's standard files, each printed as an `inferred` fact naming its file;
+  `.brick-harness/config.json` only overrides. What cannot be inferred, and the standard-file
+  writes setup offers (issue forms), is one owner question; `bh run --approve` writes what was
+  approved into the project's own files, never a plugin file.
 
 **Time limits.** One `bh-measure` call runs the item's test, bench and setup commands, each bounded by
 `commands.timeout_s`, so keep their sum under an agent's shell limit (about 10

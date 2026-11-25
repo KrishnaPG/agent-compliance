@@ -127,7 +127,7 @@ Owner confirmation asked: the L2 packet format, d0 (the one contract for L3, L4 
   - Proves: G5, P10. QBC: 76, 79.
   - Files: `bin/bh-{admit,branch,brief,commit,gaps,merge,rank,reconcile,state}`, `harness/tests/`, `harness/lib/bhcore.py`.
   - Done when:
-    - `bin/` holds only `bh`, `bh-answer`, `bh-measure` and `bh-init`;
+    - `bin/` holds only `bh`, `bh-answer` and `bh-measure` (`bh-init` went into `bh run`'s setup, QBC-63);
     - packet assembly and the other functions `bhorch` calls remain;
     - `_write_gaps_doc` and `_committed_finding_ids` are gone;
     - the tests that called the CLIs call the functions and pass;
