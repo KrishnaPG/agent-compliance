@@ -11,7 +11,7 @@ import pytest
 
 PLUGIN = Path(__file__).resolve().parents[2]
 SCRIPTS = [
-    *sorted(p for p in (PLUGIN / "bin").iterdir() if p.is_file()),
+    *sorted(p for p in (PLUGIN / "bin").iterdir() if p.is_file() and p.suffix != ".lock"),
     *sorted((PLUGIN / "hooks").glob("*.py")),
     PLUGIN / "harness" / "run_tests.py",
 ]
