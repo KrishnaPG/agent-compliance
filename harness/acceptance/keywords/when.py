@@ -419,8 +419,9 @@ def when_scan(ctx, paths, kind, pattern=None):
 def load_schema(ctx, name: str):
     r = repo(ctx)
     for base in (r, ctx.tree):
-        if (base / name).is_file():
-            return yaml.safe_load((base / name).read_text())
+        for rel_dir in (".", "harness/schema"):  # a bare file name is one of the plugin's own schemas
+            if (base / rel_dir / name).is_file():
+                return yaml.safe_load((base / rel_dir / name).read_text())
     return fixture_data(ctx, "schemas", name + ".json")
 
 
