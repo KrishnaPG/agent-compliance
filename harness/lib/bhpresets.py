@@ -41,6 +41,7 @@ import tomlkit
 from ruamel.yaml import YAML
 
 CHECKERS = Path(__file__).resolve().parent.parent / "checkers.json"
+BH_BIN = CHECKERS.parent.parent / "bin" / "bh"
 IMPORT_LINE = re.compile(r"^-\s+(\S+) -> (\S+) \(l\.")
 
 
@@ -346,17 +347,22 @@ def write_precommit(root: Path, preset: dict[str, Any]) -> list[str]:
     repos = doc.setdefault("repos", [])
     have = {h.get("id") for r in repos for h in (r.get("hooks") or [])}
     roots = os.pathsep.join(import_roots(root))
-    add = []
+    add, stale = [], False
     for h in preset["hooks"]:
-        if h["id"] in have:
-            continue
         h = dict(h)
         # pre-commit runs `entry` as one command: `env` (POSIX) sets the project's environment for
         # it, so a commit by any author runs the project's tools, not the committer's active venv
         needs = h.pop("import_roots", False)
+        managed = h.pop("managed", False)
         h["entry"] = "env -u VIRTUAL_ENV " + (f"PYTHONPATH={shlex.quote(roots)} " if needs and roots else "") + h["entry"]
-        add.append(h)
-    if add:
+        if h["id"] not in have:
+            add.append(h)
+        elif managed:  # the plugin owns this hook's entry: a setup under an older plugin gets the current one
+            for r in repos:
+                for old in r.get("hooks") or []:
+                    if old.get("id") == h["id"] and old.get("entry") != h["entry"]:
+                        old["entry"], stale = h["entry"], True
+    if add or stale:
         local = next((r for r in repos if r.get("repo") == "local"), None)
         if local is None:
             local = {"repo": "local", "hooks": []}
@@ -373,6 +379,20 @@ def write_precommit(root: Path, preset: dict[str, Any]) -> list[str]:
         with path.open("w") as fh:
             yaml.dump(doc, fh)
     return [h["id"] for h in add]
+
+
+def record_plugin_bin(root: Path) -> bool:
+    """Record this checkout's plugin ``bin/bh`` in the clone's own git config (``bh.bin``), where the
+    pre-push hook reads it: the clone's path, never a committed file's (one machine's plugin cache
+    must not reach another clone), and a human's terminal needs no PATH. Every setup re-records it
+    because a plugin update moves the directory. Returns whether the value changed."""
+    if not (root / ".git").exists():
+        return False
+    cur = subprocess.run(["git", "config", "--local", "--get", "bh.bin"], cwd=root, capture_output=True, text=True).stdout.strip()
+    if cur == str(BH_BIN):
+        return False
+    subprocess.run(["git", "config", "--local", "bh.bin", str(BH_BIN)], cwd=root, check=True)
+    return True
 
 
 def write_recipe(root: Path, preset: dict[str, Any]) -> str | None:
@@ -412,6 +432,7 @@ def apply(root: Path, owners_answered: list[tuple[str, str]] | None = None) -> d
             continue
         owners = owner_map(root, p)
         hooks = write_precommit(root, p)
+        record_plugin_bin(root)
         recipe = write_recipe(root, p)
         try:
             ruff = write_ruff(root, p, "ruff" in hooks)

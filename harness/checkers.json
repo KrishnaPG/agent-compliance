@@ -104,7 +104,8 @@
         {
           "id": "bh-review",
           "name": "bh review (design-affecting or triggered pushes; never blocks)",
-          "entry": "sh -c 'if [ -z \"$PRE_COMMIT_FROM_REF\" ]; then echo \"[review] no pushed range -> push a branch with commits . pre-commit pre-push\"; elif command -v bh >/dev/null; then bh review \"$PRE_COMMIT_FROM_REF..$PRE_COMMIT_TO_REF\"; else echo \"[review] bh is not on PATH, the push was not reviewed -> put the plugin bin/ on PATH . bh review BASE..HEAD\"; fi; exit 0'",
+          "entry": "sh -c 'to=${PRE_COMMIT_TO_REF:-HEAD}; from=$PRE_COMMIT_FROM_REF; bh=$(git config --local --get bh.bin); [ -x \"$bh\" ] || bh=${CLAUDE_PLUGIN_ROOT:-/nonexistent}/bin/bh; [ -x \"$bh\" ] || bh=$(command -v bh) || { echo \"[review] bh was not found, the push was not reviewed -> run bh run once in this project from Claude Code (it records the plugin path in this clone), or run bh review BASE..HEAD with the plugin bin/ on PATH\"; exit 0; }; case \"$from\" in *[!0]*) ;; *) new=$(git rev-list \"$to\" --not --remotes | tail -n 1); [ -n \"$new\" ] || { echo \"[review] no commit on this branch is new to the remote, nothing to review\"; exit 0; }; top=$(git symbolic-ref -q --short \"refs/remotes/${PRE_COMMIT_REMOTE_NAME:-origin}/HEAD\"); from=$(git merge-base \"$to\" \"$top\" 2>/dev/null) || from=$(git rev-parse \"$new^\" 2>/dev/null) || { echo \"[review] the branch has no base to review from -> run bh review BASE..HEAD\"; exit 0; };; esac; \"$bh\" review \"$from..$to\"; exit 0'",
+          "managed": true,
           "language": "system",
           "pass_filenames": false,
           "always_run": true,
