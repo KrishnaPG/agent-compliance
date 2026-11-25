@@ -246,6 +246,39 @@
     },
     "regression_row": {
       "$ref": "#/$defs/test_author"
+    },
+    "judge": {
+      "type": "object",
+      "description": "bh decide: a fresh agent's judgement of a decision record's options (field names: docs/atdd/fields.yaml, command decide).",
+      "required": ["options", "recommended", "objections", "falsifying_calls"],
+      "additionalProperties": false,
+      "properties": {
+        "options": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "type": "object",
+            "required": ["id", "targets", "rules"],
+            "additionalProperties": false,
+            "properties": {
+              "id": {"type": "string"},
+              "targets": {"type": "array", "items": {"type": "string"}},
+              "rules": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "required": ["id", "verdict"],
+                  "additionalProperties": false,
+                  "properties": {"id": {"type": "string"}, "verdict": {"enum": ["pass", "fail", "unknown"]}}
+                }
+              }
+            }
+          }
+        },
+        "recommended": {"type": "string"},
+        "objections": {"type": "array", "items": {"type": "string"}},
+        "falsifying_calls": {"type": "array", "items": {"type": "string"}}
+      }
     }
   }
 }

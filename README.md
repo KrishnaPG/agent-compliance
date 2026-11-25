@@ -63,7 +63,7 @@ The plugin ships executables in `bin/` (the harness tools), so it installs in Cl
 | Skill | Use it for | Do not use it for | Produces |
 |---|---|---|---|
 | `vetted-decision` | Choosing or recommending a design: adopt, replace, move or delete a mechanism; X or Y; who owns X; a path that failed twice | Which work to do next; a mechanical edit of a settled design; explaining code; running checks; picking a third-party tool (`vet-oss`) | A `Decision:` record: options, per-rule verdicts, attack on the leading option, a falsifying call, one recommendation with no BROKEN rule |
-| `vet-oss` | Before suggesting, comparing or adopting an OSS tool, operator, chart, library, image or SaaS, or replacing project code with one | Upgrading an already adopted tool; how-to questions about an adopted tool | A `Vetted:` record judged from the pinned source clone: passes, or "no OSS meets the rules" with the broken rule ids |
+| `vet-oss` | Before suggesting, comparing or adopting a library, tool or image | Upgrading or using an adopted tool | `bh vet` facts per candidate from deps.dev, OpenSSF Scorecard and OSV, compared without a grade |
 | `bug-analysis` | Any defect of any size, with or without a failing test; before any `fix` commit | New features, redesigns, prose edits that change no meaning | A bug record (class, cause, broken rule ids, siblings, test, falsifying call, where), a `fix(#N):` commit, closure only when the test passes |
 | `harness` | Running the build harness: report spec gaps in the project's own documents, plan, build, measure and harvest its build-order items | Choosing between options (`vetted-decision`); fixing one bug (`bug-analysis`) | `.brick-harness/` state: gap report with file:line evidence, items and targets, a scoreboard written only by the measurer, merged code |
 
@@ -75,7 +75,7 @@ Traces each value and record hop by hop for every option (keep, native to the ow
 
 ### vet-oss
 
-Reads the candidate's API types, delete and recovery paths, install manifest (RBAC, image digest), open issues and release pipeline from a pinned clone. A star count or README sentence proves nothing. Tools that run only in the development toolchain are judged on maintenance, pinned install, fitness, blast radius and observability.
+Runs `bh vet <system> <package> [<version>]`: the deps.dev version record (licenses, publish date, advisories, source repository), the source repository's published OpenSSF Scorecard result and the OSV vulnerabilities of that version, kept unchanged as `api_results[*]` and printed as facts. No account or key is needed; nothing is scored.
 
 > Find an OSS tool for scheduled backups of our PostgreSQL cluster and vet it before we pick one.
 

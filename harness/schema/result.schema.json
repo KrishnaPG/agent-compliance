@@ -45,6 +45,9 @@
         }
       }
     },
+    "options": {"type": "array", "items": {"type": "object", "required": ["id", "targets", "rules"], "properties": {"id": {"type": "string"}, "targets": {"type": "array"}, "rules": {"type": "array", "items": {"type": "object", "required": ["id", "verdict"], "properties": {"id": {"type": "string"}, "verdict": {"enum": ["pass", "fail", "unknown"]}}}}}}},
+    "recommended": {"type": "string"},
+    "api_results": {"type": "array", "items": {"type": "object", "required": ["id", "body"], "additionalProperties": false, "properties": {"id": {"enum": ["scorecard", "deps.dev", "osv"]}, "body": {"type": "object"}}}},
     "facts": {
       "type": "array",
       "items": {

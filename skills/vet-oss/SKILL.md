@@ -1,41 +1,20 @@
 ---
 name: vet-oss
-description: Vet a third-party tool at its pinned version against the compliance catalog before it is named. Load before any search when about to suggest, compare or adopt an OSS tool, operator, chart, library, container image or SaaS, or to replace the project's own code with one. Not for upgrading a tool already adopted or for how-to questions about one.
+description: Collect a third-party package's public supply-chain facts before naming it. Load before suggesting, comparing or adopting a library, tool or image. Not for upgrading or using one already adopted.
 ---
 
 # Vet an OSS candidate
 
-Every verdict names a catalog rule id and its evidence (step 3 sets which evidence each tier needs).
-
-## Inputs
-
-- **Catalog and overlay:** found as `catalog/method.md` "Inputs" says. The domains that judge a tool are at least NO, SC, ID, LC, RL, OB, DS and PF, plus those of the job it takes over.
-- **Project bindings:** found as `catalog/method.md` "Inputs" says: where a vetting is recorded, the clone directory, the evidence environment. No bindings: clone to a new temporary directory, put the full result in the reply, say it is unrecorded.
-
-**Once per candidate and tag.** The result is recorded where the bindings say, headed `Vetted: <tool> <tag>` with the date. Search for that heading first: reuse it unless the tag or a rule it cites changed.
-
-**Cost by tier** (step 3): adopted, about 3 tool calls; established, about 8; other, about 20. Never clone an established or adopted project.
-
-## Steps
-
-1. **Requirements.** Every effect the current mechanism has, implicit ones included, each as `path:line` plus a few words from the project's code and its approved decision. State whether the tool would run in the product or only in the development toolchain: a toolchain tool is judged on maintenance, pinned install, fitness for the job, bounded blast radius and observability.
-2. **Candidates.** Upstream first, then community: repository, license, latest release and date, last commit. An archived project is dropped, and the answer says so.
-3. **Evidence, by tier:**
-   - **Adopted** (the project already runs it at a pinned version): cite its existing `Vetted:` record or the approved decision that adopted it; judge only the new use, from the owner's documentation of that feature at the pinned version.
-   - **Established** (a foundation or vendor project in wide production use, e.g. PostgreSQL, ClickHouse, Kubernetes, Prometheus, OpenSSH): no clone. Evidence is its versioned official documentation, release notes, security advisories and release signing or provenance page. A runtime claim the documentation does not settle is read from one file at the pinned tag (the forge's raw-file or contents API), never a clone.
-   - **Other** (small, young or single-maintainer): `git clone --depth 1 --branch <tag> <url> <clone directory>/<name>`, then read its API types or CRDs; its delete, revoke and crash-reread paths; its chart or install manifest (RBAC scope, image digest); its open issues and declared non-goals in the needed paths; its release pipeline (signing, SBOM, provenance).
-4. **Judge.** Per candidate, one row per requirement and per in-scope catalog rule: `| Rule or requirement | Candidate | HELD, BROKEN, NA or UNVERIFIED | Evidence |`. Evidence is a `path:line` in the source, a versioned documentation URL with its section (adopted and established tiers only), or the answer of a real install. A README sentence or star count is never evidence. A runtime behaviour the evidence does not settle is UNVERIFIED.
-5. **Verdict.** Present a candidate only when no row is BROKEN or UNVERIFIED. Otherwise say "no OSS meets the rules", list each candidate's BROKEN rule ids, keep the current owner, and name an upstream contribution that would close a near miss. When every candidate fails, check what the industry uses for the job before concluding none fits. When more than one candidate qualifies, present the one with the least waste, compared on the qualifying candidates only: owner steps (commands a person types, decisions a person makes), then tokens per run, then lines of code the project must own, then wall time (recurring owner effort, then recurring spend, then upkeep, then time), each a number with its source (measured: the run or call; estimated: the basis stated).
-
-## Output
+Run, per candidate, from any directory (no config, no account):
 
 ```
-Vetted: <tool> <tag> (<date>)
-Catalog: base <version> + packs <names> + overlay <path>@<commit>
-Class: product | toolchain
-Requirements: ...
-Candidates: ...
-| Rule or requirement | Candidate | Verdict | Evidence |
-Verdict: <candidate> passes | no OSS meets the rules (<candidate>: <rule ids>)
-Waste: C1 <owner steps>, <tokens>, <lines>, <wall time> (<source of each>); C2 ... (qualifying candidates only, or "one candidate qualifies")
+bh vet <system> <package> [<version>]     # system: pypi, npm, go, maven, cargo, nuget
 ```
+
+It asks three public services and prints one fact per line, then the result JSON, whose `api_results[*]` holds each service's answer unchanged:
+
+- **deps.dev**: licenses, publish date, advisory count, source repository.
+- **OpenSSF Scorecard**: the source repository's published score and each check's score.
+- **OSV**: known vulnerabilities of that version.
+
+Compare the candidates on these facts, plus what the project needs from the tool (each need as `path:line` of the code it replaces). Quote the facts; add no grade of your own. A service error is a fact: say which one and why. A candidate with no package (a container image, a SaaS) has no facts here: say so and cite its maintained security page.

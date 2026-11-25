@@ -84,6 +84,7 @@ JOBS: dict[str, tuple[str, str]] = {  # job -> (agent, config phase for model/ef
     "harvest_find": ("harness-harvester", "harvest"),
     "review": ("harness-reviewer", "review"),
     "test_author": ("harness-test-author", "test_author"),
+    "judge": ("harness-judge", "judge"),
     "regression_row": (
         "harness-reviewer",
         "test_author",
@@ -93,6 +94,7 @@ ROLE = {  # job -> jobs[*].role
     "plan": "planner",
     "review": "reviewer",
     "test_author": "test_author",
+    "judge": "judge",
     "regression_row": "reviewer",
 }
 READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)"]
@@ -1708,17 +1710,32 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser(
         "check", parents=[common], help="measure the working tree as the measurer does (builder)"
     )
+    dc = sub.add_parser("decide", parents=[common], help="a fresh judge job scores a decision record's options")
+    dc.add_argument("record", help="the MADR 4.0 decision record (markdown)")
+    vt = sub.add_parser("vet", help="a package's deps.dev, OpenSSF Scorecard and OSV facts; no config")
+    vt.add_argument("system", help="deps.dev system: pypi, npm, go, maven, cargo, nuget")
+    vt.add_argument("name")
+    vt.add_argument("version", nargs="?", help="default: the version deps.dev marks default")
     st = sub.add_parser("step", help="run one program step with no agent and no config")
     st.add_argument("name", choices=bhpacket.STEPS)
     st.add_argument("--item")  # required by every step but merge
     a = ap.parse_args(argv)
+    if a.cmd == "vet":  # public services only: no orchestrator, no config
+        import bhvet
+
+        return bhvet.main(a.system, a.name, a.version)
     if a.cmd == "step":  # a program step reads only its packet: no orchestrator, no config
         return bhpacket.run_step(a.name, a.item)
     if a.cmd in ("metrics", "intake"):  # tracker and git facts only: no orchestrator
         return _intake_cmd(a)
     try:
-        bare = (a.cmd == "measure" and not a.item) or a.cmd == "check"
+        bare = (a.cmd == "measure" and not a.item) or a.cmd in ("check", "decide")
         cfg = Config(a.config, partial=bare)  # a bare measurement reads the file as an override
+        if a.cmd == "decide":  # one judge job; no plan needed
+            import bhdecide
+
+            orch = Orchestrator(cfg, a.dry_run)
+            return bhdecide.print_result(asyncio.run(bhdecide.decide(orch, Path(a.record).resolve())))
         if a.cmd == "check":  # no orchestrator and no lock: it only reads and writes under the clone
             top = bhcore.git_top(cfg.dir)
             if top is None:

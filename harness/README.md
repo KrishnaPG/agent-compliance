@@ -33,6 +33,8 @@ job only for judgement work**.
 | build | per packet (`bh run`, or `bh step launch_builder`): `git clone --shared` of the recorded base commit, packet registered in the clone, settings generated into that launch's own file, builder started, the program's own commit (`commit_build`), then the measurer on the fetched commit | `harness-builder`, one per packet, in its own clone |
 | harvest | gap merge, commit | `harvest_find`: `harness-harvester` (duplicated helpers); a settled pick is reported, not applied |
 | review | a met item whose whole diff triggers a review, before its merge (`bhreview.triggers`); findings as SARIF and recorded by `bhcore.add_findings` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
+| decide | `bh decide RECORD`: the MADR record copied without its Decision Outcome section, so the proposer's pick never reaches the judge; prints `options[*]`, `recommended` and `jobs[*]` | `judge`: `harness-judge`, a fresh `claude -p` job, read only; scores each option per driver and rule (`pass`, `fail`, `unknown`), with objections and falsifying calls |
+| vet | `bh vet SYSTEM PACKAGE [VERSION]`: the deps.dev version record, the source repository's published OpenSSF Scorecard result and the OSV vulnerabilities, kept unchanged as `api_results[*]` and printed as facts; no config, no account | none |
 
 `run` = gaps, plan, rounds of build+measure (stop at `max_rounds`, at a budget, or when a round
 moved no measured number: the scoreboard's numbers are compared before and after), the review of
