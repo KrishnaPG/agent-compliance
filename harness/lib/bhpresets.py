@@ -28,9 +28,11 @@ from __future__ import annotations
 
 import configparser
 import json
+import os
 import re
 import shlex
 import subprocess
+import tomllib
 from pathlib import Path
 from typing import Any
 
@@ -51,17 +53,50 @@ def stacks(root: Path) -> list[str]:
     return [s for s, p in presets().items() if (root / p["detect"]).is_file()]
 
 
-def _run(cmd: str, root: Path) -> subprocess.CompletedProcess[str]:
-    return subprocess.run(shlex.split(cmd), cwd=root, capture_output=True, text=True)
+def _run(cmd: str, root: Path, pythonpath: str = "") -> subprocess.CompletedProcess[str]:
+    """Run a project tool in the project's environment: the plugin's own VIRTUAL_ENV is not passed
+    on (uv: the project's .venv is the one a tool runs in), and ``pythonpath`` is the project's
+    declared import roots (import-linter: root packages must be importable)."""
+    env = {k: v for k, v in os.environ.items() if k != "VIRTUAL_ENV"}
+    if pythonpath:
+        env["PYTHONPATH"] = pythonpath
+    return subprocess.run(shlex.split(cmd), cwd=root, capture_output=True, text=True, env=env)
 
 
 # ---------------------------------------------------------------- owner map
 
 
+def import_roots(root: Path) -> list[str]:
+    """The directories (relative to the project) the project itself declares as import roots: pytest
+    ``pythonpath``, setuptools ``package-dir``/``packages.find.where``, hatch wheel ``packages`` and
+    ``sources``, and a ``src`` layout. A project that is not installed (uv ``package = false``) still
+    declares where its packages are; the hook and the baseline run use these, never a hand-set path."""
+    path = root / "pyproject.toml"
+    tool = tomllib.loads(path.read_text()).get("tool", {}) if path.is_file() else {}
+    st = tool.get("setuptools", {})
+    hatch = tool.get("hatch", {}).get("build", {})
+    wheel = hatch.get("targets", {}).get("wheel", {})
+    declared = [
+        tool.get("pytest", {}).get("ini_options", {}).get("pythonpath", []),
+        [st.get("package-dir", {}).get("", "")],
+        st.get("packages", {}).get("find", {}).get("where", []) if isinstance(st.get("packages"), dict) else [],
+        [str(Path(x).parent) for x in [*wheel.get("packages", []), *hatch.get("packages", [])]],
+        [*wheel.get("sources", []), *hatch.get("sources", [])],  # a dict's keys or a list: the source dirs
+        ["src"] if (root / "src").is_dir() else [],
+    ]
+    out: list[str] = []
+    for group in declared:
+        for d in [group] if isinstance(group, str) else group:
+            rel = Path(os.path.normpath(d or ".")).as_posix()
+            if rel != "." and (root / rel).is_dir() and rel not in out:
+                out.append(rel)
+    return out
+
+
 def root_packages(root: Path) -> list[tuple[str, Path]]:
-    """(name, dir) of each top-level import package, flat or src layout."""
+    """(name, dir) of each top-level import package under the project's import roots or its top."""
     out = []
-    for base in (root / "src", root):
+    for base in [root / r for r in import_roots(root)] + [root]:
         if base.is_dir():
             out += [(d.name, d) for d in sorted(base.iterdir()) if (d / "__init__.py").is_file()]
     return out
@@ -229,7 +264,7 @@ def write_ruff(root: Path, preset: dict[str, Any], newly_run: bool) -> dict[str,
 
 
 def _lint_imports(root: Path, preset: dict[str, Any], cid: str) -> set[str]:
-    r = _run(f"{preset['run']} lint-imports --no-cache --contract {cid}", root)
+    r = _run(f"{preset['run']} lint-imports --no-cache --contract {cid}", root, os.pathsep.join(import_roots(root)))
     if "Contracts:" not in r.stdout:
         raise PresetError(f"lint-imports failed, the baseline is left as it was: {(r.stdout + r.stderr).strip()[-300:]}")
     return {f"{m.group(1)} -> {m.group(2)}" for line in r.stdout.splitlines() if (m := IMPORT_LINE.match(line))}
@@ -310,7 +345,17 @@ def write_precommit(root: Path, preset: dict[str, Any]) -> list[str]:
     doc = doc if doc is not None else {"repos": []}
     repos = doc.setdefault("repos", [])
     have = {h.get("id") for r in repos for h in (r.get("hooks") or [])}
-    add = [h for h in preset["hooks"] if h["id"] not in have]
+    roots = os.pathsep.join(import_roots(root))
+    add = []
+    for h in preset["hooks"]:
+        if h["id"] in have:
+            continue
+        h = dict(h)
+        # pre-commit runs `entry` as one command: `env` (POSIX) sets the project's environment for
+        # it, so a commit by any author runs the project's tools, not the committer's active venv
+        needs = h.pop("import_roots", False)
+        h["entry"] = "env -u VIRTUAL_ENV " + (f"PYTHONPATH={shlex.quote(roots)} " if needs and roots else "") + h["entry"]
+        add.append(h)
     if add:
         local = next((r for r in repos if r.get("repo") == "local"), None)
         if local is None:

@@ -86,6 +86,7 @@
           "id": "import-linter",
           "name": "import-linter (owner boundaries)",
           "entry": "uv run --frozen lint-imports",
+    "import_roots": true,
           "language": "system",
           "pass_filenames": false,
           "types": [

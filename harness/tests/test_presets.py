@@ -274,3 +274,34 @@ def test_a_grown_baseline_or_dropped_hook_has_no_effect(toy):
     assert any(x["kind"] == "diff" and "pyproject.toml" in x["detail"] for x in facts)
     assert any(x["kind"] == "diff" and ".pre-commit-config.yaml" in x["detail"] for x in facts)
     assert res["items"][0]["status"] == "unmet"
+
+
+def test_a_project_that_is_not_installed_gets_its_import_roots_from_what_it_declares(tmp_path, monkeypatch):
+    """uv `package = false` + pytest `pythonpath = ["src"]` (QBC-61, import-linter: root packages must
+    be importable): the hook and the baseline run get PYTHONPATH from the project's declarations, and
+    the plugin's own VIRTUAL_ENV is not passed on. A clean commit passes; a cross-owner import is refused."""
+    monkeypatch.setenv("VIRTUAL_ENV", "/nonexistent/plugin-venv")
+    files = {
+        "pyproject.toml": '[project]\nname = "loose"\nversion = "0.1.0"\nrequires-python = "==3.14.*"\ndependencies = []\n'
+        '\n[tool.uv]\npackage = false\n\n[tool.pytest.ini_options]\npythonpath = ["src"]\n',
+        "src/catalog/__init__.py": "",
+        "src/catalog/prices/__init__.py": "",
+        "src/catalog/prices/_ledger.py": "PRICE = 1\n",
+        "src/loans/__init__.py": "",
+        "src/loans/rates/__init__.py": "",
+        ".gitignore": ".venv/\n",
+    }
+    for f, text in files.items():
+        (tmp_path / f).parent.mkdir(parents=True, exist_ok=True)
+        (tmp_path / f).write_text(text)
+    git(tmp_path, "init", "-q", "-b", "main")
+    report = presets(tmp_path)
+    assert {"owner-prices", "owner-rates"} <= set(report["importlinter"]["contracts"])
+    hook = next(h for h in (tmp_path / ".pre-commit-config.yaml").read_text().split("- id: ") if h.startswith("import-linter"))
+    assert "env -u VIRTUAL_ENV PYTHONPATH=src uv run" in hook
+    git(tmp_path, "add", "-A")
+    assert git(tmp_path, "commit", "-qm", "clean", check=False).returncode == 0  # the installed hook, no hand setup
+    (tmp_path / "src/loans/rates/pay.py").write_text("from catalog.prices._ledger import PRICE\n\nP = PRICE\n")
+    git(tmp_path, "add", "-A")
+    refused = git(tmp_path, "commit", "-qm", "cross", check=False)
+    assert refused.returncode != 0 and "without a leading _" in refused.stdout + refused.stderr
