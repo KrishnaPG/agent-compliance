@@ -1,7 +1,7 @@
 {
   "name": "agent-compliance",
   "version": "1.5.2",
-  "description": "Review designs, specs, plans, design decisions, OSS tool choices and bug records against a ready-made catalog of industry-standard rules plus a project's own rules: one HELD/BROKEN/NA verdict per rule, cached by key, so reviews converge and repeat runs cost little, and run a build harness that reports spec gaps and builds a project's build order under a deterministic measurer.",
+  "description": "Review designs, specs, plans, design decisions, OSS tool choices and bug records against a ready-made rule catalog plus a project's own rules: one HELD, BROKEN or NA verdict per rule. Also a build harness that reports spec gaps and builds a project's build order under a deterministic measurer.",
   "author": {
     "name": "KrishnaPG"
   },
