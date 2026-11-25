@@ -384,7 +384,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
         "required": ["id", "scenario", "given", "when", "then", "traces_to", "verification"],
         "properties": {
             "id": {"type": "string", "pattern": r"^[A-Za-z0-9._-]+-AC\d+$"},
-            "scenario": {"type": "string", "minLength": 1, "maxLength": 160},
+            "scenario": {"type": "string", "minLength": 1},
             "given": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/given"}},
             "when": {"$ref": "#/$defs/when"},
             "then": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/then"}},
@@ -401,7 +401,7 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
         "allOf": [{"$ref": "#/$defs/row"}],
         "required": ["deterministic"],
         "anyOf": [{"required": ["covers"]}, {"required": ["spec_ref"]}],
-        "properties": {"id": {"pattern": r"^[a-h]\d+-AC\d+$"}},
+        "properties": {"id": {"pattern": r"^[a-h]\d+-AC\d+$"}, "scenario": {"maxLength": 160}},
         "if": {"properties": {"id": {"pattern": "^h"}}},
         "else": {"properties": {"deterministic": {"const": True}}},
     }

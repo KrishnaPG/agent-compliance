@@ -49,8 +49,7 @@
         },
         "scenario": {
           "type": "string",
-          "minLength": 1,
-          "maxLength": 160
+          "minLength": 1
         },
         "given": {
           "type": "array",
@@ -317,6 +316,9 @@
       "properties": {
         "id": {
           "pattern": "^[a-h]\\d+-AC\\d+$"
+        },
+        "scenario": {
+          "maxLength": 160
         }
       },
       "if": {
