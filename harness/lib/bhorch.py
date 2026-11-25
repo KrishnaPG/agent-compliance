@@ -870,7 +870,10 @@ class Orchestrator:
     SETUP_WRITES: dict[str, Any] = {"forms": bhintake.install_forms, "presets": None}  # presets: setup_presets
 
     def phase_setup(
-        self, approve: list[str] | None = None, owners: list[tuple[str, str]] | None = None
+        self,
+        approve: list[str] | None = None,
+        owners: list[tuple[str, str]] | None = None,
+        decline: list[str] | None = None,
     ) -> dict[str, Any]:
         """The one setup path, at the start of every run: what the project's standard files say
         (``bhinfer.infer``, each value a fact naming its file), the harness's own state ignored
@@ -884,9 +887,15 @@ class Orchestrator:
         out: dict[str, Any] = {"facts": bhinfer.facts_lines(facts), "written": {}, "questions": bhinfer.questions(facts)}
         if not self.dry:
             bhcore.ignore_state(self.cfg)
+        if decline and not self.dry:  # a "no" is kept like a "yes": asked again only when removed
+            self.cfg.record_declined(decline)
+        declined = {*self.cfg.data.get("setup", {}).get("declined", []), *(decline or [])}
         pending: list[str] = []
         for name, write in self.SETUP_WRITES.items():
             yes = approve is not None and (not approve or name in approve) and not self.dry
+            if name in declined and not yes:
+                out.setdefault("declined", []).append(name)
+                continue
             r = setup_presets(root, yes, owners) if write is None else write(root, yes)
             if yes:
                 out["written"][name] = r
@@ -901,7 +910,8 @@ class Orchestrator:
                     "kind": "setup-approval",
                     "summary": "the harness would write into the project's own standard files: "
                     + "; ".join(pending)
-                    + ". Ask the owner once; on yes rerun `bh run --approve` (or name the ones approved)",
+                    + ". Ask the owner once; on yes rerun `bh run --approve` (or name the ones approved), "
+                    "on no `bh run --decline NAME ...` (kept in .brick-harness/config.json setup.declined)",
                     "evidence": ", ".join(p.split(" (")[0] for p in pending),
                 }
             )
@@ -912,11 +922,12 @@ class Orchestrator:
         skip: list[str] | None = None,
         approve: list[str] | None = None,
         owners: list[tuple[str, str]] | None = None,
+        decline: list[str] | None = None,
     ) -> dict[str, Any]:
         cfg, skip = self.cfg, skip or []
         res: dict[str, Any] = {
             "dry_run": self.dry,
-            "setup": self.phase_setup(approve, owners),
+            "setup": self.phase_setup(approve, owners, decline),
             "gaps": None,
             "plan": None,
             "rounds": [],
@@ -1462,7 +1473,7 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
         owners = [tuple(o.split("=", 1)) for o in a.owner]
         if any(len(o) != 2 for o in owners):
             raise HarnessError("--owner takes PATTERN=OWNER")
-        return await orch.run(a.skip, a.approve, owners)  # type: ignore[arg-type]
+        return await orch.run(a.skip, a.approve, owners, a.decline)  # type: ignore[arg-type]
     s0 = orch.state()
     sellable0 = set(s0["value"]["sellable_at_head"])
     phases: dict[str, Any]
@@ -1521,6 +1532,12 @@ def main(argv: list[str] | None = None) -> int:
         nargs="*",
         choices=list(Orchestrator.SETUP_WRITES),
         help="the owner approved the setup's standard-file writes (none named: all it asked for)",
+    )
+    r.add_argument(
+        "--decline",
+        nargs="+",
+        choices=list(Orchestrator.SETUP_WRITES),
+        help="the owner declined these setup writes: kept in .brick-harness/config.json, not asked again",
     )
     r.add_argument(
         "--owner",

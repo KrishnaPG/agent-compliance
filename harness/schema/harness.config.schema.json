@@ -366,22 +366,30 @@
       "properties": {
         "refuse_groups": {
           "type": "array",
-          "items": {"type": "string"},
+          "items": {
+            "type": "string"
+          },
           "description": "Groups the builder account must not be in (default [\"docker\"]: the group reaches the host outside the sandbox)."
         },
         "probe": {
           "type": "array",
-          "items": {"type": "string"},
+          "items": {
+            "type": "string"
+          },
           "description": "The command run through the builder's sandbox that must succeed (default writes one file in the clone)."
         },
         "unix_socket_paths": {
           "type": "array",
-          "items": {"type": "string"},
+          "items": {
+            "type": "string"
+          },
           "description": "Host sockets the sandbox hides when sockets are not allowed."
         },
         "unix_socket_probe": {
           "type": "array",
-          "items": {"type": "string"},
+          "items": {
+            "type": "string"
+          },
           "description": "A command that needs those sockets. sandbox.network.allowAllUnixSockets is set only when it passes with the sockets visible and fails with them hidden; default none, so the setting stays false. The choice is a fact."
         }
       }
@@ -473,6 +481,24 @@
               }
             }
           }
+        }
+      }
+    },
+    "setup": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The owner's answers to setup's ask-once questions (P9) that no standard project file can hold.",
+      "properties": {
+        "declined": {
+          "type": "array",
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "forms",
+              "presets"
+            ]
+          },
+          "description": "setup writes the owner declined (bh run --decline); asked again only when removed from this list"
         }
       }
     }

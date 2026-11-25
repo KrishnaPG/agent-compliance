@@ -234,3 +234,26 @@ def test_setup_asks_once_for_the_presets_and_records_owner_answers_in_codeowners
     setup = orch.phase_setup(owners=[("src/app/billing/", "@billing-team")])
     assert "src/app/billing/ @billing-team" in (repo / ".github" / "CODEOWNERS").read_text()
     assert "Q-owners" not in {q["id"] for q in setup["questions"]}  # answered: not asked again
+
+
+def test_a_declined_setup_write_is_kept_and_not_asked_again_until_removed(tmp_path, fake):  # noqa: F811
+    """A "no" is stored like a "yes" (P9 ask once): no standard project file can hold it, so it
+    goes to setup.declined in .brick-harness/config.json, P8's place for a project's own answers."""
+    repo = tmp_path / "decl"
+    repo.mkdir()
+    (repo / "justfile").write_text("test:\n    echo ok\n")
+    git(repo, "init", "-q", "-b", "main")
+    commit_all(repo, "decl")
+    conf = repo / ".brick-harness" / "config.json"
+
+    def asked(**kw):
+        orch = bhorch.Orchestrator(Config(conf))
+        return {q["id"]: q["summary"] for q in orch.phase_setup(**kw)["questions"]}
+
+    assert "forms" in asked()["Q-setup"]
+    assert "Q-setup" not in asked(decline=["forms"])
+    assert json.loads(conf.read_text()) == {"setup": {"declined": ["forms"]}}
+    assert "Q-setup" not in asked()  # a later run: not asked again
+    assert not (repo / ".github").exists()
+    conf.write_text("{}\n")  # the owner removes the line
+    assert "forms" in asked()["Q-setup"]

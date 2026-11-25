@@ -173,7 +173,8 @@ agent runs each tool and returns its JSON.
   `.brick-harness/config.json` only overrides. What cannot be inferred, and the standard-file
   writes setup offers (issue forms; the linter presets and pre-commit hooks of `lib/bhpresets.py`),
   is one owner question; `bh run --approve` writes what was approved into the project's own
-  files, never a plugin file. An owner known only by its package folder is a question too;
+  files, never a plugin file; `bh run --decline NAME ...` keeps a "no" in
+  `.brick-harness/config.json` `setup.declined`, asked again only when removed. An owner known only by its package folder is a question too;
   `bh run --owner PATTERN=OWNER` records the answer in CODEOWNERS.
 
 **Time limits.** One `bh-measure` call runs the item's test, bench and setup commands, each bounded by

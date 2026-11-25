@@ -280,6 +280,17 @@ class Config:
             if errs:
                 raise HarnessError(f"{self.path} fails tracker schema: " + "; ".join(errs[:10]))
 
+    def record_declined(self, names: list[str]) -> None:
+        """Keep the owner's "no" to setup writes ``names`` in this config file's
+        ``setup.declined`` (P8's place for a project's own answers), so the question is asked once
+        (P9); the file is created when the project has none, and every other key is kept."""
+        raw = json.loads(self.path.read_text()) if self.path.exists() else {}
+        setup = raw.setdefault("setup", {})
+        setup["declined"] = sorted({*setup.get("declined", []), *names})
+        self.path.parent.mkdir(parents=True, exist_ok=True)
+        self.path.write_text(json.dumps(raw, indent=2) + "\n")
+        self.data.setdefault("setup", {})["declined"] = setup["declined"]
+
     def limit(self, key: str) -> int:
         """A config limit (``limits``) or its default."""
         return int(self.data.get("limits", {}).get(key, LIMIT_DEFAULTS[key]))
