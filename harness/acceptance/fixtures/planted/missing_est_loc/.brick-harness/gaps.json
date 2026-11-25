@@ -1,0 +1,16 @@
+{
+  "gaps": [
+    {
+      "id": "g1",
+      "kind": "other",
+      "summary": "a gap with no est_loc",
+      "tag": "fixable",
+      "evidence": [
+        {
+          "file": "docs/a.md",
+          "line": 1
+        }
+      ]
+    }
+  ]
+}

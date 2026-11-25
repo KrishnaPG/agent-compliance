@@ -1,0 +1,9 @@
+{
+  "commands": {
+    "bench": {
+      "run": "true",
+      "results": "bench/results.csv",
+      "format": "csv"
+    }
+  }
+}

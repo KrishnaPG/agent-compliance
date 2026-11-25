@@ -1,0 +1,11 @@
+{
+  "schema_version": "1.0.0",
+  "command": "measure",
+  "items": [
+    {
+      "id": "toy_item",
+      "status": "met"
+    }
+  ],
+  "facts": []
+}

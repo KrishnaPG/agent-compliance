@@ -1,0 +1,5 @@
+{
+  "stubs": {
+    "id": {"exit": 0, "stdout": "uid=1001(builder) gid=1001(builder) groups=1001(builder),999(docker)\n"}
+  }
+}

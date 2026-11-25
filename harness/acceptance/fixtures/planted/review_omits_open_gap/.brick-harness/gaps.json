@@ -1,0 +1,17 @@
+{
+  "gaps": [
+    {
+      "id": "g1",
+      "kind": "other",
+      "summary": "an open gap",
+      "tag": "fixable",
+      "status": "open",
+      "evidence": [
+        {
+          "file": "docs/a.md",
+          "line": 1
+        }
+      ]
+    }
+  ]
+}

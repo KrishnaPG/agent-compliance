@@ -1,0 +1,15 @@
+{
+  "gaps": [
+    {
+      "kind": "newly-added-kind",
+      "summary": "a kind only the schema file names",
+      "tag": "fixable",
+      "evidence": [
+        {
+          "file": "README.md",
+          "line": 1
+        }
+      ]
+    }
+  ]
+}

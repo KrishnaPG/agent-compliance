@@ -1,0 +1,132 @@
+{
+  "replies": [
+    {
+      "events": [
+        {
+          "type": "system",
+          "subtype": "init",
+          "session_id": "toy-1"
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Attempt 1: the criterion still fails."
+              }
+            ]
+          }
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "result": "Attempt 1: the criterion still fails.",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 30
+          }
+        }
+      ],
+      "exit": 0
+    },
+    {
+      "events": [
+        {
+          "type": "system",
+          "subtype": "init",
+          "session_id": "toy-2"
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Attempt 2: the criterion still fails."
+              }
+            ]
+          }
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "result": "Attempt 2: the criterion still fails.",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 30
+          }
+        }
+      ],
+      "exit": 0
+    },
+    {
+      "events": [
+        {
+          "type": "system",
+          "subtype": "init",
+          "session_id": "toy-3"
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Attempt 3: the criterion still fails."
+              }
+            ]
+          }
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "result": "Attempt 3: the criterion still fails.",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 30
+          }
+        }
+      ],
+      "exit": 0
+    },
+    {
+      "events": [
+        {
+          "type": "system",
+          "subtype": "init",
+          "session_id": "toy-4"
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Attempt 4: the criterion still fails."
+              }
+            ]
+          }
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "result": "Attempt 4: the criterion still fails.",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 30
+          }
+        }
+      ],
+      "exit": 0
+    }
+  ]
+}

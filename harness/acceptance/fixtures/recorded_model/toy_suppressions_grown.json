@@ -1,0 +1,36 @@
+{
+  "replies": [
+    {
+      "events": [
+        {
+          "type": "system",
+          "subtype": "init",
+          "session_id": "toy-1"
+        },
+        {
+          "type": "assistant",
+          "message": {
+            "role": "assistant",
+            "content": [
+              {
+                "type": "text",
+                "text": "Added an unused import with a noqa comment."
+              }
+            ]
+          }
+        },
+        {
+          "type": "result",
+          "subtype": "success",
+          "is_error": false,
+          "result": "Added an unused import with a noqa comment.",
+          "usage": {
+            "input_tokens": 120,
+            "output_tokens": 30
+          }
+        }
+      ],
+      "exit": 0
+    }
+  ]
+}

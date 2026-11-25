@@ -1,0 +1,10 @@
+{
+  "targets": [
+    {
+      "item": "toy_item",
+      "metric": "bench.latency_ms",
+      "op": "<=",
+      "value": 5
+    }
+  ]
+}

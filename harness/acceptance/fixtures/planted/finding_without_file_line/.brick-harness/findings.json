@@ -1,0 +1,9 @@
+{
+  "findings": [
+    {
+      "id": "f1",
+      "summary": "the loop may be slow",
+      "impact": "users wait a long time"
+    }
+  ]
+}
