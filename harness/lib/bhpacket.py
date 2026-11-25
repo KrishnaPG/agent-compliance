@@ -322,6 +322,7 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
     cited passages, rules) and the project's standard files; ``acceptance`` is left for the test
     author. No agent writes any of it."""
     import bhcore
+    import bhreview
     import bhrules
 
     ctx = bhcore.packet_context(cfg)
@@ -350,6 +351,9 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
         if isinstance(t.get("value"), int | float)
     ]
     goal = b["job"] + (f" Purpose: {b['purpose']}" if b.get("purpose") else "")
+    declared = bhcore._own_paths(b) or ["."]
+    # the touched owners and their published interfaces, so the builder extends them (QBC-19)
+    owners = bhreview.packet_owners(root, declared, bhreview.limits(cfg.data)["message_chars"])
     return {
         "schema_version": "1.0.0",
         "id": item,
@@ -361,7 +365,8 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
             "decisions": [
                 {"id": f"{p['path']}:{p['lines']}", "text": p["text"]} for p in passages if p["text"]
             ],
-            "declared_paths": bhcore._own_paths(b) or ["."],
+            **owners,
+            "declared_paths": declared,
             "limits": {**bhcore.SIZING_DEFAULT, **cfg.data.get("sizing", {})},
         },
         "acceptance": [],
@@ -444,9 +449,18 @@ def register(root: Path, clone: Path, digest: str) -> None:
             shutil.copy2(src, clone / o["path"])
 
 
-def launch_builder(root: Path, item: str, usd: float | None = None) -> tuple[int, str, str]:
+def launch_builder(
+    root: Path,
+    item: str,
+    usd: float | None = None,
+    feedback: list[str] | None = None,
+    base: str | None = None,
+) -> tuple[int, str, str]:
     """Launch one builder: keep the packet by digest, make the clone, register the packet in it and
-    start the builder with the fixed prompt. SessionStart delivers the packet (hooks/h1.py)."""
+    start the builder with the fixed prompt. SessionStart delivers the packet (hooks/h1.py). A later
+    round reuses the clone (same packet and base) and the prompt adds only the missed checks' or the
+    review's teaching messages (QBC-51, QBC-55). ``base`` is the item's plan commit, the same for
+    all its rounds (default HEAD), so a record committed between rounds never starts a new clone."""
     import bhorch
 
     packet, raw, facts, err = assemble(root, item)
@@ -456,7 +470,7 @@ def launch_builder(root: Path, item: str, usd: float | None = None) -> tuple[int
     config = json.loads(cfg.read_bytes()) if cfg.is_file() else {}
     policy = bhbuilder.launch_policy(config)
     digest = custody_store(root, raw)
-    base = bhorch.git(root, "rev-parse", "HEAD").stdout.strip()  # the base commit the program records
+    base = base or bhorch.git(root, "rev-parse", "HEAD").stdout.strip()  # the base commit the program records
     clone = root / CLONES_DIR / f"{item}-{digest[:12]}-{base[:12]}"  # one clone per packet and base
     bhbuilder.make_clone(root, clone, base)
     register(root, clone, digest)
@@ -484,7 +498,12 @@ def launch_builder(root: Path, item: str, usd: float | None = None) -> tuple[int
     ]
     started = datetime.now(UTC)
     try:
-        p = subprocess.run(argv, input=LAUNCH_PROMPT, cwd=clone, capture_output=True, text=True)
+        prompt = LAUNCH_PROMPT + (
+            "\nYour last result went back to you; fix these, then finish:\n" + "\n".join(f"- {f}" for f in feedback)
+            if feedback
+            else ""
+        )
+        p = subprocess.run(argv, input=prompt, cwd=clone, capture_output=True, text=True)
         code, out = p.returncode, p.stdout
     except OSError as e:
         code, out = 127, ""

@@ -356,22 +356,3 @@ def test_class_shares_and_check_candidates_are_report_facts(toy):
     assert c["in_use"] == 7 and c["enforced"].startswith("2 ") and c["embodied"].startswith("1 ")
     assert c["judgment"].startswith("4 ")
     assert facts["check-candidates"]["rules"] == "HO-01 x2"
-
-
-# ---------------------------------------------------------------- the review of a sellable feature
-
-
-def test_a_sellable_feature_has_a_review_brief(toy):
-    with_catalog(toy)
-    tagged(toy)
-    plan_edit(toy, "bricks.json", lambda d: d["bricks"][2].update(depends_on=["csv-reader"]))
-    (toy / ".brick-harness" / "features.json").write_text(
-        json.dumps({"features": [{"id": "F1", "title": "convert", "acceptance": "csv2json"}]})
-    )
-    commit_all(toy, "features", ".brick-harness")
-    code, b = cli("bh-brief", toy, "--feature", "F1")
-    assert code == 0 and b["items"] == ["csv-reader", "csv2json"]
-    assert b["paths"] == ["src/csv2json.py", "src/csv_reader.py", "src/queue_worker.py"]
-    assert "domains" not in b and "packs" not in b  # the method scopes the review itself
-    assert b["diff"] == f"git diff {b['base']} HEAD -- " + " ".join(b["paths"])
-    assert cli("bh-brief", toy, "--feature", "NOPE")[0] == 2

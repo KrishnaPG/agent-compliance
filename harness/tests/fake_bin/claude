@@ -18,6 +18,8 @@ It stands in for ``claude -p --agent ... --output-format json`` and behaves from
   cost, usage    cost (usd) and usage reported per job
   files          agent name -> {path relative to the job's cwd: text}: files the agent writes
   outputs_by_item agent name -> {item: structured output}: per item, read from the job's input file
+  outputs_seq    agent name -> [structured output, ...]: the Nth call of that agent answers the Nth (the last repeats)
+  files_seq      agent name -> [{path: text}, ...]: the files the Nth call writes (the last repeats)
 
 Every call is appended to ``$FAKE_CLAUDE_LOG`` as one JSON line: argv, mode, agent, cwd, stdin.
 """
@@ -88,11 +90,17 @@ if agent in spec.get("fail", []):
     result(is_error=True, result=spec.get("fail_text", "the model gave up"))
     sys.exit(1)
 
-for rel, text in spec.get("files", {}).get(agent, {}).items():  # what the agent's Write tool would leave
+calls = sum(json.loads(x)["agent"] == agent for x in Path(os.environ["FAKE_CLAUDE_LOG"]).read_text().splitlines())
+fseq = spec.get("files_seq", {}).get(agent)
+files = fseq[min(calls, len(fseq)) - 1] if fseq else spec.get("files", {}).get(agent, {})
+for rel, text in files.items():  # what the agent's Write tool would leave
     Path(rel).parent.mkdir(parents=True, exist_ok=True)
     Path(rel).write_text(text)
 out = dict(spec.get("outputs", {}).get(agent, {}))
 m = re.search(r"Input file \(read it first; it names every other path\): (\S+)", prompt)
 item = json.loads(Path(m.group(1)).read_text()).get("item") if m else None
 out = dict(spec.get("outputs_by_item", {}).get(agent, {}).get(item, out))
+seq = spec.get("outputs_seq", {}).get(agent)
+if seq:
+    out = dict(seq[min(calls, len(seq)) - 1])
 result(structured_output=out)

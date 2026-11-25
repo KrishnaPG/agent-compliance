@@ -201,8 +201,24 @@
       "properties": {
         "findings": {
           "type": "array",
+          "description": "Each summary teaches (QBC-53): what is wrong -> the right way, and how to prevent it.",
           "items": {
-            "$ref": "#/$defs/finding"
+            "allOf": [
+              {
+                "$ref": "#/$defs/finding"
+              },
+              {
+                "required": [
+                  "severity",
+                  "where"
+                ],
+                "properties": {
+                  "summary": {
+                    "pattern": "\\S.* -> \\S"
+                  }
+                }
+              }
+            ]
           }
         }
       }

@@ -33,9 +33,7 @@ from bhcore import (
     _git,
     _own_paths,
     all_findings,
-    load_features,
     overlay_file,
-    packet_context,
     tool_cache,
 )
 
@@ -432,32 +430,3 @@ def rule_facts(cfg: Any, bricks: list[dict[str, Any]]) -> list[dict[str, Any]]:
         for r, why in sorted(_opt_outs(cfg).items())
     ]
     return out
-
-
-# ---------------------------------------------------------------- review of a sellable feature
-
-
-def feature_review(cfg: Any, feature: str) -> dict[str, Any]:
-    """What a fresh reviewer needs for a feature that became sellable: the paths of its items
-    (the acceptance item's dependency closure) and the plan commit the diff starts from; the
-    reviewer (which scopes the review itself by ``catalog/method.md``) reads ``git diff BASE HEAD -- PATHS``."""
-    ctx = packet_context(cfg)
-    by_id, top = ctx["bricks"], ctx["top"]
-    feat = next((f for f in load_features(cfg) if f["id"] == feature), None)
-    if feat is None or top is None:
-        raise HarnessError(f"unknown feature {feature}" if feat is None else "not a git repository")
-    seen, todo = set(), [feat["acceptance"]]
-    while todo:
-        i = todo.pop()
-        if i not in seen and i in by_id:
-            seen.add(i)
-            todo += by_id[i].get("depends_on", [])
-    paths = sorted({p for i in seen for p in _own_paths(by_id[i])})
-    base = ctx["plan_head"] or _git(top, "rev-list", "--max-parents=0", "HEAD").splitlines()[0]
-    return {
-        "feature": feature,
-        "items": sorted(seen),
-        "paths": paths,
-        "base": base,
-        "diff": f"git diff {base} HEAD -- " + " ".join(paths),
-    }

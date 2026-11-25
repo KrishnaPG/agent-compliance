@@ -9,6 +9,8 @@
 #   "jsonschema==4.26.0",
 #   "junitparser==5.0.3",
 #   "mitmproxy==12.3.1",
+#   "pathspec==1.1.1",
+#   "sqlparse==0.6.1",
 # ]
 # ///
 """The one entry of the plugin's own tests and acceptance rows: pytest under the pinned interpreter and packages.

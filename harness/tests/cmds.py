@@ -16,7 +16,6 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "lib"))
 import bhcore  # noqa: E402
-import bhrules  # noqa: E402
 import bhtracker  # noqa: E402
 from bhcore import SUMMARY_CAP, Config, HarnessError  # noqa: E402
 
@@ -83,15 +82,10 @@ def _branch(argv, stdin):
 
 def _brief(argv, stdin):
     ap = _parser("brief")
-    ap.add_argument("item", nargs="?")
-    ap.add_argument("--feature")
+    ap.add_argument("item")
     ap.add_argument("--json", action="store_true")
     a = ap.parse_args(argv)
     try:
-        if a.feature:
-            return 0, bhrules.feature_review(Config(a.config), a.feature)
-        if not a.item:
-            raise HarnessError("give an item or --feature")
         pk = bhcore.work_packet(Config(a.config), a.item)
     except HarnessError as e:
         return 2, {"error": str(e)}

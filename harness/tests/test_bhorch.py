@@ -347,7 +347,7 @@ def test_a_full_run_goes_from_plan_to_packet_to_build_to_merge(toy, fake):
     builds = [r for r in roles if r[0] == "builder"]
     assert builds == [("builder", "json-writer")]  # the others' tests passed at HEAD already
     jw = [r[0] for r in roles if r[1] == "json-writer"]
-    assert jw == ["test_author", "red_run", "builder", "measurer", "merge"]
+    assert jw == ["test_author", "red_run", "builder", "measurer", "review", "merge"]  # design-affecting: the duplication check
     log = git(toy, "log", "--format=%s", "main")
     assert "brick-harness: merge json-writer" in log and "brick-harness: acceptance json-writer" in log
     assert (toy / "tests" / "acceptance" / "test_json_writer.py").is_file()
@@ -446,7 +446,7 @@ def test_job_schemas_are_self_contained_and_check_outputs():
         "gaps": {"gaps": [{"kind": "other", "summary": "s", "tag": "fixable", "evidence": []}]},
         "plan": PLAN_OUT,
         "harvest_find": {"candidates": []},
-        "review": {"findings": [{"summary": "x", "severity": "S2"}]},
+        "review": {"findings": [{"summary": "x -> y", "severity": "S2", "where": "a.py:1"}]},
         "test_author": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
         "regression_row": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
     }
@@ -455,6 +455,7 @@ def test_job_schemas_are_self_contained_and_check_outputs():
         s = bhorch.job_schema(job)
         assert "$ref" not in json.dumps(s) and bhcore.schema_errors(out, s) == [], job
     assert bhcore.schema_errors({"gaps": [{"kind": "nope"}]}, bhorch.job_schema("gaps"))
+    assert bhcore.schema_errors({"findings": [{"summary": "x", "severity": "S2", "where": "a.py:1"}]}, bhorch.job_schema("review"))  # no teaching
 
 
 def test_the_workflow_path_is_gone():

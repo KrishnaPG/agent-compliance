@@ -65,6 +65,7 @@ from typing import Any
 
 import bhcore
 import bhpacket
+import bhreview
 import bhtracker
 from bhcore import Config, HarnessError
 
@@ -821,48 +822,6 @@ class Orchestrator:
             "settled": len(todo),
         }
 
-    # ------------------------------------------------------------ phase: review
-
-    async def phase_review(self, features: list[str]) -> list[dict[str, Any]]:
-        import bhrules
-
-        out = []
-        for f in features:
-            try:
-                fr = bhrules.feature_review(self.cfg, f)
-            except HarnessError as e:
-                out.append({"feature": f, "error": str(e)})
-                continue
-            core = {
-                "task": "review",
-                "feature": fr,
-                "skills": {"method": str(SKILLS["method"])},
-            }
-            j = await self.job(
-                "review",
-                f"review {f}",
-                core,
-                {},
-                f"Review the diff of feature {f}, which became sellable.",
-            )
-            if j.get("dry_run"):
-                out.append({"feature": f, "dry_run": True})
-                continue
-            if not j["ok"]:
-                out.append({"feature": f, "error": j.get("error")})
-                continue
-            found = [{**x, "source": "sellable-review"} for x in j["output"]["findings"]]
-            rec = None
-            if found:
-                try:
-                    bhcore.add_findings(self.cfg, found, write=True)
-                    rec = True
-                except HarnessError as e:
-                    rec = False
-                    self.errors.append(f"review findings of {f} not recorded: {e}")
-            out.append({"feature": f, "findings": len(found), "recorded": rec})
-        return out
-
     # ------------------------------------------------------------ the run
 
     async def run(self, skip: list[str] | None = None) -> dict[str, Any]:
@@ -918,9 +877,7 @@ class Orchestrator:
         halted = self.over_budget(budgets)  # a spent budget starts no further job
         if halted:
             res["stopped"] = "budget" if res["stopped"] in (None, "budget") else res["stopped"]
-            res["not_run_for_budget"] = ["reviews", "harvest"]
-        became = [f for f in s["value"]["sellable_at_head"] if f not in sellable0]
-        res["reviews"] = await self.phase_review(became) if not (self.dry or halted) else []
+            res["not_run_for_budget"] = ["harvest"]
         left = [b["id"] for b in s["bricks"] if b["status"] != "met"]
         reasons = {i: why[i] for i in left if i in why}
         if res["stopped"] == "budget":
@@ -1014,20 +971,31 @@ class Orchestrator:
                 {"kind": "stuck", "item": item, "detail": f"{item} acceptance tests are not red by assertion on main after {rnd} rounds"}
             )
             return "stuck"
-        code, out, err = bhpacket.launch_builder(root, item, self.job_usd("build"))
-        built = (
-            json.loads(out)
-            if code == 0
-            else {"facts": [{"kind": "gap", "item": item, "detail": err.strip()}], "jobs": []}
+        # L4 then L5, in rounds (QBC-51): a measurer miss, or a critical or major review finding of a
+        # met build, goes back to the same builder in its clone with those messages only.
+        feedback: list[str] = []
+        status, base = "unmet", git(root, "rev-parse", "HEAD").stdout.strip()  # the plan commit
+        for rnd in rounds:
+            code, out, err = bhpacket.launch_builder(root, item, self.job_usd("build"), feedback, base)
+            built = (
+                json.loads(out)
+                if code == 0
+                else {"facts": [{"kind": "gap", "item": item, "detail": err.strip()}], "jobs": []}
+            )
+            facts += built["facts"]
+            for b in built["jobs"]:
+                self.spent["cost_usd"] += b.get("cost_usd", 0)
+                self.spent["tokens"] += b.get("tokens", 0)
+            self.records += built["jobs"]
+            if code:
+                return "unmet"
+            status, feedback = await self.measure_packet(root, packet, facts, last=rnd == rounds[-1])
+            if not feedback:
+                return status
+        facts.append(
+            {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds"}
         )
-        facts += built["facts"]
-        for b in built["jobs"]:
-            self.spent["cost_usd"] += b.get("cost_usd", 0)
-            self.spent["tokens"] += b.get("tokens", 0)
-        self.records += built["jobs"]
-        if code:
-            return "unmet"
-        return await self.measure_packet(root, packet, facts)
+        return status
 
     def red_on_main(
         self, packet: dict[str, Any], facts: list[dict[str, Any]]
@@ -1062,27 +1030,40 @@ class Orchestrator:
         return feedback, False
 
     async def measure_packet(
-        self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
-    ) -> str:
+        self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]], last: bool = True
+    ) -> tuple[str, list[str]]:
         """The measurer step for a packet: the builder's commit is fetched into the repository (a ref
         the builder cannot move) and measured by the one measurer, ``bhcore.measure_ref``, against the
-        packet kept in custody. Met: it merges into the default branch (``bhcore.merge_refs``) and the
-        item is re-measured at HEAD, which records it in the scoreboard."""
+        packet kept in custody. Met: the triggered review runs on the item's whole diff and its
+        findings are recorded; then it merges into the default branch (``bhcore.merge_refs``) and the
+        item is re-measured at HEAD, which records it in the scoreboard. Returns the status and the
+        builder's feedback for another round: the missed checks' messages, or the critical and major
+        findings while rounds are left (``last`` is the final round). Findings never change met."""
         item, t0 = packet["id"], datetime.now(UTC)
         clones = sorted(
             (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
         )
         digest = bhpacket.custody_digest(root, item) or ""  # identity comes from custody alone
-        met = False
+        met, missed = False, []
         if clones:
             ref = f"refs/bh/{item}"
             git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
             res = bhcore.measure_ref(self.cfg, ref, orch=root)
             facts += res["facts"]
             met = res["items"][0]["status"] == "met"
+            missed = [f["message"] for f in res["facts"] if f.get("message")]
+            missed += [
+                f"[{a['id']}] the acceptance criterion is unmet -> make its test pass . {bhpacket.SPEC}"
+                for a in res["items"][0].get("acceptance", [])
+                if a["status"] != "met"
+            ]
         self.program_step("measurer", item, t0, digest)
         if not met:
-            return "unmet"
+            return "unmet", ([] if last or not clones else self.shown(missed))
+        sha = git(root, "rev-parse", ref).stdout.strip()
+        found = await self.review_item(packet, digest, sha, facts)
+        if found and not last:
+            return "met", self.shown(found)
         if packet.get("kind") == "defect":
             facts.append(
                 {
@@ -1091,15 +1072,59 @@ class Orchestrator:
                     "detail": f"the packet's rows pass at the builder's result {item}",
                 }
             )
-        sha = git(root, "rev-parse", ref).stdout.strip()
         merged, conflicts = bhcore.merge_refs(self.cfg, root, [{"item": item, "ref": sha}])
         if conflicts:
             facts += [{"kind": "conflict", "item": item, "detail": ", ".join(c["paths"])} for c in conflicts]
-            return "unmet"
+            return "unmet", []
         self.program_step("merge", item, t0, digest)
         await self.measure_all([(item, "HEAD")])
         self.commit("scoreboard")
-        return "met"
+        return "met", []
+
+    def shown(self, lines: list[str]) -> list[str]:
+        """The first ``limits.findings_shown`` messages, then the count of the rest (QBC-55)."""
+        n = bhreview.limits(self.cfg.data)["findings_shown"]
+        return lines[:n] + ([f"... and {len(lines) - n} more"] if len(lines) > n else [])
+
+    async def review_item(
+        self, packet: dict[str, Any], digest: str, sha: str, facts: list[dict[str, Any]]
+    ) -> list[str]:
+        """The triggered review (QBC-36) of a met build, before its merge: the program judges the
+        triggers on the item's whole diff, a fresh reviewer that never built the item (P6) judges
+        the diff for the triggered domains, and its findings are recorded as SARIF facts and in
+        gaps.json. Returns the critical and major findings as the builder's feedback lines."""
+        root, item = self.top, packet["id"]
+        base = git(root, "merge-base", "HEAD", sha).stdout.strip()
+        trig = bhreview.triggers(root, base, sha, packet.get("tier", ""))
+        if not trig:
+            return []
+        core = {
+            "task": "review",
+            "item": item,
+            "packet_sha256": digest,
+            "diff": f"git diff {base} {sha}",
+            "triggers": trig,
+            "owners": packet["constraints"].get("owners", []),
+            "interfaces": packet["constraints"].get("interfaces", []),
+        }
+        j = await self.job(
+            "review",
+            f"{item}:review:{sha[:12]}",
+            core,
+            {},
+            f"Review the whole diff of item {item} for the triggered domains only.",
+            cwd=root,
+        )
+        if not j["ok"]:
+            facts.append({"kind": "gap", "item": item, "detail": f"review of {item} did not finish: {j.get('error')}"})
+            return []
+        chars = bhreview.limits(self.cfg.data)["message_chars"]
+        log = bhreview.sarif(j["output"]["findings"], item, digest, chars)
+        write_atomic(self.out / item / f"review-{sha[:12]}.sarif", json.dumps(log, indent=2) + "\n")
+        if j["output"]["findings"]:
+            bhcore.add_findings(self.cfg, [{**f, "source": "review"} for f in j["output"]["findings"]], write=True)
+            self.commit(f"review {item}")
+        return bhreview.errors(log)
 
     def over_budget(self, budgets: dict[str, Any]) -> bool:
         return bool(

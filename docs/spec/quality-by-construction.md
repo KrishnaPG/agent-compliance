@@ -252,7 +252,7 @@ These are the mechanisms outside the levels table above.
 | H0: no edit without a packet | order | The builder writes its own packet | The packet sits in a protected path (SG-01) |
 | H1 context at start | limit | None: it only informs | none |
 | H2 outside-the-packet note | fact | None: it refuses nothing | none |
-| Measurer retry with missed numbers | fact, limit | Editing tests; endless retries | Protected tests (SG-01); the round limit |
+| Measurer retry with missed numbers, and with the critical or major findings of the triggered review (before the merge) | fact, limit | Editing tests; endless retries; a diff split to dodge the review triggers | Protected tests (SG-01); the round limit; triggers judged on the item's whole diff by the program |
 
 - QBC-58. Each mechanism MUST have the kind and counter listed. A new agent-side mechanism MUST be added to this table with its kind and gaming route.
 - QBC-59. The project's agent rules file SHOULD shrink to judgement: cite a standard; adopted tool first; measure before optimising; search before adding. At L2 these become packet constraints.
