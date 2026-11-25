@@ -270,6 +270,24 @@
           }
         }
       }
+    },
+    "test_author": {
+      "type": "object",
+      "required": [
+        "acceptance"
+      ],
+      "properties": {
+        "acceptance": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/row"
+          }
+        }
+      }
+    },
+    "regression_row": {
+      "$ref": "#/$defs/test_author"
     }
   }
 }

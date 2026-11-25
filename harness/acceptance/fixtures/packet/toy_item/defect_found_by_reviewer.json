@@ -1,0 +1,186 @@
+{
+  "schema_version": "1.0.0",
+  "id": "toy_item",
+  "parent_issue": 1,
+  "tier": "design-affecting",
+  "goal": "Fix the defect that the toy calculator has no subtract function, so callers cannot compute a difference.",
+  "applies": [
+    {
+      "id": "G1",
+      "text": "Code quality is caught before and during writing, not by review loops or CI after the fact."
+    },
+    {
+      "id": "G2",
+      "text": "The same quality rules apply to every author, human or agent, enforced in the build."
+    },
+    {
+      "id": "G3",
+      "text": "Agents are guided by the paved road: the right way is the easy way, and acceptance criteria and rules are handed over upfront."
+    },
+    {
+      "id": "G4",
+      "text": "Work enters in a structured way: decisions first, then slices; nothing free-floating; the backlog is bounded."
+    },
+    {
+      "id": "G5",
+      "text": "Low cost and fast flow: low tokens, low maintenance, no step that slows the whole process."
+    },
+    {
+      "id": "G6",
+      "text": "A self-sustained, reusable plugin that works in any project on day one."
+    },
+    {
+      "id": "P1",
+      "text": "Industry standards and best practices for every choice; no invented processes."
+    },
+    {
+      "id": "P2",
+      "text": "OSS and code reuse before new code. Host first: use what Claude Code, git and GitHub already do."
+    },
+    {
+      "id": "P3",
+      "text": "No agent in the mechanical path. Period. A program runs git, tests, measuring and ordering."
+    },
+    {
+      "id": "P4",
+      "text": "No pass/fail gates on quality. Facts are recorded, limits cap rounds, and only measured targets move work on. Refusals are used only for order."
+    },
+    {
+      "id": "P5",
+      "text": "Every rejection teaches what is wrong, the right way, and how to prevent it, concisely."
+    },
+    {
+      "id": "P6",
+      "text": "Nobody grades themselves."
+    },
+    {
+      "id": "P7",
+      "text": "Paved road over restriction. Keep a restriction only when it is cheap and protects measurement."
+    },
+    {
+      "id": "P8",
+      "text": "No hard-coding. Every limit is a default with an override in a standard place (the plugin's project-local folder)."
+    },
+    {
+      "id": "P9",
+      "text": "Convention over configuration: presets, inference, ask once, and answers stored in standard files."
+    },
+    {
+      "id": "P10",
+      "text": "No excess: build only for a measured need; low cost, clear, extensible."
+    },
+    {
+      "id": "P11",
+      "text": "Rules apply forward: ratchets, no retrofit sweeps, no reopening old decision records."
+    },
+    {
+      "id": "P12",
+      "text": "Don't plan around things we can't control (for example CI, or accounts we can't create)."
+    },
+    {
+      "id": "R3",
+      "text": "Acceptance tests are visible (ATDD) and written by someone other than the builder."
+    },
+    {
+      "id": "R5",
+      "text": "The packet is written only by the orchestrator or planner, and arrives at session start."
+    },
+    {
+      "id": "QBC-24",
+      "text": "A builder MUST be launched only with an approved work packet as input. That launch order is what puts design before code."
+    }
+  ],
+  "constraints": {
+    "decisions": [
+      {
+        "id": "D-1",
+        "text": "The calculator functions are pure and take two numbers."
+      }
+    ],
+    "owners": [
+      "toy"
+    ],
+    "interfaces": [
+      "toy.calc"
+    ],
+    "declared_paths": [
+      "src/**",
+      "tests/**"
+    ],
+    "limits": {
+      "packet_tokens": 1600
+    }
+  },
+  "acceptance": [
+    {
+      "id": "toy_item-AC1",
+      "scenario": "subtract returns the difference of its two arguments",
+      "given": [
+        {
+          "repo": {
+            "name": "toy",
+            "state": "base"
+          }
+        }
+      ],
+      "when": {
+        "entry_point": {
+          "entry": "project_test"
+        }
+      },
+      "then": [
+        {
+          "exit_code": {
+            "code": 0
+          }
+        }
+      ],
+      "traces_to": [
+        "G1",
+        "G2",
+        "G3",
+        "G4",
+        "G5",
+        "G6",
+        "P1",
+        "P2",
+        "P3",
+        "P4",
+        "P5",
+        "P6",
+        "P7",
+        "P8",
+        "P9",
+        "P10",
+        "P11",
+        "P12",
+        "R3",
+        "R5",
+        "QBC-24"
+      ],
+      "verification": "test"
+    }
+  ],
+  "verifier": {
+    "checks": [
+      "pytest tests/acceptance"
+    ],
+    "rules": [],
+    "baselines": [],
+    "targets": [],
+    "acceptance_paths": [
+      "tests/acceptance/**"
+    ]
+  },
+  "paved_road": {
+    "test_paths": [
+      "tests/**"
+    ],
+    "dependency_command": "uv add",
+    "check_command": "bh check"
+  },
+  "definition_of_done": "Every acceptance item is met by the measurer.",
+  "kind": "defect",
+  "parent": 1,
+  "found_by": "reviewer"
+}

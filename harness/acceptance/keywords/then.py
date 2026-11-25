@@ -591,7 +591,7 @@ def then_schema_valid(ctx, valid, error_path=None, instance=None, schema=None):
     if instance is not None:
         names = {"result_json", "sarif", "manifest", "packet", "job_record", "config_effective", "register"}
         inst = source(ctx, instance) if instance in names else load_instance(ctx, instance)
-        errs = run_validation(inst, load_schema(ctx, schema))
+        errs = run_validation(inst, load_schema(ctx, schema), ctx)
     else:
         errs = last(ctx).extra["errors"]
     need((not errs) == valid, f"validation {'failed' if errs else 'passed'}: {errs[0]['message'] if errs else ''}", f"make the instance {'valid' if valid else 'invalid'}")

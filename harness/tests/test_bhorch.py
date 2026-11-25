@@ -143,7 +143,7 @@ def test_a_job_is_the_host_cli_with_schema_agent_tools_and_budget(toy, fake, mon
 def test_every_agent_file_allows_the_structured_output_tool():
     # a tools allowlist without it hides the tool: --json-schema is then silently ignored
     files = sorted(bhorch.AGENTS_DIR.glob("harness-*.md"))
-    assert len(files) == 5
+    assert len(files) == 6
     for f in files:
         assert "StructuredOutput" in bhorch.agent_def(f.stem)["tools"], f.name
 
@@ -434,7 +434,7 @@ def test_every_job_has_an_agent_file_with_model_tools_and_a_section():
         assert d["name"] == agent and d["model"] and d["tools"], agent
         body = (bhorch.AGENTS_DIR / f"{agent}.md").read_text()
         assert f"## Job: {job.replace('_', ' ')}" in body, (agent, job)
-        assert phase in ("gaps", "plan", "build", "harvest", "review")
+        assert phase in ("gaps", "plan", "build", "harvest", "review", "test_author")
     assert bhorch.agent_def("harness-reviewer")["tools"] == [
         "Read",
         "Grep",
@@ -448,6 +448,17 @@ def test_every_job_has_an_agent_file_with_model_tools_and_a_section():
         assert body.index("## Rules (all jobs)") < body.index("## Job:")
 
 
+ROW = {
+    "id": "a-AC1",
+    "scenario": "s",
+    "given": [{"repo": {"name": "toy", "state": "base"}}],
+    "when": {"entry_point": {"entry": "project_test"}},
+    "then": [{"exit_code": {"code": 0}}],
+    "traces_to": ["R3"],
+    "verification": "test",
+}
+
+
 def test_job_schemas_are_self_contained_and_check_outputs():
     ok = {
         "gaps": {"gaps": [{"kind": "other", "summary": "s", "tag": "fixable", "evidence": []}]},
@@ -456,6 +467,8 @@ def test_job_schemas_are_self_contained_and_check_outputs():
         "harvest_find": {"candidates": []},
         "harvest_apply": {"ref": "b" * 40},
         "review": {"findings": [{"summary": "x", "severity": "S2"}]},
+        "test_author": {"acceptance": [ROW]},
+        "regression_row": {"acceptance": [ROW]},
     }
     assert set(ok) == set(bhorch.JOBS)
     for job, out in ok.items():

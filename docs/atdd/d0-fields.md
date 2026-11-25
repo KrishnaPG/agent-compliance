@@ -11,6 +11,9 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `schema_version` | string | version of the packet schema the file follows | d0-AC17 |
 | `id` | string | the item id; names the packet | b9-AC13, d0-AC2 |
 | `parent_issue` | integer | tracker issue number of the item's parent | d0-AC2 |
+| `kind` | enum: slice, defect | slice, or defect for a fix of a recorded defect (a sub-issue under parent) | - |
+| `parent` | integer | defect packets only: the GitHub issue number of the slice or decision the defect sits under (intake I2) | - |
+| `found_by` | enum: planner, judge, proposer, test_author, builder, reviewer, person | defect packets only: who found the defect, a jobs[*].role or person; the regression row is written by that agent when it is not the builder, otherwise by the test_author job | - |
 | `tier` | enum: mechanical, design-affecting | the tier derived from declared paths and the diff (d5) | d0-AC3, d5-AC7 |
 | `goal` | string | the intent and why, with no design | d0-AC3, d1-AC2, d4-AC2, e4-AC1 |
 | `applies[*].id` | string | a G, P, R or QBC id from spec section 0; every principle is always included | d0-AC4, d0-AC15 |
@@ -150,6 +153,9 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 
 Each line is a d0 field that no acceptance criterion tests, or a config key with no stated default.
 
+- packet `kind` (enum: slice, defect) is a d0 field that no acceptance criterion reads yet.
+- packet `parent` (integer) is a d0 field that no acceptance criterion reads yet.
+- packet `found_by` (enum: planner, judge, proposer, test_author, builder, reviewer, person) is a d0 field that no acceptance criterion reads yet.
 - result `step` (string) is a d0 field that no acceptance criterion reads yet.
 - result `checks_run[*]` (string) is a d0 field that no acceptance criterion reads yet.
 - result `checks_missed[*]` (string) is a d0 field that no acceptance criterion reads yet.

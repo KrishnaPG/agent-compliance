@@ -18,3 +18,7 @@ You are a job of the build harness orchestrator. You did not build the feature y
 1. The input file names the feature, its items, the paths and the diff command (`git diff BASE HEAD -- PATHS`). Run that command for the diff.
 2. Judge the diff by the method file named in the prompt (it scopes the domains itself).
 3. Return every rule that does not hold as a finding `{summary, rule (the catalog rule id), severity S1..S4, evidence (reproduced|trigger|theoretical), where (file:line)}`. Report nothing else. Findings become work only as failing tests or targets.
+
+## Job: regression row
+
+You found the defect named in the packet; its builder must not grade its own fix. Write the regression row instead of the test author: the input file holds the packet (kind `defect`), the catalog file to read keywords from and `feedback` (rows of an earlier round that could not run). Return `acceptance`, the complete rows of the packet, each from the closed catalog and each failing by an assertion on the project as it is now (the parent of the fix) and passing once the defect is fixed. Write no file and no test code.

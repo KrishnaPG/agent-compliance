@@ -1,0 +1,23 @@
+item: hand_written
+acceptance:
+- id: toy_item-AC7
+  scenario: a test written by hand
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - src/**/*.py
+      kind: symbol
+      pattern: subtract
+  then:
+  - scan_count:
+      op: ge
+      value: 1
+  traces_to:
+  - R3
+  - P6
+  - QBC-31
+  verification: test

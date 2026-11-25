@@ -323,7 +323,6 @@ None.
 - d6-AC5: the manifest's own path is not named, so only the acceptance test paths are asserted
 - d6-AC6: the plan states no refusal text for an edit of a protected test; substrings are best guesses
 - d6-AC7: which keyword the planted row uses is a fixture choice; questions_asked is assumed
-- d6-AC11: how the finder's row reaches the packet is not stated; the row asserts the recorded regression fact and distinct finder and builder jobs
 - d6-AC13: the bootstrap's manifest location is not named; the row checks the manifest holds a criterion of slice a
 - d6-AC14: no message text is given; substrings follow the enforcement paragraph's wording
 - d6-AC15: no message text is given; substrings follow the enforcement paragraph's wording

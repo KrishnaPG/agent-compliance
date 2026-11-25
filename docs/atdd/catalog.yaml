@@ -196,7 +196,8 @@ given:
           scenario_without_traces_to: "a packet with a scenario that has no traces_to"
           scenario_without_verification: "a packet with a scenario that has no verification"
           over_cap: "a packet with content longer than its size cap"
-          defect: "a packet for a defect item (a bug fix)"
+          defect: "a packet for a defect item (kind defect, found_by person, so the test author writes its regression row)"
+          defect_found_by_reviewer: "a defect packet whose found_by is reviewer, so the reviewer writes its regression row"
           config_change: "a packet that declares a config change"
     passes_when: Fixture setup; the packet file exists where the program reads packets.
 

@@ -24,7 +24,8 @@ PACKETS_DIR = ".brick-harness/packets"
 RUN_REPORT = ".brick-harness/run-report.txt"
 RESULT_VERSION = "1.0.0"
 SPEC = "docs/spec/packet-standards.md"
-STEPS = ("assemble_packet", "validate_packet", "render_packet", "launch_builder")
+CRITERIA_SCHEMA = Path(__file__).resolve().parents[2] / "docs" / "atdd" / "criteria.schema.json"
+STEPS = ("assemble_packet", "validate_packet", "render_packet", "launch_builder", "generate_tests")
 CUSTODY_DIR = (
     ".brick-harness/custody"  # the authoritative packets, one file per digest, outside every clone
 )
@@ -40,9 +41,13 @@ LAUNCH_PROMPT = (
 def validate_packet(packet: Any) -> list[Any]:
     """The jsonschema errors of ``packet`` against the packet schema, in path order."""
     from jsonschema import Draft202012Validator
+    from referencing import Registry, Resource
 
+    # acceptance[*] is the plugin's one row definition (docs/atdd/criteria.schema.json $defs/row)
+    criteria = json.loads((CRITERIA_SCHEMA).read_text())
+    registry = Registry().with_resource(criteria["$id"], Resource.from_contents(criteria))
     return sorted(
-        Draft202012Validator(load_schema("packet")).iter_errors(packet),
+        Draft202012Validator(load_schema("packet"), registry=registry).iter_errors(packet),
         key=lambda e: [str(p) for p in e.absolute_path],
     )
 
@@ -326,10 +331,52 @@ def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
     return 0, result_json("launch_builder", raw, facts, jobs=[job]), ""
 
 
+def program_job(
+    step_name: str, item: str, started: datetime, digest: str, exit_code: int = 0
+) -> dict[str, Any]:
+    """The ``jobs[*]`` entry of a program step: no agent, no tokens, no cost."""
+    return {
+        "id": f"{item}-{step_name}-{digest[:12]}",
+        "kind": "program_step",
+        "step": step_name,
+        "item": item,
+        "started_at": started.isoformat(timespec="seconds"),
+        "ended_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "exit_code": exit_code,
+        "cost_usd": 0.0,
+        "tokens": 0,
+        "packet_sha256": digest,
+    }
+
+
+def generate_tests(root: Path, item: str) -> tuple[int, str, str]:
+    """The generator, a program step with no agent: the packet's rows become the item's collected tests."""
+    import bhtests
+    from bhorch import write_atomic
+
+    started = datetime.now(UTC)
+    packet, raw, facts, err = assemble(root, item)
+    if err:
+        return 1, "", err
+    more, _ = bhtests.generate(root, packet)
+    facts = [*facts, *more]
+    write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
+    digest = hashlib.sha256(raw).hexdigest()
+    return (
+        0,
+        result_json(
+            "generate_tests", raw, facts, jobs=[program_job("generator", item, started, digest)]
+        ),
+        "",
+    )
+
+
 def step(name: str, root: Path, item: str) -> tuple[int, str, str]:
     """Run one program step; return (exit code, stdout, stderr)."""
     if name == "launch_builder":
         return launch_builder(root, item)
+    if name == "generate_tests":
+        return generate_tests(root, item)
     if name == "assemble_packet":
         packet, raw, facts, err = assemble(root, item)
     else:

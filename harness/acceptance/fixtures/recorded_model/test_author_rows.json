@@ -1,0 +1,16 @@
+{
+  "replies": [
+    {
+      "stdout": "{\"type\": \"result\", \"subtype\": \"success\", \"is_error\": false, \"result\": \"\", \"structured_output\": {\"acceptance\": [{\"id\": \"toy_item-AC1\", \"scenario\": \"the toy calculator exposes a subtract function\", \"given\": [{\"repo\": {\"name\": \"plugin\", \"state\": \"candidate\"}}], \"when\": {\"scan\": {\"paths\": [\"src/**/*.py\"], \"kind\": \"symbol\", \"pattern\": \"subtract\"}}, \"then\": [{\"scan_count\": {\"op\": \"ge\", \"value\": 1}}], \"traces_to\": [\"R3\", \"P6\", \"QBC-31\"], \"verification\": \"test\"}, {\"id\": \"toy_item-AC2\", \"scenario\": \"the toy registers its protected paths in the safeguard register\", \"given\": [{\"repo\": {\"name\": \"plugin\", \"state\": \"candidate\"}}], \"when\": {\"scan\": {\"paths\": [\"src/**/*.py\"], \"kind\": \"path\"}}, \"then\": [{\"field\": {\"source\": \"register\", \"path\": \"paths\", \"op\": \"present\"}}], \"traces_to\": [\"R3\", \"P6\", \"QBC-31\"], \"verification\": \"test\"}]}, \"total_cost_usd\": 0.01, \"usage\": {\"input_tokens\": 120, \"output_tokens\": 30}, \"duration_ms\": 3, \"num_turns\": 1}",
+      "exit": 0
+    },
+    {
+      "stdout": "{\"type\": \"result\", \"subtype\": \"success\", \"is_error\": false, \"result\": \"\", \"structured_output\": {\"acceptance\": [{\"id\": \"toy_item-AC1\", \"scenario\": \"the toy calculator exposes a subtract function\", \"given\": [{\"repo\": {\"name\": \"plugin\", \"state\": \"candidate\"}}], \"when\": {\"scan\": {\"paths\": [\"src/**/*.py\"], \"kind\": \"symbol\", \"pattern\": \"subtract\"}}, \"then\": [{\"scan_count\": {\"op\": \"ge\", \"value\": 1}}], \"traces_to\": [\"R3\", \"P6\", \"QBC-31\"], \"verification\": \"test\"}]}, \"total_cost_usd\": 0.01, \"usage\": {\"input_tokens\": 120, \"output_tokens\": 30}, \"duration_ms\": 3, \"num_turns\": 1}",
+      "exit": 0
+    },
+    {
+      "stdout": "{\"type\": \"result\", \"subtype\": \"success\", \"is_error\": false, \"result\": \"Added subtract.\", \"total_cost_usd\": 0.01, \"usage\": {\"input_tokens\": 120, \"output_tokens\": 30}}",
+      "exit": 0
+    }
+  ]
+}

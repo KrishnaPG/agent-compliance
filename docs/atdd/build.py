@@ -376,25 +376,32 @@ def step_schema(section: dict, catalog: dict, title: str) -> dict:
 
 
 def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> dict:
+    # One definition of an acceptance row, shared by the work packet (acceptance[*]) and the plugin's own
+    # criteria files. A criteria-file row is this row plus the plan's required fields (criteria_row).
     row = {
         "type": "object",
         "additionalProperties": False,
-        "required": ["id", "scenario", "given", "when", "then", "traces_to", "verification", "deterministic"],
-        "anyOf": [{"required": ["covers"]}, {"required": ["spec_ref"]}],
+        "required": ["id", "scenario", "given", "when", "then", "traces_to", "verification"],
         "properties": {
-            "id": {"type": "string", "pattern": r"^[a-h]\d+-AC\d+$"},
+            "id": {"type": "string", "pattern": r"^[A-Za-z0-9._-]+-AC\d+$"},
             "scenario": {"type": "string", "minLength": 1, "maxLength": 160},
-            "covers": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"type": "integer", "minimum": 0}},
             "given": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/given"}},
             "when": {"$ref": "#/$defs/when"},
             "then": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/then"}},
             "traces_to": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": trace_ids}},
             "verification": {"enum": sorted(catalog["verification"])},
             "deterministic": {"type": "boolean"},
+            "covers": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"type": "integer", "minimum": 0}},
             "spec_ref": {"type": "array", "minItems": 1, "uniqueItems": True, "items": {"enum": sorted(refs)}},
             "plan_gap": {"type": "string", "minLength": 1},
             "red_on_main": {"type": "string", "minLength": 1},
         },
+    }
+    criteria_row = {
+        "allOf": [{"$ref": "#/$defs/row"}],
+        "required": ["deterministic"],
+        "anyOf": [{"required": ["covers"]}, {"required": ["spec_ref"]}],
+        "properties": {"id": {"pattern": r"^[a-h]\d+-AC\d+$"}},
         "if": {"properties": {"id": {"pattern": "^h"}}},
         "else": {"properties": {"deterministic": {"const": True}}},
     }
@@ -407,10 +414,11 @@ def build_schema(catalog: dict, trace_ids: list[str], refs: dict[str, str]) -> d
         "required": ["slice", "acceptance"],
         "properties": {
             "slice": {"enum": list(SLICES)},
-            "acceptance": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/row"}},
+            "acceptance": {"type": "array", "minItems": 1, "items": {"$ref": "#/$defs/criteria_row"}},
         },
         "$defs": {
             "row": row,
+            "criteria_row": criteria_row,
             "given": step_schema(catalog["given"], catalog, "given"),
             "when": step_schema(catalog["when"], catalog, "when"),
             "then": step_schema(catalog["then"], catalog, "then"),

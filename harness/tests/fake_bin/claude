@@ -43,7 +43,8 @@ def agent_not_found():
     defined = {}
     if "--agents" in argv and not spec.get("hide_agents_bare"):
         raw = argv[argv.index("--agents") + 1]
-        defined = json.loads(Path(raw).read_text() if Path(raw).is_file() else raw)
+        # JSON or a file name, told apart by its text: a stat of a long JSON string raises ENAMETOOLONG on Python 3.12/3.13
+        defined = json.loads(raw if raw.lstrip().startswith("{") else Path(raw).read_text())
     if raw_agent is not None and raw_agent not in defined:
         print(
             f"Error: --agent '{raw_agent}' not found. Available agents: "

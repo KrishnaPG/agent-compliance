@@ -575,10 +575,10 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
   - Files: new `agents/harness-test-author.md`, new test generator under `harness/lib/`, `harness/lib/bhorch.py`.
   - Done when, with recorded fixtures:
     - the program launches the test author before the builder, as another job; it writes acceptance rows from the closed catalogs of `docs/atdd/catalog.yaml` into the packet's `acceptance`, valid against the acceptance criteria schema, and writes no test code;
-    - the generator, a program with no agent, turns each row into exactly one test in the project's framework, marked with its acceptance id, plus a manifest from acceptance id to test node id, and both are committed in protected paths in the plan commit;
-    - a row whose keyword the generator does not implement is a fact with teaching naming the keyword, never a skipped or empty test;
+    - the generator (`bh step generate_tests`), a program with no agent and no generated code, copies each row to `<acceptance path>/criteria/<item>.yaml`, where pytest's row plugin collects it as exactly one test marked with its acceptance id, and writes a manifest from acceptance id to the node id that `pytest --collect-only` reports; both are committed in protected paths in the plan commit;
+    - a row whose keyword the generator does not implement (not in the keyword library, or whose `after` the row's `when` does not satisfy) is a fact with teaching naming the keyword, never a skipped or empty test; a committed row with no packet criterion, or a packet criterion with no committed row, is a fact with teaching;
     - every generated test is red on main: a test that fails by an assertion is recorded red, one that errors is recorded red-by-error and its row goes back to the test author;
-    - for a defect, the regression row is written by the test author, or by the finder when the finder is not the builder, and "fails at the parent, passes at the fix" is recorded;
+    - a defect packet carries `kind` `defect`, `parent` (the GitHub issue number of the slice or decision it sits under) and `found_by` (a `jobs[*].role`, or `person`); its regression row is written by the `found_by` agent when that agent is not the builder, and otherwise by the `test_author` job; "fails at the parent" is recorded when the row is red on main, and "passes at the fix" only when the measurer observes it green at the builder's result;
     - `jobs[*]` shows test author, generator (a `program_step`), builder and measurer (a `program_step`), in that order;
     - the generator's bootstrap, which generates the plugin's own v2 acceptance tests from `docs/atdd/criteria/`, is accepted by the plugin's plain pytest entry point, as b1 is.
   - Size: L.

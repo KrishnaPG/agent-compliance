@@ -803,7 +803,7 @@ acceptance:
     plan_gap: "\"writes no test code\" has no observable output named in the plan; it is proven only by the generator rows that produce every test"
 
   - id: d6-AC2
-    scenario: The acceptance rows the test author wrote are valid against the criteria schema
+    scenario: The acceptance rows the test author wrote are valid against the one row definition the packet schema references
     covers: [1]
     given:
       - repo: {name: toy, state: base}
@@ -812,7 +812,7 @@ acceptance:
     when:
       bh: {sub: run}
     then:
-      - schema_valid: {valid: true, instance: packet, schema: docs/atdd/criteria.schema.json}
+      - schema_valid: {valid: true, instance: packet, schema: harness/schema/packet.schema.json}
     traces_to: [R3, P3, QBC-31]
     verification: test
     deterministic: true
@@ -955,21 +955,21 @@ acceptance:
     deterministic: true
 
   - id: d6-AC11
-    scenario: For a defect found by a finder who is not the builder, the finder's regression row is used
+    scenario: For a defect found by an agent that is not the builder, that agent writes the regression row
     covers: [5]
     given:
       - repo: {name: toy, state: base}
-      - packet: {fixture: toy_item, variant: defect}
+      - packet: {fixture: toy_item, variant: defect_found_by_reviewer}
       - recorded_model: {fixture: finder_regression_row}
     when:
       bh: {sub: run}
     then:
       - fact: {kind: regression_recorded, detail: parent}
-      - jobs: {assert: distinct, values: [finder, builder]}
+      - jobs: {assert: order, values: [reviewer, generator, builder]}
+      - jobs: {assert: distinct, values: [reviewer, builder]}
     traces_to: [R3, R9, QBC-31]
     verification: test
     deterministic: true
-    plan_gap: "how the finder's row reaches the packet is not stated; the row asserts the recorded regression fact and distinct finder and builder jobs"
 
   - id: d6-AC12
     scenario: The job record shows test author, generator, builder and measurer in order, the generator not an agent

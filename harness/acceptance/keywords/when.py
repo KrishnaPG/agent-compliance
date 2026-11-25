@@ -435,16 +435,26 @@ def load_instance(ctx, name: str):
     missing(f"the instance file {name} does not exist", "produce the file before it is validated")
 
 
-def run_validation(instance, schema):
+def run_validation(instance, schema, ctx=None):
     from jsonschema import Draft202012Validator
+    from referencing import Registry, Resource
 
-    errs = sorted(Draft202012Validator(schema).iter_errors(instance), key=lambda e: list(map(str, e.absolute_path)))
+    # a schema may $ref the tree's other schemas by their $id (the packet schema reuses the criteria row)
+    reg = Registry()
+    tree = ctx.tree if ctx is not None else None
+    for f in ([tree / "docs/atdd/criteria.schema.json", *sorted((tree / "harness/schema").glob("*.json"))] if tree else []):
+        if not f.is_file():
+            continue
+        doc = json.loads(f.read_text())
+        if "$id" in doc:
+            reg = reg.with_resource(doc["$id"], Resource.from_contents(doc))
+    errs = sorted(Draft202012Validator(schema, registry=reg).iter_errors(instance), key=lambda e: list(map(str, e.absolute_path)))
     return [{"path": "$" + "".join(f"[{p!r}]" if isinstance(p, str) else f"[{p}]" for p in e.absolute_path), "dotted": ".".join(map(str, e.absolute_path)), "message": e.message} for e in errs]
 
 
 def when_validate(ctx, instance, schema):
     inst, sch = load_instance(ctx, instance), load_schema(ctx, schema)
-    errs = run_validation(inst, sch)
+    errs = run_validation(inst, sch, ctx)
     run = Run(["validate", instance, schema], 0 if not errs else 1, json.dumps(errs), "", 0.0, "validate")
     run.runs = [run]
     run.extra.update(valid=not errs, errors=errs, instance_obj=inst, primary="\n".join(f"{e['path']}: {e['message']}" for e in errs))

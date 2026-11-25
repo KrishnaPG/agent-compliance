@@ -25,7 +25,7 @@
       "type": "array",
       "minItems": 1,
       "items": {
-        "$ref": "#/$defs/row"
+        "$ref": "#/$defs/criteria_row"
       }
     }
   },
@@ -40,39 +40,17 @@
         "when",
         "then",
         "traces_to",
-        "verification",
-        "deterministic"
-      ],
-      "anyOf": [
-        {
-          "required": [
-            "covers"
-          ]
-        },
-        {
-          "required": [
-            "spec_ref"
-          ]
-        }
+        "verification"
       ],
       "properties": {
         "id": {
           "type": "string",
-          "pattern": "^[a-h]\\d+-AC\\d+$"
+          "pattern": "^[A-Za-z0-9._-]+-AC\\d+$"
         },
         "scenario": {
           "type": "string",
           "minLength": 1,
           "maxLength": 160
-        },
-        "covers": {
-          "type": "array",
-          "minItems": 1,
-          "uniqueItems": true,
-          "items": {
-            "type": "integer",
-            "minimum": 0
-          }
         },
         "given": {
           "type": "array",
@@ -240,6 +218,15 @@
         "deterministic": {
           "type": "boolean"
         },
+        "covers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
         "spec_ref": {
           "type": "array",
           "minItems": 1,
@@ -303,6 +290,33 @@
         "red_on_main": {
           "type": "string",
           "minLength": 1
+        }
+      }
+    },
+    "criteria_row": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/row"
+        }
+      ],
+      "required": [
+        "deterministic"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "covers"
+          ]
+        },
+        {
+          "required": [
+            "spec_ref"
+          ]
+        }
+      ],
+      "properties": {
+        "id": {
+          "pattern": "^[a-h]\\d+-AC\\d+$"
         }
       },
       "if": {
@@ -510,6 +524,7 @@
                 "scenario_without_verification",
                 "over_cap",
                 "defect",
+                "defect_found_by_reviewer",
                 "config_change"
               ]
             }

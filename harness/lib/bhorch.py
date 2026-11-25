@@ -59,6 +59,7 @@ import shutil
 import subprocess
 import sys
 import time
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -81,6 +82,18 @@ JOBS: dict[str, tuple[str, str]] = {  # job -> (agent, config phase for model/ef
     "harvest_find": ("harness-harvester", "harvest"),
     "harvest_apply": ("harness-builder", "harvest"),
     "review": ("harness-reviewer", "review"),
+    "test_author": ("harness-test-author", "test_author"),
+    "regression_row": (
+        "harness-reviewer",
+        "test_author",
+    ),  # a defect the reviewer found: the reviewer writes its row
+}
+ROLE = {  # job -> jobs[*].role
+    "plan": "planner",
+    "build": "builder",
+    "review": "reviewer",
+    "test_author": "test_author",
+    "regression_row": "reviewer",
 }
 READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)"]
 REMEASURE = ("unmeasured", "stale", "conflict", "met-uncommitted")  # no current measurement
@@ -143,7 +156,12 @@ def job_schema(job: str) -> dict[str, Any]:
     """The output schema of a job: ``$defs/<job>`` of jobs.schema.json with every ``$ref`` inlined
     (the CLI gets one self-contained schema) and the finding schema merged in."""
     doc = json.loads((bhcore.SCHEMA_DIR / "jobs.schema.json").read_text())
-    defs = {**doc["$defs"], "finding": bhcore.load_schema("finding")["$defs"]["finding"]}
+    rows = json.loads((PLUGIN_ROOT / "docs" / "atdd" / "criteria.schema.json").read_text())["$defs"]
+    defs = {
+        **doc["$defs"],
+        "finding": bhcore.load_schema("finding")["$defs"]["finding"],
+        **{k: rows[k] for k in ("row", "given", "when", "then")},  # the one row definition
+    }
 
     def inline(n: Any) -> Any:
         if isinstance(n, dict):
@@ -418,6 +436,8 @@ class Orchestrator:
         key = job_key(job, core)
         done = self.jobs_dir / f"{key}.json"
         rec: dict[str, Any] = {"job": job, "label": label, "agent": agent, "key": key}
+        if job in ROLE:
+            rec.update(kind="agent", role=ROLE[job], item=label.partition(":")[0])
         if done.exists():  # a restart: the job finished before
             saved = json.loads(done.read_text())
             self.records.append({**saved["record"], "skipped": True})
@@ -436,12 +456,14 @@ class Orchestrator:
         timeout = float(
             self.cfg.data.get("budgets", {}).get("job_timeout_s", DEFAULT_JOB_TIMEOUT_S)
         )
+        rec["started_at"] = datetime.now(UTC).isoformat(timespec="seconds")
         if locked:
             res = await self._run_cli(job, schema, prompt, cwd or self.cfg.dir, timeout)
         else:
             async with self.sem:
                 res = await self._run_cli(job, schema, prompt, cwd or self.cfg.dir, timeout)
         rec.update(res["record"])
+        rec["ended_at"] = datetime.now(UTC).isoformat(timespec="seconds")
         self.records.append(rec)
         if res["ok"]:
             write_atomic(
@@ -1140,6 +1162,145 @@ class Orchestrator:
             self.tracker("reconcile")
         return self.finish(res, cyc, sellable0)
 
+    # ------------------------------------------------------------ packets: the test author goes first (d6)
+
+    async def run_packets(self, items: list[str]) -> dict[str, Any]:
+        """The packet flow of one run: for each item the test author (or, for a defect found by an agent
+        other than the builder, that agent) writes the acceptance rows, the generator turns them into the
+        collected tests, the red run on main is recorded, then the builder and the measurer run. A row that
+        errors goes back to the author; the rounds are capped by ``max_rounds``."""
+        facts: list[dict[str, Any]] = []
+        status: dict[str, str] = {}
+        for item in items:
+            status[item] = await self.packet_flow(item, facts)
+        write_atomic(
+            self.top / bhpacket.RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts)
+        )
+        return {
+            "schema_version": bhpacket.RESULT_VERSION,
+            "command": "run",
+            "facts": facts,
+            "items": [{"id": i, "status": st} for i, st in status.items()],
+            "jobs": self.job_table(),
+            "errors": self.errors,
+        }
+
+    def program_step(
+        self, name: str, item: str, started: datetime, digest: str, code: int = 0
+    ) -> None:
+        self.records.append(bhpacket.program_job(name, item, started, digest, code))
+
+    async def packet_flow(self, item: str, facts: list[dict[str, Any]]) -> str:
+        import bhtests
+
+        root = self.top
+        packet, raw = bhpacket.load_packet(root, item)
+        defect = packet.get("kind") == "defect"
+        job = "regression_row" if defect and packet.get("found_by") == "reviewer" else "test_author"
+        feedback: list[dict[str, str]] = []
+        for rnd in range(1, int(self.cfg.data.get("max_rounds", 3)) + 1):
+            core = {
+                "task": job,
+                "item": item,
+                "packet": packet,
+                "feedback": feedback,
+                "catalog": str(PLUGIN_ROOT / "docs" / "atdd" / "catalog.yaml"),
+            }
+            j = await self.job(
+                job,
+                f"{item}:{rnd}",
+                core,
+                {},
+                f"Write the acceptance rows of packet {item}.",
+                cwd=root,
+            )
+            if not j["ok"]:
+                return "unmet"
+            packet = {**packet, "acceptance": j["output"]["acceptance"]}
+            errs = bhpacket.validate_packet(packet)
+            if (
+                errs
+            ):  # the rows are outside the closed catalog: back to the author with the teaching
+                facts += [
+                    {"kind": "gap", "item": item, "detail": bhpacket.teaching(e)} for e in errs[:5]
+                ]
+                feedback = [{"id": item, "error": bhpacket.teaching(e)} for e in errs[:5]]
+                packet = bhpacket.load_packet(root, item)[0]
+                continue
+            write_atomic(bhpacket.packet_path(root, item), json.dumps(packet, indent=2) + "\n")
+            t0 = datetime.now(UTC)
+            code, out, err = bhpacket.generate_tests(root, item)
+            res = (
+                json.loads(out)
+                if code == 0
+                else {"facts": [{"kind": "gap", "item": item, "detail": err.strip()}]}
+            )
+            facts += res["facts"]
+            digest = res.get("packet_sha256", "")
+            self.program_step("generator", item, t0, digest, code)
+            if code:
+                return "unmet"
+            red = bhtests.red_facts(
+                packet,
+                bhtests.run_rows(root, packet),
+                git(root, "rev-parse", "HEAD").stdout.strip(),
+            )
+            facts += red
+            errored = [f for f in red if f["kind"] == "red_by_error"]
+            if not errored:
+                break
+            feedback = [{"id": f["detail"].split()[0], "error": f["detail"]} for f in errored]
+        else:
+            facts.append(
+                {
+                    "kind": "stuck",
+                    "item": item,
+                    "detail": f"{item} rows still error on main after {rnd} rounds",
+                }
+            )
+            return "stuck"
+        t0 = datetime.now(UTC)
+        code, out, err = bhpacket.launch_builder(root, item)
+        built = (
+            json.loads(out)
+            if code == 0
+            else {"facts": [{"kind": "gap", "item": item, "detail": err.strip()}], "jobs": []}
+        )
+        facts += built["facts"]
+        self.records += built["jobs"]
+        if code:
+            return "unmet"
+        return self.measure_packet(root, packet, facts)
+
+    def measure_packet(
+        self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
+    ) -> str:
+        """The measurer step for a packet: its rows run on the builder's clone; met only when every row is green.
+        (The full measurer, b1, replaces the body; the step and its record stay.)"""
+        import bhtests
+
+        item, t0 = packet["id"], datetime.now(UTC)
+        clones = sorted(
+            (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
+        )
+        out = bhtests.run_rows(clones[-1], packet) if clones else {}
+        met = bool(out) and all(o["outcome"] == "green" for o in out.values())
+        if met and packet.get("kind") == "defect":
+            facts.append(
+                {
+                    "kind": "regression_recorded",
+                    "item": item,
+                    "detail": f"fix: {', '.join(out)} pass at the builder's result",
+                }
+            )
+        self.program_step(
+            "measurer",
+            item,
+            t0,
+            bhpacket.hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest(),
+        )
+        return "met" if met else "unmet"
+
     def over_budget(self, budgets: dict[str, Any]) -> bool:
         return bool(
             (budgets.get("run_tokens") and self.spent["tokens"] >= budgets["run_tokens"])
@@ -1164,6 +1325,15 @@ class Orchestrator:
             "fallback_reason",
             "error",
             "dry_run",
+            "kind",
+            "role",
+            "step",
+            "item",
+            "started_at",
+            "ended_at",
+            "exit_code",
+            "packet_sha256",
+            "id",
         )
         rows = [{k: r[k] for k in keep if k in r} for r in self.records]
         for row in rows:  # a skipped job spent nothing in this run (as the totals say)
@@ -1394,7 +1564,11 @@ def main(argv: list[str] | None = None) -> int:
             print(json.dumps(res))
             return 0 if all(i["status"] == "met" for i in res["items"]) else 1
         orch = Orchestrator(cfg, a.dry_run)
-        result = asyncio.run(dispatch(orch, a.cmd, a))
+        packets = sorted(p.stem for p in (orch.top / bhpacket.PACKETS_DIR).glob("*.json"))
+        if a.cmd == "run" and packets:  # the packet flow: the test author goes first
+            result = asyncio.run(orch.run_packets(packets))
+        else:
+            result = asyncio.run(dispatch(orch, a.cmd, a))
     except HarnessError as e:
         print(json.dumps({"error": str(e)}))
         return 2

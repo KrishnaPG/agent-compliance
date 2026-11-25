@@ -16,6 +16,9 @@ fields:
   - {schema: packet, path: schema_version, type: string, meaning: "version of the packet schema the file follows"}
   - {schema: packet, path: id, type: string, meaning: "the item id; names the packet"}
   - {schema: packet, path: parent_issue, type: integer, meaning: "tracker issue number of the item's parent"}
+  - {schema: packet, path: kind, type: "enum: slice, defect", default: slice, meaning: "slice, or defect for a fix of a recorded defect (a sub-issue under parent)"}
+  - {schema: packet, path: parent, type: integer, meaning: "defect packets only: the GitHub issue number of the slice or decision the defect sits under (intake I2)"}
+  - {schema: packet, path: found_by, type: "enum: planner, judge, proposer, test_author, builder, reviewer, person", meaning: "defect packets only: who found the defect, a jobs[*].role or person; the regression row is written by that agent when it is not the builder, otherwise by the test_author job"}
   - {schema: packet, path: tier, type: "enum: mechanical, design-affecting", meaning: "the tier derived from declared paths and the diff (d5)"}
   - {schema: packet, path: goal, type: string, meaning: "the intent and why, with no design"}
   - {schema: packet, path: "applies[*].id", type: string, meaning: "a G, P, R or QBC id from spec section 0; every principle is always included"}
