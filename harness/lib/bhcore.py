@@ -1257,6 +1257,250 @@ def _project_environ() -> dict[str, str]:
     return env
 
 
+def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
+    """The project's test command writing JUnit XML to ``junit``: the recipe the checkout's
+    justfile names (a pytest line gets the report flag on its command line, any other recipe gets
+    it through ``env``), else pytest."""
+    flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider"
+    cmd = f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
+    if (co / "justfile").is_file() and shutil.which("just"):
+        lines = _run("just --dry-run test 2>&1 >/dev/null", co, co, env, 30)["tail"].splitlines()
+        line = lines[-1].strip() if lines else ""
+        if len(lines) == 1 and "pytest" in line:
+            return f"{line} {flags}"
+        env["PYTEST_ADDOPTS"] = flags
+        return "just test"
+    return cmd
+
+
+# ---------------------------------------------------------------- facts against the base
+# A fact is what the candidate's own tree reports compared with the base's own tree, both read by the
+# same procedure: the test recipe's JUnit report, and ruff and eslint, each run with and without
+# inline suppression through its own flag. The authoritative result (overlaid plan) is untouched.
+
+CHECKERS = HARNESS_DIR / "checkers.json"
+DIFF_FACTS = {  # kind -> (wrong, right, prevent): the one table of the diff facts' teaching
+    "dropped_tests": (
+        "test ids present at base are missing at the candidate",
+        "restore the dropped tests",
+        "do not delete or rename tests in a build",
+    ),
+    "skipped_growth": (
+        "the JUnit skipped count grew",
+        "remove the new skips",
+        "do not add skip markers in a build",
+    ),
+    "suppression_growth": (
+        "suppressed findings grew (ruff --ignore-noqa, eslint --no-inline-config)",
+        "fix the findings instead of suppressing them",
+        "do not add noqa or eslint-disable comments",
+    ),
+    "ts_comment_growth": (
+        "@typescript-eslint/ban-ts-comment findings grew",
+        "remove the new ts comments",
+        "do not add @ts-ignore comments",
+    ),
+    "ratchet_growth": (  # written by the ratchet check (c4) through diff_fact
+        "ratchet baseline grew",
+        "reduce the findings back to the baseline",
+        "do not raise a ratchet baseline in a build",
+    ),
+}
+FACT_CAP = 200  # facts of one kind kept in a result, as ignored_edits keeps 200 paths
+
+
+def diff_fact(facts: list[dict[str, Any]], item: str, kind: str, detail: str) -> None:
+    """The one writer of the diff facts (b4's and the ratchet check's)."""
+    wrong, right, prevent = DIFF_FACTS[kind]
+    facts.append(
+        {"kind": kind, "detail": detail, "item": item, "message": _teach(kind, wrong, right, prevent)}
+    )
+
+
+def _npm_tools(spec: dict[str, Any]) -> Path:
+    """The pinned npm packages installed once into a cache, outside any project (``npm install``
+    checks each package against the registry's integrity hash); the sealed run has no network."""
+    pins = spec["npm"]
+    cache = Path.home() / ".cache" / "brick-harness" / f"npm-{digest(pins)[:12]}"
+    if not (cache / "node_modules" / ".package-lock.json").is_file():
+        cache.mkdir(parents=True, exist_ok=True)
+        pkgs = [f"{n}@{v}" for n, v in sorted(pins.items())]
+        p = subprocess.run(
+            [
+                "npm",
+                "install",
+                "--prefix",
+                str(cache),
+                "--fetch-retries=0",
+                "--ignore-scripts",
+                "--no-audit",
+                "--no-fund",
+                "--save-exact",
+                *pkgs,
+            ],
+            capture_output=True,
+            text=True,
+        )
+        if p.returncode != 0:
+            raise HarnessError(f"npm install of {' '.join(pkgs)} failed: {p.stderr.strip()[-300:]}")
+    return cache / "node_modules"
+
+
+def _changed_by_glob(
+    top: Path, base: str, sha: str, globs: list[str]
+) -> tuple[list[str], list[str]]:
+    """The files git lists as changed between ``base`` and ``sha`` that match the tool's file
+    globs, as (paths that exist at base, paths that exist at sha)."""
+    out = _git(top, "diff", "--name-status", "-z", "--no-renames", base, sha, "--", *globs)
+    parts = [x for x in out.split("\0") if x]
+    at_base, at_sha = [], []
+    for st, path in zip(parts[0::2], parts[1::2], strict=True):
+        if st != "A":
+            at_base.append(path)
+        if st != "D":
+            at_sha.append(path)
+    return at_base, at_sha
+
+
+def _findings(
+    co: Path, cmd: str, env: dict[str, str], hide: list[Path], files: list[str], tag: str
+) -> list[Any] | None:
+    """The report of one sealed linter run over ``files`` (those that exist in ``co``): ``cmd``
+    gets ``{out}`` for its JSON file, the files follow ``--``. None when no report was written."""
+    existing = [f for f in files if (co / f).is_file()]
+    if not existing:
+        return []
+    out = co / f".bh-{tag}.json"
+    line = cmd.format(out=shlex.quote(str(out))) + " -- " + " ".join(shlex.quote(f) for f in existing)
+    _run(line, co, co, env, 120, hide)
+    try:
+        return json.loads(out.read_text())
+    except (OSError, ValueError):
+        return None
+
+
+def _rule_ids(report: list[Any]) -> list[str]:
+    """The rule of every finding in an eslint JSON report."""
+    return [m["ruleId"] for f in report for m in f.get("messages", []) if m.get("ruleId")]
+
+
+def _lint_view(
+    co: Path,
+    files: dict[str, list[str]],
+    env: dict[str, str],
+    hide: list[Path],
+    tools: Path | None,
+) -> dict[str, int]:
+    """What the linters report for the files the ref changed, read in checkout ``co``: findings
+    suppressed by inline comments (a run with the comments ignored, minus a normal run) and
+    ban-ts-comment findings (with inline configuration off, so a disable comment cannot hide
+    them). ruff reads the checkout's own config; eslint reads its own, else the harness's."""
+    suppressed = ts = 0
+    if files["ruff"] and shutil.which("ruff"):
+        cmd = "ruff check --no-cache --exit-zero --output-format json --output-file {out}"
+        plain = _findings(co, cmd, env, hide, files["ruff"], "ruff")
+        loud = _findings(co, cmd + " --ignore-noqa", env, hide, files["ruff"], "ruff-noqa")
+        if plain is not None and loud is not None:
+            suppressed += len(loud) - len(plain)
+    if files["eslint"] and tools is not None:
+        if not (co / "node_modules").exists():
+            (co / "node_modules").symlink_to(tools)
+        ours = co / ".bh-eslint.config.mjs"
+        shutil.copy2(HARNESS_DIR / "eslint" / "ban-ts-comment.config.mjs", ours)
+        eslint = f"node {shlex.quote(str(tools / 'eslint' / 'bin' / 'eslint.js'))} --no-warn-ignored -f json -o {{out}}"
+        rule = json.loads(CHECKERS.read_text())["eslint"]["ts_comment_rule"]
+        own_cfg = any(co.glob("eslint.config.*"))
+        cfg_flag = "" if own_cfg else f" -c {shlex.quote(str(ours))}"
+        plain = _findings(co, eslint + cfg_flag, env, hide, files["eslint"], "eslint")
+        loud = _findings(co, eslint + cfg_flag + " --no-inline-config", env, hide, files["eslint"], "eslint-raw")
+        if plain is not None and loud is not None:
+            suppressed += len(_rule_ids(loud)) - len(_rule_ids(plain))
+        ts_only = _findings(
+            co, eslint + f" -c {shlex.quote(str(ours))} --no-inline-config", env, hide, files["eslint"], "eslint-ts"
+        )
+        if ts_only is not None:
+            ts += _rule_ids(ts_only).count(rule)
+    return {"suppressed": suppressed, "ts_comment": ts}
+
+
+def _case_ids(cases: list[Any]) -> tuple[set[str], int]:
+    """(ids, skipped count) of JUnit cases, the canary left out."""
+    real = [c for c in cases if CANARY.stem not in (c.name or "")]
+    skipped = sum(1 for c in real if any(type(x).__name__ == "Skipped" for x in c.result))
+    return {f"{c.classname}::{c.name}" for c in real}, skipped
+
+
+def diff_facts(
+    cfg: Config,
+    top: Path,
+    base: str,
+    sha: str,
+    item: str,
+    facts: list[dict[str, Any]],
+    co: Path,
+    cases: list[Any],
+) -> None:
+    """Append the facts of the measured ref against ``base``: JUnit ids that vanished, a grown
+    skipped count, grown suppressed findings, grown ban-ts-comment findings. The ref side is the
+    measurement already made (``cases``, and the linters over its checkout ``co``); the base side
+    is a clean checkout of ``base`` read the same way. What a side cannot report gives no fact."""
+    if sha == base:
+        return
+    spec = json.loads(CHECKERS.read_text())
+    changed = {t: _changed_by_glob(top, base, sha, spec[t]["files"]) for t in ("ruff", "eslint")}
+    tools: Path | None = None
+    if any(changed["eslint"]):
+        try:
+            if not shutil.which("node"):
+                raise HarnessError("node is not installed")
+            tools = _npm_tools(spec["eslint"])
+        except HarnessError as e:
+            facts.append(
+                {
+                    "kind": "gap",
+                    "detail": "eslint",
+                    "item": item,
+                    "message": _teach(
+                        "eslint",
+                        f"eslint could not run: {e}",
+                        "install node and npm",
+                        "ts findings were not compared",
+                    ),
+                }
+            )
+    hide = [top / HDIR]
+    env = dict(_project_environ(), BH_OUT=str(co))
+    cand = _lint_view(co, {t: changed[t][1] for t in changed}, env, hide, tools)
+    cand_ids, cand_skipped = _case_ids(cases)
+    with clean_checkout(top, base) as bco:
+        benv = dict(_project_environ(), BH_OUT=str(bco))
+        junit = bco / ".bh-junit.xml"
+        _run(
+            _test_cmd(bco, junit, benv),
+            bco,
+            bco,
+            benv,
+            float(cfg.data.get("commands", {}).get("timeout_s", 600)),
+            hide,
+        )
+        old = _lint_view(bco, {t: changed[t][0] for t in changed}, benv, hide, tools)
+        try:
+            base_ids, base_skipped = _case_ids([c for s in _suites(read_junit(junit)) for c in s])
+        except HarnessError:
+            base_ids, base_skipped = set(), 0
+    if base_ids and cand_ids:
+        for tid in sorted(base_ids - cand_ids)[:FACT_CAP]:
+            diff_fact(facts, item, "dropped_tests", tid)
+        if cand_skipped > base_skipped:
+            diff_fact(facts, item, "skipped_growth", f"skipped {base_skipped} -> {cand_skipped}")
+    for kind, key, what in (
+        ("suppression_growth", "suppressed", "suppressed findings"),
+        ("ts_comment_growth", "ts_comment", "ban-ts-comment findings"),
+    ):
+        if cand[key] > old[key]:
+            diff_fact(facts, item, kind, f"{what} {old[key]} -> {cand[key]}")
+
+
 def measure_ref(
     cfg: Config, ref: str = "HEAD", packet: str | None = None, orch: Path | None = None
 ) -> dict[str, Any]:
@@ -1363,19 +1607,8 @@ def measure_ref(
         overlay_plan(cfg, top, co, base)
         _canary_into(co)
         junit = co / ".bh-junit.xml"
-        flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider"
         env = dict(_project_environ(), BH_OUT=str(out))
-        cmd = f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
-        if (co / "justfile").is_file() and shutil.which("just"):
-            # the base commit's recipe, run as it names itself; a pytest line gets the report flag
-            # on its command line, any other recipe gets it through the environment
-            lines = _run("just --dry-run test 2>&1 >/dev/null", co, co, env, 30)["tail"].splitlines()
-            line = lines[-1].strip() if lines else ""
-            if len(lines) == 1 and "pytest" in line:
-                cmd = f"{line} {flags}"
-            else:
-                cmd = "just test"
-                env["PYTEST_ADDOPTS"] = flags
+        cmd = _test_cmd(co, junit, env)
         r = _run(
             cmd,
             co,
@@ -1400,6 +1633,7 @@ def measure_ref(
                     "run the test recipe before finishing",
                 ),
             )
+        diff_facts(cfg, top, base, sha, item, facts, co, cases)
         bench = cfg.data.get("commands", {}).get("bench")
         for t in (t for t in targets_for(targets, item) if t["metric"].startswith("bench.")):
             name = t["metric"].removeprefix("bench.")
@@ -2658,6 +2892,7 @@ def _uncommitted(cfg: Config, top: Path | None, scoreboard: bool = False) -> lis
 
 
 # ---------------------------------------------------------------- gaps (report, never decide)
+
 
 def gap_kinds() -> list[str]:
     """The gap kinds: the enum in gaps.schema.json is their only definition."""
