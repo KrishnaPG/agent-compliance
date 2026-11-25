@@ -474,12 +474,14 @@ def launch_builder(
     usd: float | None = None,
     feedback: list[str] | None = None,
     base: str | None = None,
+    round_no: int = 1,
 ) -> tuple[int, str, str]:
     """Launch one builder: keep the packet by digest, make the clone, register the packet in it and
     start the builder with the fixed prompt. SessionStart delivers the packet (hooks/h1.py). A later
     round reuses the clone (same packet and base) and the prompt adds only the missed checks' or the
     review's teaching messages (QBC-51, QBC-55). ``base`` is the item's plan commit, the same for
-    all its rounds (default HEAD), so a record committed between rounds never starts a new clone."""
+    all its rounds (default HEAD), so a record committed between rounds never starts a new clone.
+    ``round_no`` is the builder round the order engine counted from its state; the job carries it."""
     import bhorch
 
     packet, raw, facts, err = assemble(root, item)
@@ -531,10 +533,11 @@ def launch_builder(
     t = bhorch.tokens_of(cli.get("usage"))
     bhbuilder.commit_build(clone, packet, digest)  # the program stages and commits, never the builder
     job = {
-        "id": f"{item}-builder-{digest[:12]}",
+        "id": f"{item}-builder-{digest[:12]}-{round_no}",
         "kind": "agent",
         "role": "builder",
         "item": item,
+        "round": round_no,
         "started_at": started.isoformat(timespec="seconds"),
         "ended_at": datetime.now(UTC).isoformat(timespec="seconds"),
         "exit_code": code,

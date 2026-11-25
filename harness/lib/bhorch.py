@@ -513,12 +513,10 @@ class Orchestrator:
                 res = await self._run_cli(job, schema, prompt, cwd or self.cfg.dir, timeout)
         rec.update(res["record"])
         rec["ended_at"] = datetime.now(UTC).isoformat(timespec="seconds")
-        self.records.append(rec)
         if res["ok"]:
-            write_atomic(
-                done, json.dumps({"record": rec, "output": res["output"]}, indent=2) + "\n"
-            )
+            self.keep(rec, res["output"])
         else:
+            self.records.append(rec)
             write_atomic(self.jobs_dir / f"{key}.error.json", json.dumps(rec, indent=2) + "\n")
             self.errors.append(f"job {label}: {rec.get('error')}")
         return {**rec, "output": res.get("output"), "ok": res["ok"]}
@@ -603,6 +601,41 @@ class Orchestrator:
         if errs:
             return False, "output fails its schema: " + "; ".join(errs[:5]), None
         return True, None, output
+
+    # ------------------------------------------------------------ the order engine's state: jobs[*]
+
+    def keep(self, rec: dict[str, Any], output: dict[str, Any] | None = None) -> None:
+        """A finished job, agent or program step: in this run's ``jobs[*]`` and in the order
+        engine's state, one file per job under the jobs dir (``<key or id>.json``), which every
+        later run reads (``recorded``); an agent job's output is kept with it for its restart."""
+        self.records.append(rec)
+        if not self.dry:
+            doc = {"record": rec, "output": output}
+            write_atomic(self.jobs_dir / f"{rec.get('key') or rec['id']}.json", json.dumps(doc, indent=2) + "\n")
+
+    def stamp(self, rec: dict[str, Any], **fields: Any) -> None:
+        """Add facts known only after the job finished (the packet it wrote) to its kept record."""
+        kept = next((r for r in self.records if r.get("key") == rec.get("key") and not r.get("skipped")), None)
+        if kept is None or self.dry:
+            return
+        kept.update(fields)
+        f = self.jobs_dir / f"{kept['key']}.json"
+        doc = json.loads(f.read_text())
+        write_atomic(f, json.dumps({**doc, "record": kept}, indent=2) + "\n")
+
+    def recorded(self, item: str) -> list[dict[str, Any]]:
+        """Every finished job of ``item`` the state holds, from this run and every earlier one."""
+        out = []
+        for f in sorted(self.jobs_dir.glob("*.json")):
+            if f.name.endswith((".input.json", ".error.json")):
+                continue
+            try:
+                rec = json.loads(f.read_text()).get("record") or {}
+            except (OSError, ValueError, AttributeError):
+                continue
+            if rec.get("item") == item:
+                out.append(rec)
+        return out
 
     # ------------------------------------------------------------ measuring
 
@@ -1006,7 +1039,7 @@ class Orchestrator:
     def program_step(
         self, name: str, item: str, started: datetime, digest: str, code: int = 0
     ) -> None:
-        self.records.append(bhpacket.program_job(name, item, started, digest, code))
+        self.keep(bhpacket.program_job(name, item, started, digest, code))
 
     async def packet_flow(self, item: str, facts: list[dict[str, Any]]) -> str:
         """One item: the program writes its packet from the plan; the test author (or, for a defect
@@ -1023,7 +1056,17 @@ class Orchestrator:
         test_path = bhpacket.acceptance_file(packet)
         feedback: list[dict[str, str]] = []
         rounds = range(1, int(self.cfg.data.get("max_rounds", 3)) + 1)
-        if packet["acceptance"] and (root / test_path).is_file():  # a restart: the tests are committed
+        now = hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest()
+        authored = any(  # a restart: the state records this step done for this very packet
+            j.get("job") == job and j.get("packet_sha256") == now for j in self.recorded(item)
+        )
+        reddened = authored and any(
+            j.get("step") == "red_run" and j.get("packet_sha256") == now and j.get("exit_code") == 0
+            for j in self.recorded(item)
+        )
+        if reddened:  # the red run is recorded done for this packet as well
+            red = True
+        elif authored:
             feedback, met_at_head = self.red_on_main(packet, facts)
             if met_at_head:
                 await self.measure_all([(item, "HEAD")])
@@ -1060,7 +1103,10 @@ class Orchestrator:
                 continue
             write_atomic(bhpacket.packet_path(root, item), json.dumps(packet, indent=2) + "\n")
             write_atomic(root / test_path, j["output"]["test_code"])
-            digest = bhpacket.custody_store(root, bhpacket.packet_path(root, item).read_bytes())
+            packet, raw, cap_facts, _ = bhpacket.assemble(root, item)  # the plan commit holds the bytes the builder gets
+            facts += [{**f, "item": item} for f in cap_facts]
+            digest = bhpacket.custody_store(root, raw)
+            self.stamp(j, packet_sha256=digest)  # the step is done for this packet
             # the plan commit names its packet as a build commit does, so the red run measures against it
             self.commit(f"acceptance {item}\n\nPacket: {bhpacket.trailer(packet, digest)}")
             feedback, met_at_head = self.red_on_main(packet, facts)
@@ -1080,8 +1126,13 @@ class Orchestrator:
         # met build, goes back to the same builder in its clone with those messages only.
         feedback: list[str] = []
         met_sha, base = None, git(root, "rev-parse", "HEAD").stdout.strip()  # the plan commit
-        for _ in rounds:
-            code, out, err = bhpacket.launch_builder(root, item, self.job_usd("build"), feedback, base)
+        digest = hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest()
+        first = 1 + max(  # rounds count per packet across runs: the state, never a counter of this run
+            (j.get("round") or 0 for j in self.recorded(item) if j.get("role") == "builder" and j.get("packet_sha256") == digest),
+            default=0,
+        )
+        for rnd in range(first, len(rounds) + 1):
+            code, out, err = bhpacket.launch_builder(root, item, self.job_usd("build"), feedback, base, rnd)
             built = (
                 json.loads(out)
                 if code == 0
@@ -1091,7 +1142,7 @@ class Orchestrator:
             for b in built["jobs"]:
                 self.spent["cost_usd"] += b.get("cost_usd", 0)
                 self.spent["tokens"] += b.get("tokens", 0)
-            self.records += built["jobs"]
+                self.keep(b)
             if code:
                 break
             sha, feedback, tier = await self.measure_packet(root, packet, facts)
@@ -1102,7 +1153,7 @@ class Orchestrator:
                 break
         if met_sha:  # findings left at the round limit never change met (P4)
             return await self.merge_item(root, packet, met_sha, facts)
-        if feedback:
+        if feedback or first > len(rounds):
             facts.append(
                 {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds"}
             )
@@ -1118,9 +1169,13 @@ class Orchestrator:
         root, item = self.top, packet["id"]
         digest = bhpacket.custody_store(root, bhpacket.packet_path(root, item).read_bytes())
         t0 = datetime.now(UTC)
-        res = bhcore.measure_ref(self.cfg, "HEAD", orch=root)  # HEAD is the plan commit: its trailer names the packet
-        self.program_step("red_run", item, t0, digest)
-        if all(a["status"] == "met" for a in res["items"][0]["acceptance"]):
+        plan = git(  # the plan commit, found by its Packet trailer (on a restart HEAD has moved on)
+            root, "log", "-1", "--format=%H", "--fixed-strings", f"--grep=Packet: {bhpacket.trailer(packet, digest)}", check=False
+        ).stdout.strip()
+        res = bhcore.measure_ref(self.cfg, plan or "HEAD", orch=root)
+        accept = res["items"][0]["acceptance"]
+        if accept and all(a["status"] == "met" for a in accept):  # no criterion measured is never met
+            self.program_step("red_run", item, t0, digest)
             return [], True  # every criterion's test passes at HEAD
         module = bhpacket.acceptance_file(packet).removesuffix(".py").replace("/", ".")
         ids = [a["id"] for a in packet["acceptance"]]
@@ -1144,6 +1199,7 @@ class Orchestrator:
                         "fails by an assertion on main; write one that does",
                     }
                 )
+        self.program_step("red_run", item, t0, digest, 1 if feedback else 0)  # 0: every criterion is red
         return feedback, False
 
     async def measure_packet(
@@ -1296,6 +1352,7 @@ class Orchestrator:
             "exit_code",
             "packet_sha256",
             "id",
+            "round",
         )
         rows = [{k: r[k] for k in keep if k in r} for r in self.records]
         for row in rows:  # a skipped job spent nothing in this run (as the totals say)

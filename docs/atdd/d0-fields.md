@@ -62,7 +62,7 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `items[*].acceptance[*].id` | string | an acceptance criterion id of the item | b2-AC18 |
 | `items[*].acceptance[*].status` | enum: met, unmet | the measurer's verdict for that criterion | b2-AC18, b2-AC19 |
 | `checks_run[*]` | string | an exact check a measure or check command ran (command measure, check) | - |
-| `checks_missed[*]` | string | a planted defect the checks ran and did not report (command measure, check) | - |
+| `checks_missed[*]` | string | a check of checks_run that exited non-zero: a missed check, whose messages go back to the builder (QBC-51, QBC-55; command measure, check) | - |
 | `facts[*].kind` | string | one of the catalog's fact kinds | b1-AC2, b1-AC3, b1-AC5, b1-AC6, b1-AC9, b1-AC10, b1-AC13, b1-AC14, b1-AC15, b1-AC16, b1-AC17, b1-AC19, b1-AC22, b1-AC23, b2-AC7, b2-AC8, b2-AC10, b2-AC14, b2-AC16, b2-AC19, b4-AC1, b4-AC2, b4-AC3, b4-AC4, b4-AC5, b4-AC6, b4-AC7, b4-AC8, b4-AC9, b9-AC14, d0-AC7, d1-AC2, d1-AC3, d1-AC4, d1-AC5, d3-AC2, d3-AC6, d6-AC8, d6-AC9, d6-AC10, d6-AC11, d8-AC5, d8-AC6 |
 | `facts[*].detail` | string | text naming the file, key or value the fact is about | b1-AC2, b1-AC3, b1-AC6, b1-AC13, b1-AC15, b1-AC16, d6-AC10, d6-AC11 |
 | `facts[*].item` | string | the item the fact belongs to | b2-AC19 |
@@ -82,7 +82,7 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `database_roles[*]` | string | the owner's database roles (command owners) | - |
 | `operations[*]` | string | the owner's published operations (command owners) | - |
 | `sources[*]` | string | the standard files the answer was read from (command owners) | - |
-| `metrics[*].id` | enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds | the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (summed from jobs[*].rounds) (command metrics) | - |
+| `metrics[*].id` | enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds | the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (per met slice its highest builder jobs[*].round, summed) (command metrics) | - |
 | `metrics[*].window` | enum: current, baseline | the history the metric is computed over: the current history, or the baseline written before the change (command metrics) | - |
 | `metrics[*].value` | number | the metric value; change_failure_rate is merged slices that later get a defect sub-issue as a share, lead_time_for_changes is slice sub-issue opening to merge (command metrics) | - |
 | `metrics[*].unit` | enum: ratio, hours, tokens, count | the value's unit: ratio for change_failure_rate, hours for lead_time_for_changes, tokens for tokens_per_met_slice, count for measurer_rounds (command metrics) | - |
@@ -109,7 +109,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `jobs[*].packet_sha256` | string | sha256 of the packet the job read | d0-AC16, d4-AC1, d4-AC5 |
 | `jobs[*].objections[*]` | string | a judge objection, shown to the approver | - |
 | `jobs[*].falsifying_calls[*]` | string | a judge call that would falsify the design; becomes a target | - |
-| `jobs[*].rounds` | integer | measurer rounds the job's item took | - |
+| `jobs[*].round` | integer | the builder round the job ran in, 1 to max_rounds, counted per packet across runs; builder jobs only (the item's rounds are computed from it, never stored) | - |
 
 ## config
 
@@ -193,7 +193,7 @@ Each line is a d0 field that no acceptance criterion tests, or a config key with
 - jobs `jobs[*].cached` (boolean) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].objections[*]` (string) is a d0 field that no acceptance criterion reads yet.
 - jobs `jobs[*].falsifying_calls[*]` (string) is a d0 field that no acceptance criterion reads yet.
-- jobs `jobs[*].rounds` (integer) is a d0 field that no acceptance criterion reads yet.
+- jobs `jobs[*].round` (integer) is a d0 field that no acceptance criterion reads yet.
 - config `concurrency` (integer) is a d0 field that no acceptance criterion reads yet.
 - config `limits.message_chars` (integer) is a d0 field that no acceptance criterion reads yet.
 - config `limits.findings_shown` (integer) is a d0 field that no acceptance criterion reads yet.

@@ -61,7 +61,7 @@ fields:
   - {schema: result, path: "items[*].acceptance[*].id", type: string, meaning: "an acceptance criterion id of the item"}
   - {schema: result, path: "items[*].acceptance[*].status", type: "enum: met, unmet", meaning: "the measurer's verdict for that criterion"}
   - {schema: result, path: "checks_run[*]", type: string, meaning: "an exact check a measure or check command ran (command measure, check)"}
-  - {schema: result, path: "checks_missed[*]", type: string, meaning: "a planted defect the checks ran and did not report (command measure, check)"}
+  - {schema: result, path: "checks_missed[*]", type: string, meaning: "a check of checks_run that exited non-zero: a missed check, whose messages go back to the builder (QBC-51, QBC-55; command measure, check)"}
   - {schema: result, path: "facts[*].kind", type: string, meaning: "one of the catalog's fact kinds"}
   - {schema: result, path: "facts[*].detail", type: string, meaning: "text naming the file, key or value the fact is about"}
   - {schema: result, path: "facts[*].item", type: string, meaning: "the item the fact belongs to"}
@@ -81,7 +81,7 @@ fields:
   - {schema: result, path: "database_roles[*]", type: string, meaning: "the owner's database roles (command owners)"}
   - {schema: result, path: "operations[*]", type: string, meaning: "the owner's published operations (command owners)"}
   - {schema: result, path: "sources[*]", type: string, meaning: "the standard files the answer was read from (command owners)"}
-  - {schema: result, path: "metrics[*].id", type: "enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds", meaning: "the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (summed from jobs[*].rounds) (command metrics)"}
+  - {schema: result, path: "metrics[*].id", type: "enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds", meaning: "the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (per met slice its highest builder jobs[*].round, summed) (command metrics)"}
   - {schema: result, path: "metrics[*].window", type: "enum: current, baseline", meaning: "the history the metric is computed over: the current history, or the baseline written before the change (command metrics)"}
   - {schema: result, path: "metrics[*].value", type: number, meaning: "the metric value; change_failure_rate is merged slices that later get a defect sub-issue as a share, lead_time_for_changes is slice sub-issue opening to merge (command metrics)"}
   - {schema: result, path: "metrics[*].unit", type: "enum: ratio, hours, tokens, count", meaning: "the value's unit: ratio for change_failure_rate, hours for lead_time_for_changes, tokens for tokens_per_met_slice, count for measurer_rounds (command metrics)"}
@@ -102,7 +102,7 @@ fields:
   - {schema: jobs, path: "jobs[*].packet_sha256", type: string, meaning: "sha256 of the packet the job read"}
   - {schema: jobs, path: "jobs[*].objections[*]", type: string, meaning: "a judge objection, shown to the approver"}
   - {schema: jobs, path: "jobs[*].falsifying_calls[*]", type: string, meaning: "a judge call that would falsify the design; becomes a target"}
-  - {schema: jobs, path: "jobs[*].rounds", type: integer, meaning: "measurer rounds the job's item took"}
+  - {schema: jobs, path: "jobs[*].round", type: integer, meaning: "the builder round the job ran in, 1 to max_rounds, counted per packet across runs; builder jobs only (the item's rounds are computed from it, never stored)"}
   # config
   - {schema: config, path: concurrency, type: integer, default: 5, meaning: "agents running at once"}
   - {schema: config, path: sizing.packet_tokens, type: integer, default: 1600, meaning: "cap on planner-written packet tokens, as bytes/4"}

@@ -2,12 +2,13 @@
 
 Sources: git (the merge commit ``brick-harness: merge <item> <sha>`` is when a slice was met),
 the tracker's issue history (slice opening, defect sub-issues; one REST read through the
-adapter), and ``jobs[*]`` of the run results under the measure out dir (tokens, rounds).
+adapter), and the ``jobs[*]`` records the order engine keeps under ``<measure out>/jobs/`` (tokens,
+builder rounds).
 
   change_failure_rate     met slices that later got a defect sub-issue, as a share (ratio)
   lead_time_for_changes   slice opening to merge, median (hours; DORA reports the median)
   tokens_per_met_slice    tokens of the met slices' jobs, over the met slices (tokens)
-  measurer_rounds         rounds summed from the met slices' jobs (count)
+  measurer_rounds         builder rounds of the met slices: per slice its highest jobs[*].round, summed (count)
 
 The baseline is the pre-v2 history, written once as ``.brick-harness/metrics-baseline.json``
 (created exclusively: a second run never rewrites it). Its window ends at the commit time of HEAD
@@ -54,19 +55,20 @@ def merges(top: Path) -> tuple[dict[str, float], float]:
 
 
 def job_totals(out_dir: Path) -> dict[str, dict[str, float]]:
-    """Per item: tokens and rounds, summed over the distinct jobs of every run result."""
-    seen: set[str] = set()
+    """Per item, computed when read from the kept ``jobs[*]`` records (one file per finished job,
+    every run): tokens summed, and rounds as the highest builder ``round`` (d0: only per-job values
+    are stored; item totals are computed)."""
     totals: dict[str, dict[str, float]] = {}
-    for f in sorted(out_dir.glob("*-result.json")):
-        for j in json.loads(f.read_text()).get("jobs", []):
-            key = str(j.get("key") or j.get("id") or "")
-            if not j.get("item") or j.get("skipped") or j.get("cached") or (key and key in seen):
-                continue
-            seen.add(key)
-            tok = j.get("tokens") or 0
-            t = totals.setdefault(j["item"], {"tokens": 0, "rounds": 0})
-            t["tokens"] += sum(tok.values()) if isinstance(tok, dict) else tok
-            t["rounds"] += j.get("rounds") or 0
+    for f in sorted((out_dir / "jobs").glob("*.json")):
+        if f.name.endswith((".input.json", ".error.json")):
+            continue
+        j = json.loads(f.read_text()).get("record") or {}
+        if not j.get("item"):
+            continue
+        tok = j.get("tokens") or 0
+        t = totals.setdefault(j["item"], {"tokens": 0, "rounds": 0})
+        t["tokens"] += sum(tok.values()) if isinstance(tok, dict) else tok
+        t["rounds"] = max(t["rounds"], j.get("round") or 0)
     return totals
 
 
