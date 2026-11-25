@@ -134,7 +134,8 @@ def test_merge_restores_plan_and_protected_paths_a_ref_edited(toy):
     assert (toy / "tests" / "json-writer" / "test_writer.py").read_text() == original
     assert not (toy / "tests" / "json-writer" / "test_extra.py").exists()
     assert (toy / "src" / "json_writer.py").read_text() == JSON_WRITER  # the build is kept
-    assert "restore plan and protected paths" in git(toy, "log", "-1", "--format=%s")
+    assert "merge json-writer" in git(toy, "log", "-1", "--format=%s")  # one commit, no restore commit
+    assert len(git(toy, "log", "--first-parent", "--format=%s", "-3").splitlines()) == 3
 
 
 # ------------------------------------------------------------------ SG-02

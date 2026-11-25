@@ -569,6 +569,79 @@ def test_merge_takes_refs_from_the_scoreboard_only(toy):
     assert git(toy, "rev-parse", "HEAD") == head
 
 
+GUARD_MSG = "[merge-guard] merge guard removed, merge test failed -> restore the unmerged == [] guard . P6"
+
+
+def guard_holds(ok, why=""):
+    """The catalog's teaching shape, printed plain (no traceback line prefix) when the guard fails."""
+    if not ok:
+        pytest.fail(f"{GUARD_MSG} {why}"[:300], pytrace=False)
+
+
+def _measure_and_commit(toy, sha):
+    code, run = cli("bh-measure", toy, "--item", f"json-writer@{sha}")
+    assert code == 0, run
+    cli("bh-commit", toy, "--message", "scoreboard")
+
+
+def test_merge_of_a_met_item_leaves_nothing_unmerged_in_one_commit(toy):
+    """R4/P6: the merge consumes what the scoreboard holds, and a clean merge is exactly the
+    builder's commit (no separate restore commit); the candidate is then in HEAD."""
+    sha = build(toy)
+    assert cli("bh-measure", toy, "--item", f"json-writer@{sha}")[0] == 0
+    before = git(toy, "rev-parse", "HEAD")
+    code, m = cli("bh-merge", toy)
+    assert code == 0 and m["merged"] == [{"item": "json-writer", "ref": sha}], m
+    assert git(toy, "rev-list", "--count", f"{before}..HEAD") == "1"
+    assert git(toy, "merge-base", "--is-ancestor", sha, "HEAD") == ""
+    guard_holds(status(toy)[1]["unmerged"] == [])
+
+
+def test_merge_never_brings_a_ref_edit_of_a_guarded_path_into_head(toy):
+    """The measurer ignores a ref's edits of protected paths, so a merge must too: the
+    result is one commit per item and HEAD's tests are HEAD's, even though git merged them."""
+    def edit(r):
+        (r / "tests" / "json-writer" / "test_writer.py").write_text("def test_nothing():\n    pass\n")
+
+    sha = build(toy, edit=edit, touched=("tests",))
+    _measure_and_commit(toy, sha)
+    guarded = git(toy, "rev-parse", "HEAD:tests/json-writer/test_writer.py")
+    before = git(toy, "rev-parse", "HEAD")
+    code, m = cli("bh-merge", toy)
+    guard_holds(code == 0 and m["merged"], str(m)[:60])
+    guard_holds(git(toy, "rev-parse", "HEAD:tests/json-writer/test_writer.py") == guarded)
+    assert git(toy, "rev-list", "--count", "--first-parent", f"{before}..HEAD") == "1"
+    assert git(toy, "rev-parse", "HEAD:src/json_writer.py") == git(toy, "rev-parse", f"{sha}:src/json_writer.py")
+
+
+def test_unmet_candidate_never_reaches_head_even_when_the_merge_would_be_clean(toy):
+    sha = build(toy, edit=lambda r: (r / "src" / "json_writer.py").write_text("x = (\n"))
+    assert cli("bh-measure", toy, "--item", f"json-writer@{sha}")[0] == 1
+    cli("bh-commit", toy, "--message", "scoreboard")
+    cli("bh-merge", toy)
+    p = subprocess.run(["git", "-C", str(toy), "merge-base", "--is-ancestor", sha, "HEAD"])
+    assert p.returncode == 1
+
+
+def test_a_conflict_names_its_item_and_leaves_the_tree_clean(toy):
+    sha = build(
+        toy,
+        edit=lambda r: (r / "src" / "csv2json.py").write_text(
+            (r / "src" / "csv2json.py").read_text() + "\n# from builder\n"
+        ),
+    )
+    cli("bh-measure", toy, "--item", f"json-writer@{sha}")
+    p = toy / "src" / "csv2json.py"
+    p.write_text(p.read_text() + "\n# from main\n")
+    commit_all(toy, "main edits the same line")
+    cli("bh-commit", toy, "--message", "scoreboard")
+    head = git(toy, "rev-parse", "HEAD")
+    code, m = cli("bh-merge", toy)
+    assert code == 0 and m["conflicts"][0]["item"] == "json-writer"
+    assert git(toy, "rev-parse", "HEAD") == head and git(toy, "ls-files", "-u") == ""
+    assert git(toy, "status", "--porcelain", "--untracked-files=no", "--", "src") == ""
+
+
 def test_state_is_complete_for_the_orchestrator(toy):
     s = full_state(toy)[1]
     assert s["ready"] == ["csv-reader", "json-writer"] and s["ready_system"] == []

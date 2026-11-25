@@ -1675,10 +1675,13 @@ def union_catalogue(ours: dict[str, Any], theirs: dict[str, Any]) -> dict[str, A
 def merge_unmerged(cfg: Config) -> dict[str, Any]:
     """Merge every met-unmerged candidate (from the scoreboard, never from a caller) into HEAD.
 
-    In build order, with ``git merge --no-ff``. A conflict only in the catalogue is resolved
-    by a schema-checked JSON union; any other conflict aborts that merge and records the item
-    as ``conflict`` with the paths, so it is rebuilt against HEAD. Returns the items to
-    re-measure at HEAD: those merged and everything that depends on them.
+    In build order. Each merge is computed off the working tree with ``git merge-tree
+    --write-tree``, the plan and protected paths are put back as they were in the same tree
+    (so a merge is one commit and nothing an unmeasured edit made ever reaches HEAD), and
+    all the commits reach HEAD in one ``git merge --ff-only``: a failure leaves HEAD as it was.
+    A conflict only in the catalogue is resolved by a schema-checked JSON union; any other
+    conflict skips that item and records it as ``conflict`` with the paths, so it is rebuilt
+    against HEAD. Returns the items to re-measure at HEAD: those merged and their dependents.
     """
     top = git_top(cfg.dir)
     if top is None:
@@ -1689,32 +1692,43 @@ def merge_unmerged(cfg: Config) -> dict[str, Any]:
         dirty = _uncommitted(cfg, top)
         if dirty:
             raise HarnessError(f"commit the plan files first: {dirty}")
-        st = state(cfg)
-        bricks = _load_plan(cfg, [])[0]
+        bricks, targets, _ = _load_plan(cfg, [])
+        board, bad = read_board(cfg.file("scoreboard"))  # type: ignore[arg-type]
+        if bad:
+            raise HarnessError(bad)
         cat = cfg.file("catalogue")
         cat_rel = _under(cat, top) if cat and cat.is_relative_to(top) else None
+        guard = guarded_paths(cfg, top)
+        tip = _git(top, "rev-parse", "HEAD")
         merged, conflicts = [], []
-        for u in st["unmerged"]:
+        for u in _merge_candidates(cfg, top, bricks, targets, board):
             item, sha = u["item"], u["ref"]
-            if _git_ok(top, "merge-base", "--is-ancestor", sha, "HEAD"):
+            if _git_ok(top, "merge-base", "--is-ancestor", sha, tip):
                 merged.append(u)  # another item's merge brought it in
                 continue
-            msg = f"brick-harness: merge {item} {sha[:12]}"
-            before = _git(top, "rev-parse", "HEAD")
-            if _git_ok(top, "merge", "--no-ff", "--no-edit", "-m", msg, sha):
-                merged.append(u)
-                _restore_guarded(cfg, top, before, item)
+            tree, unresolved = _merge_tree(top, tip, sha)
+            if not tree or (unresolved and unresolved != [cat_rel]):
+                paths = unresolved or ["(merge refused: unrelated history)"]
+                conflicts.append({"item": item, "ref": sha, "paths": paths})
+                _record_conflict(cfg, item, sha, paths)
                 continue
-            unresolved = _git(top, "diff", "--name-only", "--diff-filter=U").splitlines()
-            if cat_rel and unresolved == [cat_rel] and _union_resolve(cfg, top, cat_rel):
-                _git(top, "commit", "-q", "--no-edit")
-                merged.append(u)
-                _restore_guarded(cfg, top, before, item)
-                continue
-            _git_ok(top, "merge", "--abort")
-            paths = unresolved or ["(merge refused: local changes or unrelated history)"]
-            conflicts.append({"item": item, "ref": sha, "paths": paths})
-            _record_conflict(cfg, item, sha, paths)
+            with _ScratchIndex(top, tree) as ix:  # the merge as git made it, edited off the tree
+                if unresolved and not _union_catalogue_into(ix, tip, sha, unresolved[0]):
+                    conflicts.append({"item": item, "ref": sha, "paths": unresolved})
+                    _record_conflict(cfg, item, sha, unresolved)
+                    continue
+                _restore_guarded(ix, tip, guard)
+                tree = ix.write_tree()
+            if _git_ok(top, "merge-base", "--is-ancestor", tip, sha) and tree == _git(
+                top, "rev-parse", f"{sha}^{{tree}}"
+            ):
+                tip = sha  # a fast-forward: the builder's own commits are the whole change
+            else:
+                msg = f"brick-harness: merge {item} {sha[:12]}"
+                tip = _git(top, "commit-tree", tree, "-p", tip, "-p", sha, "-m", msg)
+            merged.append(u)
+        if tip != _git(top, "rev-parse", "HEAD"):
+            _git(top, "merge", "--ff-only", "-q", tip)  # git moves the ref and the tree together
         remeasure = _with_dependents(bricks, {m["item"] for m in merged})
         return {
             "merged": merged,
@@ -1724,41 +1738,109 @@ def merge_unmerged(cfg: Config) -> dict[str, Any]:
         }
 
 
-def _restore_guarded(cfg: Config, top: Path, before: str, item: str) -> None:
-    """After a merge, put the plan and protected paths back as they were before it, so edits a
-    ref made there (which the measurer ignored) never reach HEAD. Nothing is refused."""
-    guard = guarded_paths(cfg, top)
-    now, was = _tree_files(top, "HEAD"), _tree_files(top, before)
-    diff = [
-        n
-        for n in sorted(now.keys() | was.keys())
-        if _matches(n, guard) and now.get(n) != was.get(n)
-    ]
-    if not diff:
-        return
-    _checkout_paths(top, before, [n for n in diff if n in was])
-    for n in diff:
-        if n not in was:
-            _git(top, "rm", "-q", "-f", "--", n)
-    _git(
-        top,
-        "commit",
-        "-q",
-        "-m",
-        f"brick-harness: restore plan and protected paths after merging {item}",
+def _merge_tree(top: Path, ours: str, theirs: str) -> tuple[str | None, list[str]]:
+    """``(tree, conflicted paths)`` of merging two commits, computed by git off the working
+    tree. A conflicted tree holds git's conflict-marker blobs at those paths; ``(None, [])``
+    when git refuses to merge at all (e.g. unrelated histories)."""
+    p = subprocess.run(
+        ["git", "-C", str(top), "merge-tree", "--write-tree", "--name-only", "--no-messages", ours, theirs],
+        capture_output=True,
+        text=True,
     )
+    if p.returncode not in (0, 1):
+        return None, []
+    lines = p.stdout.splitlines()
+    return lines[0], sorted(set(lines[1:]))
 
 
-def _union_resolve(cfg: Config, top: Path, rel: str) -> bool:
+class _ScratchIndex:
+    """A throwaway git index holding one tree, so a merge result is edited and written back as
+    a tree without touching the real index or the working tree."""
+
+    def __init__(self, top: Path, tree: str):
+        self.top, self.tree = top, tree
+
+    def __enter__(self) -> _ScratchIndex:
+        self._dir = tempfile.TemporaryDirectory()
+        self.env = dict(os.environ, GIT_INDEX_FILE=str(Path(self._dir.name) / "index"))
+        self.git("read-tree", self.tree)
+        return self
+
+    def __exit__(self, *exc: object) -> None:
+        self._dir.cleanup()
+
+    def git(self, *a: str, stdin: str | None = None) -> str:
+        r = subprocess.run(
+            ["git", "-C", str(self.top), *a], input=stdin, capture_output=True, text=True, env=self.env
+        )
+        if r.returncode != 0:
+            raise HarnessError(f"git {' '.join(a)}: {r.stderr.strip()}")
+        return r.stdout.strip()
+
+    def set_entries(self, put: dict[str, tuple[str, str]], drop: list[str]) -> None:
+        info = [f"{m} {b}\t{n}" for n, (m, b) in put.items()] + [f"0 {'0' * 40}\t{n}" for n in drop]
+        if info:
+            self.git("update-index", "--index-info", stdin="\n".join(info) + "\n")
+
+    def write_tree(self) -> str:
+        return self.git("write-tree")
+
+
+def _union_catalogue_into(ix: _ScratchIndex, ours: str, theirs: str, rel: str) -> bool:
+    """Replace the conflicted catalogue in ``ix`` by the schema-checked union of the two
+    sides; False when the union fails."""
     try:
-        ours = loads(_git(top, "show", f":2:{rel}"))
-        theirs = loads(_git(top, "show", f":3:{rel}"))
-        doc = union_catalogue(ours, theirs)
+        doc = union_catalogue(
+            loads(_git(ix.top, "show", f"{ours}:{rel}")), loads(_git(ix.top, "show", f"{theirs}:{rel}"))
+        )
     except (HarnessError, ValueError, KeyError, TypeError):
         return False
-    (top / rel).write_text(json.dumps(doc, indent=2) + "\n")
-    _git(top, "add", "--", rel)
+    blob = ix.git("hash-object", "-w", "--stdin", stdin=json.dumps(doc, indent=2) + "\n")
+    ix.set_entries({rel: ("100644", blob)}, [])
     return True
+
+
+def _restore_guarded(ix: _ScratchIndex, before: str, guard: list[str]) -> None:
+    """Put the plan and protected paths in ``ix`` back as they were in ``before``, so edits a
+    ref made there (which the measurer ignored) never reach HEAD. Nothing is refused."""
+    now, was = _tree_entries(ix.top, ix.write_tree()), _tree_entries(ix.top, before)
+    diff = [
+        n for n in sorted(now.keys() | was.keys()) if _matches(n, guard) and now.get(n) != was.get(n)
+    ]
+    ix.set_entries({n: was[n] for n in diff if n in was}, [n for n in diff if n not in was])
+
+
+def _tree_entries(top: Path, rev: str) -> dict[str, tuple[str, str]]:
+    """Repository-relative file name -> (mode, blob sha) of ``rev``'s tree."""
+    out = _git(top, "ls-tree", "-r", "-z", rev).split("\0")
+    return {e.split("\t", 1)[1]: (e.split()[0], e.split()[2]) for e in out if e}
+
+
+def _merge_candidates(
+    cfg: Config, top: Path, bricks: list[dict[str, Any]], targets: list[dict[str, Any]], board: dict[str, Any]
+) -> list[dict[str, str]]:
+    """The met candidates waiting for a merge, in build order, read from the scoreboard and
+    the measurer's facts alone: no gaps, no branches, no plan sizing."""
+    by_id = {b["id"]: b for b in bricks}
+    out = []
+    for b in bricks:
+        i = b["id"]
+        dg = target_digest(cfg, b, targets)
+        rc, rd = board["items"].get(i), board["candidates"].get(i)
+        sc, sd = _facts(cfg, top, by_id, i, dg, rc), _facts(cfg, top, by_id, i, dg, rd)
+        s, _ = pick_status((rc, sc), (rd, sd))
+        if _awaits_merge(rc, rd, sd, s):
+            out.append({"item": i, "ref": rd["ref"]})
+    order = [i for w in _waves(bricks, []) for i in w]
+    out.sort(key=lambda u: order.index(u["item"]) if u["item"] in order else len(order))
+    return out
+
+
+def _awaits_merge(rc: Any, rd: Any, sd: str, s: str) -> bool:
+    """A met candidate newer than the current result waits for its merge, even while the
+    current result keeps the item met (a harvest of an item that already passed)."""
+    newer = rd is not None and (rc is None or rd.get("measured_at", "") > rc.get("measured_at", ""))
+    return sd == "met-unmerged" and newer and s in ("met", "met-unmerged")
 
 
 def _record_conflict(cfg: Config, item: str, sha: str, paths: list[str]) -> None:
@@ -2014,12 +2096,7 @@ def state(cfg: Config) -> dict[str, Any]:
             blocked_by[i] = blockers
             s = "blocked"
         status[i] = s
-        newer = rd is not None and (
-            rc is None or rd.get("measured_at", "") > rc.get("measured_at", "")
-        )
-        if sd == "met-unmerged" and newer and s in ("met", "met-unmerged"):
-            # a met candidate newer than the current result waits for its merge, even while the
-            # current result keeps the item met (a harvest of an item that already passed)
+        if _awaits_merge(rc, rd, sd, s):
             unmerged.append({"item": i, "ref": rd["ref"]})
         if src is not None and s not in ("met", "met-unmerged"):  # feedback for a rebuild
             last[i] = {
