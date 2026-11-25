@@ -774,7 +774,7 @@ class Orchestrator:
             "task": "harvest_find",
             "catalogue": (s["files"].get("catalogue") or {}).get("rel"),
             "catalogue_duplicates": dups,
-            "items_file": (s["files"].get("bricks") or {}).get("rel"),
+            "bricks_file": (s["files"].get("bricks") or {}).get("rel"),
             "items_met_since_last_harvest": merged,
         }
         j = await self.job(
@@ -887,9 +887,9 @@ class Orchestrator:
         budgets = cfg.data.get("budgets", {})
         tried: set[str] = set()
         s = self.state()
-        for _ in range(len(s["bricks"])):  # the state again after each item: a merge makes its dependents ready
+        for _ in range(len(s["bricks"])):  # the state again after each item: a merge makes its dependents ready; every kind is built one way
             s = self.state()
-            item = next((i for i in s["ready"] if i not in tried), None)
+            item = next((i for i in s["ready"] + s["ready_system"] if i not in tried), None)
             if item is None:
                 break
             tried.add(item)
@@ -908,12 +908,10 @@ class Orchestrator:
             if st != "met":
                 why[item] = st
                 break  # the next item is cut from a HEAD this one did not reach
-        stale = [b["id"] for b in self.state()["bricks"] if b["status"] == "stale"]
-        if stale and not self.dry:  # a later plan commit (acceptance tests) changed what they were measured with
-            res["remeasured"] = await self.measure_all([(i, "HEAD") for i in stale])
-            self.commit("scoreboard")
-        if s["ready_system"]:
-            why.update({i: "system item: measured in its environment" for i in s["ready_system"]})
+            stale = [b["id"] for b in self.state()["bricks"] if b["status"] == "stale"]
+            if stale:  # this item's plan commit changed what earlier items were measured with
+                res.setdefault("remeasured", []).extend(await self.measure_all([(i, "HEAD") for i in stale]))
+                self.commit("scoreboard")
         if not self.dry:
             self.tracker("reconcile")
         s = self.state()

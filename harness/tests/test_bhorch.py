@@ -325,6 +325,7 @@ ACCEPT = {  # the test author's answer per item: plain pytest files in the proje
     for item, check in (
         ("csv-reader", "importlib.import_module('csv_reader').read_rows('a\\n1\\n') == [{'a': '1'}]"),
         ("json-writer", "importlib.util.find_spec('json_writer') is not None"),
+        ("csv2json", "importlib.util.find_spec('csv2json') is not None"),
     )
 }
 
@@ -341,10 +342,10 @@ def test_a_full_run_goes_from_plan_to_packet_to_build_to_merge(toy, fake):
     assert list(res)[:3] == ["product", "status", "owner_questions"]
     assert res["auth"] == {"mode_at_start": "login", "mode_at_end": "login", "fallbacks_to_login": 0}
     rounds = {r["item"]: r["status"] for r in res["phases"]["rounds"]}
-    assert rounds == {"csv-reader": "met", "json-writer": "met"}  # csv2json is a system item
+    assert rounds == {"csv-reader": "met", "json-writer": "met", "csv2json": "met"}  # every kind, one path
     roles = [(j.get("job") or j.get("role") or j.get("step"), j.get("item")) for j in res["jobs"]]
     builds = [r for r in roles if r[0] == "builder"]
-    assert builds == [("builder", "json-writer")]  # csv-reader's tests passed at HEAD already
+    assert builds == [("builder", "json-writer")]  # the others' tests passed at HEAD already
     jw = [r[0] for r in roles if r[1] == "json-writer"]
     assert jw == ["test_author", "red_run", "builder", "measurer", "merge"]
     log = git(toy, "log", "--format=%s", "main")

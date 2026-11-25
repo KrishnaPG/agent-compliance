@@ -393,15 +393,11 @@ def _jail(
     """The one place that seals a measured command, so the sealing tool can be swapped.
 
     bubblewrap: read-only ``/``, no network, a tmpfs over ``/tmp`` and over each ``hide`` dir
-    (the orchestrator's state and the builder clones), the user cache as a throwaway overlay, only
-    ``co`` and ``writable`` writable,
+    (the orchestrator's state and the builder clones), only ``co`` and ``writable`` writable,
     and the whole jail dies with its parent (no process-group handling of our own).
     """
     seal = ["bwrap", "--die-with-parent", "--unshare-net", "--unshare-pid", "--new-session"]
     seal += ["--ro-bind", "/", "/", "--dev", "/dev", "--proc", "/proc", "--tmpfs", "/tmp"]
-    cache = Path(os.environ.get("XDG_CACHE_HOME") or Path.home() / ".cache")
-    if cache.is_dir():  # the pre-warmed tool caches (uv, pip, pre-commit) read as they are; writes go to a tmpfs and vanish
-        seal += ["--overlay-src", str(cache), "--tmp-overlay", str(cache)]
     for d in hide:
         seal += ["--tmpfs", str(d)] if d.is_dir() else []
     for w in [co, *writable]:
@@ -3487,7 +3483,7 @@ def unmet_gaps(
     cfg: Config, items: list[str], every: bool = False, st: dict[str, Any] | None = None
 ) -> list[dict[str, Any]]:
     """Gaps for items not met when the cycle's rounds end: a defect to analyse, cited at the
-    item's scoreboard entry (or its line in the items file when it was never measured), with
+    item's scoreboard entry (or its line in the bricks file when it was never measured), with
     the reason and the last measurer errors (named with the catalog's defect skill; reported,
     never run). See ``stuck_rows`` for ``items`` and ``every``."""
     if not items and not every:
@@ -3522,7 +3518,7 @@ def unmet_gaps(
 def shared_path_facts(bricks: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Fact ``shared-path``: a path owned by two items (or an item's path under another's).
 
-    Pure path arithmetic over the items file; git and ast-grep have no notion of an item's
+    Pure path arithmetic over the bricks file; git and ast-grep have no notion of an item's
     owned paths, so there is no tool to adopt. Changes no status."""
     owners: dict[str, set[str]] = {}
     for b in bricks:

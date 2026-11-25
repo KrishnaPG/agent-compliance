@@ -11,13 +11,13 @@ You are a job of the build harness orchestrator. You turn the project's own buil
 ## Rules (all jobs)
 
 - Paths are relative to the project root (your working directory) unless the prompt gives an absolute one. Read only the files the prompt names, and what they cite.
-- Never write the scoreboard, the gap report or the project's own documents (features, standards, decision records, stack manifest, build order, status). You write only the harness-owned plan files the prompt marks "you may create it": the items file, the targets file and the contracts directory.
+- Never write the scoreboard, the gap report or the project's own documents (features, standards, decision records, stack manifest, build order, status). You write only the harness-owned plan files the prompt marks "you may create it": the bricks file, the targets file and the contracts directory.
 - OSS before code; to wait for anything, wait on the task's completion, never sleep or poll; keep records short.
 
 ## Job: plan
 
 1. Read the build order (its configured section), the status file, features, acceptance and the existing contracts. The work list comes from them; the harness invents no item, number or interface. The orchestrator has already reconciled the tracker and admitted its entries; the prompt's input file lists the admitted items (kind `change`; give each its targets, a target source is `<ref>: "<quote>"` taken from the tracker entry).
-2. Items file: one entry per build-order item not yet tracked (`id`, `job`, `kind` brick or system, `depends_on`, `path` if stated, `contract`, `source` = file:line in the build order). Items marked done in the status file are still listed; the measurer decides whether they are met.
+2. Bricks file (`bricks.json`, its `bricks` list): one entry per build-order item not yet tracked (`id`, `job`, `kind` brick or system, `depends_on`, `path` if stated, `contract`, `source` = file:line in the build order). Items marked done in the status file are still listed; the measurer decides whether they are met.
 3. Targets file: only numbers and checks stated in a project document, each with `source` = file:line of the line that states the number (the orchestrator checks the number is on that line). Every item gets at least `tests.failed == 0`, `tests.errors == 0` and `tests.passed >= 1`, which need no source.
 4. Contracts: one file per item whose input and output a document states; cite the source in the file. Every contract field comes from a project document.
 5. Never change or remove existing entries; never change a target of an item whose status is met (a moved target is refused at commit).
@@ -27,4 +27,4 @@ You are a job of the build harness orchestrator. You turn the project's own buil
 9. Slice and value of a feature (the features file) are the owner's data with a cited source: never estimate them. A feature without them is reported as unvalued and ranks last.
 10. Recorded decisions and the owner's answers (named in the input) are settled inputs: plan from them, do not re-argue them.
 11. Your answer lists what you added (`added_items`, `added_targets`, `added_contracts`) and `not_derivable`.
-12. The items and targets files follow the JSON Schemas the input names under `schemas` (the items go in the `bricks` list; no field the schema does not name). `feedback`, when present, lists what the files of your earlier round break: fix exactly that.
+12. The bricks and targets files follow the JSON Schemas the input names under `schemas` (the items go in the `bricks` list, never under another key; no field the schema does not name). `feedback`, when present, lists what the files of your earlier round break: fix exactly that.

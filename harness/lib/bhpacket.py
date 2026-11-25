@@ -453,8 +453,8 @@ def launch_builder(root: Path, item: str, usd: float | None = None) -> tuple[int
     if err:
         return 1, "", err
     digest = custody_store(root, raw)
-    clone = root / CLONES_DIR / f"{item}-{digest[:12]}"
     base = bhorch.git(root, "rev-parse", "HEAD").stdout.strip()  # the base commit the program records
+    clone = root / CLONES_DIR / f"{item}-{digest[:12]}-{base[:12]}"  # one clone per packet and base
     bhbuilder.make_clone(root, clone, base)
     register(root, clone, digest)
     cfg = root / ".brick-harness" / "config.json"
