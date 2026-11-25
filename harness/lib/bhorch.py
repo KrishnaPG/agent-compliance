@@ -1275,30 +1275,30 @@ class Orchestrator:
     def measure_packet(
         self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
     ) -> str:
-        """The measurer step for a packet: its rows run on the builder's clone; met only when every row is green.
-        (The full measurer, b1, replaces the body; the step and its record stay.)"""
-        import bhtests
-
+        """The measurer step for a packet: the builder's commit is fetched into the repository (a ref
+        the builder cannot move) and measured by the one measurer, ``bhcore.measure_ref``, against the
+        packet kept in custody; met when the measurer says met."""
         item, t0 = packet["id"], datetime.now(UTC)
         clones = sorted(
             (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
         )
-        out = bhtests.run_rows(clones[-1], packet) if clones else {}
-        met = bool(out) and all(o["outcome"] == "green" for o in out.values())
+        digest = bhpacket.hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest()
+        met = False
+        if clones:
+            ref = f"refs/bh/{item}"
+            git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
+            res = bhcore.measure_ref(self.cfg, ref, packet=digest, orch=root)
+            facts += res["facts"]
+            met = res["items"][0]["status"] == "met"
         if met and packet.get("kind") == "defect":
             facts.append(
                 {
                     "kind": "regression_recorded",
                     "item": item,
-                    "detail": f"fix: {', '.join(out)} pass at the builder's result",
+                    "detail": f"the packet's rows pass at the builder's result {item}",
                 }
             )
-        self.program_step(
-            "measurer",
-            item,
-            t0,
-            bhpacket.hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest(),
-        )
+        self.program_step("measurer", item, t0, digest)
         return "met" if met else "unmet"
 
     def over_budget(self, budgets: dict[str, Any]) -> bool:
@@ -1561,7 +1561,7 @@ def main(argv: list[str] | None = None) -> int:
         cfg = Config(a.config, partial=bare)  # a bare measurement reads the file as an override
         bricks = cfg.file("bricks")
         if bare and not (bricks and bricks.exists()):
-            res = bhcore.measure_ref(cfg)  # no plan: measure HEAD against its plan commit
+            res = bhcore.measure_ref(cfg, packet=os.environ.get("BH_PACKET_SHA256"))  # no plan: measure HEAD against its plan commit
             for f in res["facts"]:  # the teaching lines first, the result JSON last
                 print(f["message"])
             print(json.dumps(res))

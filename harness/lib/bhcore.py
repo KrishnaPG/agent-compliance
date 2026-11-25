@@ -1240,17 +1240,22 @@ def _find_done(root: Path, key: str) -> Path | None:
 def _acceptance_of(name: str, ids: list[str]) -> str | None:
     """The acceptance id a test belongs to: its node name carries the id (``test_<id>`` with ``-`` as ``_``)."""
     low = (name or "").lower()
-    return next((i for i in ids if i.replace("-", "_").lower() in low), None)
+    return next(
+        (i for i in ids if i.replace("-", "_").lower() in low or i.lower() in low), None
+    )
 
 
-def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
+def measure_ref(
+    cfg: Config, ref: str = "HEAD", packet: str | None = None, orch: Path | None = None
+) -> dict[str, Any]:
     """Measure ``ref`` of the repository against its plan commit (merge base with the default
     branch), without a plan or scoreboard: a ``git clone --shared`` checkout, the plan commit's
     protected paths laid over it, the project's test recipe and a canary run sealed by ``_jail``.
 
-    The orchestrator names the packet it measures against by digest (``$BH_PACKET_SHA256``) and
-    the measurer reads it only through packet custody (``bhpacket.custody_read``, in
-    ``$BH_ORCHESTRATOR_DIR``, default the repository): the bytes must still hash to the digest.
+    The orchestrator names the packet it measures against by ``packet`` (a sha256; the command line
+    passes ``$BH_PACKET_SHA256``) and the measurer reads it only through packet custody
+    (``bhpacket.custody_read``, in ``orch``, default ``$BH_ORCHESTRATOR_DIR``, else the repository):
+    the bytes must still hash to the digest.
     No digest means one item named by the targets file, else after the repository.
 
     Every input that cannot be read is a fact with its teaching and the item is unmet; nothing
@@ -1264,16 +1269,16 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
         (b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), "HEAD"
     )
     base = _git(top, "merge-base", sha, main)
-    digest = os.environ.get("BH_PACKET_SHA256")
+    digest = packet
     pk: dict[str, Any] = {}
     errors: list[str] = []
     facts: list[dict[str, Any]] = []
     if digest:
         import bhpacket  # imports this module at load; the custody API is the one way to a packet
 
-        orch = Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top)
+        root = orch or Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top)
         try:
-            pk = json.loads(bhpacket.custody_read(orch, digest))
+            pk = json.loads(bhpacket.custody_read(root, digest))
         except (HarnessError, ValueError) as e:
             errors.append(str(e))
     try:
