@@ -1,7 +1,7 @@
 #!/usr/bin/env -S uv run --script --managed-python
 # /// script
 # requires-python = "==3.14.*"
-# dependencies = ["jsonschema==4.26.0", "junitparser==5.0.3", "packaging==26.4", "pathspec==1.1.1", "semver==3.1.1", "sqlparse==0.6.1"]
+# dependencies = ["jsonschema==4.26.0", "junitparser==5.0.3", "packaging==26.4", "pathspec==1.1.1", "ruamel.yaml==0.19.1", "semver==3.1.1", "sqlparse==0.6.1", "tomlkit==0.15.3"]
 # ///
 """bh: the one entry of the build harness (orchestrator).
 

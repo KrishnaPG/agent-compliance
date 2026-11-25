@@ -15,7 +15,7 @@ The harness reports gaps in the project's own documents and executes its build o
 
 ## Run it
 
-1. No setup step: `bh run` infers the test entry, language, install and dependency commands and the build order from the project's own files, and prints each with the file it came from. A setup owner question (a missing test entry, or standard files it would write) is asked once; on yes rerun `bh run --approve`.
+1. No setup step: `bh run` infers the test entry, language, install and dependency commands and the build order from the project's own files, and prints each with the file it came from. A setup owner question (a missing test entry; the issue forms, linter presets and pre-commit hooks it would write; an owner known only by its package folder) is asked once; on yes rerun `bh run --approve`, and give owners with `bh run --owner PATTERN=OWNER` (recorded in CODEOWNERS).
 2. Run `bh run` from the project root (`bh --dry-run run` first lists the agent jobs and changes nothing). One phase instead: `bh gaps`, `bh plan`, `bh measure`, `bh harvest`. A restart continues by itself.
 3. Report the result as `bh` prints it: what is sellable at HEAD and what is next; then met, stuck and gaps. The full result is the JSON file named on its last line.
 4. Ask the owner the questions listed under `owner_questions` (one batch, each with its evidence and `resolve_with`). Record each answer with `bh-answer` (`bh-answer --help`), then run `bh` again; an answered question is never asked twice.

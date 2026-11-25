@@ -291,6 +291,44 @@ def fingerprint(cfg: Config) -> str:
 # ---------------------------------------------------------------- the runner
 
 
+def setup_presets(root: Path, approved: bool, owners: list[tuple[str, str]] | None = None) -> dict[str, Any]:
+    """The linter presets as a setup write (QBC-61 C + D): approved, ``bhpresets.apply`` writes
+    them into the project's pyproject and .pre-commit-config.yaml and records the owner answers
+    in CODEOWNERS; else the files it would write while a stack's preset hooks are missing. Either
+    way, owners named only after their package folder are one question, asked while CODEOWNERS lacks them."""
+    import bhpresets
+    from ruamel.yaml import YAML
+
+    cfg = root / ".pre-commit-config.yaml"
+    doc = YAML(typ="safe").load(cfg.read_text()) if cfg.is_file() else None
+    have = {h.get("id") for r in (doc or {}).get("repos", []) for h in r.get("hooks") or []}
+    out: dict[str, Any] = {}
+    if approved:
+        out = {"report": bhpresets.apply(root, owners)}
+    elif owners:
+        for stack in bhpresets.stacks(root)[:1]:  # an answer is the standard file, written as given
+            for pattern, who in owners:
+                bhpresets.record_owner(root, bhpresets.presets()[stack], pattern, who)
+    missing = [s for s in bhpresets.stacks(root) if {h["id"] for h in bhpresets.presets()[s]["hooks"]} - have]
+    if missing and not approved:
+        out["pending"] = sorted({"pyproject.toml", ".pre-commit-config.yaml"})
+    folder = sorted(
+        o
+        for s in bhpresets.stacks(root)
+        for o, v in bhpresets.owner_map(root, bhpresets.presets()[s]).items()
+        if v["source"] == "package folder"
+    )
+    if folder:
+        out["question"] = {
+            "id": "Q-owners",
+            "kind": "owner-unknown",
+            "summary": f"who owns {', '.join(folder)}? Each is named only after its package folder; "
+            "answer with `bh run --owner PATTERN=OWNER` (recorded in CODEOWNERS)",
+            "evidence": "CODEOWNERS",
+        }
+    return out
+
+
 class Orchestrator:
     """One run of one or more phases over a project (``cfg``)."""
 
@@ -829,15 +867,18 @@ class Orchestrator:
 
     # Standard-file writes setup offers (QBC-61 D): name -> writer(root, approved) returning
     # {"written", ...} when approved, else {"pending": [...]} naming what it would write.
-    SETUP_WRITES = {"forms": bhintake.install_forms}
+    SETUP_WRITES: dict[str, Any] = {"forms": bhintake.install_forms, "presets": None}  # presets: setup_presets
 
-    def phase_setup(self, approve: list[str] | None = None) -> dict[str, Any]:
+    def phase_setup(
+        self, approve: list[str] | None = None, owners: list[tuple[str, str]] | None = None
+    ) -> dict[str, Any]:
         """The one setup path, at the start of every run: what the project's standard files say
         (``bhinfer.infer``, each value a fact naming its file), the harness's own state ignored
         by git, then the standard-file writes the owner approved (``--approve``). What is not
         approved yet is one owner question for all of them together, asked again only while a
         write is still pending; the files written are the answer, so nothing is stored in a
-        plugin file (QBC-60 to QBC-63)."""
+        plugin file (QBC-60 to QBC-63). ``owners`` are the owner's answers about who owns a
+        package (``--owner PATTERN=OWNER``), recorded in CODEOWNERS."""
         root = self.cfg.dir
         facts = bhinfer.infer(root)
         out: dict[str, Any] = {"facts": bhinfer.facts_lines(facts), "written": {}, "questions": bhinfer.questions(facts)}
@@ -846,11 +887,13 @@ class Orchestrator:
         pending: list[str] = []
         for name, write in self.SETUP_WRITES.items():
             yes = approve is not None and (not approve or name in approve) and not self.dry
-            r = write(root, yes)
+            r = setup_presets(root, yes, owners) if write is None else write(root, yes)
             if yes:
                 out["written"][name] = r
             elif r.get("pending"):
                 pending.append(f"{name} ({', '.join(r['pending'])})")
+            if r.get("question"):
+                out["questions"].append(r["question"])
         if pending:
             out["questions"].append(
                 {
@@ -864,11 +907,16 @@ class Orchestrator:
             )
         return out
 
-    async def run(self, skip: list[str] | None = None, approve: list[str] | None = None) -> dict[str, Any]:
+    async def run(
+        self,
+        skip: list[str] | None = None,
+        approve: list[str] | None = None,
+        owners: list[tuple[str, str]] | None = None,
+    ) -> dict[str, Any]:
         cfg, skip = self.cfg, skip or []
         res: dict[str, Any] = {
             "dry_run": self.dry,
-            "setup": self.phase_setup(approve),
+            "setup": self.phase_setup(approve, owners),
             "gaps": None,
             "plan": None,
             "rounds": [],
@@ -1411,7 +1459,10 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
 
 async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[str, Any]:
     if cmd == "run":
-        return await orch.run(a.skip, a.approve)
+        owners = [tuple(o.split("=", 1)) for o in a.owner]
+        if any(len(o) != 2 for o in owners):
+            raise HarnessError("--owner takes PATTERN=OWNER")
+        return await orch.run(a.skip, a.approve, owners)  # type: ignore[arg-type]
     s0 = orch.state()
     sellable0 = set(s0["value"]["sellable_at_head"])
     phases: dict[str, Any]
@@ -1470,6 +1521,13 @@ def main(argv: list[str] | None = None) -> int:
         nargs="*",
         choices=list(Orchestrator.SETUP_WRITES),
         help="the owner approved the setup's standard-file writes (none named: all it asked for)",
+    )
+    r.add_argument(
+        "--owner",
+        action="append",
+        default=[],
+        metavar="PATTERN=OWNER",
+        help="the owner's answer about who owns a package, recorded in CODEOWNERS",
     )
     sub.add_parser("gaps", parents=[common], help="find spec gaps")
     sub.add_parser("plan", parents=[common], help="derive items, targets, contracts")

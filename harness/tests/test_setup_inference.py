@@ -214,3 +214,23 @@ def test_one_inference_owner_no_second_detector():
         "value": "pytest",
         "source": "pytest.ini",
     }
+
+
+def test_setup_asks_once_for_the_presets_and_records_owner_answers_in_codeowners(tmp_path, fake):  # noqa: F811
+    """The linter presets are one of setup's standard-file writes (asked with the others), and an
+    owner named only after its package folder is a question whose answer goes to CODEOWNERS."""
+    repo = tmp_path / "app"
+    (repo / "src" / "app" / "billing").mkdir(parents=True)
+    (repo / "src" / "app" / "__init__.py").write_text("")
+    (repo / "src" / "app" / "billing" / "__init__.py").write_text("")
+    (repo / "pyproject.toml").write_text('[project]\nname = "app"\nversion = "0.1.0"\n')
+    git(repo, "init", "-q", "-b", "main")
+    commit_all(repo, "app")
+    orch = bhorch.Orchestrator(Config(repo / ".brick-harness" / "config.json"))
+    asked = {q["id"]: q["summary"] for q in orch.phase_setup()["questions"]}
+    assert "presets (.pre-commit-config.yaml, pyproject.toml)" in asked["Q-setup"]
+    assert "billing" in asked["Q-owners"] and "CODEOWNERS" in asked["Q-owners"]
+    assert not (repo / ".pre-commit-config.yaml").exists()  # nothing written without a yes
+    setup = orch.phase_setup(owners=[("src/app/billing/", "@billing-team")])
+    assert "src/app/billing/ @billing-team" in (repo / ".github" / "CODEOWNERS").read_text()
+    assert "Q-owners" not in {q["id"] for q in setup["questions"]}  # answered: not asked again

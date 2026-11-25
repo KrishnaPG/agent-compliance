@@ -171,8 +171,10 @@ agent runs each tool and returns its JSON.
   add-a-dependency command (lockfile), build order and features documents are inferred from the
   project's standard files, each printed as an `inferred` fact naming its file;
   `.brick-harness/config.json` only overrides. What cannot be inferred, and the standard-file
-  writes setup offers (issue forms), is one owner question; `bh run --approve` writes what was
-  approved into the project's own files, never a plugin file.
+  writes setup offers (issue forms; the linter presets and pre-commit hooks of `lib/bhpresets.py`),
+  is one owner question; `bh run --approve` writes what was approved into the project's own
+  files, never a plugin file. An owner known only by its package folder is a question too;
+  `bh run --owner PATTERN=OWNER` records the answer in CODEOWNERS.
 
 **Time limits.** One `bh-measure` call runs the item's test, bench and setup commands, each bounded by
 `commands.timeout_s`, so keep their sum under an agent's shell limit (about 10
