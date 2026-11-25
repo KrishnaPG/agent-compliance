@@ -1,0 +1,1502 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "docs/atdd/criteria.schema.json",
+  "title": "Acceptance criteria of one plan slice (generated from catalog.yaml by build.py; do not edit)",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "slice",
+    "criteria"
+  ],
+  "properties": {
+    "slice": {
+      "enum": [
+        "a",
+        "b",
+        "c",
+        "d",
+        "e",
+        "f",
+        "g",
+        "h"
+      ]
+    },
+    "criteria": {
+      "type": "array",
+      "minItems": 1,
+      "items": {
+        "$ref": "#/$defs/row"
+      }
+    }
+  },
+  "$defs": {
+    "row": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "id",
+        "scenario",
+        "given",
+        "when",
+        "then",
+        "traces_to",
+        "method",
+        "deterministic"
+      ],
+      "anyOf": [
+        {
+          "required": [
+            "covers"
+          ]
+        },
+        {
+          "required": [
+            "spec_ref"
+          ]
+        }
+      ],
+      "properties": {
+        "id": {
+          "type": "string",
+          "pattern": "^[a-h]\\d+-AC\\d+$"
+        },
+        "scenario": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 160
+        },
+        "covers": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "type": "integer",
+            "minimum": 0
+          }
+        },
+        "given": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/given"
+          }
+        },
+        "when": {
+          "$ref": "#/$defs/when"
+        },
+        "then": {
+          "type": "array",
+          "minItems": 1,
+          "items": {
+            "$ref": "#/$defs/then"
+          }
+        },
+        "traces_to": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "G1",
+              "G2",
+              "G3",
+              "G4",
+              "G5",
+              "G6",
+              "P1",
+              "P2",
+              "P3",
+              "P4",
+              "P5",
+              "P6",
+              "P7",
+              "P8",
+              "P9",
+              "P10",
+              "P11",
+              "P12",
+              "R1",
+              "R2",
+              "R3",
+              "R4",
+              "R5",
+              "R6",
+              "R7",
+              "R8",
+              "R9",
+              "R10",
+              "R11",
+              "QBC-1",
+              "QBC-2",
+              "QBC-3",
+              "QBC-4",
+              "QBC-5",
+              "QBC-6",
+              "QBC-7",
+              "QBC-8",
+              "QBC-9",
+              "QBC-10",
+              "QBC-11",
+              "QBC-12",
+              "QBC-13",
+              "QBC-14",
+              "QBC-15",
+              "QBC-16",
+              "QBC-18",
+              "QBC-19",
+              "QBC-20",
+              "QBC-21",
+              "QBC-22",
+              "QBC-23",
+              "QBC-24",
+              "QBC-25",
+              "QBC-26",
+              "QBC-27",
+              "QBC-28",
+              "QBC-29",
+              "QBC-30",
+              "QBC-31",
+              "QBC-32",
+              "QBC-33",
+              "QBC-34",
+              "QBC-35",
+              "QBC-36",
+              "QBC-37",
+              "QBC-38",
+              "QBC-39",
+              "QBC-40",
+              "QBC-41",
+              "QBC-42",
+              "QBC-43",
+              "QBC-44",
+              "QBC-45",
+              "QBC-46",
+              "QBC-47",
+              "QBC-48",
+              "QBC-49",
+              "QBC-50",
+              "QBC-51",
+              "QBC-53",
+              "QBC-54",
+              "QBC-55",
+              "QBC-56",
+              "QBC-57",
+              "QBC-58",
+              "QBC-59",
+              "QBC-60",
+              "QBC-61",
+              "QBC-62",
+              "QBC-63",
+              "QBC-64",
+              "QBC-65",
+              "QBC-66",
+              "QBC-67",
+              "QBC-68",
+              "QBC-69",
+              "QBC-70",
+              "QBC-71",
+              "QBC-72",
+              "QBC-73",
+              "QBC-74",
+              "QBC-75",
+              "QBC-76",
+              "QBC-77",
+              "QBC-78",
+              "QBC-79",
+              "QBC-80",
+              "QBC-81",
+              "QBC-82",
+              "QBC-83",
+              "QBC-84",
+              "QBC-85",
+              "QBC-86",
+              "QBC-87",
+              "QBC-88",
+              "QBC-89",
+              "QBC-90",
+              "QBC-91",
+              "QBC-92",
+              "QBC-93",
+              "QBC-94",
+              "QBC-95",
+              "QBC-96",
+              "QBC-97",
+              "QBC-98",
+              "QBC-99",
+              "QBC-100",
+              "QBC-101",
+              "QBC-102"
+            ]
+          }
+        },
+        "method": {
+          "enum": [
+            "fitness",
+            "lint",
+            "measure",
+            "test"
+          ]
+        },
+        "deterministic": {
+          "type": "boolean"
+        },
+        "spec_ref": {
+          "type": "array",
+          "minItems": 1,
+          "uniqueItems": true,
+          "items": {
+            "enum": [
+              "stage:L1",
+              "stage:L2",
+              "stage:L3",
+              "stage:L4",
+              "stage:L5",
+              "stage:review",
+              "enforce:1",
+              "enforce:2",
+              "enforce:3",
+              "enforce:4",
+              "enforce:5"
+            ]
+          }
+        },
+        "plan_gap": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      "if": {
+        "properties": {
+          "id": {
+            "pattern": "^h"
+          }
+        }
+      },
+      "else": {
+        "properties": {
+          "deterministic": {
+            "const": true
+          }
+        }
+      }
+    },
+    "given": {
+      "title": "given",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": {
+        "enum": [
+          "config",
+          "history",
+          "hook_input",
+          "host",
+          "packet",
+          "planted",
+          "recorded_answer",
+          "recorded_api",
+          "recorded_model",
+          "repo"
+        ]
+      },
+      "properties": {
+        "repo": {
+          "description": "A repository fixture checked out in a named state, with a git history.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name",
+            "state"
+          ],
+          "properties": {
+            "name": {
+              "enum": [
+                "toy",
+                "node_toy",
+                "plugin",
+                "project"
+              ]
+            },
+            "state": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            }
+          }
+        },
+        "planted": {
+          "description": "One planted change on top of the repo fixture, committed as the candidate or applied to the working tree.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "plant",
+            "class"
+          ],
+          "properties": {
+            "plant": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "class": {
+              "enum": [
+                "gaming",
+                "violation",
+                "bump",
+                "diff",
+                "defect",
+                "wiring",
+                "honest"
+              ]
+            },
+            "where": {
+              "enum": [
+                "candidate_commit",
+                "working_tree",
+                "plan_commit",
+                "base"
+              ]
+            }
+          }
+        },
+        "recorded_model": {
+          "description": "A stub `claude` first on PATH replays recorded stream-json for every job; no network, no paid call.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fixture"
+          ],
+          "properties": {
+            "fixture": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            }
+          }
+        },
+        "recorded_api": {
+          "description": "Recorded HTTP responses stand in for an external service; the network is off.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "service",
+            "fixture"
+          ],
+          "properties": {
+            "service": {
+              "enum": [
+                "github",
+                "scorecard",
+                "deps_dev",
+                "osv"
+              ]
+            },
+            "fixture": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            }
+          }
+        },
+        "hook_input": {
+          "description": "A recorded hook-input JSON, as Claude Code sends it, for one tool call.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "event",
+            "tool",
+            "agent_type",
+            "packet",
+            "target"
+          ],
+          "properties": {
+            "event": {
+              "enum": [
+                "PreToolUse",
+                "PostToolUse",
+                "SessionStart"
+              ]
+            },
+            "tool": {
+              "enum": [
+                "Edit",
+                "Write",
+                "Bash",
+                "none"
+              ]
+            },
+            "agent_type": {
+              "enum": [
+                "builder",
+                "test_author",
+                "main",
+                "human"
+              ]
+            },
+            "packet": {
+              "enum": [
+                "registered",
+                "absent"
+              ]
+            },
+            "target": {
+              "enum": [
+                "inside_packet_paths",
+                "outside_packet_paths",
+                "acceptance_test",
+                "packet_file",
+                "none"
+              ]
+            },
+            "touch": {
+              "enum": [
+                "first",
+                "repeat"
+              ]
+            }
+          }
+        },
+        "packet": {
+          "description": "A work-packet instance fixture for one item.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fixture",
+            "variant"
+          ],
+          "properties": {
+            "fixture": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "variant": {
+              "enum": [
+                "valid",
+                "mechanical",
+                "design_field",
+                "scenario_without_traces_to",
+                "scenario_without_verification",
+                "over_cap",
+                "defect",
+                "config_change"
+              ]
+            }
+          }
+        },
+        "config": {
+          "description": "The state of the optional `.brick-harness/config.json` override file.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "state"
+          ],
+          "properties": {
+            "state": {
+              "enum": [
+                "absent",
+                "override"
+              ]
+            },
+            "key": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.\\[\\]*-]+$"
+            },
+            "value": {}
+          }
+        },
+        "host": {
+          "description": "A stubbed host condition the program or check observes.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "condition"
+          ],
+          "properties": {
+            "condition": {
+              "enum": [
+                "probe_passes",
+                "probe_fails",
+                "probe_passes_only_with_unix_sockets",
+                "account_in_socket_group",
+                "claude_code_absent",
+                "network_off",
+                "caches_prewarmed",
+                "no_database",
+                "database_available",
+                "unsupported_stack",
+                "run_in_progress",
+                "builder_sandbox"
+              ]
+            }
+          }
+        },
+        "recorded_answer": {
+          "description": "A recorded owner answer to a one-time question or an approval request; never a live human or account.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "question",
+            "answer"
+          ],
+          "properties": {
+            "question": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "answer": {
+              "enum": [
+                "approve",
+                "decline",
+                "value"
+              ]
+            },
+            "value": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "history": {
+          "description": "A recorded history fixture of git commits, issues with sub-issue events, and bh job records.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "fixture",
+            "period"
+          ],
+          "properties": {
+            "fixture": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "period": {
+              "enum": [
+                "pre_v2",
+                "v2",
+                "both"
+              ]
+            }
+          }
+        }
+      }
+    },
+    "when": {
+      "title": "when",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": {
+        "enum": [
+          "bh",
+          "builder_action",
+          "entry_point",
+          "hook",
+          "plugin_eval",
+          "program_step",
+          "scan",
+          "validate"
+        ]
+      },
+      "properties": {
+        "bh": {
+          "description": "Run a `bh` subcommand once, or `parallel` times at the same moment.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "sub"
+          ],
+          "properties": {
+            "sub": {
+              "enum": [
+                "run",
+                "measure",
+                "check",
+                "owners",
+                "vet",
+                "metrics",
+                "intake"
+              ]
+            },
+            "args": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "parallel": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "rerun": {
+              "type": "boolean"
+            }
+          }
+        },
+        "entry_point": {
+          "description": "Run a test or verify entry point as a human would.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "entry"
+          ],
+          "properties": {
+            "entry": {
+              "enum": [
+                "project_test",
+                "project_verify",
+                "plugin_pytest"
+              ]
+            },
+            "mode": {
+              "enum": [
+                "normal",
+                "uv_script_offline"
+              ]
+            }
+          }
+        },
+        "program_step": {
+          "description": "Run one named step of the program through bh or its library function, with no agent.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "step"
+          ],
+          "properties": {
+            "step": {
+              "enum": [
+                "assemble_packet",
+                "render_packet",
+                "validate_packet",
+                "launch_builder",
+                "derive_tier",
+                "merge",
+                "gap_review",
+                "rank_findings",
+                "render_gaps",
+                "generate_baselines",
+                "generate_register",
+                "infer_config",
+                "ask_once",
+                "apply_presets",
+                "write_forms",
+                "file_issue",
+                "intake_issue",
+                "add_known_issue",
+                "reopen_from_review",
+                "close_tracking",
+                "relay_miss",
+                "validate_standards",
+                "map_catalog_ids",
+                "generate_tests",
+                "commit_build"
+              ]
+            },
+            "item": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "rerun": {
+              "type": "boolean"
+            }
+          }
+        },
+        "hook": {
+          "description": "Feed the given hook input to the plugin hook command registered in hooks/hooks.json.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "hook"
+          ],
+          "properties": {
+            "hook": {
+              "enum": [
+                "H0",
+                "H1",
+                "H2",
+                "bash_note",
+                "test_guard"
+              ]
+            }
+          }
+        },
+        "builder_action": {
+          "description": "A scripted builder action (no model) applied under the generated builder settings and the Bash sandbox.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "tool",
+            "action",
+            "target"
+          ],
+          "properties": {
+            "tool": {
+              "enum": [
+                "Edit",
+                "Write",
+                "Bash"
+              ]
+            },
+            "action": {
+              "enum": [
+                "edit",
+                "write",
+                "delete",
+                "append",
+                "delete_ref"
+              ]
+            },
+            "target": {
+              "enum": [
+                "acceptance_test",
+                "clone_packet",
+                "orchestrator_packet",
+                "outside_clone",
+                "source_repo",
+                "clone_source_file"
+              ]
+            }
+          }
+        },
+        "scan": {
+          "description": "Statically inspect files of the repo fixture (no system code runs).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paths",
+            "kind"
+          ],
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "kind": {
+              "enum": [
+                "text",
+                "symbol",
+                "path",
+                "frontmatter",
+                "description_chars",
+                "file_chars",
+                "references",
+                "version_strings",
+                "exits",
+                "undefined_names",
+                "lint_rule"
+              ]
+            },
+            "pattern": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "validate": {
+          "description": "Validate an instance against a JSON Schema (draft 2020-12) with the jsonschema library.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "instance",
+            "schema"
+          ],
+          "properties": {
+            "instance": {
+              "type": "string",
+              "minLength": 1
+            },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "plugin_eval": {
+          "description": "Run `claude plugin eval` with the given arguments (slice h only; may make live model calls).",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "args"
+          ],
+          "properties": {
+            "args": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        }
+      }
+    },
+    "then": {
+      "title": "then",
+      "type": "object",
+      "minProperties": 1,
+      "maxProperties": 1,
+      "propertyNames": {
+        "enum": [
+          "api_call",
+          "exit_code",
+          "fact",
+          "field",
+          "file_contains",
+          "file_unchanged",
+          "git",
+          "jobs",
+          "junit",
+          "met",
+          "needs_keyword",
+          "no_fact",
+          "output_contains",
+          "paths",
+          "questions_asked",
+          "refused",
+          "same_result",
+          "scan_count",
+          "schema_valid",
+          "snapshot",
+          "teaching",
+          "threshold"
+        ]
+      },
+      "properties": {
+        "exit_code": {
+          "description": "The process exit status.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "code"
+          ],
+          "properties": {
+            "code": {
+              "type": "integer"
+            }
+          }
+        },
+        "met": {
+          "description": "The measurer's verdict for the item in the result JSON.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status"
+          ],
+          "properties": {
+            "status": {
+              "enum": [
+                "met",
+                "unmet",
+                "stuck",
+                "not_checked"
+              ]
+            },
+            "item": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            }
+          }
+        },
+        "fact": {
+          "description": "A fact of a closed kind is recorded in the result JSON and listed in the run report.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "diff",
+                "scope",
+                "flaky",
+                "red",
+                "red_by_error",
+                "red_on_main",
+                "regression_recorded",
+                "tampered",
+                "dropped_tests",
+                "skipped_growth",
+                "suppression_growth",
+                "ts_comment_growth",
+                "ratchet_growth",
+                "launch_refused",
+                "stuck",
+                "inferred",
+                "not_declared",
+                "not_checked",
+                "re_queue",
+                "tier",
+                "h0_bypass",
+                "over_cap",
+                "unmapped_rule_code",
+                "unwired",
+                "sandbox_choice",
+                "judge_objection",
+                "review_finding",
+                "idle_tracking",
+                "second_known_list",
+                "gap",
+                "parity",
+                "commitlint",
+                "vet_result",
+                "unknown_rule",
+                "packet_mismatch"
+              ]
+            },
+            "detail": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "type": "integer"
+            }
+          }
+        },
+        "no_fact": {
+          "description": "No fact of the kind is recorded.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "kind"
+          ],
+          "properties": {
+            "kind": {
+              "enum": [
+                "diff",
+                "scope",
+                "flaky",
+                "red",
+                "red_by_error",
+                "red_on_main",
+                "regression_recorded",
+                "tampered",
+                "dropped_tests",
+                "skipped_growth",
+                "suppression_growth",
+                "ts_comment_growth",
+                "ratchet_growth",
+                "launch_refused",
+                "stuck",
+                "inferred",
+                "not_declared",
+                "not_checked",
+                "re_queue",
+                "tier",
+                "h0_bypass",
+                "over_cap",
+                "unmapped_rule_code",
+                "unwired",
+                "sandbox_choice",
+                "judge_objection",
+                "review_finding",
+                "idle_tracking",
+                "second_known_list",
+                "gap",
+                "parity",
+                "commitlint",
+                "vet_result",
+                "unknown_rule",
+                "packet_mismatch"
+              ]
+            }
+          }
+        },
+        "refused": {
+          "description": "An order refusal that teaches (P5): the step is not done and the message names what is wrong, the right way and the prevention.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "by",
+            "wrong",
+            "right",
+            "prevent"
+          ],
+          "properties": {
+            "by": {
+              "enum": [
+                "hook",
+                "sandbox",
+                "file_tools",
+                "program",
+                "launch",
+                "form"
+              ]
+            },
+            "wrong": {
+              "type": "string",
+              "minLength": 1
+            },
+            "right": {
+              "type": "string",
+              "minLength": 1
+            },
+            "prevent": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "teaching": {
+          "description": "A message that is not a refusal (a fact, note, unmet result or report line) teaches what is wrong, the right way and the prevention.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "wrong",
+            "right"
+          ],
+          "properties": {
+            "channel": {
+              "enum": [
+                "stdout",
+                "stderr",
+                "hook_output",
+                "fact",
+                "run_report",
+                "issue_comment",
+                "form_description",
+                "tool_result",
+                "sarif"
+              ]
+            },
+            "wrong": {
+              "type": "string",
+              "minLength": 1
+            },
+            "right": {
+              "type": "string",
+              "minLength": 1
+            },
+            "prevent": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "output_contains": {
+          "description": "A channel carries an exact text.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "channel",
+            "text"
+          ],
+          "properties": {
+            "channel": {
+              "enum": [
+                "stdout",
+                "stderr",
+                "hook_output",
+                "run_report",
+                "packet_markdown",
+                "additional_context",
+                "issue_comment"
+              ]
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "max_chars": {
+              "type": "integer"
+            },
+            "negate": {
+              "type": "boolean"
+            }
+          }
+        },
+        "field": {
+          "description": "A field of a structured output has a value.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "source",
+            "path",
+            "op"
+          ],
+          "properties": {
+            "source": {
+              "enum": [
+                "result_json",
+                "run_report",
+                "packet",
+                "job_record",
+                "config_effective",
+                "owners_output",
+                "metrics_output",
+                "builder_settings",
+                "hook_output",
+                "hooks_json",
+                "issue",
+                "gaps_md",
+                "skill_md",
+                "eval_report",
+                "register",
+                "parity_report",
+                "vet_output",
+                "baseline_file",
+                "standards_data",
+                "changelog",
+                "launch_args",
+                "commit_message",
+                "sarif",
+                "manifest",
+                "decision_record"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9_.\\[\\]*-]+$"
+            },
+            "op": {
+              "enum": [
+                "eq",
+                "ne",
+                "contains",
+                "not_contains",
+                "present",
+                "absent",
+                "gt",
+                "ge",
+                "lt",
+                "le",
+                "matches",
+                "distinct"
+              ]
+            },
+            "value": {}
+          }
+        },
+        "jobs": {
+          "description": "The bh job record of the run, as an ordered list of jobs with role, kind and arguments.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "assert",
+            "values"
+          ],
+          "properties": {
+            "assert": {
+              "enum": [
+                "order",
+                "distinct",
+                "none_of_kind",
+                "present"
+              ]
+            },
+            "values": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            }
+          }
+        },
+        "file_unchanged": {
+          "description": "A file, tree or ref set has the same digest after `when` as before.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "target"
+          ],
+          "properties": {
+            "target": {
+              "enum": [
+                "orchestrator_packet",
+                "source_refs",
+                "outside_checkout",
+                "acceptance_tests",
+                "project_config",
+                "plugin_files",
+                "base_recipe",
+                "baseline_file"
+              ]
+            }
+          }
+        },
+        "paths": {
+          "description": "Paths exist or do not exist in the tree after `when`.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "paths",
+            "exist"
+          ],
+          "properties": {
+            "paths": {
+              "type": "array",
+              "minItems": 1,
+              "items": {
+                "type": "string",
+                "minLength": 1
+              }
+            },
+            "exist": {
+              "type": "boolean"
+            }
+          }
+        },
+        "scan_count": {
+          "description": "The scan's match count or measured number compared with a value.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "op",
+            "value"
+          ],
+          "properties": {
+            "op": {
+              "enum": [
+                "eq",
+                "lt",
+                "le",
+                "ge",
+                "gt"
+              ]
+            },
+            "value": {
+              "type": "integer"
+            },
+            "distinct": {
+              "type": "boolean"
+            }
+          }
+        },
+        "junit": {
+          "description": "Counts in the JUnit XML of the run.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [],
+          "properties": {
+            "tests_min": {
+              "type": "integer"
+            },
+            "failures": {
+              "type": "integer"
+            },
+            "errors": {
+              "type": "integer"
+            },
+            "skipped": {
+              "type": "integer"
+            }
+          }
+        },
+        "threshold": {
+          "description": "A measured number is within a default limit (overridable) or below a reference value.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "metric",
+            "op",
+            "bound"
+          ],
+          "properties": {
+            "metric": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "op": {
+              "enum": [
+                "lt",
+                "le",
+                "ge",
+                "gt"
+              ]
+            },
+            "bound": {
+              "type": "string",
+              "minLength": 1
+            },
+            "default": {
+              "type": "number"
+            }
+          }
+        },
+        "snapshot": {
+          "description": "An output equals a committed golden file.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "name"
+          ],
+          "properties": {
+            "name": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            }
+          }
+        },
+        "schema_valid": {
+          "description": "The validate result.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "valid"
+          ],
+          "properties": {
+            "valid": {
+              "type": "boolean"
+            },
+            "error_path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "instance": {
+              "type": "string",
+              "minLength": 1
+            },
+            "schema": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "same_result": {
+          "description": "Two results compared.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "a",
+            "b",
+            "compare"
+          ],
+          "properties": {
+            "a": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "b": {
+              "type": "string",
+              "pattern": "^[a-z0-9][a-z0-9_.-]*$"
+            },
+            "compare": {
+              "enum": [
+                "equal",
+                "separate"
+              ]
+            }
+          }
+        },
+        "git": {
+          "description": "A git property of the repo after `when`.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "assert"
+          ],
+          "properties": {
+            "assert": {
+              "enum": [
+                "candidate_not_in_head",
+                "merge_is_one_commit",
+                "source_refs_unchanged",
+                "no_git_hook_installed",
+                "clone_is_shared_from_base",
+                "no_remote_fetch",
+                "conflict_names_item",
+                "unmerged_empty",
+                "committed_by_program",
+                "path_in_plan_commit"
+              ]
+            },
+            "path": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "api_call": {
+          "description": "Requests the program made to a recorded service.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "service",
+            "operation",
+            "count"
+          ],
+          "properties": {
+            "service": {
+              "enum": [
+                "github",
+                "scorecard",
+                "deps_dev",
+                "osv"
+              ]
+            },
+            "operation": {
+              "type": "string",
+              "minLength": 1
+            },
+            "count": {
+              "type": "integer"
+            },
+            "with": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        },
+        "file_contains": {
+          "description": "A file of the repo fixture, read after `when`, contains a text.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "path",
+            "text"
+          ],
+          "properties": {
+            "path": {
+              "type": "string",
+              "minLength": 1
+            },
+            "text": {
+              "type": "string",
+              "minLength": 1
+            },
+            "regex": {
+              "type": "boolean"
+            },
+            "negate": {
+              "type": "boolean"
+            }
+          }
+        },
+        "questions_asked": {
+          "description": "The number of questions or approval prompts the program put to the owner during `when`.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "count"
+          ],
+          "properties": {
+            "count": {
+              "type": "integer",
+              "minimum": 0
+            }
+          }
+        },
+        "needs_keyword": {
+          "description": "The part of the criterion that no catalog entry expresses.",
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "reason"
+          ],
+          "properties": {
+            "reason": {
+              "type": "string",
+              "minLength": 1
+            }
+          }
+        }
+      }
+    }
+  }
+}

@@ -1,0 +1,4213 @@
+# Slice b, Harness core (#9). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
+slice: b
+criteria:
+- id: b1-AC1
+  scenario: Each (ref, mode) is measured in its own shared clone, and two measured at once do not share one
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: measure
+      parallel: 2
+  then:
+  - git:
+      assert: clone_is_shared_from_base
+  - git:
+      assert: no_remote_fetch
+  - same_result:
+      a: result_ref_a
+      b: result_ref_b
+      compare: separate
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: bullet prescribes git clone --shared; the row asserts the clone is shared from base and results are separate
+- id: b1-AC2
+  scenario: A gutted test that is not the item's own test still makes the candidate unmet (all tests are overlaid)
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: gutted_other_test
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - fact:
+      kind: diff
+      detail: M tests/
+  - teaching:
+      channel: fact
+      wrong: tests/
+      right: restore
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC3
+  scenario: A weakened lint or test config section in the candidate does not change the verdict
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: weakened_lint_config
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - fact:
+      kind: diff
+      detail: pyproject.toml
+  - teaching:
+      channel: fact
+      wrong: config
+      right: base
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC4
+  scenario: An edited ratchet file or entry-point recipe file is measured from the plan commit
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: edited_ratchet_file
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: ratchet
+      right: plan
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC5
+  scenario: A dependency a builder declares and uses is kept (declarations are not overlaid)
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: added_dependency
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: met
+  - no_fact:
+      kind: tampered
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b1-AC6
+  scenario: A builder-added test config file is set aside and recorded
+  covers:
+  - 6
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: added_pytest_ini
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: diff
+      detail: A pytest.ini
+  - teaching:
+      channel: fact
+      wrong: pytest.ini
+      right: base
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC7
+  scenario: A measured test cannot write outside the checkout
+  covers:
+  - 7
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: writes_outside_checkout
+      class: gaming
+  - host:
+      condition: builder_sandbox
+  when:
+    bh:
+      sub: measure
+  then:
+  - file_unchanged:
+      target: outside_checkout
+  - file_unchanged:
+      target: orchestrator_packet
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: outside
+      right: checkout
+      prevent: jail
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-31
+  - QBC-65
+  method: test
+  deterministic: true
+  plan_gap: bullet prescribes bwrap; the row asserts the observable consequence (nothing written outside the checkout, including the orchestrator dir and /tmp), and the plan omits the teaching
+- id: b1-AC8
+  scenario: A measured test cannot reach the network
+  covers:
+  - 7
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: network_call
+      class: gaming
+  - host:
+      condition: network_off
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: network
+      right: offline
+      prevent: jail
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-31
+  - QBC-65
+  method: test
+  deterministic: true
+  plan_gap: bullet prescribes bwrap (no network); the plan omits the teaching
+- id: b1-AC9
+  scenario: A canary that must fail and passes records tampered
+  covers:
+  - 8
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: passing_canary
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: tampered
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: canary
+      right: tampered
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC10
+  scenario: An honest candidate leaves the canary failing and records no tampered fact
+  covers:
+  - 8
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - no_fact:
+      kind: tampered
+  - met:
+      status: met
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+- id: b1-AC11
+  scenario: A candidate that reads the holdout ref or holdout files finds them absent
+  covers:
+  - 9
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: reads_holdout
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: holdout
+      right: hidden
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC12
+  scenario: protected defaults to the test and config paths
+  covers:
+  - 10
+  given:
+  - repo:
+      name: toy
+      state: base
+  - config:
+      state: absent
+  when:
+    bh:
+      sub: measure
+  then:
+  - field:
+      source: config_effective
+      path: protected
+      op: contains
+      value: tests/
+  - field:
+      source: config_effective
+      path: protected
+      op: contains
+      value: conftest.py
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan lists the defaults only as "these paths" (the overlay list); the row asserts the test paths and conftest.py
+- id: b1-AC13
+  scenario: An empty protected list is recorded as a gap
+  covers:
+  - 10
+  given:
+  - repo:
+      name: toy
+      state: base
+  - config:
+      state: override
+      key: protected
+      value: []
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: gap
+      detail: protected
+  - teaching:
+      channel: fact
+      wrong: protected
+      right: set
+      prevent: default
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching for the gap
+- id: b1-AC14
+  scenario: A config change the packet declares is measured from the plan commit
+  covers:
+  - 11
+  given:
+  - repo:
+      name: toy
+      state: base
+  - packet:
+      fixture: toy_item
+      variant: config_change
+  - planted:
+      plant: planned_config_change
+      class: honest
+      where: plan_commit
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: met
+  - no_fact:
+      kind: tampered
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+- id: b1-AC15
+  scenario: 'G1: a gutted test is unmet with an M tests fact'
+  covers:
+  - 12
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: gutted_test
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - fact:
+      kind: diff
+      detail: M tests/
+  - teaching:
+      channel: fact
+      wrong: tests/
+      right: restore
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC16
+  scenario: 'G2: a forging conftest.py is unmet with an A conftest.py fact'
+  covers:
+  - 13
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: forging_conftest
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - fact:
+      kind: diff
+      detail: A conftest.py
+  - teaching:
+      channel: fact
+      wrong: conftest.py
+      right: remove
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC17
+  scenario: 'G3: a report patch at import that writes outside the checkout is unmet, tampered, and writes nothing outside'
+  covers:
+  - 14
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: report_patch_writes_outside
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - fact:
+      kind: tampered
+  - file_unchanged:
+      target: outside_checkout
+  - teaching:
+      channel: fact
+      wrong: tampered
+      right: report
+      prevent: jail
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  - QBC-65
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC18
+  scenario: An edited test recipe is measured with the base recipe
+  covers:
+  - 15
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: edited_test_recipe
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - file_unchanged:
+      target: base_recipe
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: recipe
+      right: base
+      prevent: protected
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  - QBC-31
+  method: test
+  deterministic: true
+  plan_gap: plan states no teaching text for this unmet result; the teaching assertion uses the protected-path wording of QBC-15
+- id: b1-AC19
+  scenario: An honest commit is met
+  covers:
+  - 16
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: met
+  - no_fact:
+      kind: tampered
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  method: test
+  deterministic: true
+- id: b1-AC20
+  scenario: The measurer's own overhead is within the limit on the toy
+  covers:
+  - 17
+  given:
+  - repo:
+      name: toy
+      state: base
+  when:
+    bh:
+      sub: measure
+  then:
+  - threshold:
+      metric: measure_overhead_s
+      op: le
+      bound: limits.measure_overhead_s
+      default: 2
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  method: measure
+  deterministic: true
+- id: b1-AC21
+  scenario: The plugin's plain pytest entry point accepts the new measurer
+  covers:
+  - 18
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    entry_point:
+      entry: plugin_pytest
+  then:
+  - exit_code:
+      code: 0
+  - junit:
+      failures: 0
+      errors: 0
+      tests_min: 1
+  traces_to:
+  - R4
+  - R1
+  - P6
+  - G5
+  - QBC-15
+  method: test
+  deterministic: true
+  plan_gap: '"never the 1.5.2 measurer" is a negative about the old tool; the row asserts the new tree passes plain pytest'
+- id: b2-AC1
+  scenario: A run writes to out/<item>/<sha12>-<slot>
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  when:
+    bh:
+      sub: measure
+  then:
+  - paths:
+      paths:
+      - out/*/*-*
+      exist: true
+  - field:
+      source: result_json
+      path: items[*].out
+      op: matches
+      value: out/[^/]+/[0-9a-f]{12}-[^/]+
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+- id: b2-AC2
+  scenario: A repeated (ref, mode) pair is deduped
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  when:
+    bh:
+      sub: measure
+      rerun: true
+  then:
+  - same_result:
+      a: first_run
+      b: second_run
+      compare: equal
+  - paths:
+      paths:
+      - out/*/*-*
+      exist: true
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: dedupe is observable only as an equal second result and one output location
+- id: b2-AC3
+  scenario: A missing JUnit file gives unmet and a teaching fact, never an exception
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: missing_junit
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: missing junit file
+      right: fix
+      prevent: check
+  - output_contains:
+      channel: stderr
+      text: Traceback
+      negate: true
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC4
+  scenario: A malformed JUnit file gives unmet and a teaching fact, never an exception
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: malformed_junit
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: malformed junit file
+      right: fix
+      prevent: check
+  - output_contains:
+      channel: stderr
+      text: Traceback
+      negate: true
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC5
+  scenario: A NaN or inf sample gives unmet and a teaching fact, never an exception
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: nan_sample
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: nan
+      right: fix
+      prevent: check
+  - output_contains:
+      channel: stderr
+      text: Traceback
+      negate: true
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC6
+  scenario: An unreadable target gives unmet and a teaching fact, never an exception
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: unreadable_target
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: an unreadable target
+      right: fix
+      prevent: check
+  - output_contains:
+      channel: stderr
+      text: Traceback
+      negate: true
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC7
+  scenario: JUnit failure is recorded as red
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: junit_failure
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: red
+  - no_fact:
+      kind: red_by_error
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: red
+      right: fix
+      prevent: protected
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC8
+  scenario: JUnit error is recorded as red-by-error
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: junit_error
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: red_by_error
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: error
+      right: fix
+      prevent: protected
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC9
+  scenario: A change to a plan file changes the measurement key, so an earlier result is not reused
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: plan_file_changed
+      class: diff
+      where: plan_commit
+  when:
+    bh:
+      sub: measure
+      rerun: true
+  then:
+  - same_result:
+      a: before_plan_change
+      b: after_plan_change
+      compare: separate
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: tree_key is internal; the row asserts its consequence
+- id: b2-AC10
+  scenario: A test whose background child holds stdout is not recorded as a timeout
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: background_child_holds_stdout
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: met
+  - no_fact:
+      kind: stuck
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+- id: b2-AC11
+  scenario: Two refs measured at the same time keep separate results
+  covers:
+  - 6
+  given:
+  - repo:
+      name: toy
+      state: base
+  when:
+    bh:
+      sub: measure
+      parallel: 2
+  then:
+  - same_result:
+      a: result_ref_a
+      b: result_ref_b
+      compare: separate
+  traces_to:
+  - R3
+  - R4
+  - QBC-34
+  - QBC-66
+  method: test
+  deterministic: true
+- id: b3-AC1
+  scenario: On a met item the merge leaves nothing unmerged
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    program_step:
+      step: merge
+  then:
+  - field:
+      source: result_json
+      path: unmerged
+      op: eq
+      value: []
+  traces_to:
+  - R4
+  - P6
+  - QBC-66
+  method: test
+  deterministic: true
+- id: b3-AC2
+  scenario: An unmet candidate never reaches HEAD
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: gutted_test
+      class: gaming
+  when:
+    program_step:
+      step: merge
+  then:
+  - git:
+      assert: candidate_not_in_head
+  - refused:
+      by: program
+      wrong: unmet
+      right: fix
+      prevent: measure
+  traces_to:
+  - R4
+  - P6
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b3-AC3
+  scenario: With the guard removed the merge test turns red
+  covers:
+  - 2
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  - planted:
+      plant: merge_guard_removed
+      class: wiring
+      where: working_tree
+  when:
+    entry_point:
+      entry: plugin_pytest
+  then:
+  - exit_code:
+      code: 1
+  - teaching:
+      channel: stdout
+      wrong: unmerged
+      right: guard
+      prevent: test
+  traces_to:
+  - R4
+  - P6
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text; mutation of the guard is the only way to show the test catches it
+- id: b3-AC4
+  scenario: A merge is one commit
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    program_step:
+      step: merge
+  then:
+  - git:
+      assert: merge_is_one_commit
+  traces_to:
+  - R4
+  - P6
+  - QBC-66
+  method: test
+  deterministic: true
+- id: b3-AC5
+  scenario: A conflict names its item
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: conflicting_candidates
+      class: defect
+  when:
+    program_step:
+      step: merge
+  then:
+  - git:
+      assert: conflict_names_item
+  - git:
+      assert: unmerged_empty
+  - teaching:
+      channel: stderr
+      wrong: conflict
+      right: item
+      prevent: order
+  traces_to:
+  - R4
+  - P6
+  - QBC-66
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b3-AC6
+  scenario: merge_unmerged does not call state()
+  covers:
+  - 5
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/lib/bhcore.py
+      kind: symbol
+      pattern: merge_unmerged.*state\(
+  then:
+  - scan_count:
+      op: eq
+      value: 0
+  traces_to:
+  - R4
+  - P6
+  - QBC-66
+  method: lint
+  deterministic: true
+  plan_gap: a code-structure claim; the row asserts the call text is absent
+- id: b4-AC1
+  scenario: A JUnit id present at base and missing at the candidate yields exactly its fact and no refusal
+  covers:
+  - 0
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: junit_ids_missing
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: dropped_tests
+      count: 1
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: dropped tests
+      right: restore
+      prevent: ratchet
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b4-AC2
+  scenario: A JUnit id present at base and missing at the candidate in the opposite direction yields no fact
+  covers:
+  - 0
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: junit_ids_added
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - no_fact:
+      kind: dropped_tests
+  - exit_code:
+      code: 0
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+- id: b4-AC3
+  scenario: A grown JUnit skipped count yields exactly its fact and no refusal
+  covers:
+  - 0
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: skipped_grown
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: skipped_growth
+      count: 1
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: skipped growth
+      right: restore
+      prevent: ratchet
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b4-AC4
+  scenario: A grown JUnit skipped count in the opposite direction yields no fact
+  covers:
+  - 0
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: skipped_shrunk
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - no_fact:
+      kind: skipped_growth
+  - exit_code:
+      code: 0
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+- id: b4-AC5
+  scenario: Grown suppressed findings (ruff and eslint compared with and without inline suppression, at base and candidate) yields exactly its fact and no refusal
+  covers:
+  - 0
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: suppressions_grown
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: suppression_growth
+      count: 1
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: suppression growth
+      right: restore
+      prevent: ratchet
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b4-AC6
+  scenario: Grown suppressed findings (ruff and eslint compared with and without inline suppression, at base and candidate) in the opposite direction yields no fact
+  covers:
+  - 0
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: suppressions_removed
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - no_fact:
+      kind: suppression_growth
+  - exit_code:
+      code: 0
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+- id: b4-AC7
+  scenario: Grown ban-ts-comment findings yields exactly its fact and no refusal
+  covers:
+  - 0
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: ban_ts_comment_grown
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: ts_comment_growth
+      count: 1
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: ts comment growth
+      right: restore
+      prevent: ratchet
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b4-AC8
+  scenario: Grown ban-ts-comment findings in the opposite direction yields no fact
+  covers:
+  - 0
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: ban_ts_comment_shrunk
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - no_fact:
+      kind: ts_comment_growth
+  - exit_code:
+      code: 0
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+- id: b4-AC9
+  scenario: An honest commit yields none of the diff-based facts
+  covers:
+  - 0
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - no_fact:
+      kind: dropped_tests
+  - no_fact:
+      kind: skipped_growth
+  - no_fact:
+      kind: suppression_growth
+  - no_fact:
+      kind: ts_comment_growth
+  - no_fact:
+      kind: ratchet_growth
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+- id: b4-AC10
+  scenario: Ratchet growth is recorded through the same fact writer
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: ratchet_grown
+      class: diff
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: ratchet_growth
+      count: 1
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: ratchet
+      right: restore
+      prevent: ratchet
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: test
+  deterministic: true
+  plan_gap: the writer belongs to c4; the row asserts only that the fact appears in the result JSON and run report; plan omits the teaching text
+- id: b4-AC11
+  scenario: Diff facts use no pattern lists
+  covers:
+  - 0
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/lib/
+      kind: text
+      pattern: SKIP_PATTERNS|SUPPRESS_PATTERNS|_PATTERN_LIST
+  then:
+  - scan_count:
+      op: eq
+      value: 0
+  traces_to:
+  - R4
+  - P11
+  - P4
+  - QBC-8
+  - QBC-11
+  - QBC-15
+  method: lint
+  deterministic: true
+  plan_gap: title says "without pattern lists"; the row asserts those list names are absent, which is a text check and not a proof
+- id: b5-AC1
+  scenario: validate() and GAP_KINDS are gone
+  covers:
+  - 1
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/
+      - bin/
+      kind: symbol
+      pattern: def validate\(|GAP_KINDS
+  then:
+  - scan_count:
+      op: eq
+      value: 0
+  traces_to:
+  - P2
+  - G5
+  - QBC-13
+  - QBC-76
+  - QBC-80
+  method: lint
+  deterministic: true
+- id: b5-AC2
+  scenario: Gap kinds come from gaps.schema.json
+  covers:
+  - 1
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  - planted:
+      plant: kind_added_to_schema_only
+      class: diff
+  when:
+    validate:
+      instance: gap_with_new_kind
+      schema: gaps.schema.json
+  then:
+  - schema_valid:
+      valid: true
+  traces_to:
+  - P2
+  - G5
+  - QBC-13
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: '"kinds read from gaps.schema.json" is a design claim; the observable consequence is that a kind added only to the schema file is accepted'
+- id: b5-AC3
+  scenario: A keyword the old validator ignored now rejects bad input
+  covers:
+  - 2
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    validate:
+      instance: gap_violating_ignored_keyword
+      schema: gaps.schema.json
+  then:
+  - schema_valid:
+      valid: false
+      error_path: $
+  - teaching:
+      channel: stderr
+      wrong: schema
+      right: gaps.schema.json
+      prevent: validate
+  traces_to:
+  - P2
+  - G5
+  - QBC-13
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan does not name the keyword; fixture must use one the old validator ignored; plan omits the teaching
+- id: b5-AC4
+  scenario: The suite passes under uv run --script from a pre-warmed cache with the network off
+  covers:
+  - 3
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  - host:
+      condition: caches_prewarmed
+  - host:
+      condition: network_off
+  when:
+    entry_point:
+      entry: plugin_pytest
+      mode: uv_script_offline
+  then:
+  - exit_code:
+      code: 0
+  - junit:
+      failures: 0
+      errors: 0
+      tests_min: 1
+  traces_to:
+  - P2
+  - G5
+  - QBC-13
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b6-AC1
+  scenario: teach takes rule, wrong, right and ref, all required
+  covers:
+  - 1
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/
+      kind: symbol
+      pattern: def teach\(rule, wrong, right, ref\)
+  then:
+  - scan_count:
+      op: eq
+      value: 1
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: lint
+  deterministic: true
+  plan_gap: plan prescribes a signature; the row asserts the definition has exactly the four required parameters
+- id: b6-AC2
+  scenario: 'Repeats are grouped: the first limits.findings_shown then a count'
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: fifteen_repeated_findings
+      class: violation
+  when:
+    bh:
+      sub: check
+  then:
+  - field:
+      source: config_effective
+      path: limits.findings_shown
+      op: eq
+      value: 10
+  - needs_keyword:
+      reason: no keyword counts finding lines shown versus the grouped count line in a channel
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: test
+  deterministic: true
+- id: b6-AC3
+  scenario: A message is at most limits.message_chars
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: overlong_message_source
+      class: violation
+  when:
+    bh:
+      sub: check
+  then:
+  - field:
+      source: config_effective
+      path: limits.message_chars
+      op: eq
+      value: 300
+  - threshold:
+      metric: longest_message_chars
+      op: le
+      bound: limits.message_chars
+      default: 300
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: measure
+  deterministic: true
+- id: b6-AC4
+  scenario: The commit gate on targets is a fact with teaching and the item stays ready
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: commit_gate_on_targets
+      class: violation
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: gap
+  - no_fact:
+      kind: launch_refused
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: the commit gate on targets
+      right: fix
+      prevent: declare
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: test
+  deterministic: true
+  plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
+- id: b6-AC5
+  scenario: The env_setup block is a fact with teaching and the item stays ready
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: env_setup_block
+      class: violation
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: gap
+  - no_fact:
+      kind: launch_refused
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: the env_setup block
+      right: fix
+      prevent: declare
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: test
+  deterministic: true
+  plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
+- id: b6-AC6
+  scenario: The tracker sha pin is a fact with teaching and the item stays ready
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: tracker_sha_pin
+      class: violation
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: gap
+  - no_fact:
+      kind: launch_refused
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: the tracker sha pin
+      right: fix
+      prevent: declare
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: test
+  deterministic: true
+  plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
+- id: b6-AC7
+  scenario: The catalogue-schema merge refusal is a fact with teaching and the item stays ready
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: catalogue_schema_merge_refusal
+      class: violation
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: gap
+  - no_fact:
+      kind: launch_refused
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: the catalogue-schema merge refusal
+      right: fix
+      prevent: declare
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: test
+  deterministic: true
+  plan_gap: plan does not name the fact kind or its text for this former gate; the row accepts the gap kind
+- id: b6-AC8
+  scenario: An order refusal names its next step
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: step_out_of_order
+      class: violation
+  when:
+    bh:
+      sub: run
+  then:
+  - refused:
+      by: program
+      wrong: order
+      right: run
+      prevent: before
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: test
+  deterministic: true
+  plan_gap: plan names no sample message; the row asserts a refusal that teaches
+- id: b6-AC9
+  scenario: Every refusal and non-zero exit has the shape [rule] wrong -> right . ref
+  covers:
+  - 6
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/
+      - bin/
+      - hooks/
+      - fitness/
+      - presets/
+      kind: exits
+  then:
+  - scan_count:
+      op: ge
+      value: 1
+  - needs_keyword:
+      reason: no keyword asserts a shape over every scanned site
+  traces_to:
+  - P5
+  - P4
+  - G3
+  - QBC-11
+  - QBC-12
+  - QBC-53
+  - QBC-54
+  - QBC-55
+  - QBC-56
+  - QBC-68
+  method: fitness
+  deterministic: true
+- id: b7-AC1
+  scenario: The fact table lists the facts slice b produces
+  covers:
+  - 1
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - docs/
+      - skills/harness/
+      kind: text
+      pattern: scope|flaky|red-by-error|tampered|dropped tests|suppression growth|launch refused|stuck
+  then:
+  - scan_count:
+      op: ge
+      value: 8
+      distinct: true
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: lint
+  deterministic: true
+  plan_gap: plan does not name the table's file; the row scans docs and the harness skill
+- id: b7-AC2
+  scenario: The table keeps one row for each later fact once its task lands
+  covers:
+  - 2
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - docs/
+      - skills/harness/
+      kind: text
+      pattern: inferred|ratchet growth|not checked|re-queue|H0 bypass
+  then:
+  - scan_count:
+      op: ge
+      value: 5
+      distinct: true
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: lint
+  deterministic: true
+  plan_gap: holds only after c1, c4, c8, d5 and d8 land
+- id: b7-AC3
+  scenario: A fact reaches the orchestrator through the result JSON and one run report line
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: out_of_scope_edit
+      class: diff
+  - recorded_model:
+      fixture: toy_scope
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: scope
+      count: 1
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+- id: b7-AC4
+  scenario: At max_rounds an item is stuck and reported for a re-plan
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_never_met
+  - config:
+      state: absent
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: config_effective
+      path: max_rounds
+      op: eq
+      value: 3
+  - met:
+      status: stuck
+  - fact:
+      kind: stuck
+  - teaching:
+      channel: run_report
+      wrong: stuck
+      right: re-plan
+      prevent: round
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b7-AC5
+  scenario: A planted scope fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: out_of_scope_edit
+      class: diff
+  - recorded_model:
+      fixture: toy_out_of_scope_edit
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: scope
+  - output_contains:
+      channel: run_report
+      text: scope
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC6
+  scenario: A planted flaky fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: flaky_test
+      class: defect
+  - recorded_model:
+      fixture: toy_flaky_test
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: flaky
+  - output_contains:
+      channel: run_report
+      text: flaky
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC7
+  scenario: A planted red by error fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: junit_error
+      class: defect
+  - recorded_model:
+      fixture: toy_junit_error
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: red_by_error
+  - output_contains:
+      channel: run_report
+      text: red by error
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC8
+  scenario: A planted tampered fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: passing_canary
+      class: gaming
+  - recorded_model:
+      fixture: toy_passing_canary
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: tampered
+  - output_contains:
+      channel: run_report
+      text: tampered
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC9
+  scenario: A planted dropped tests fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: junit_ids_missing
+      class: diff
+  - recorded_model:
+      fixture: toy_junit_ids_missing
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: dropped_tests
+  - output_contains:
+      channel: run_report
+      text: dropped tests
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC10
+  scenario: A planted suppression growth fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: suppressions_grown
+      class: diff
+  - recorded_model:
+      fixture: toy_suppressions_grown
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: suppression_growth
+  - output_contains:
+      channel: run_report
+      text: suppression growth
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC11
+  scenario: A planted launch refused fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: probe_fails
+      class: violation
+  - recorded_model:
+      fixture: toy_probe_fails
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: launch_refused
+  - output_contains:
+      channel: run_report
+      text: launch refused
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b7-AC12
+  scenario: A planted stuck fact appears in the run report with its action
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: never_met
+      class: defect
+  - recorded_model:
+      fixture: toy_never_met
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: stuck
+  - output_contains:
+      channel: run_report
+      text: stuck
+  traces_to:
+  - G1
+  - P4
+  - QBC-30
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: the table's action text is not named in the plan; the row asserts the fact appears in the run report
+- id: b8-AC1
+  scenario: Every row of the levels and mechanisms tables has a planted test marked with its safeguard
+  covers:
+  - 1
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    program_step:
+      step: generate_register
+  then:
+  - field:
+      source: register
+      path: entries[*].tests
+      op: present
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: fitness
+  deterministic: true
+- id: b8-AC2
+  scenario: A vacuous test is caught
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: vacuous_test
+      class: gaming
+  when:
+    bh:
+      sub: run
+  then:
+  - met:
+      status: unmet
+  - teaching:
+      channel: fact
+      wrong: vacuous
+      right: assert
+      prevent: protected
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b8-AC3
+  scenario: Endless retries are stopped by the round limit
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: endless_retries
+      class: gaming
+  when:
+    bh:
+      sub: run
+  then:
+  - met:
+      status: stuck
+  - teaching:
+      channel: fact
+      wrong: retry
+      right: round
+      prevent: protected
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b8-AC4
+  scenario: A builder launched by hand is refused
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: hand_launch
+      class: gaming
+  when:
+    hook:
+      hook: H0
+  then:
+  - refused:
+      by: hook
+      wrong: No work packet
+      right: Launch builders through
+      prevent: packet
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: test
+  deterministic: true
+  plan_gap: wording from QBC-47
+- id: b8-AC5
+  scenario: The remaining register rows reuse planted cases of b1, b4, b9, c4, d5 and d8
+  covers:
+  - 2
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    program_step:
+      step: generate_register
+  then:
+  - needs_keyword:
+      reason: no keyword asserts that a register row's marked test is a named earlier task's planted case
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: fitness
+  deterministic: true
+- id: b8-AC6
+  scenario: Register status comes from the markers and the JUnit results
+  covers:
+  - 3
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    program_step:
+      step: generate_register
+  then:
+  - field:
+      source: register
+      path: entries[*].status
+      op: present
+  - fact:
+      kind: gap
+      count: 0
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: test
+  deterministic: true
+  plan_gap: plan names no status values
+- id: b8-AC7
+  scenario: An entry citing a test that did not run or failed is reported
+  covers:
+  - 4
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  - planted:
+      plant: cited_test_failed
+      class: wiring
+      where: working_tree
+  when:
+    program_step:
+      step: generate_register
+  then:
+  - fact:
+      kind: unwired
+  - teaching:
+      channel: fact
+      wrong: test
+      right: run
+      prevent: marker
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b8-AC8
+  scenario: No hand-kept status field remains
+  covers:
+  - 5
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  - planted:
+      plant: hand_set_status
+      class: defect
+      where: working_tree
+  when:
+    program_step:
+      step: generate_register
+  then:
+  - field:
+      source: register
+      path: entries[*].status
+      op: present
+  - needs_keyword:
+      reason: no keyword asserts that a hand-set status is overwritten by regeneration
+  traces_to:
+  - P6
+  - R4
+  - QBC-15
+  - QBC-31
+  - QBC-58
+  - QBC-67
+  method: test
+  deterministic: true
+  plan_gap: '"no hand-kept field" is a data-shape claim'
+- id: b9-AC1
+  scenario: The builder works in a shared clone of the recorded base commit, with no remote fetch and no worktree
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - git:
+      assert: clone_is_shared_from_base
+  - git:
+      assert: no_remote_fetch
+  - git:
+      assert: source_refs_unchanged
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC2
+  scenario: The jobs dir and plugin root are not added with --add-dir
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: launch_args
+      path: --add-dir
+      op: not_contains
+      value: jobs
+  - field:
+      source: launch_args
+      path: --add-dir
+      op: not_contains
+      value: plugin
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC3
+  scenario: File tools are scoped and reads outside the working directory are blocked
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: builder_settings
+      path: permissions.allow
+      op: contains
+      value: Edit(*)
+  - field:
+      source: builder_settings
+      path: permissions.allow
+      op: contains
+      value: Write(*)
+  - field:
+      source: builder_settings
+      path: permissions.blockReadsOutsideWorkingDirectories
+      op: eq
+      value: true
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC4
+  scenario: Bash is auto-allowed only when sandboxed, never pre-approved, and never unsandboxed
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: builder_settings
+      path: sandbox.autoAllowBashIfSandboxed
+      op: eq
+      value: true
+  - field:
+      source: builder_settings
+      path: permissions.allow
+      op: not_contains
+      value: Bash
+  - field:
+      source: builder_settings
+      path: sandbox.allowUnsandboxedCommands
+      op: eq
+      value: false
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC5
+  scenario: The sandbox denies writes to the protected locations and has no denyRead
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: contains
+      value: tests
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: contains
+      value: packet
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: contains
+      value: source
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: contains
+      value: orchestrator
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: contains
+      value: plugin
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyWrite
+      op: contains
+      value: tmp
+  - field:
+      source: builder_settings
+      path: sandbox.filesystem.denyRead
+      op: absent
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+  plan_gap: plan names the locations in prose; the row matches each by a short substring of the path
+- id: b9-AC6
+  scenario: The program, not the builder, stages and commits
+  covers:
+  - 6
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - git:
+      assert: committed_by_program
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC7
+  scenario: Edit or Write of an acceptance test is refused with the SG-01 teaching line and no deny rule on the path
+  covers:
+  - 7
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Edit
+      action: edit
+      target: acceptance_test
+  then:
+  - refused:
+      by: hook
+      wrong: protected
+      right: tests
+      prevent: SG-01
+  - file_unchanged:
+      target: acceptance_tests
+  - field:
+      source: builder_settings
+      path: permissions.deny
+      op: not_contains
+      value: tests
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+  plan_gap: plan gives no SG-01 line text; the wording is a short substring set to be fixed by the line itself
+- id: b9-AC8
+  scenario: Bash rm or a write into tests gets the sandbox read-only error plus the PostToolUse SG-01 note
+  covers:
+  - 8
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Bash
+      action: delete
+      target: acceptance_test
+  then:
+  - file_unchanged:
+      target: acceptance_tests
+  - teaching:
+      channel: tool_result
+      wrong: read-only
+      right: SG-01
+      prevent: tests
+  - teaching:
+      channel: hook_output
+      wrong: SG-01
+      right: tests
+      prevent: packet
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+  plan_gap: plan gives no SG-01 line text
+- id: b9-AC9
+  scenario: Write of the orchestrator's packet is refused by the scoped file tools
+  covers:
+  - 9
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Write
+      action: write
+      target: orchestrator_packet
+  then:
+  - refused:
+      by: file_tools
+      wrong: orchestrator
+      right: packet
+      prevent: scoped
+  - file_unchanged:
+      target: orchestrator_packet
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text (file-tool refusals are the tool's own)
+- id: b9-AC10
+  scenario: A Bash append to the orchestrator's packet leaves its digest unchanged
+  covers:
+  - 10
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Bash
+      action: append
+      target: orchestrator_packet
+  then:
+  - file_unchanged:
+      target: orchestrator_packet
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC11
+  scenario: A ref deleted in the clone leaves the source refs unchanged
+  covers:
+  - 11
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Bash
+      action: delete_ref
+      target: source_repo
+  then:
+  - file_unchanged:
+      target: source_refs
+  - git:
+      assert: source_refs_unchanged
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+- id: b9-AC12
+  scenario: Write outside the clone is refused
+  covers:
+  - 12
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: builder_sandbox
+  when:
+    builder_action:
+      tool: Write
+      action: write
+      target: outside_clone
+  then:
+  - refused:
+      by: file_tools
+      wrong: outside
+      right: clone
+      prevent: scoped
+  - file_unchanged:
+      target: outside_checkout
+  traces_to:
+  - R2
+  - R4
+  - P7
+  - QBC-15
+  - QBC-48
+  - QBC-65
+  - QBC-80
+  - QBC-100
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b10-AC1
+  scenario: The program runs one sandboxed probe before launching a builder
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: probe_passes
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - fact:
+      kind: sandbox_choice
+      count: 1
+  traces_to:
+  - R10
+  - R4
+  - P5
+  - QBC-12
+  - QBC-13
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: '"runs one probe" is observed through the one sandbox_choice fact'
+- id: b10-AC2
+  scenario: A failing probe refuses the launch with a teaching message
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: probe_fails
+  when:
+    bh:
+      sub: run
+  then:
+  - refused:
+      by: launch
+      wrong: probe
+      right: allowAllUnixSockets
+      prevent: outside socket-granting groups
+  - fact:
+      kind: launch_refused
+  - output_contains:
+      channel: stderr
+      text: fix the profile
+  traces_to:
+  - R10
+  - R4
+  - P5
+  - QBC-12
+  - QBC-13
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: 'the right-way wording follows the bullet: set network.allowAllUnixSockets true, run under an account outside socket-granting groups, or fix the profile'
+- id: b10-AC3
+  scenario: A builder account in a socket-granting group refuses the launch
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: probe_passes
+  - host:
+      condition: account_in_socket_group
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: config_effective
+      path: limits.socket_groups
+      op: contains
+      value: docker
+  - refused:
+      by: launch
+      wrong: group
+      right: outside socket-granting groups
+      prevent: limits.socket_groups
+  - fact:
+      kind: launch_refused
+  traces_to:
+  - R10
+  - R4
+  - P5
+  - QBC-12
+  - QBC-13
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b10-AC4
+  scenario: allowAllUnixSockets is set, and recorded as a fact, only when the probe passes with it and fails without it
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: probe_passes_only_with_unix_sockets
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: builder_settings
+      path: sandbox.network.allowAllUnixSockets
+      op: eq
+      value: true
+  - fact:
+      kind: sandbox_choice
+      detail: allowAllUnixSockets
+  traces_to:
+  - R10
+  - R4
+  - P5
+  - QBC-12
+  - QBC-13
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b10-AC5
+  scenario: allowAllUnixSockets stays false when the probe passes without it
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: probe_passes
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: builder_settings
+      path: sandbox.network.allowAllUnixSockets
+      op: eq
+      value: false
+  traces_to:
+  - R10
+  - R4
+  - P5
+  - QBC-12
+  - QBC-13
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b10-AC6
+  scenario: Each probe case is shown with a stubbed probe
+  covers:
+  - 4
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/tests/
+      kind: text
+      pattern: probe_passes_only_with_unix_sockets|probe_fails|probe_passes|account_in_socket_group
+  then:
+  - scan_count:
+      op: ge
+      value: 4
+      distinct: true
+  traces_to:
+  - R10
+  - R4
+  - P5
+  - QBC-12
+  - QBC-13
+  - QBC-80
+  method: lint
+  deterministic: true
+- id: b11-AC1
+  scenario: A second concurrent bh run is refused with a teaching message
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: run_in_progress
+  when:
+    bh:
+      sub: run
+  then:
+  - refused:
+      by: program
+      wrong: already running
+      right: wait
+      prevent: background
+  - exit_code:
+      code: 1
+  traces_to:
+  - R1
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: bullet prescribes a flock; the row asserts a concurrent run is refused; the plan omits the teaching text
+- id: b11-AC2
+  scenario: 'Two bh runs started at the same moment: exactly one is refused'
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  when:
+    bh:
+      sub: run
+      parallel: 2
+  then:
+  - refused:
+      by: program
+      wrong: already running
+      right: wait
+      prevent: background
+  traces_to:
+  - R1
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b11-AC3
+  scenario: bh check takes no lock
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - host:
+      condition: run_in_progress
+  when:
+    bh:
+      sub: check
+  then:
+  - exit_code:
+      code: 0
+  traces_to:
+  - R1
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b11-AC4
+  scenario: The skill says to start bh run in the background and act on its exit notification
+  covers:
+  - 3
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - skills/harness/SKILL.md
+      kind: text
+      pattern: background.*notification|notification.*background
+  then:
+  - scan_count:
+      op: ge
+      value: 1
+  traces_to:
+  - R1
+  - G5
+  - QBC-80
+  method: lint
+  deterministic: true
+- id: b12-AC1
+  scenario: A re-review that omits an open gap leaves it open
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: review_omits_open_gap
+      class: defect
+  when:
+    program_step:
+      step: gap_review
+  then:
+  - fact:
+      kind: gap
+      detail: open
+  - teaching:
+      channel: fact
+      wrong: omit
+      right: re-review
+      prevent: open
+  traces_to:
+  - R9
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text and names no status value
+- id: b12-AC2
+  scenario: A finding whose impact cites no file:line is ranked as having no impact
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: finding_without_file_line
+      class: defect
+  when:
+    program_step:
+      step: rank_findings
+  then:
+  - fact:
+      kind: review_finding
+      detail: no impact
+  - teaching:
+      channel: fact
+      wrong: file:line
+      right: cite
+      prevent: impact
+  traces_to:
+  - R9
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text and the rank's wording
+- id: b12-AC3
+  scenario: Two gaps from different documents never share an id
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: same_text_two_documents
+      class: defect
+  when:
+    program_step:
+      step: gap_review
+  then:
+  - field:
+      source: result_json
+      path: gaps[*].id
+      op: distinct
+  - fact:
+      kind: gap
+      count: 2
+  traces_to:
+  - R9
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b12-AC4
+  scenario: A missing est_loc is a gap, not 1
+  covers:
+  - 4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: missing_est_loc
+      class: defect
+  when:
+    program_step:
+      step: rank_findings
+  then:
+  - fact:
+      kind: gap
+      detail: est_loc
+      count: 1
+  - teaching:
+      channel: fact
+      wrong: est_loc
+      right: declare
+      prevent: gap
+  traces_to:
+  - R9
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b12-AC5
+  scenario: gaps.md renders from a template and a pipe in a summary renders
+  covers:
+  - 5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: pipe_in_summary
+      class: defect
+  when:
+    program_step:
+      step: render_gaps
+  then:
+  - snapshot:
+      name: gaps_md_pipe_summary
+  traces_to:
+  - R9
+  - G5
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: '"renders from a template" is a design claim; the snapshot asserts the output'
+- id: b12-AC6
+  scenario: Links in the docs are checked and a broken one is reported
+  covers:
+  - 6
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - docs/
+      kind: references
+  then:
+  - fact:
+      kind: gap
+      count: 0
+  - needs_keyword:
+      reason: no keyword asserts that the link checker lychee ran and its result
+  traces_to:
+  - R9
+  - G5
+  - QBC-80
+  method: lint
+  deterministic: true
+- id: b13-AC1
+  scenario: One builder's git failure yields a stuck entry and the run continues
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: builder_git_failure
+      class: defect
+  - recorded_model:
+      fixture: toy_two_items
+  when:
+    bh:
+      sub: run
+  then:
+  - met:
+      status: stuck
+      item: item_a
+  - met:
+      status: met
+      item: item_b
+  - fact:
+      kind: stuck
+      detail: git
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: git
+      right: retry
+      prevent: stuck
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b13-AC2
+  scenario: Every launch carries --max-budget-usd from budgets.job_usd
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - config:
+      state: override
+      key: budgets.job_usd
+      value: 0.5
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: launch_args
+      path: --max-budget-usd
+      op: eq
+      value: 0.5
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b13-AC3
+  scenario: A round cannot exceed budgets.run_usd
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - config:
+      state: override
+      key: budgets.run_usd
+      value: 1
+  - recorded_model:
+      fixture: toy_two_items
+  when:
+    bh:
+      sub: run
+  then:
+  - threshold:
+      metric: round_spend_usd
+      op: le
+      bound: budgets.run_usd
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: measure
+  deterministic: true
+- id: b13-AC4
+  scenario: A changed skill invalidates the job cache
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: skill_changed
+      class: diff
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+      rerun: true
+  then:
+  - field:
+      source: job_record
+      path: jobs[*].cached
+      op: eq
+      value: false
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan names no job-record field for a cache hit
+- id: b13-AC5
+  scenario: Changed standards data invalidates the job cache
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: standards_changed
+      class: diff
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    bh:
+      sub: run
+      rerun: true
+  then:
+  - field:
+      source: job_record
+      path: jobs[*].cached
+      op: eq
+      value: false
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan names no job-record field for a cache hit
+- id: b13-AC6
+  scenario: Each of the four minors has a test
+  covers:
+  - 4
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/tests/
+      kind: text
+      pattern: max-budget-usd|run_usd|builder_git_failure|cache_key
+  then:
+  - scan_count:
+      op: ge
+      value: 4
+      distinct: true
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: lint
+  deterministic: true
+  plan_gap: the plan names no test; the row scans for one marker per minor
+- id: b13-AC7
+  scenario: item_key, bhorch.git and bhorch.fill are each defined once
+  covers:
+  - 5
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/
+      - bin/
+      kind: symbol
+      pattern: def (item_key|git|fill)\b
+  then:
+  - scan_count:
+      op: eq
+      value: 3
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: lint
+  deterministic: true
+  plan_gap: '"one home each" is read as one definition each'
+- id: b13-AC8
+  scenario: _waves is gone and graphlib is used
+  covers:
+  - 5
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/
+      - bin/
+      kind: symbol
+      pattern: _waves
+  then:
+  - scan_count:
+      op: eq
+      value: 0
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: lint
+  deterministic: true
+- id: b13-AC9
+  scenario: The restated targets have one home
+  covers:
+  - 5
+  given:
+  - repo:
+      name: plugin
+      state: candidate
+  when:
+    scan:
+      paths:
+      - harness/
+      - bin/
+      kind: text
+      pattern: targets
+  then:
+  - needs_keyword:
+      reason: the plan names no symbol for the restated targets, so no scan pattern can express one home
+  traces_to:
+  - R1
+  - G5
+  - QBC-76
+  - QBC-80
+  method: lint
+  deterministic: true
+  plan_gap: plan does not say which targets are restated
+- id: b14-AC1
+  scenario: A bh run on the toy with the stub claude ends with every item met or stuck with facts
+  covers:
+  - 0
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_e2e
+  when:
+    bh:
+      sub: run
+  then:
+  - exit_code:
+      code: 0
+  - field:
+      source: result_json
+      path: items[*].status
+      op: matches
+      value: ^(met|stuck)$
+  - fact:
+      kind: stuck
+  traces_to:
+  - R1
+  - P3
+  - QBC-9
+  - QBC-10
+  - QBC-78
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: the stuck item must exist in the fixture so the facts are shown
+- id: b14-AC2
+  scenario: No agent job runs state, measure, merge, commit or ordering
+  covers:
+  - 1
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_e2e
+  when:
+    bh:
+      sub: run
+  then:
+  - jobs:
+      assert: none_of_kind
+      values:
+      - state
+      - measure
+      - merge
+      - commit
+      - ordering
+  traces_to:
+  - R1
+  - P3
+  - QBC-9
+  - QBC-10
+  - QBC-78
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b14-AC3
+  scenario: Tokens are counted per item
+  covers:
+  - 2
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_e2e
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: result_json
+      path: items[*].tokens
+      op: present
+  - field:
+      source: run_report
+      path: tokens
+      op: present
+  traces_to:
+  - R1
+  - P3
+  - QBC-9
+  - QBC-10
+  - QBC-78
+  - QBC-80
+  method: test
+  deterministic: true
+  plan_gap: plan names no field for the token count
+- id: b14-AC4
+  scenario: No Workflow tool in any builder's --tools
+  covers:
+  - 3
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_e2e
+  when:
+    bh:
+      sub: run
+  then:
+  - field:
+      source: launch_args
+      path: --tools
+      op: not_contains
+      value: Workflow
+  traces_to:
+  - R1
+  - P3
+  - QBC-9
+  - QBC-10
+  - QBC-78
+  - QBC-80
+  method: test
+  deterministic: true
+- id: b2-AC12
+  scenario: A measurement writes JUnit XML, a SARIF 2.1.0 log and a schema-valid result JSON that names the packet sha256
+  spec_ref:
+  - stage:L5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - paths:
+      paths:
+      - out/*/*-*/*.xml
+      - out/*/*-*/*.sarif
+      - out/*/*-*/*.json
+      exist: true
+  - schema_valid:
+      valid: true
+      instance: result_json
+      schema: result.schema.json
+  - schema_valid:
+      valid: true
+      instance: sarif
+      schema: sarif-2.1.0
+  - field:
+      source: result_json
+      path: packet_sha256
+      op: eq
+      value: $packet_sha256
+  traces_to:
+  - R4
+  - P6
+  - QBC-35
+  - QBC-51
+  method: test
+  deterministic: true
+  plan_gap: plan names no result schema file or output file names; the row assumes result.schema.json and the three file types
+- id: b2-AC13
+  scenario: A lint or fitness finding on a planted violation carries the teaching in the SARIF message, help and fixes
+  spec_ref:
+  - stage:L5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: lint_violation
+      class: violation
+  when:
+    bh:
+      sub: measure
+  then:
+  - field:
+      source: sarif
+      path: runs[0].results
+      op: present
+  - teaching:
+      channel: sarif
+      wrong: violation
+      right: fix
+      prevent: rule
+  traces_to:
+  - P5
+  - QBC-12
+  - QBC-53
+  method: test
+  deterministic: true
+  plan_gap: plan names no sample message
+- id: b2-AC14
+  scenario: 'A result file forged and committed by the builder has no effect: the verdict reflects the real run'
+  spec_ref:
+  - stage:L5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: forged_result_file
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - met:
+      status: unmet
+  - fact:
+      kind: tampered
+  - teaching:
+      channel: fact
+      wrong: result
+      right: measurer
+      prevent: protected
+  traces_to:
+  - R4
+  - P6
+  - QBC-15
+  - QBC-35
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b1-AC22
+  scenario: A packet edited in the build is recorded as tampered and has no effect on the measured result
+  spec_ref:
+  - enforce:4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: edited_packet
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: tampered
+  - file_unchanged:
+      target: orchestrator_packet
+  - field:
+      source: result_json
+      path: packet_sha256
+      op: eq
+      value: $packet_sha256
+  - teaching:
+      channel: fact
+      wrong: packet
+      right: base
+      prevent: protected
+  traces_to:
+  - R4
+  - P6
+  - QBC-15
+  - QBC-65
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b1-AC23
+  scenario: A generated test edited in the build is recorded as tampered and has no effect on the measured result
+  spec_ref:
+  - enforce:4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: edited_generated_test
+      class: gaming
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: tampered
+  - file_unchanged:
+      target: acceptance_tests
+  - teaching:
+      channel: fact
+      wrong: generated test
+      right: base
+      prevent: protected
+  traces_to:
+  - R4
+  - P6
+  - QBC-15
+  - QBC-65
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b2-AC15
+  scenario: The result JSON and SARIF run properties name the packet sha256
+  spec_ref:
+  - enforce:5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: honest_change
+      class: honest
+  when:
+    bh:
+      sub: measure
+  then:
+  - field:
+      source: result_json
+      path: packet_sha256
+      op: eq
+      value: $packet_sha256
+  - field:
+      source: sarif
+      path: runs[0].properties.packet_sha256
+      op: eq
+      value: $packet_sha256
+  traces_to:
+  - R4
+  - P6
+  - QBC-35
+  method: test
+  deterministic: true
+  plan_gap: the SARIF property name is not named in the spec
+- id: b2-AC16
+  scenario: A commit whose Packet trailer names another sha256 gives packet_mismatch and the item is measured against the right packet
+  spec_ref:
+  - enforce:5
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: wrong_packet_trailer
+      class: defect
+  when:
+    bh:
+      sub: measure
+  then:
+  - fact:
+      kind: packet_mismatch
+      count: 1
+  - field:
+      source: result_json
+      path: packet_sha256
+      op: eq
+      value: $packet_sha256
+  - teaching:
+      channel: fact
+      wrong: packet
+      right: trailer
+      prevent: sha256
+  traces_to:
+  - R4
+  - P5
+  - QBC-12
+  - QBC-35
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text
+- id: b9-AC13
+  scenario: The program's commit follows Conventional Commits 1.0 with Packet and Criteria trailers
+  spec_ref:
+  - stage:L4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - recorded_model:
+      fixture: toy_honest
+  when:
+    program_step:
+      step: commit_build
+  then:
+  - field:
+      source: commit_message
+      path: subject
+      op: matches
+      value: '^(feat|fix|docs|style|refactor|perf|test|build|ci|chore|revert)(\(.+\))?!?: .+'
+  - field:
+      source: commit_message
+      path: trailers
+      op: contains
+      value: 'Packet: $packet_id@$packet_sha256'
+  - field:
+      source: commit_message
+      path: trailers
+      op: contains
+      value: 'Criteria: $criteria_ids'
+  - git:
+      assert: committed_by_program
+  traces_to:
+  - R4
+  - QBC-51
+  - QBC-65
+  method: test
+  deterministic: true
+  plan_gap: the commit_message field names are not fixed by the spec
+- id: b9-AC14
+  scenario: A diff path outside the packet's declared paths is a scope fact with teaching, never a refusal
+  spec_ref:
+  - stage:L4
+  given:
+  - repo:
+      name: toy
+      state: base
+  - planted:
+      plant: out_of_scope_edit
+      class: diff
+  - recorded_model:
+      fixture: toy_scope
+  when:
+    program_step:
+      step: commit_build
+  then:
+  - fact:
+      kind: scope
+      count: 1
+  - no_fact:
+      kind: launch_refused
+  - exit_code:
+      code: 0
+  - teaching:
+      channel: fact
+      wrong: scope
+      right: packet
+      prevent: declared
+  traces_to:
+  - R4
+  - P5
+  - QBC-12
+  - QBC-53
+  method: test
+  deterministic: true
+  plan_gap: plan omits the teaching text

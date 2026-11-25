@@ -1,0 +1,175 @@
+# Slice g, Standards in place of the catalog (#14). Rows follow docs/atdd/catalog.yaml.
+slice: g
+criteria:
+  - id: g1-AC1
+    scenario: Every standards entry has standard, pinned version, control id and URL
+    covers: [1, 3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      validate: {instance: "standards/data/*.json", schema: standards/schema.json}
+    then:
+      - schema_valid: {valid: true}
+    traces_to: [R9, P1, QBC-13, QBC-72, QBC-85]
+    method: lint
+    deterministic: true
+    plan_gap: "the plan names new standards/ data and schema without file names; the row uses standards/data/*.json and standards/schema.json"
+
+  - id: g1-AC2
+    scenario: An entry without a pinned version is rejected with the path of the error
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+      - planted: {plant: standards_entry_without_version, class: defect, where: working_tree}
+    when:
+      validate: {instance: "standards/data/*.json", schema: standards/schema.json}
+    then:
+      - schema_valid: {valid: false, error_path: "[0].version"}
+      - teaching: {channel: stderr, wrong: version, right: pinned version, prevent: standards/schema.json}
+    traces_to: [R9, P1, P5, QBC-13, QBC-85]
+    method: lint
+    deterministic: true
+    plan_gap: "the plan gives no refusal wording for an invalid entry"
+
+  - id: g1-AC3
+    scenario: The five named standards are present
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["standards/data/"], kind: text, pattern: "OWASP ASVS|SP 800-218|SP 800-53|SLSA|Well-Architected"}
+    then:
+      - scan_count: {op: ge, value: 5, distinct: true}
+    traces_to: [R9, P1, QBC-13, QBC-85]
+    method: lint
+    deterministic: true
+
+  - id: g1-AC4
+    scenario: Every house rule names its ladder rung and mechanism, or judgement
+    covers: [2, 3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      validate: {instance: standards/house-rules.json, schema: standards/house-rules.schema.json}
+    then:
+      - schema_valid: {valid: true}
+    traces_to: [R9, P1, QBC-18, QBC-72]
+    method: lint
+    deterministic: true
+    plan_gap: "the plan names no file names for the house-rule list; the row uses standards/house-rules.json and its schema"
+
+  - id: g1-AC5
+    scenario: A house rule with no rung and no mechanism is rejected
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+      - planted: {plant: house_rule_without_rung, class: defect, where: working_tree}
+    when:
+      validate: {instance: standards/house-rules.json, schema: standards/house-rules.schema.json}
+    then:
+      - schema_valid: {valid: false, error_path: "[0].rung"}
+      - teaching: {channel: stderr, wrong: rung, right: judgement, prevent: standards/house-rules.schema.json}
+    traces_to: [R9, P1, P5, QBC-18]
+    method: lint
+    deterministic: true
+    plan_gap: "the plan gives no refusal wording; the row asserts the right way names the judgement alternative"
+
+  - id: g1-AC6
+    scenario: No entry cites only Convention
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["standards/"], kind: text, pattern: "\"standard\": *\"Convention\""}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R9, P1, QBC-72, QBC-85]
+    method: lint
+    deterministic: true
+    plan_gap: "the field spelling in the data is not stated; the pattern assumes a JSON field standard"
+
+  - id: g2-AC1
+    scenario: Every rule id that checks, skills or packets read is mapped
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      program_step: {step: map_catalog_ids}
+    then:
+      - no_fact: {kind: unmapped_rule_code}
+      - no_fact: {kind: unknown_rule}
+    traces_to: [R9, P11, QBC-8, QBC-85]
+    method: test
+    deterministic: true
+    plan_gap: "the 'only' half (ids nobody reads are not mapped) has no output shape in the plan; the next row covers it through the changelog"
+
+  - id: g2-AC2
+    scenario: The dropped catalog ids get one changelog line
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [CHANGELOG.md], kind: text, pattern: "catalog ids dropped"}
+    then:
+      - scan_count: {op: eq, value: 1}
+    traces_to: [R9, P11, QBC-8, QBC-72]
+    method: lint
+    deterministic: true
+    plan_gap: "the changelog wording is not stated; the row fixes the phrase catalog ids dropped"
+
+  - id: g2-AC3
+    scenario: A toy packet lists only g1 ids
+    covers: [3]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: toy_item, variant: valid}
+    when:
+      program_step: {step: assemble_packet, item: toy_item}
+    then:
+      - field: {source: packet, path: "rules[*]", op: matches, value: "^(ASVS|SSDF|SP800-53|SLSA|WA|HR)[A-Za-z0-9._-]*$"}
+      - no_fact: {kind: unknown_rule}
+    traces_to: [R9, P11, QBC-85]
+    method: test
+    deterministic: true
+    plan_gap: "g1's id format is not fixed by the plan; the row's regex stands for g1 ids and the no unknown_rule fact is the authoritative check"
+
+  - id: g2-AC4
+    scenario: No code reads catalog/
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [harness/, bin/, agents/, skills/, hooks/, checks/], kind: text, pattern: "(^|[^-A-Za-z])catalog/"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R9, P11, QBC-72]
+    method: lint
+    deterministic: true
+
+  - id: g2-AC5
+    scenario: The catalog directory is deleted
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [catalog], kind: path}
+    then:
+      - paths: {paths: [catalog], exist: false}
+    traces_to: [R9, P11, QBC-72]
+    method: lint
+    deterministic: true
+
+  - id: g2-AC6
+    scenario: checks/index.json still runs and reads only mapped ids
+    covers: [5]
+    given:
+      - repo: {name: toy, state: base}
+    when:
+      bh: {sub: check}
+    then:
+      - exit_code: {code: 0}
+      - paths: {paths: [checks/index.json], exist: true}
+      - no_fact: {kind: unmapped_rule_code}
+    traces_to: [R9, P11, QBC-8]
+    method: test
+    deterministic: true

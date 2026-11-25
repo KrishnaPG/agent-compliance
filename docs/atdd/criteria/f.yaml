@@ -1,0 +1,403 @@
+# Slice f, Decisions and vetting (#13). Rows follow docs/atdd/catalog.yaml.
+slice: f
+criteria:
+  - id: f1-AC1
+    scenario: Proposer and judge are separate jobs and the judge sees only the record and the evidence
+    covers: [1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: decision_proposer_then_judge}
+    when:
+      bh: {sub: run}
+    then:
+      - jobs: {assert: order, values: [proposer, judge]}
+      - jobs: {assert: distinct, values: [proposer, judge]}
+      - field: {source: launch_args, path: judge.inputs, op: eq, value: [record, evidence]}
+    traces_to: [R9, P6, QBC-32, QBC-69]
+    method: test
+    deterministic: true
+    plan_gap: "the plan names no launch-argument shape; the row asserts the judge job's inputs are exactly the record and the evidence"
+
+  - id: f1-AC2
+    scenario: Options are scored against the project's architecture targets and g1's ids
+    covers: [2]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: decision_proposer_then_judge}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: result_json, path: "options[*].targets", op: present}
+      - field: {source: result_json, path: "options[*].rules", op: present}
+      - no_fact: {kind: unknown_rule}
+    traces_to: [R9, P2, QBC-70]
+    method: test
+    deterministic: true
+    plan_gap: "the plan names no output shape for scored options; the row uses options[*].targets and options[*].rules and requires every cited rule id to exist in g1's data (no unknown_rule fact)"
+
+  - id: f1-AC3
+    scenario: An unverified rule reads unknown and a fixture OSS option is not beaten by existing code
+    covers: [3]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item_oss_vs_existing, variant: valid}
+      - recorded_model: {fixture: judge_oss_option_unverified_rule}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: result_json, path: "options[oss].rules.unverified.verdict", op: eq, value: unknown}
+      - field: {source: result_json, path: "options[oss].rules.unverified.verdict", op: ne, value: fail}
+      - field: {source: result_json, path: recommended, op: eq, value: oss}
+    traces_to: [R9, P2, QBC-70]
+    method: test
+    deterministic: true
+    plan_gap: "the plan names no output shape; the row fixes the verdict word unknown and the recommended field"
+
+  - id: f1-AC4
+    scenario: A falsifying call becomes a measurer target
+    covers: [4]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: judge_with_falsifying_call}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: packet, path: targets, op: contains, value: falsify-1}
+    traces_to: [R9, P6, QBC-69]
+    method: test
+    deterministic: true
+    plan_gap: "the plan does not say where a derived target is recorded; the row asserts it appears in the item's packet targets"
+
+  - id: f1-AC5
+    scenario: A record over limits.record_chars goes back to the proposer with teaching
+    covers: [5]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - config: {state: override, key: limits.record_chars, value: 500}
+      - recorded_model: {fixture: proposer_record_800_chars}
+    when:
+      bh: {sub: run}
+    then:
+      - jobs: {assert: none_of_kind, values: [judge]}
+      - teaching: {channel: run_report, wrong: limits.record_chars, right: shorten the record, prevent: record_chars}
+    traces_to: [R9, P2, QBC-32, QBC-84]
+    method: test
+    deterministic: true
+    plan_gap: "the plan gives no teaching wording; the row requires the report line to name the limit and say to shorten the record"
+
+  - id: f1-AC6
+    scenario: The skill cites rules by id
+    covers: [6]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/vetted-decision/SKILL.md], kind: text, pattern: "\\b(G|P|R)[0-9]+\\b|QBC-[0-9]+"}
+    then:
+      - scan_count: {op: ge, value: 1, distinct: true}
+    traces_to: [R9, QBC-69]
+    method: lint
+    deterministic: true
+
+  - id: f1-AC7
+    scenario: SKILL.md has fewer characters than 1.5.2's
+    covers: [7]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/vetted-decision/SKILL.md], kind: file_chars}
+    then:
+      - threshold: {metric: skill_md_chars, op: lt, bound: "ref:v1.5.2"}
+    traces_to: [R9, QBC-84]
+    method: measure
+    deterministic: true
+
+  - id: f1-AC8
+    scenario: The L1 decision record is MADR 4.0 with status, date and deciders in its front matter
+    spec_ref: [stage:L1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: decision_proposer_then_judge}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: decision_record, path: front_matter.status, op: present}
+      - field: {source: decision_record, path: front_matter.date, op: present}
+      - field: {source: decision_record, path: front_matter.deciders, op: present}
+    traces_to: [R9, QBC-84]
+    method: test
+    deterministic: true
+    plan_gap: "the decision_record field paths are the row's choice; the spec names only the three front matter keys"
+
+  - id: f1-AC9
+    scenario: The record holds the required MADR sections
+    spec_ref: [stage:L1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: decision_proposer_then_judge}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: decision_record, path: sections, op: contains, value: Context and Problem Statement}
+      - field: {source: decision_record, path: sections, op: contains, value: Considered Options}
+      - field: {source: decision_record, path: sections, op: contains, value: Decision Outcome}
+    traces_to: [R9, QBC-84]
+    method: test
+    deterministic: true
+
+  - id: f1-AC10
+    scenario: Every constraint in the record cites a G, P, R or QBC id
+    spec_ref: [stage:L1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: decision_proposer_then_judge}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: decision_record, path: "constraints[*].cites", op: matches, value: "^((G|P|R)[0-9]+|QBC-[0-9]+)$"}
+      - no_fact: {kind: gap}
+    traces_to: [R9, QBC-69]
+    method: test
+    deterministic: true
+
+  - id: f1-AC11
+    scenario: A record missing its front matter is reported with teaching
+    spec_ref: [stage:L1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: proposer_record_without_front_matter}
+    when:
+      bh: {sub: run}
+    then:
+      - fact: {kind: gap, detail: front matter}
+      - teaching: {channel: fact, wrong: front matter, right: status, prevent: MADR}
+    traces_to: [R9, P5, QBC-84]
+    method: test
+    deterministic: true
+    plan_gap: "the spec gives no wording; the row requires the report to name the missing front matter and the keys to add"
+
+  - id: f1-AC12
+    scenario: A constraint with no rule id is reported with teaching
+    spec_ref: [stage:L1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: proposer_record_uncited_constraint}
+    when:
+      bh: {sub: run}
+    then:
+      - fact: {kind: gap, detail: constraint}
+      - teaching: {channel: fact, wrong: "constraint without a rule id", right: "cite a G, P, R or QBC id", prevent: "cite the id when writing the constraint"}
+    traces_to: [R9, P5, QBC-69]
+    method: test
+    deterministic: true
+    plan_gap: "the spec gives no wording; the row requires the report to say to cite an id"
+
+  - id: f1-AC13
+    scenario: The record's falsifying calls become L2 criteria
+    spec_ref: [stage:L1]
+    given:
+      - repo: {name: toy, state: base}
+      - packet: {fixture: decision_item, variant: valid}
+      - recorded_model: {fixture: judge_with_falsifying_call}
+    when:
+      bh: {sub: run}
+    then:
+      - field: {source: packet, path: "acceptance[*].id", op: contains, value: falsify-1}
+    traces_to: [R9, P6, QBC-69]
+    method: test
+    deterministic: true
+    plan_gap: "the packet field path for criteria is the row's choice"
+
+  - id: f2-AC1
+    scenario: bh vet records the three tools' outputs as facts with no model verdict
+    covers: [1]
+    given:
+      - repo: {name: toy, state: base}
+      - recorded_api: {service: scorecard, fixture: package_ok}
+      - recorded_api: {service: deps_dev, fixture: package_ok}
+      - recorded_api: {service: osv, fixture: package_ok}
+      - host: {condition: network_off}
+    when:
+      bh: {sub: vet, args: [pypi, "example-pkg@1.2.3"]}
+    then:
+      - exit_code: {code: 0}
+      - fact: {kind: vet_result, count: 3}
+      - api_call: {service: scorecard, operation: getProject, count: 1}
+      - api_call: {service: deps_dev, operation: GetVersion, count: 1}
+      - api_call: {service: osv, operation: query, count: 1}
+      - jobs: {assert: none_of_kind, values: [agent]}
+    traces_to: [R9, P2, QBC-84]
+    method: test
+    deterministic: true
+    plan_gap: "the plan names the three tools, not their request operations; the row uses one operation per service as the recorded fixtures' names"
+
+  - id: f2-AC2
+    scenario: The vet output holds the tools' values and no verdict
+    covers: [1]
+    given:
+      - repo: {name: toy, state: base}
+      - recorded_api: {service: scorecard, fixture: package_ok}
+      - recorded_api: {service: deps_dev, fixture: package_ok}
+      - recorded_api: {service: osv, fixture: package_ok}
+    when:
+      bh: {sub: vet, args: [pypi, "example-pkg@1.2.3"]}
+    then:
+      - field: {source: vet_output, path: scorecard, op: present}
+      - field: {source: vet_output, path: deps_dev, op: present}
+      - field: {source: vet_output, path: osv, op: present}
+      - field: {source: vet_output, path: verdict, op: absent}
+    traces_to: [R9, P2, QBC-84]
+    method: test
+    deterministic: true
+
+  - id: f2-AC3
+    scenario: A malformed package argument is refused with teaching
+    covers: [1]
+    given:
+      - repo: {name: toy, state: base}
+    when:
+      bh: {sub: vet, args: [example-pkg]}
+    then:
+      - exit_code: {code: 2}
+      - teaching: {channel: stderr, wrong: ecosystem, right: "bh vet <ecosystem> <package@version>", prevent: pinned version}
+    traces_to: [R9, P5, QBC-84]
+    method: test
+    deterministic: true
+    plan_gap: "the plan states the call shape, not a refusal; the row asserts a teaching refusal that repeats the shape"
+
+  - id: f2-AC4
+    scenario: The vet-oss skill is gone and nothing names it
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/, agents/, templates/, harness/, README.md], kind: text, pattern: "vet-oss"}
+    then:
+      - scan_count: {op: eq, value: 0}
+      - paths: {paths: [skills/vet-oss], exist: false}
+    traces_to: [R9, QBC-84]
+    method: lint
+    deterministic: true
+
+  - id: f3-AC1
+    scenario: The description triggers only on recording a defect
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/bug-analysis/SKILL.md], kind: frontmatter}
+    then:
+      - field: {source: skill_md, path: description, op: contains, value: recording a defect}
+      - field: {source: skill_md, path: description, op: not_contains, value: commit}
+    traces_to: [R9, QBC-84]
+    method: lint
+    deterministic: true
+    plan_gap: "the exact trigger wording is not stated; the row requires the phrase recording a defect and no mention of commits"
+
+  - id: f3-AC2
+    scenario: The sibling sweep, per-typo issues, termination block and vetted-decision chain are gone
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/bug-analysis/], kind: text, pattern: "per-typo|sibling|terminat|vetted-decision"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R9, P4, QBC-84]
+    method: lint
+    deterministic: true
+    plan_gap: "the termination block is not identified by name in the plan; the pattern terminat is the row's guess at its wording"
+
+  - id: f3-AC3
+    scenario: The record is e1's defect form
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/bug-analysis/SKILL.md], kind: text, pattern: "ISSUE_TEMPLATE/defect.yml|defect form"}
+    then:
+      - scan_count: {op: ge, value: 1}
+    traces_to: [R9, QBC-84]
+    method: lint
+    deterministic: true
+
+  - id: f3-AC4
+    scenario: commitlint runs in the test recipe over a nonconforming commit
+    covers: [4]
+    given:
+      - repo: {name: toy, state: base}
+      - planted: {plant: nonconforming_commit_message, class: violation}
+    when:
+      entry_point: {entry: project_test}
+    then:
+      - fact: {kind: commitlint, count: 1}
+    traces_to: [R9, P4, QBC-84]
+    method: test
+    deterministic: true
+
+  - id: f3-AC5
+    scenario: bh check runs commitlint over the item's commits
+    covers: [4]
+    given:
+      - repo: {name: toy, state: base}
+      - planted: {plant: nonconforming_commit_message, class: violation}
+    when:
+      bh: {sub: check}
+    then:
+      - fact: {kind: commitlint, count: 1}
+      - exit_code: {code: 0}
+    traces_to: [R9, P4, QBC-84]
+    method: test
+    deterministic: true
+
+  - id: f3-AC6
+    scenario: A fix commit without an issue ref becomes a fact with teaching
+    covers: [5]
+    given:
+      - repo: {name: toy, state: base}
+      - planted: {plant: fix_commit_without_issue_ref, class: violation}
+    when:
+      bh: {sub: check}
+    then:
+      - fact: {kind: commitlint, detail: issue, count: 1}
+      - teaching: {channel: fact, wrong: fix commit without an issue ref, right: reference the defect issue, prevent: commitlint}
+      - exit_code: {code: 0}
+    traces_to: [R9, P4, P5, QBC-84]
+    method: test
+    deterministic: true
+    plan_gap: "the plan says fact with teaching but gives no wording; the row requires wrong, right and prevent parts and that the commit is not blocked"
+
+  - id: f3-AC7
+    scenario: A fix commit that references its issue records no fact
+    covers: [5]
+    given:
+      - repo: {name: toy, state: base}
+      - planted: {plant: fix_commit_with_issue_ref, class: honest}
+    when:
+      bh: {sub: check}
+    then:
+      - no_fact: {kind: commitlint}
+    traces_to: [R9, P4, QBC-84]
+    method: test
+    deterministic: true
+
+  - id: f3-AC8
+    scenario: No commit-msg git hook is installed
+    covers: [6]
+    given:
+      - repo: {name: toy, state: base}
+    when:
+      bh: {sub: check}
+    then:
+      - git: {assert: no_git_hook_installed}
+    traces_to: [R9, P4, QBC-84]
+    method: test
+    deterministic: true

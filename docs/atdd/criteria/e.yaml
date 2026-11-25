@@ -1,0 +1,701 @@
+# Slice e, Intake (#12). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
+slice: e
+criteria:
+  - id: e1-AC1
+    scenario: The decision form validates against GitHub's issue-form schema
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      validate: {instance: templates/.github/ISSUE_TEMPLATE/decision.yml, schema: github_issue_form}
+    then:
+      - schema_valid: {valid: true}
+    traces_to: [R8, QBC-87]
+    method: lint
+    deterministic: true
+
+  - id: e1-AC2
+    scenario: The slice form validates against GitHub's issue-form schema
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      validate: {instance: templates/.github/ISSUE_TEMPLATE/slice.yml, schema: github_issue_form}
+    then:
+      - schema_valid: {valid: true}
+    traces_to: [R8, QBC-87]
+    method: lint
+    deterministic: true
+
+  - id: e1-AC3
+    scenario: The defect form validates against GitHub's issue-form schema
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      validate: {instance: templates/.github/ISSUE_TEMPLATE/defect.yml, schema: github_issue_form}
+    then:
+      - schema_valid: {valid: true}
+    traces_to: [R8, QBC-87]
+    method: lint
+    deterministic: true
+
+  - id: e1-AC4
+    scenario: A form missing a field GitHub requires is rejected with the path of the error
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+      - planted: {plant: form_without_body_type, class: defect, where: working_tree}
+    when:
+      validate: {instance: templates/.github/ISSUE_TEMPLATE/slice.yml, schema: github_issue_form}
+    then:
+      - schema_valid: {valid: false, error_path: body}
+      - teaching: {channel: stderr, wrong: body, right: required, prevent: github_issue_form}
+    traces_to: [R8, P5, QBC-83]
+    method: lint
+    deterministic: true
+    plan_gap: "the plan states no message for an invalid form; the row asserts the validator's error names the body path and teaches"
+
+  - id: e1-AC5
+    scenario: Each form declares parent, goal and acceptance fields
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [templates/.github/ISSUE_TEMPLATE/decision.yml, templates/.github/ISSUE_TEMPLATE/slice.yml, templates/.github/ISSUE_TEMPLATE/defect.yml], kind: text, pattern: "id: (parent|goal|acceptance)\\b"}
+    then:
+      - scan_count: {op: eq, value: 9}
+    traces_to: [R8, QBC-87, QBC-88]
+    method: lint
+    deterministic: true
+
+  - id: e1-AC6
+    scenario: Each of those fields is required in every form
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [templates/.github/ISSUE_TEMPLATE/decision.yml, templates/.github/ISSUE_TEMPLATE/slice.yml, templates/.github/ISSUE_TEMPLATE/defect.yml], kind: text, pattern: "required: true"}
+    then:
+      - scan_count: {op: ge, value: 9}
+    traces_to: [R8, QBC-87, QBC-88]
+    method: lint
+    deterministic: true
+
+  - id: e1-AC7
+    scenario: The parent field's description teaches the right way
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [templates/.github/ISSUE_TEMPLATE/slice.yml], kind: text, pattern: "description:"}
+    then:
+      - scan_count: {op: ge, value: 3}
+      - teaching: {channel: form_description, wrong: No parent decision, right: pick one}
+    traces_to: [R8, P5, QBC-88]
+    method: lint
+    deterministic: true
+    plan_gap: "the plan does not give the right-way wording for the goal and acceptance descriptions; the row pins only the parent wording from QBC-88"
+
+  - id: e1-AC8
+    scenario: The goal and acceptance descriptions each carry a right-way line
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [templates/.github/ISSUE_TEMPLATE/decision.yml, templates/.github/ISSUE_TEMPLATE/slice.yml, templates/.github/ISSUE_TEMPLATE/defect.yml], kind: text, pattern: "description:"}
+    then:
+      - scan_count: {op: ge, value: 9}
+    traces_to: [R8, P5, QBC-83]
+    method: lint
+    deterministic: true
+    plan_gap: "the wording of each description is not stated; the row asserts a description exists on each of the nine required fields"
+
+  - id: e1-AC9
+    scenario: Blank issues are off
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [templates/.github/ISSUE_TEMPLATE/config.yml], kind: text, pattern: "blank_issues_enabled: false"}
+    then:
+      - scan_count: {op: eq, value: 1}
+    traces_to: [R8, QBC-87]
+    method: lint
+    deterministic: true
+
+  - id: e1-AC10
+    scenario: With approval the forms are written into the project's .github
+    covers: [5]
+    given:
+      - repo: {name: project, state: no_issue_forms}
+      - recorded_answer: {question: write_issue_forms, answer: approve}
+    when:
+      program_step: {step: write_forms}
+    then:
+      - paths: {paths: [.github/ISSUE_TEMPLATE/decision.yml, .github/ISSUE_TEMPLATE/slice.yml, .github/ISSUE_TEMPLATE/defect.yml, .github/ISSUE_TEMPLATE/config.yml], exist: true}
+    traces_to: [R8, G4, QBC-83]
+    method: test
+    deterministic: true
+
+  - id: e1-AC11
+    scenario: Without approval nothing is written
+    covers: [5]
+    given:
+      - repo: {name: project, state: no_issue_forms}
+      - recorded_answer: {question: write_issue_forms, answer: decline}
+    when:
+      program_step: {step: write_forms}
+    then:
+      - paths: {paths: [.github/ISSUE_TEMPLATE/*], exist: false}
+    traces_to: [R8, G4, QBC-83]
+    method: test
+    deterministic: true
+
+  - id: e1-AC12
+    scenario: A second run writes nothing and asks nothing (the forms are written once)
+    covers: [5]
+    given:
+      - repo: {name: project, state: no_issue_forms}
+      - recorded_answer: {question: write_issue_forms, answer: approve}
+    when:
+      program_step: {step: write_forms, rerun: true}
+    then:
+      - file_unchanged: {target: project_config}
+      - paths: {paths: [.github/ISSUE_TEMPLATE/slice.yml], exist: true}
+    traces_to: [R8, G4, QBC-83]
+    method: test
+    deterministic: true
+
+  - id: e1-AC13
+    scenario: bug-record.md is gone and nothing names it
+    covers: [6]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/, agents/, templates/, harness/, README.md], kind: text, pattern: "bug-record"}
+    then:
+      - scan_count: {op: eq, value: 0}
+      - paths: {paths: [templates/bug-record.md], exist: false}
+    traces_to: [R8, QBC-83]
+    method: lint
+    deterministic: true
+
+  - id: e2-AC1
+    scenario: An agent-filed issue is created with its native parent in one request
+    covers: [1]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: create_issue_with_parent}
+    when:
+      program_step: {step: file_issue}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 1, with: parentIssueId}
+      - api_call: {service: github, operation: addSubIssue, count: 0}
+    traces_to: [R8, G4, QBC-88, QBC-89]
+    method: test
+    deterministic: true
+    plan_gap: "the plan prescribes the GraphQL createIssue(parentIssueId) mechanism; the row asserts the observable result, one create request carrying the parent and no later link request"
+
+  - id: e2-AC2
+    scenario: At intake a form's parent field is linked as a sub-issue
+    covers: [2]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: form_issue_with_parent_field}
+    when:
+      program_step: {step: intake_issue}
+    then:
+      - api_call: {service: github, operation: addSubIssue, count: 1, with: "#12"}
+      - no_fact: {kind: gap}
+    traces_to: [R8, G4, QBC-88, QBC-89]
+    method: test
+    deterministic: true
+
+  - id: e2-AC3
+    scenario: A parentless issue gets the parent message once
+    covers: [3]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: parentless_issue}
+    when:
+      program_step: {step: intake_issue}
+    then:
+      - api_call: {service: github, operation: addComment, count: 1}
+      - teaching: {channel: issue_comment, wrong: No parent decision, right: pick one, prevent: start a decision if this is a new capability}
+      - output_contains: {channel: issue_comment, text: "No parent decision. Every issue sits under a decision's tracking issue: pick one, or start a decision if this is a new capability."}
+    traces_to: [R8, G4, P12, QBC-88, QBC-89]
+    method: test
+    deterministic: true
+
+  - id: e2-AC4
+    scenario: A second intake of the same parentless issue does not repeat the message
+    covers: [3]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: parentless_issue}
+    when:
+      program_step: {step: intake_issue, rerun: true}
+    then:
+      - api_call: {service: github, operation: addComment, count: 0}
+    traces_to: [R8, G4, QBC-88]
+    method: test
+    deterministic: true
+
+  - id: e2-AC5
+    scenario: A defect in code with no tracking issue is pointed at the owner's maintenance issue, created on first need
+    covers: [4]
+    given:
+      - repo: {name: project, state: defect_without_tracking_issue}
+      - recorded_api: {service: github, fixture: no_maintenance_issue}
+    when:
+      program_step: {step: intake_issue}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 1, with: maintenance}
+      - teaching: {channel: issue_comment, wrong: No parent decision, right: maintenance, prevent: CODEOWNERS}
+    traces_to: [R8, G4, QBC-88]
+    method: test
+    deterministic: true
+    plan_gap: "the plan does not give the wording naming the maintenance issue; the row requires the message to name it and its CODEOWNERS source"
+
+  - id: e2-AC6
+    scenario: The owner's existing maintenance issue is reused, not created again
+    covers: [4]
+    given:
+      - repo: {name: project, state: defect_without_tracking_issue}
+      - recorded_api: {service: github, fixture: maintenance_issue_exists}
+    when:
+      program_step: {step: intake_issue}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 0}
+      - api_call: {service: github, operation: addSubIssue, count: 1}
+    traces_to: [R8, G4, QBC-88]
+    method: test
+    deterministic: true
+
+  - id: e2-AC7
+    scenario: Intake runs offline of GitHub Actions and the repo holds no workflow
+    covers: [5]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: parentless_issue}
+      - host: {condition: network_off}
+    when:
+      bh: {sub: intake}
+    then:
+      - exit_code: {code: 0}
+      - paths: {paths: [.github/workflows/*], exist: false}
+    traces_to: [R8, P12, QBC-89]
+    method: test
+    deterministic: true
+
+  - id: e3-AC1
+    scenario: The Known issues list is found by its label
+    covers: [1]
+    given:
+      - repo: {name: project, state: known_list_with_two_lines}
+      - recorded_api: {service: github, fixture: known_list_by_label}
+    when:
+      program_step: {step: add_known_issue}
+    then:
+      - api_call: {service: github, operation: listIssues, count: 1, with: label}
+      - api_call: {service: github, operation: updateIssue, count: 1}
+    traces_to: [R8, G4, QBC-90]
+    method: test
+    deterministic: true
+    plan_gap: "the label name is not stated; the row asserts the lookup request carries a label filter and no issue title"
+
+  - id: e3-AC2
+    scenario: A new line names its parent
+    covers: [2]
+    given:
+      - repo: {name: project, state: known_list_with_two_lines}
+      - recorded_api: {service: github, fixture: known_list_by_label}
+    when:
+      program_step: {step: add_known_issue}
+    then:
+      - api_call: {service: github, operation: updateIssue, count: 1, with: "#12"}
+    traces_to: [R8, G4, QBC-90]
+    method: test
+    deterministic: true
+
+  - id: e3-AC3
+    scenario: A line without a parent is refused with teaching
+    covers: [2]
+    given:
+      - repo: {name: project, state: known_list_with_two_lines}
+      - recorded_api: {service: github, fixture: known_list_by_label}
+    when:
+      program_step: {step: add_known_issue, item: line_without_parent}
+    then:
+      - refused: {by: program, wrong: no parent, right: name the parent, prevent: No parent decision}
+      - api_call: {service: github, operation: updateIssue, count: 0}
+    traces_to: [R8, G4, P5, QBC-88, QBC-90]
+    method: test
+    deterministic: true
+    plan_gap: "the plan states only that each line names its parent, not that a parentless line is refused; the row applies QBC-88's no-parent rule to the list"
+
+  - id: e3-AC4
+    scenario: At the default limit a new line is refused with the fix-first teaching
+    covers: [3]
+    given:
+      - repo: {name: project, state: known_list_with_100_lines}
+      - recorded_api: {service: github, fixture: known_list_by_label}
+    when:
+      program_step: {step: add_known_issue}
+    then:
+      - refused: {by: program, wrong: known issues, right: fix and remove one first, prevent: limits.known_issues}
+      - api_call: {service: github, operation: updateIssue, count: 0}
+    traces_to: [R8, G4, P8, QBC-90]
+    method: test
+    deterministic: true
+    plan_gap: "the plan gives the right way (fix and remove one first) but not the wrong and prevent wording; limits.known_issues is named as the prevention"
+
+  - id: e3-AC5
+    scenario: A lowered limits.known_issues override is honoured
+    covers: [3]
+    given:
+      - repo: {name: project, state: known_list_with_three_lines}
+      - config: {state: override, key: limits.known_issues, value: 3}
+      - recorded_api: {service: github, fixture: known_list_by_label}
+    when:
+      program_step: {step: add_known_issue}
+    then:
+      - refused: {by: program, wrong: known issues, right: fix and remove one first, prevent: limits.known_issues}
+      - field: {source: config_effective, path: limits.known_issues, op: eq, value: 3}
+    traces_to: [R8, P8, QBC-90]
+    method: test
+    deterministic: true
+
+  - id: e3-AC6
+    scenario: A second labelled list is a fact
+    covers: [4]
+    given:
+      - repo: {name: project, state: two_labelled_lists}
+      - recorded_api: {service: github, fixture: two_known_lists}
+    when:
+      bh: {sub: run}
+    then:
+      - fact: {kind: second_known_list, count: 1}
+    traces_to: [R8, G4, QBC-90]
+    method: test
+    deterministic: true
+
+  - id: e4-AC1
+    scenario: An admitted issue's whole body is the packet's goal source
+    covers: [1]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: issue_with_long_body}
+    when:
+      program_step: {step: intake_issue}
+    then:
+      - field: {source: packet, path: goal, op: contains, value: END-OF-BODY-SENTINEL}
+    traces_to: [R8, G6, QBC-83]
+    method: test
+    deterministic: true
+
+  - id: e4-AC2
+    scenario: The repo is read from the origin remote and no bindings file exists
+    covers: [2]
+    given:
+      - repo: {name: toy, state: origin_remote_set}
+      - recorded_api: {service: github, fixture: issue_list_for_origin}
+    when:
+      bh: {sub: intake}
+    then:
+      - api_call: {service: github, operation: listIssues, count: 1, with: example/toy-repo}
+      - paths: {paths: [.brick-harness/bindings*], exist: false}
+    traces_to: [R8, G6, QBC-75]
+    method: test
+    deterministic: true
+
+  - id: e4-AC3
+    scenario: Without an origin remote intake refuses and says how to set it
+    covers: [2]
+    given:
+      - repo: {name: toy, state: no_origin_remote}
+    when:
+      bh: {sub: intake}
+    then:
+      - exit_code: {code: 1}
+      - teaching: {channel: stderr, wrong: no origin remote, right: git remote add origin, prevent: git remote get-url origin}
+    traces_to: [R8, G6, P5, QBC-75]
+    method: test
+    deterministic: true
+    plan_gap: "the plan does not say what happens without an origin remote; the row asserts a teaching refusal rather than a silent default"
+
+  - id: e4-AC4
+    scenario: An issue a human closed is not reopened
+    covers: [3]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: human_closed_issue}
+    when:
+      bh: {sub: intake, rerun: true}
+    then:
+      - api_call: {service: github, operation: reopenIssue, count: 0}
+      - api_call: {service: github, operation: updateIssue, count: 0, with: OPEN}
+    traces_to: [R8, G6, QBC-83]
+    method: test
+    deterministic: true
+
+  - id: e4-AC5
+    scenario: List filters apply before the limit
+    covers: [4]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: five_issues_three_filtered_out}
+    when:
+      bh: {sub: intake, args: [list, --limit, "2"]}
+    then:
+      - exit_code: {code: 0}
+      - output_contains: {channel: stdout, text: "#7"}
+      - output_contains: {channel: stdout, text: "#9"}
+    traces_to: [R8, G6, QBC-83]
+    method: test
+    deterministic: true
+    plan_gap: "the plan names no list command or output shape; the row asserts through stdout that both matching issues appear although non-matching issues come first"
+
+  - id: e4-AC6
+    scenario: One bad claim does not abort the admission
+    covers: [5]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: three_claims_one_malformed}
+    when:
+      bh: {sub: intake}
+    then:
+      - exit_code: {code: 0}
+      - field: {source: result_json, path: items.claim-a.status, op: present}
+      - field: {source: result_json, path: items.claim-c.status, op: present}
+      - teaching: {channel: stderr, wrong: claim-b, right: fix the claim, prevent: issue form}
+    traces_to: [R8, G6, P5, QBC-83]
+    method: test
+    deterministic: true
+    plan_gap: "the plan does not say how the bad claim is reported; the row requires a teaching line naming it"
+
+  - id: e4-AC7
+    scenario: Two intakes at the same moment admit no more than the room left
+    covers: [6]
+    given:
+      - repo: {name: project, state: room_for_one}
+      - recorded_api: {service: github, fixture: two_ready_issues}
+    when:
+      bh: {sub: intake, parallel: 2}
+    then:
+      - field: {source: result_json, path: admitted_total, op: le, value: 1}
+    traces_to: [R8, G6, QBC-83]
+    method: test
+    deterministic: true
+    plan_gap: "the plan states a mechanism (room read under the lock); the row asserts the observable result, and the result field name admitted_total is the row's choice"
+
+  - id: e5-AC1
+    scenario: A review finding reopens the slice's checklist line from structured output
+    covers: [1]
+    given:
+      - repo: {name: project, state: slice_merged_checklist_ticked}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+      - recorded_model: {fixture: reviewer_one_minor_finding}
+    when:
+      program_step: {step: reopen_from_review}
+    then:
+      - api_call: {service: github, operation: updateIssue, count: 1, with: "- [ ]"}
+      - api_call: {service: github, operation: createIssue, count: 0}
+      - fact: {kind: review_finding, count: 1}
+    traces_to: [R8, G4, P3, QBC-91]
+    method: test
+    deterministic: true
+
+  - id: e5-AC2
+    scenario: A Critical finding becomes one defect sub-issue and its regression test is written by the test author
+    covers: [1]
+    given:
+      - repo: {name: project, state: slice_merged_checklist_ticked}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+      - recorded_model: {fixture: reviewer_one_critical_finding}
+    when:
+      program_step: {step: reopen_from_review}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 1, with: parentIssueId}
+      - jobs: {assert: present, values: [test_author]}
+    traces_to: [R8, G4, P3, QBC-91, QBC-92]
+    method: test
+    deterministic: true
+
+  - id: e5-AC3
+    scenario: A finding starts no new chain of issues
+    covers: [1]
+    given:
+      - repo: {name: project, state: slice_merged_checklist_ticked}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+      - recorded_model: {fixture: reviewer_two_major_findings}
+    when:
+      program_step: {step: reopen_from_review}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 2, with: parentIssueId}
+      - api_call: {service: github, operation: addSubIssue, count: 0}
+      - api_call: {service: github, operation: updateIssue, count: 1, with: "- [ ]"}
+    traces_to: [R8, G4, QBC-91]
+    method: test
+    deterministic: true
+
+  - id: e5-AC4
+    scenario: A defect found inside the packet's paths is fixed in the slice
+    covers: [2]
+    given:
+      - repo: {name: project, state: slice_in_progress}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+      - recorded_model: {fixture: defect_inside_packet_paths}
+    when:
+      program_step: {step: reopen_from_review}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 0}
+      - fact: {kind: review_finding, detail: in scope, count: 1}
+    traces_to: [R8, G4, QBC-92]
+    method: test
+    deterministic: true
+    plan_gap: "the plan does not name how the in-slice fix is reported; the row asserts a review_finding fact marked in scope and no filed issue"
+
+  - id: e5-AC5
+    scenario: A defect found outside the packet's paths is filed through the parent-setting path
+    covers: [2]
+    given:
+      - repo: {name: project, state: slice_in_progress}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+      - recorded_model: {fixture: defect_outside_packet_paths}
+    when:
+      program_step: {step: reopen_from_review}
+    then:
+      - api_call: {service: github, operation: createIssue, count: 1, with: parentIssueId}
+      - api_call: {service: github, operation: addSubIssue, count: 0}
+    traces_to: [R8, G4, QBC-92]
+    method: test
+    deterministic: true
+
+  - id: e5-AC6
+    scenario: Closing the last sub-issue closes the tracking issue
+    covers: [3]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: tracking_issue_last_sub_issue_closed}
+    when:
+      program_step: {step: close_tracking}
+    then:
+      - api_call: {service: github, operation: updateIssue, count: 1, with: CLOSED}
+    traces_to: [R8, G4, QBC-93]
+    method: test
+    deterministic: true
+
+  - id: e5-AC7
+    scenario: While a sub-issue is open the tracking issue stays open
+    covers: [3]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - recorded_api: {service: github, fixture: tracking_issue_one_sub_issue_open}
+    when:
+      program_step: {step: close_tracking}
+    then:
+      - api_call: {service: github, operation: updateIssue, count: 0}
+    traces_to: [R8, G4, QBC-93]
+    method: test
+    deterministic: true
+
+  - id: e5-AC8
+    scenario: A tracking issue idle past limits.idle_days is a fact in the next run report
+    covers: [4]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - history: {fixture: tracking_issue_idle_20_days, period: v2}
+      - config: {state: override, key: limits.idle_days, value: 14}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+    when:
+      bh: {sub: run}
+    then:
+      - fact: {kind: idle_tracking, count: 1}
+      - teaching: {channel: run_report, wrong: no sub-issue activity, right: close or continue the slice, prevent: limits.idle_days}
+    traces_to: [R8, G4, QBC-93]
+    method: test
+    deterministic: true
+    plan_gap: "the plan states a fact only; the teaching wording for the idle report line is not given"
+
+  - id: e5-AC9
+    scenario: A tracking issue with recent activity is not reported
+    covers: [4]
+    given:
+      - repo: {name: project, state: tracking_issue_open}
+      - history: {fixture: tracking_issue_active_2_days, period: v2}
+      - config: {state: override, key: limits.idle_days, value: 14}
+      - recorded_api: {service: github, fixture: tracking_issue_with_checklist}
+    when:
+      bh: {sub: run}
+    then:
+      - no_fact: {kind: idle_tracking}
+    traces_to: [R8, G4, QBC-93]
+    method: test
+    deterministic: true
+
+  - id: e5-AC10
+    scenario: The idle check has no timer
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [harness/lib/bhtracker.py], kind: text, pattern: "sleep|Timer|schedule|cron"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R8, G5, QBC-93]
+    method: lint
+    deterministic: true
+
+  - id: e6-AC1
+    scenario: One approved run creates the milestone, the board and the type labels
+    covers: [1]
+    given:
+      - repo: {name: project, state: fresh_github_repo}
+      - recorded_api: {service: github, fixture: empty_repository}
+      - recorded_answer: {question: create_hierarchy, answer: approve}
+    when:
+      bh: {sub: intake, args: [setup]}
+    then:
+      - api_call: {service: github, operation: createMilestone, count: 1}
+      - api_call: {service: github, operation: createProject, count: 1}
+      - api_call: {service: github, operation: createLabel, count: 3}
+    traces_to: [R8, G4, QBC-87, QBC-94]
+    method: test
+    deterministic: true
+    plan_gap: "the plan names no argument for the setup run and not the label names; the row counts three labels (decision, slice, defect) and uses the arg setup"
+
+  - id: e6-AC2
+    scenario: A rerun changes nothing
+    covers: [1]
+    given:
+      - repo: {name: project, state: fresh_github_repo}
+      - recorded_api: {service: github, fixture: hierarchy_already_set_up}
+      - recorded_answer: {question: create_hierarchy, answer: approve}
+    when:
+      bh: {sub: intake, args: [setup], rerun: true}
+    then:
+      - api_call: {service: github, operation: createMilestone, count: 0}
+      - api_call: {service: github, operation: createProject, count: 0}
+      - api_call: {service: github, operation: createLabel, count: 0}
+    traces_to: [R8, G4, QBC-94]
+    method: test
+    deterministic: true
+
+  - id: e6-AC3
+    scenario: Without approval nothing is created
+    covers: [1]
+    given:
+      - repo: {name: project, state: fresh_github_repo}
+      - recorded_api: {service: github, fixture: empty_repository}
+      - recorded_answer: {question: create_hierarchy, answer: decline}
+    when:
+      bh: {sub: intake, args: [setup]}
+    then:
+      - api_call: {service: github, operation: createMilestone, count: 0}
+      - api_call: {service: github, operation: createProject, count: 0}
+      - api_call: {service: github, operation: createLabel, count: 0}
+    traces_to: [R8, G4, QBC-94]
+    method: test
+    deterministic: true

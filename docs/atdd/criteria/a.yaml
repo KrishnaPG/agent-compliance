@@ -1,0 +1,245 @@
+# Slice a, Prune (#8). Rows follow docs/atdd/catalog.yaml; leaf numbers come from `build.py --bullets`.
+slice: a
+criteria:
+  - id: a1-AC1
+    scenario: The two deleted skills and their eval directories are gone
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/compliance-review, skills/compliance-catalog, evals/trigger-review, evals/trigger-catalog], kind: path}
+    then:
+      - paths: {paths: [skills/compliance-review, skills/compliance-catalog, evals/trigger-review, evals/trigger-catalog], exist: false}
+    traces_to: [R9, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a1-AC2
+    scenario: No kept file names a deleted skill
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/, agents/, templates/, harness/, README.md], kind: text, pattern: "compliance-review|compliance-catalog"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R9, QBC-77, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a1-AC3
+    scenario: The harness skill hands overlay candidates to no skill
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/harness/], kind: text, pattern: overlay_candidates}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [R9, G5, QBC-79]
+    method: lint
+    deterministic: true
+    plan_gap: "\"sends overlay_candidates to no skill\" is observable only as text absence; the row asserts the term no longer appears in the harness skill"
+
+  - id: a1-AC4
+    scenario: Every file a kept skill references exists
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/], kind: references}
+    then:
+      - fact: {kind: gap, count: 0}
+      - scan_count: {op: ge, value: 1}
+    traces_to: [R9, QBC-64, QBC-79]
+    method: fitness
+    deterministic: true
+
+  - id: a2-AC1
+    scenario: bin holds only the kept programs
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["bin/*"], kind: path}
+    then:
+      - paths: {paths: [bin/bh, bin/bh-answer, bin/bh-measure], exist: true}
+      - paths: {paths: [bin/bh-admit, bin/bh-branch, bin/bh-brief, bin/bh-commit, bin/bh-gaps, bin/bh-merge, bin/bh-rank, bin/bh-reconcile, bin/bh-state], exist: false}
+    traces_to: [G5, P10, QBC-76, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a2-AC2
+    scenario: Packet assembly and every function bhorch calls still resolve
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [harness/lib/, bin/], kind: undefined_names}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [G5, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a2-AC3
+    scenario: The two dead functions are gone
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [harness/, bin/], kind: symbol, pattern: "_write_gaps_doc|_committed_finding_ids"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [G5, P10, QBC-76]
+    method: lint
+    deterministic: true
+
+  - id: a2-AC4
+    scenario: The tests that called the deleted CLIs call the functions and pass
+    covers: [4]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      entry_point: {entry: plugin_pytest}
+    then:
+      - exit_code: {code: 0}
+      - junit: {failures: 0, errors: 0, tests_min: 1}
+    traces_to: [G5, P10, QBC-76]
+    method: test
+    deterministic: true
+
+  - id: a2-AC5
+    scenario: No skill or doc names a deleted CLI
+    covers: [5]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/, docs/, README.md, harness/README.md], kind: text, pattern: "bh-(admit|branch|brief|commit|gaps|merge|rank|reconcile|state)\\b"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [G5, P10, QBC-79]
+    method: lint
+    deterministic: true
+    plan_gap: "docs/plan and docs/spec name the deleted CLIs as history; the grep scope \"the skills and docs\" needs the plan and spec excluded or the row can never pass"
+
+  - id: a3-AC1
+    scenario: templates holds the two kept templates
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["templates/*"], kind: path}
+    then:
+      - paths: {paths: [templates/plan-dry-run.md, templates/bug-record.md], exist: true}
+    traces_to: [R9, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a3-AC2
+    scenario: The three removed templates are gone and nothing references them
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [skills/, agents/, harness/, templates/, bin/, README.md], kind: text, pattern: "catalog-audit\\.md|compliance-bindings\\.md|review-brief\\.md"}
+    then:
+      - scan_count: {op: eq, value: 0}
+      - paths: {paths: [templates/catalog-audit.md, templates/compliance-bindings.md, templates/review-brief.md], exist: false}
+    traces_to: [R9, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a3-AC3
+    scenario: The dry-run template reports guesses as a count, with no verdict words
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [templates/plan-dry-run.md], kind: text, pattern: "\\bBROKEN\\b|\\bPASS\\b|\\bFAIL\\b"}
+    then:
+      - scan_count: {op: eq, value: 0}
+      - needs_keyword: {reason: "\"reports guesses as a count\" needs a keyword asserting a template placeholder holds a number; no catalog entry renders a template"}
+    traces_to: [R9, P4, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a4-AC1
+    scenario: Kept skills' description characters fall below 1.5.2
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["skills/*/SKILL.md"], kind: description_chars}
+    then:
+      - threshold: {metric: skill_description_chars, op: lt, bound: "ref:v1.5.2"}
+      - field: {source: commit_message, path: body, op: matches, value: "\\d+\\D+\\d+"}
+    traces_to: [G5, QBC-71, QBC-79]
+    method: measure
+    deterministic: true
+
+  - id: a4-AC2
+    scenario: No skill description names another skill
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["skills/*/SKILL.md"], kind: frontmatter, pattern: "description: .*(vetted-decision|vet-oss|bug-analysis|harness|compliance-review|compliance-catalog)"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [G5, QBC-71]
+    method: lint
+    deterministic: true
+    plan_gap: "\"names another skill\" is checked against the current skill names; a skill may legitimately name its own name in its description, so the generator must exclude the file's own skill"
+
+  - id: a4-AC3
+    scenario: No SKILL.md tells the agent to load another skill's file
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: ["skills/*/SKILL.md"], kind: references}
+    then:
+      - field: {source: skill_md, path: "references[*]", op: not_contains, value: "../"}
+    traces_to: [G5, QBC-71]
+    method: lint
+    deterministic: true
+
+  - id: a5-AC1
+    scenario: None of the unsupported claims remain in README, manifests or harness docs
+    covers: [1]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [README.md, .claude-plugin/plugin.json, .claude-plugin/marketplace.json, catalog/CHANGES.md, harness/README.md], kind: text, pattern: "industry-standard|converge|PASS/FAIL|every scoring bypass|up to three commands"}
+    then:
+      - scan_count: {op: eq, value: 0}
+    traces_to: [G6, P5, QBC-76, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a5-AC2
+    scenario: One version string in plugin.json, marketplace.json and the changelog
+    covers: [2]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [.claude-plugin/plugin.json, .claude-plugin/marketplace.json, catalog/CHANGES.md], kind: version_strings}
+    then:
+      - scan_count: {op: eq, value: 1, distinct: true}
+    traces_to: [G6, QBC-79]
+    method: lint
+    deterministic: true
+
+  - id: a5-AC3
+    scenario: The superseded lean plan is deleted
+    covers: [3]
+    given:
+      - repo: {name: plugin, state: candidate}
+    when:
+      scan: {paths: [harness/docs/], kind: path}
+    then:
+      - paths: {paths: [harness/docs/lean-plan.md], exist: false}
+    traces_to: [G6, QBC-79]
+    method: lint
+    deterministic: true
