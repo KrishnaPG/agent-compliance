@@ -567,6 +567,7 @@ def measure_item(
     noise: dict[str, Any] = {}
     environment: str | None = None
     runs: list[dict[str, Any]] = []
+    cases: list[Any] = []
     if not mine:
         errors.append("no targets for this item")
     rules = None
@@ -605,8 +606,15 @@ def measure_item(
                 metrics[f"tests.{k}"] = float(v)
             if metrics["tests.total"] == 0:
                 errors.append("test: zero tests collected")
+            cases = _cases(read_junit(junit))
         except HarnessError as e:
             errors.append(str(e))
+    top = git_top(cfg.dir)
+    assert top is not None  # measure() runs in a repository
+    packet = kept_packet(Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top), item)
+    unexecuted = own_tests_ran(item, packet, cases) if packet else None
+    if unexecuted:  # an item with a packet is met by its own acceptance tests, never by others'
+        errors.append(unexecuted)
     bench = cmds.get("bench")
     if any(t["metric"].startswith("bench.") for t in mine):
         if not bench:
@@ -1435,6 +1443,64 @@ def _acceptance_of(name: str, ids: list[str]) -> str | None:
     )
 
 
+def kept_packet(root: Path, item: str) -> dict[str, Any]:
+    """The item's packet from custody (the one resolver, ``bhpacket.custody_digest``); ``{}`` when
+    custody holds none for it or its bytes no longer hash to their name."""
+    import bhpacket
+
+    digest = bhpacket.custody_digest(root, item)
+    try:
+        return json.loads(bhpacket.custody_read(root, digest)) if digest else {}
+    except (HarnessError, ValueError):
+        return {}
+
+
+def _in_acceptance_files(case: Any, paths: list[str]) -> bool:
+    """Whether a JUnit test case comes from one of the packet's acceptance files (``verifier.
+    acceptance_paths``: files, directories or globs). The case's file is its ``file`` attribute, else
+    its ``classname`` read as a module path (pytest writes ``tests.acceptance.test_x``; node's junit
+    reporter writes an absolute ``file``)."""
+    cls = case.classname or ""
+    seen = [x for x in (case._elem.get("file"), cls, cls.replace(".", "/")) if x]
+    for p in paths:
+        stem = p.removesuffix("/").rsplit(".", 1)[0] if "." in p.rsplit("/", 1)[-1] else p.removesuffix("/")
+        for x in seen:
+            x = x.rsplit(".", 1)[0] if x.endswith((".py", ".js", ".mjs", ".cjs", ".ts")) else x
+            parts = x.split("/")  # a runner may write an absolute file path: any run of its parts may be the project's path
+            if any(
+                fnmatch.fnmatchcase("/".join(parts[i:k]), stem)
+                for i in range(len(parts))
+                for k in range(i + 1, len(parts) + 1)
+            ):
+                return True
+    return False
+
+
+def own_tests_ran(item: str, packet: dict[str, Any], cases: list[Any]) -> str | None:
+    """The exit criterion every measurement asks of an item with a packet (QBC section 0 R3,
+    packet-standards L5; ISTQB: an exit criterion needs executed tests): at least one test from the
+    packet's own acceptance files was executed (collected, not skipped) and every test from them
+    passed. Tests from other files never stand in for them. Returns the teaching error, else None.
+    The files are the test author's: the measurer lays protected paths over every build and a merge
+    restores them (R4), so no builder authors them."""
+    paths = packet.get("verifier", {}).get("acceptance_paths") or ["tests/acceptance/"]
+    own = [c for c in cases if _in_acceptance_files(c, paths)]
+    ran = [c for c in own if not any(type(x).__name__ == "Skipped" for x in c.result)]
+    if not ran:
+        return _teach(
+            "no-acceptance", f"no acceptance tests ran for {item} (none executed from {', '.join(paths)})",
+            "the test author writes them first, and the test command runs them",
+            "met needs the item's own executed tests (QBC R3, L5)",
+        )
+    bad = [c for c in own if any(type(x).__name__ in ("Failure", "Error") for x in c.result)]
+    if bad:
+        return _teach(
+            "acceptance-unmet", f"{len(bad)} of {item}'s acceptance tests failed, first {bad[0].classname}::{bad[0].name}",
+            "make every test of its acceptance files pass", "every acceptance test passes (L5)",
+        )
+    return None
+
+
 def _project_environ() -> dict[str, str]:
     """The environment the project's own recipe runs in: the harness's interpreter (the
     ``uv run --script`` environment ``bin/bh`` started in) is taken off PATH, so ``python`` is the
@@ -2082,6 +2148,10 @@ def measure_ref(
         }
         for a in ids
     ]
+    unexecuted = own_tests_ran(item, pk, real) if pk else None
+    if unexecuted:
+        errors.append(unexecuted)
+        fact("gap", "acceptance", unexecuted)
     tier = None
     if pk.get("tier"):  # the tier from the actual diff (R6): a fact for the orchestrator, never a verdict (QBC-30)
         tier, why = diff_tier(cfg.data, top, base, sha, pk.get("kind", "slice"))

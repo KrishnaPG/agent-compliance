@@ -13,7 +13,7 @@
   },
   "commands": {
     "test": {
-      "run": "PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider tests/{item} --junitxml {out}/junit.xml",
+      "run": "PYTHONPATH=src python3 -m pytest -q -p no:cacheprovider $(ls tests/acceptance/test_$(echo {item} | tr - _).py 2>/dev/null) tests/{item} --junitxml {out}/junit.xml",
       "junit": "{out}/junit.xml"
     },
     "bench": {

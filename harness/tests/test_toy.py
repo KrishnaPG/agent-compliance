@@ -118,7 +118,7 @@ def test_state_before_measuring(toy):
     assert s["ready_system"] == []
     assert s["waves"] == [["csv-reader", "json-writer"], ["csv2json"]]
     assert s["commands"]["json-writer"]["test"]["run"].endswith(
-        "tests/json-writer --junitxml .brick-harness/out/json-writer/junit.xml"
+        "$(ls tests/acceptance/test_$(echo json-writer | tr - _).py 2>/dev/null) tests/json-writer --junitxml .brick-harness/out/json-writer/junit.xml"
     )
 
 

@@ -702,18 +702,36 @@ class Orchestrator:
                 return {**out, "error": str(e)}
             out["merged"], out["conflicts"] = m["merged"], m["conflicts"]
             out["remeasured"] = await self.measure_all([(i, "HEAD") for i in m["remeasure"]])
-        if refs is None:  # standalone: every item with no current met result at HEAD
+        if refs is None:  # standalone: every started item with no current met result at HEAD
             # Chosen by the item's own record, not by build readiness: a commit made by hand (a
             # merge, a test edit) makes stale every item whose paths, dependencies' paths or
             # protected tests it changed, and each of them is measured at HEAD now, dependents
             # included, whatever a build queue would wait for (G2: same measurement for any author).
+            # A pending item is not measured here: it leaves pending only by its build path.
             done = {r["item"] for r in out["remeasured"]}
             s = self.state()
             out["remeasured"] += await self.measure_all(
-                [(b["id"], "HEAD") for b in s["bricks"] if b["status"] in bhcore.READY_FROM and b["id"] not in done]
+                [
+                    (b["id"], "HEAD")
+                    for b in s["bricks"]
+                    if b["status"] in bhcore.READY_FROM and b["id"] not in done and self.started(b)
+                ]
             )
         out["commit"] = self.commit("scoreboard")
         return out
+
+    def started(self, brick: dict[str, Any]) -> bool:
+        """The item's work state (an explicit work-item state machine, as a Kanban board keeps it):
+        pending while none of these holds: its packet is kept in custody (in progress), its build ref
+        exists (built), it was measured met before (a status other than unmeasured or unmet). A pending item becomes met
+        only through its build path (test author, builder, measurer), never by an implicit measure at
+        HEAD, so it stays in the queue for its test author (ISTQB: entry criteria before exit criteria)."""
+        item = brick["id"]
+        return (
+            brick["status"] not in ("unmeasured", "unmet")
+            or bhpacket.custody_digest(self.top, item) is not None
+            or git(self.top, "rev-parse", "--verify", "-q", bhpacket.BUILD_REF.format(item=item), check=False).returncode == 0
+        )
 
     # ------------------------------------------------------------ phase: gaps
 
