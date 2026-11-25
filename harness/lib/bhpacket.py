@@ -275,11 +275,14 @@ def trailer(packet: dict[str, Any], digest: str) -> str:
 SPEC_SECTION_0 = Path(__file__).resolve().parents[2] / "docs" / "spec" / "quality-by-construction.md"
 GLOB = re.compile(r"[*?\[]")
 PRINCIPLE_RE = re.compile(r"^- \[[ x]\] \*\*(P\d+)\.\*\* (.+)$")
-# The tier triggers (QBC-25, QBC-27, §6.1): a path matching one makes the item design-affecting;
-# anything else is mechanical. Started narrow (contract, schema, roles or grants, compose, the
-# architecture-target budget); a project's `tiers.triggers` replaces the list (P8). A SemVer
-# major pin bump in a lockfile is the other trigger (``bhcore.major_bumps``).
+# The tier triggers (QBC-25, QBC-27, §6.1). Mechanical is a positive classification proven from
+# facts; anything unproven is design-affecting (ISTQB risk-based testing: unknown risk goes to the
+# higher tier). A path matching a design-affecting row raises the item (contract, schema, roles or
+# grants, compose, the architecture-target budget), as a SemVer major pin bump does
+# (``bhcore.major_bumps``). A mechanical row is the docs proof; the other proofs are diff facts
+# (``bhcore.diff_tier``). A project's `tiers.triggers` replaces the list (P8).
 TIER_TRIGGERS: list[dict[str, Any]] = [
+    {"paths": ["docs/", "*/docs/*", "README*", "CHANGELOG*"], "tier": "mechanical", "fresh_stack": False},
     {"paths": ["*openapi*.yaml", "*openapi*.yml", "*openapi*.json", "*.proto", ".brick-harness/contracts/"],
      "tier": "design-affecting", "fresh_stack": False},
     {"paths": ["*.sql", "migrations/", "*/migrations/*", "*.schema.json"], "tier": "design-affecting", "fresh_stack": True},
@@ -291,17 +294,43 @@ TIER_TRIGGERS: list[dict[str, Any]] = [
 TIER_RANK = {"mechanical": 0, "design-affecting": 1}
 
 
-def tier_of(cfg_data: dict[str, Any], paths: list[str], bumps: list[str] | None = None) -> tuple[str, list[str]]:
-    """The tier ``paths`` and the lockfiles' major ``bumps`` give, and why: the highest tier of
-    the triggers they match (``tiers.triggers`` in the config, else ``TIER_TRIGGERS``), each
-    reason a matched path or a bump. Derived, never typed (R6)."""
+def tier_of(
+    cfg_data: dict[str, Any],
+    paths: list[str],
+    bumps: list[str] | None = None,
+    *,
+    kind: str = "slice",
+    owners: list[str] | None = None,
+    renamed: list[str] | None = None,
+    pinned: list[str] | None = None,
+) -> tuple[str, list[str]]:
+    """The tier of an item touching ``paths``, and why (R6, §6.1). Design-affecting when a path
+    matches a design-affecting trigger (``tiers.triggers``, else ``TIER_TRIGGERS``) or a lockfile
+    has a major ``bumps``; the reasons are those paths and bumps. Otherwise mechanical only when a
+    fact proves it: every path matches a mechanical trigger (docs), is one side of a pure rename
+    (``renamed``) or a patch or minor pin bump (``pinned``), or the item is a defect (``kind``,
+    from the packet: a defect sub-issue under its slice) within exactly one owner (``owners``); the
+    reasons are the proofs. Anything unproven is design-affecting, the reasons the unproven paths
+    (ISTQB risk-based testing). Derived, never typed."""
     import bhcore
 
     triggers = cfg_data.get("tiers", {}).get("triggers") or TIER_TRIGGERS
     hits = [(t["tier"], p) for t in triggers for p in paths if bhcore._matches(p, t["paths"])]
-    hits += [("design-affecting", b) for b in bumps or []]
-    tier = max((t for t, _ in hits), key=TIER_RANK.__getitem__, default="mechanical")
-    return tier, sorted({p for t, p in hits if t == tier})
+    raised = {p for t, p in hits if t != "mechanical"} | set(bumps or [])
+    if raised:
+        return "design-affecting", sorted(raised)
+    proofs = {
+        "docs": {p for _, p in hits},
+        "pure rename": set(renamed or []),
+        "patch or minor pin bump": set(pinned or []),
+    }
+    rest = set(paths) - set().union(*proofs.values())
+    why = [k for k, v in proofs.items() if v & set(paths)]
+    if not rest:
+        return "mechanical", why
+    if kind == "defect" and len(owners or []) == 1:
+        return "mechanical", [*why, f"defect fix within owner {owners[0]}"]
+    return "design-affecting", sorted(rest)
 
 
 DONE = (

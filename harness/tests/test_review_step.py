@@ -176,17 +176,7 @@ def spec_for(fake, reviews, builds):
 MAJOR = {"summary": "a secret compared with == -> call hmac.compare_digest . prevent: use the owner's verify", "rule": "secrets", "severity": "S2", "evidence": "trigger", "where": "src/json_writer.py:3"}
 
 
-def design_affecting(toy):
-    """The project's own trigger list makes the toy's src/ design-affecting (R6, P8)."""
-    cfgp = toy / ".brick-harness" / "config.json"
-    cfg = json.loads(cfgp.read_text())
-    cfg["tiers"] = {"triggers": [{"paths": ["src/"], "tier": "design-affecting"}]}
-    cfgp.write_text(json.dumps(cfg))
-    commit_all(toy, "src is design-affecting")
-
-
 def test_a_major_finding_goes_back_to_the_same_builder_then_merges(toy, fake):
-    design_affecting(toy)
     first = JSON_WRITER + '\napi_token = "t-1"\n'
     spec_for(fake, [[MAJOR], []], [first, first + "\n# compare_digest\n"])
     o = orch(toy)
@@ -228,12 +218,16 @@ def test_findings_left_at_the_round_limit_never_change_met(toy, fake):
     assert "stuck" not in [f["kind"] for r in res["phases"]["rounds"] for f in r["facts"]]  # met, not stuck
 
 
-def test_a_mechanical_item_whose_diff_triggers_nothing_starts_no_reviewer(toy, fake):
-    """The toy's src/ is mechanical by the derived tier (R6): no duplication check, no reviewer (G5)."""
-    spec_for(fake, [[MAJOR]], [JSON_WRITER])
+def test_a_new_feature_whose_diff_triggers_no_domain_still_gets_the_duplication_review(toy, fake):
+    """json-writer is new behaviour, which no fact proves mechanical, so it is design-affecting
+    (R6, section 6.1): the reviewer runs once, for the duplication check alone."""
+    spec_for(fake, [[]], [JSON_WRITER])
     res = run(orch(toy).run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
-    assert [c for c in fake.calls() if c["agent"] == "harness-reviewer"] == []
+    reviews = [c for c in fake.calls() if c["agent"] == "harness-reviewer"]
+    assert len(reviews) == 1
+    inp = json.loads(open(reviews[0]["stdin"].split("Input file (read it first; it names every other path): ")[1].split()[0]).read())
+    assert inp["triggers"] == [{"domain": "duplication", "detail": "the item is design-affecting"}]
 
 
 def test_a_later_round_that_misses_never_undoes_the_met_build(toy, fake):

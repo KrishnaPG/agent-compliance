@@ -2003,8 +2003,7 @@ def measure_ref(
     ]
     tier = None
     if pk.get("tier"):  # the tier from the actual diff (R6): a fact for the orchestrator, never a verdict (QBC-30)
-        diff = _git(top, "diff", "--name-only", "--no-renames", base, sha).splitlines() if sha != base else []
-        tier, why = bhpacket.tier_of(cfg.data, diff, major_bumps(top, base, sha, diff))
+        tier, why = diff_tier(cfg.data, top, base, sha, pk.get("kind", "slice"))
         if bhpacket.TIER_RANK[tier] > bhpacket.TIER_RANK[pk["tier"]]:
             fact(
                 "scope",
@@ -2827,6 +2826,48 @@ def major_bumps(top: Path, base: str, sha: str, changed: list[str]) -> list[str]
             if a != b and (_major(a, name) is None or _major(a, name) != _major(b, name)):
                 out.append(f"{path} {pkg} {a} -> {b}")
     return out
+
+
+def pin_bumps(top: Path, base: str, sha: str, changed: list[str]) -> list[str]:
+    """The changed lockfiles (or pinned requirements files) whose change only moves the versions of
+    packages already pinned: a pin bump. An added or removed package is a dependency change, not a
+    bump, and a lockfile whose pins did not move proves nothing (R6)."""
+    out = []
+    for path in changed:
+        name = PurePosixPath(path).name
+        if name in LOCKFILES or re.fullmatch(r"requirements.*\.txt", name):
+            old, new = _lock_at(top, base, path), _lock_at(top, sha, path)
+            if old.keys() == new.keys() and old != new:
+                out.append(path)
+    return out
+
+
+def diff_tier(cfg_data: dict[str, Any], top: Path, base: str, sha: str, kind: str) -> tuple[str, list[str]]:
+    """The tier of the actual diff ``base..sha`` (R6, QBC-30): ``bhpacket.tier_of`` fed the diff's
+    facts, the same ones the launch tier reads: major bumps, pin bumps, pure renames (git's rename
+    detection at 100% similarity) and, for a defect packet, the owners its paths touch."""
+    import bhpacket
+    import bhreview
+
+    if sha == base:
+        return "mechanical", []
+    diff = _git(top, "diff", "--name-only", "--no-renames", base, sha).splitlines()
+    status = _git(top, "diff", "--name-status", "-M100%", base, sha).splitlines()
+    renamed = [p for row in status if row.startswith("R100") for p in row.split("\t")[1:]]
+    owners = (
+        bhreview.packet_owners(top, diff, bhreview.limits(cfg_data)["message_chars"]).get("owners", [])
+        if kind == "defect"
+        else []
+    )
+    return bhpacket.tier_of(
+        cfg_data,
+        diff,
+        major_bumps(top, base, sha, diff),
+        kind=kind,
+        owners=owners,
+        renamed=renamed,
+        pinned=pin_bumps(top, base, sha, diff),
+    )
 
 
 def norm(name: str) -> str:

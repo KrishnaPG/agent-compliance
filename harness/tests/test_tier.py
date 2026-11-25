@@ -1,9 +1,12 @@
 """R6, QBC-25 to QBC-30: the tier is derived from the declared paths and the actual diff.
 
-Three planted cases: a minor pin bump stays mechanical, a major bump is design-affecting, and a
-docs-only packet whose diff touches a compose file is re-planned with the fact "tier X from
-paths Y" and built again at that tier; nothing is refused. The trigger table is the plugin's
-default, which `tiers.triggers` in `.brick-harness/config.json` replaces (P8).
+Mechanical is proven from facts (section 6.1): docs only, a pure rename, a patch or minor pin
+bump, or a defect fix within one owner; anything unproven is design-affecting (ISTQB risk-based
+testing). Planted cases: a minor pin bump is mechanical, a major bump is design-affecting, a new
+feature in an existing owner is design-affecting, and a docs-only packet whose diff touches a
+compose file is re-planned with the fact "tier X from paths Y" and built again at that tier;
+nothing is refused. The trigger table is the plugin's default, which `tiers.triggers` in
+`.brick-harness/config.json` replaces (P8).
 """
 
 import json
@@ -28,18 +31,27 @@ def npm_lock(**pkgs):
     return json.dumps({"name": "app", "lockfileVersion": 3, "packages": packages})
 
 
-def bump(tmp_path, name, before, after):
-    """A repository whose branch changes lockfile ``name`` from ``before`` to ``after``; the
-    tier the measurer derives from that diff, and why."""
+def change(tmp_path, before, after, kind="slice"):
+    """A repository whose branch turns files ``before`` into ``after`` (path -> text); the tier
+    the measurer derives from that diff, and why."""
     repo = tmp_path / "r"
-    repo.mkdir()
-    (repo / name).write_text(before)
+    repo.mkdir(parents=True)
+    for path, text in before.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text(text)
     git(repo, "init", "-q", "-b", "main")
     base = commit_all(repo, "base")
-    (repo / name).write_text(after)
-    sha = commit_all(repo, "bump")
-    diff = git(repo, "diff", "--name-only", base, sha).splitlines()
-    return bhpacket.tier_of({}, diff, bhcore.major_bumps(repo, base, sha, diff))
+    for path in before.keys() - after.keys():
+        git(repo, "rm", "-q", path)
+    for path, text in after.items():
+        (repo / path).parent.mkdir(parents=True, exist_ok=True)
+        (repo / path).write_text(text)
+    sha = commit_all(repo, "change")
+    return bhcore.diff_tier({}, repo, base, sha, kind)
+
+
+def bump(tmp_path, name, before, after):
+    return change(tmp_path, {name: before}, {name: after})
 
 
 @pytest.mark.parametrize(
@@ -51,7 +63,12 @@ def test_a_patch_or_minor_pin_bump_stays_mechanical(tmp_path, name, lock):
     tier, why = bump(
         tmp_path, name, lock(httpx="0.28.1", rich="14.0.0"), lock(httpx="0.28.2", rich="14.2.0")
     )
-    assert (tier, why) == ("mechanical", [])
+    assert (tier, why) == ("mechanical", ["patch or minor pin bump"])
+
+
+def test_a_lockfile_that_adds_a_package_is_not_a_pin_bump(tmp_path):
+    tier, why = bump(tmp_path, "uv.lock", uv_lock(httpx="0.28.1"), uv_lock(httpx="0.28.1", rich="14.0.0"))
+    assert (tier, why) == ("design-affecting", ["uv.lock"])
 
 
 @pytest.mark.parametrize(
@@ -66,9 +83,42 @@ def test_a_major_pin_bump_is_design_affecting(tmp_path, name, lock):
     assert (tier, why) == ("design-affecting", [f"{name} rich 14.0.0 -> 15.0.0"])
 
 
+def test_a_new_feature_in_an_existing_owner_is_design_affecting():
+    """No fact proves a new feature mechanical, whichever owner it lands in (section 6.1)."""
+    paths = ["src/shop/orders/refunds.py", "tests/test_refunds.py"]
+    assert bhpacket.tier_of({}, paths, owners=["orders"]) == ("design-affecting", sorted(paths))
+
+
+def test_a_defect_fix_within_one_owner_is_mechanical_and_unproven_owners_are_not():
+    paths = ["src/shop/orders/refunds.py", "tests/test_refunds.py"]
+    assert bhpacket.tier_of({}, paths, kind="defect", owners=["orders"]) == (
+        "mechanical",
+        ["defect fix within owner orders"],
+    )
+    for owners in ([], ["orders", "billing"]):  # no owner map, or two owners: not proven
+        assert bhpacket.tier_of({}, paths, kind="defect", owners=owners)[0] == "design-affecting"
+    assert bhpacket.tier_of({}, ["db/schema.sql"], kind="defect", owners=["orders"]) == (
+        "design-affecting",
+        ["db/schema.sql"],
+    )
+
+
+def test_a_pure_rename_is_mechanical_and_an_edit_with_it_is_not(tmp_path):
+    code = "def total(rows):\n    return sum(r['n'] for r in rows)\n"
+    assert change(tmp_path / "a", {"src/sum.py": code}, {"src/totals.py": code}) == (
+        "mechanical",
+        ["pure rename"],
+    )
+    assert change(tmp_path / "b", {"src/sum.py": code}, {"src/totals.py": code + "# x\n"})[0] == (
+        "design-affecting"
+    )
+
+
 def test_the_launch_tier_comes_from_the_declared_paths_and_the_project_may_override_the_triggers():
-    assert bhpacket.tier_of({}, ["docs/guide.md"]) == ("mechanical", [])
+    assert bhpacket.tier_of({}, ["docs/guide.md"]) == ("mechanical", ["docs"])
     assert bhpacket.tier_of({}, ["db/schema.sql"]) == ("design-affecting", ["db/schema.sql"])
+    assert bhpacket.tier_of({}, ["src/app.py"]) == ("design-affecting", ["src/app.py"])
+    assert bhpacket.tier_of({}, []) == ("mechanical", [])  # an empty diff changes nothing
     own = {"tiers": {"triggers": [{"paths": ["docs/"], "tier": "design-affecting"}]}}
     assert bhpacket.tier_of(own, ["docs/guide.md", "db/schema.sql"]) == (
         "design-affecting",

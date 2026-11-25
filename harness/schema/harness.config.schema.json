@@ -488,7 +488,7 @@
                   "mechanical",
                   "design-affecting"
                 ],
-                "description": "the tier a trigger sets"
+                "description": "design-affecting: a matching path raises the item; mechanical: a matching path is proven mechanical (the docs proof). A path no row proves is design-affecting unless a diff fact proves it (R6)"
               },
               "fresh_stack": {
                 "type": "boolean",
