@@ -35,7 +35,8 @@
     "fact_text_keys": [
       "detail"
     ],
-    "command": "command"
+    "command": "command",
+    "schema_version": "schema_version"
   },
   "refs": {
     "base_tag": "base",
