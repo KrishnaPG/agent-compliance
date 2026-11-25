@@ -94,7 +94,7 @@ ROLE = {  # job -> jobs[*].role
     "judge": "judge",
     "regression_row": "reviewer",
 }
-READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)"]
+READ_ONLY_BASH = ["Bash(git diff:*)", "Bash(git log:*)", "Bash(git show:*)", "Bash(bh rule:*)"]  # bh rule: a rule in full (QBC-105 iii)
 REMEASURE = ("unmeasured", "stale", "conflict", "met-uncommitted")  # no current measurement
 DEFAULT_JOB_USD = 2.0
 MISSED = ("red", "red_by_error")  # the measurer facts of a missed check
@@ -357,6 +357,7 @@ class Orchestrator:
         self.errors: list[str] = []
         self.spent = {"cost_usd": 0.0, "tokens": 0}
         self.facts: list[dict[str, Any]] = []  # every fact of this run's items, for the run report
+        self.open_reviews: dict[str, tuple[dict[str, Any], str]] = {}  # item -> (SARIF log, sha) of changes requested
         self.outs: dict[str, str] = {}  # each item's last measurement output dir (result items[*].out)
 
     # ------------------------------------------------------------ files and state
@@ -1215,6 +1216,9 @@ class Orchestrator:
             if not feedback:
                 break
         if met_sha:  # findings left at the round limit never change met (P4)
+            if item in self.open_reviews:  # changes requested, no reviewed build followed: settle them
+                log, at = self.open_reviews.pop(item)
+                self.settle_findings(packet, log, at, facts)
             return await self.merge_item(root, packet, met_sha, facts)
         if feedback or first > len(rounds):
             facts.append(
@@ -1332,8 +1336,11 @@ class Orchestrator:
             facts += [{"kind": "conflict", "item": item, "detail": ", ".join(c["paths"])} for c in conflicts]
             return "unmet"
         self.program_step("merge", item, t0, digest)
-        await self.measure_all([(item, "HEAD")])
+        (at_head,) = await self.measure_all([(item, "HEAD")])
         self.commit("scoreboard")
+        if at_head.get("status") == "unmet":  # red on merged HEAD: a defect under it
+            misses = [str(e) for e in at_head.get("errors") or []] or [f"{item} is {at_head.get('status')} at HEAD after its merge"]
+            self.plan_defect(packet, "measurer", misses, git(root, "rev-parse", "HEAD").stdout.strip(), facts)
         return "met"
 
     def shown(self, lines: list[str]) -> list[str]:
@@ -1344,42 +1351,192 @@ class Orchestrator:
     async def review_item(
         self, packet: dict[str, Any], digest: str, sha: str, tier: str, facts: list[dict[str, Any]]
     ) -> list[str]:
-        """The triggered review (QBC-36) of a met build, before its merge: the program judges the
-        triggers on the item's whole diff, a fresh reviewer that never built the item (P6) judges
-        the diff for the triggered domains, and its findings are recorded as SARIF facts and in
-        gaps.json. Returns the critical and major findings as the builder's feedback lines."""
+        """The review (QBC-36) of a met build, before its merge, in code review's request-changes
+        loop (Google engineering practices): the one review job judges the item's whole diff, and a
+        critical or major finding goes back to the builder for at most ``limits.review_rounds``
+        rounds per packet, counted from the state. Past them the review still runs on the build that
+        merges; its critical and major findings become a defect item under this one, its minor and
+        trivial ones Known issues lines (§0 R8, P4: findings never change met). Returns the
+        builder's feedback lines."""
         root, item = self.top, packet["id"]
         base = git(root, "merge-base", "HEAD", sha).stdout.strip()
-        trig = bhreview.triggers(root, self.cfg.data, base, sha, tier)  # the tier of the actual diff (R6)
-        if not trig:
+        label = f"{item}:review:{sha[:12]}"
+        prior = sum(
+            1
+            for j in self.recorded(item)
+            if j.get("job") == "review" and j.get("packet_sha256") == digest and j.get("label") != label
+        )
+        log = await self.review_diff(packet, digest, base, sha, tier, facts)
+        if log is None:
             return []
+        errs = bhreview.errors(log)
+        self.open_reviews.pop(item, None)  # this review supersedes an earlier one
+        if errs and prior < self.cfg.limit("review_rounds"):  # request changes
+            self.open_reviews[item] = (log, sha)  # settled at the merge if no reviewed build follows
+            return errs
+        self.settle_findings(packet, log, sha, facts)
+        return []
+
+    async def review_diff(
+        self,
+        packet: dict[str, Any],
+        digest: str,
+        base: str,
+        sha: str,
+        tier: str,
+        facts: list[dict[str, Any]],
+        record: bool = True,
+    ) -> dict[str, Any] | None:
+        """The one review job of a diff, for an item's build and for ``bh review`` alike: the
+        program judges the triggers on the whole diff ``base..sha``; a fresh reviewer that never
+        built it (P6) judges the diff against exactly the packet's rule lines (the builder's) and
+        the triggered domains; its findings are recorded as SARIF facts and, for a build
+        (``record``), in gaps.json with a commit. Returns the SARIF log, or None when no review runs."""
+        root, item = self.top, packet["id"]
+        trig = bhreview.triggers(root, self.cfg.data, base, sha, tier, packet.get("kind", "slice"))
+        if not trig:
+            return None
+        selected = packet["verifier"].get("rules", [])
+        rules = selected + self.diff_rules(item, base, sha, {r["id"] for r in selected})
         core = {
             "task": "review",
             "item": item,
             "packet_sha256": digest,
             "diff": f"git diff {base} {sha}",
             "triggers": trig,
-            "owners": packet["constraints"].get("owners", []),
-            "interfaces": packet["constraints"].get("interfaces", []),
+            "rules": rules,  # the builder's lines plus those the actual diff's facts add (QBC-105 ii)
+            # the published interfaces only where duplication is judged: the input stays small (M4)
+            **(
+                {"interfaces": packet["constraints"].get("interfaces", [])}
+                if any(t["domain"] == "duplication" for t in trig)
+                else {}
+            ),
         }
         j = await self.job(
             "review",
             f"{item}:review:{sha[:12]}",
             core,
             {},
-            f"Review the whole diff of item {item} for the triggered domains only.",
+            f"Review the whole diff of item {item} against its packet's rules and the triggered domains.",
             cwd=root,
         )
         if not j["ok"]:
             facts.append({"kind": "gap", "item": item, "detail": f"review of {item} did not finish: {j.get('error')}"})
-            return []
+            return None
+        misses = self.selector_misses(item, [r["id"] for r in selected], j["output"]["findings"], base)
+        facts += misses
+        # the review rounds of a packet are counted from the state; bh metrics counts the misses
+        self.stamp(j, packet_sha256=digest, selector_misses=[{"rule": m["rule"], "missing_tag": m["missing_tag"]} for m in misses])
         chars = bhreview.limits(self.cfg.data)["message_chars"]
         log = bhreview.sarif(j["output"]["findings"], item, digest, chars)
-        write_atomic(self.out / item / f"review-{sha[:12]}.sarif", json.dumps(log, indent=2) + "\n")
-        if j["output"]["findings"]:
+        log["runs"][0]["properties"]["rules"] = [r["id"] for r in rules]  # what the review judged
+        if not self.dry:
+            write_atomic(self.out / item / f"review-{sha[:12]}.sarif", json.dumps(log, indent=2) + "\n")
+        if record and j["output"]["findings"]:
             bhcore.add_findings(self.cfg, [{**f, "source": "review"} for f in j["output"]["findings"]], write=True)
             self.commit(f"review {item}")
-        return bhreview.errors(log)
+        return log
+
+    def diff_rules(self, item: str, base: str, sha: str, have: set[str]) -> list[dict[str, str]]:
+        """The rule lines the diff ``base..sha``'s own facts (c) add beyond ``have`` (QBC-105 ii):
+        a capability the builder added without plan is still judged, and the finding teaches it."""
+        ctx = bhcore.packet_context(self.cfg)
+        brick = ctx["bricks"].get(item) or {"id": item}
+        diff = bhrules.diff_tags(self.cfg, base, sha)
+        sel = bhrules.select_rules(self.cfg, brick, list(ctx["bricks"].values()), ctx["versions"], diff=diff, base=base)
+        rows = bhrules.rule_rows(self.cfg)
+        return [{"id": r, "message": bhrules.rule_text(rows, r) or r} for r in sel["added_by_diff"] if r not in have]
+
+    def selector_misses(
+        self, item: str, selected: list[str], findings: list[dict[str, Any]], base: str | None = None
+    ) -> list[dict[str, Any]]:
+        """A finding whose rule the item's selection missed, as a ``selector_miss`` fact in teach
+        form naming the entry that would have selected it (QBC-108): the mapping's ratchet."""
+        brick = bhcore.packet_context(self.cfg)["bricks"].get(item) or {"id": item}
+        out = []
+        for m in bhrules.selector_misses(self.cfg, brick, selected, findings, base=base):  # tags as planned
+            wrong = f"rule {m['rule']} judged a finding but was not in {item}'s packet"
+            right = f"add tag {m['missing_tag']} to the capability table or to {m['rule']}'s applies, so the facts select it"
+            out.append({**m, "item": item, "detail": f"{m['rule']}: {m['missing_tag']}", "message": bhcore._teach("selector_miss", wrong, right, "QBC-108")})
+        return out
+
+    async def phase_review(self, rng: str, item: str | None) -> dict[str, Any]:
+        """``bh review BASE..HEAD [--item X]``: the same review job on any diff, a human's commits
+        included (G2, QBC-16, QBC-107). With ``--item`` it judges that item's selection at BASE
+        (``bhrules.rules_cmd``) plus the rules the diff's facts add; without, the core, the stack's
+        and the diff's rules (QBC-104, QBC-105). The tier is the diff's (R6). Findings are facts in
+        SARIF under the measure output and the result, misses ``selector_miss`` facts; it commits
+        nothing and starts no round."""
+        root = self.top
+        base, _, head = rng.partition("..")
+        base = git(root, "rev-parse", "--verify", f"{base}^{{commit}}").stdout.strip()
+        sha = git(root, "rev-parse", "--verify", f"{head or 'HEAD'}^{{commit}}").stdout.strip()
+        changed = git(root, "diff", "--name-only", base, sha).stdout.split()
+        bricks = bhcore.packet_context(self.cfg)["bricks"]
+        if item and item not in bricks:
+            raise HarnessError(f"[review-unknown-item] {item} is not in the plan -> name a planned item or leave --item out")
+        # the item's selection as of BASE, where the diff starts, else the project's core and stack
+        # (QBC-107): read from a worktree at BASE, so the diff's own facts are not taken as planned
+        at = json.loads(bhrules.rules_cmd(str(self.cfg.path), item, at=base))
+        rules = [{"id": r["id"], "message": r["text"] or r["id"]} for r in [*at["chosen"], *at["more"]]]
+        kind = "defect" if item and bricks[item].get("kind") == "defect" else "slice"
+        packet = {
+            "id": item or "(project)",
+            "kind": kind,
+            "verifier": {"rules": rules},
+            "constraints": bhreview.packet_owners(root, changed, bhreview.limits(self.cfg.data)["message_chars"]),
+        }
+        tier = bhcore.diff_tier(self.cfg.data, root, base, sha, kind)[0]
+        digest = hashlib.sha256(json.dumps(packet, sort_keys=True).encode()).hexdigest()
+        facts: list[dict[str, Any]] = []
+        # a review of any diff writes no commit: a pre-push hook or a replay leaves the branch as it was
+        log = await self.review_diff(packet, digest, base, sha, tier, facts, record=False)
+        results = log["runs"][0]["results"] if log else []
+        return {
+            "item": packet["id"],
+            "tier": tier,
+            "reviewed": log is not None,
+            "rules": log["runs"][0]["properties"]["rules"] if log else [],
+            "findings": [r["message"]["text"] for r in results],
+            "facts": facts,
+        }
+
+    def settle_findings(
+        self, packet: dict[str, Any], log: dict[str, Any], sha: str, facts: list[dict[str, Any]]
+    ) -> None:
+        """Findings left open by the review that starts no round: the critical and major ones become
+        one defect item under this item (planned once per build), the minor and trivial ones lines
+        of the single Known issues list (§0 R8), or facts when the project keeps no such list."""
+        item = packet["id"]
+        major = bhreview.errors(log)
+        minor = [r["message"]["text"] for r in log["runs"][0]["results"] if r["level"] != "error"]
+        if major:
+            self.plan_defect(packet, "reviewer", major, sha, facts)
+        ref, parent = (self.cfg.data.get("tracker") or {}).get("known_issues"), packet.get("parent_issue")
+        for line in minor:
+            added = False
+            if ref and parent and not self.dry:
+                try:
+                    added = bhintake.known_add(self.cfg, bhtracker.Tracker(self.cfg), f"#{parent} {item}: {line}")["added"]
+                except bhtracker.TrackerError as e:
+                    facts.append({"kind": "gap", "item": item, "detail": f"Known issues not reached: {e}"})
+            if not added:
+                facts.append({"kind": "known_issue", "item": item, "detail": line})
+
+    def plan_defect(
+        self, packet: dict[str, Any], found_by: str, evidence: list[str], sha: str, facts: list[dict[str, Any]]
+    ) -> None:
+        """Record a defect found on ``packet``'s item as a plan item of kind defect under it (§0 R8).
+        A defect fix that still leaves one starts no chain of defects: it is stuck, for its owner."""
+        if packet.get("kind") == "defect":
+            facts.append({"kind": "stuck", "item": packet["id"], "detail": f"the fix still leaves a defect found by the {found_by}: {evidence[0][:200]}"})
+            return
+        d = bhpacket.defect_item(self.cfg, packet, found_by, self.shown(evidence), sha)
+        facts.append({"kind": "defect_planned", "item": packet["id"], "detail": f"{d['id']}, found by the {found_by}"})
+        if self.dry:
+            return
+        bhtracker.append_items(self.cfg, [d])
+        self.commit(f"defect {d['id']}")
 
     def replan(self, packet: dict[str, Any], tier: str) -> None:
         """Re-plan a packet at the tier its diff showed (QBC-30): the program rewrites the packet
@@ -1606,6 +1763,10 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
     for x in st["stuck"][:10]:
         lines.append(f"  stuck: {x.get('item') or x.get('id') or x}: {x.get('reason', '')}")
     lines.append(f"  gaps: {st['gaps']}")
+    misses = [f for x in (r.get("phases") or {}).get("rounds") or [] for f in x.get("facts", []) if f.get("kind") == "selector_miss"]
+    if misses:  # QBC-108: each miss teaches which mapping entry would have selected its rule
+        lines.append(f"SELECTOR MISSES ({len(misses)})")
+        lines += [f"  {m['message']}" for m in misses[:20]]
     if r["owner_questions"]:
         lines.append(f"OWNER QUESTIONS ({len(r['owner_questions'])})")
         lines += [f"  {q['id']}: {q['summary']}" for q in r["owner_questions"][:20]]
@@ -1666,6 +1827,8 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
         phases = {"measure": await orch.phase_measure(refs or None)}
     elif cmd == "harvest":
         phases = {"harvest": await orch.phase_harvest()}
+    elif cmd == "review":
+        phases = {"review": await orch.phase_review(a.range, a.item)}
     else:
         raise HarnessError(f"unknown command {cmd}")
     s = orch.state()
@@ -1730,6 +1893,11 @@ def main(argv: list[str] | None = None) -> int:
     )
     m.add_argument("--item", action="append", help="ID[@REF]; none: the ready items at HEAD")
     sub.add_parser("harvest", parents=[common], help="find duplicated helpers")
+    rv = sub.add_parser(
+        "review", parents=[common], help="review BASE..HEAD against the item's packet rules, as a build's review does"
+    )
+    rv.add_argument("range", metavar="BASE..HEAD")
+    rv.add_argument("--item", help="the planned item whose rules judge the diff (default: the items it touches)")
     sub.add_parser("metrics", parents=[common], help="DORA measures, baseline and current")
     it = sub.add_parser("intake", parents=[common], help="parent check on open issues; --known LINE adds a Known issues line")
     it.add_argument("--known", metavar="LINE")

@@ -9,6 +9,8 @@ builder rounds).
   lead_time_for_changes   slice opening to merge, median (hours; DORA reports the median)
   tokens_per_met_slice    tokens of the met slices' jobs, over the met slices (tokens)
   measurer_rounds         builder rounds of the met slices: per slice its highest jobs[*].round, summed (count)
+  selector_misses         review findings whose rule the slice's selection missed (jobs[*].selector_misses,
+                          QBC-108), summed over the window's met slices (count): the tag mapping's ratchet
 
 The baseline is the pre-v2 history, written once as ``.brick-harness/metrics-baseline.json``
 (created exclusively: a second run never rewrites it). Its window ends at the commit time of HEAD
@@ -33,6 +35,7 @@ UNITS = {
     "lead_time_for_changes": "hours",
     "tokens_per_met_slice": "tokens",
     "measurer_rounds": "count",
+    "selector_misses": "count",
 }
 
 
@@ -67,9 +70,10 @@ def job_totals(out_dir: Path) -> dict[str, dict[str, float]]:
         if not j.get("item"):
             continue
         tok = j.get("tokens") or 0
-        t = totals.setdefault(j["item"], {"tokens": 0, "rounds": 0})
+        t = totals.setdefault(j["item"], {"tokens": 0, "rounds": 0, "selector_misses": 0})
         t["tokens"] += sum(tok.values()) if isinstance(tok, dict) else tok
         t["rounds"] = max(t["rounds"], j.get("round") or 0)
+        t["selector_misses"] += len(j.get("selector_misses") or [])
     return totals
 
 
@@ -93,13 +97,13 @@ def slices(tr: Tracker, merged: dict[str, float], jobs: dict[str, dict[str, floa
             "merged": at,
             "hours": (at - _ts(i["created_at"])) / 3600,
             "failed": bool(later),
-            **jobs.get(item, {"tokens": 0, "rounds": 0}),
+            **jobs.get(item, {"tokens": 0, "rounds": 0, "selector_misses": 0}),
         })
     return out
 
 
 def compute(window: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """The four metrics over ``rows``; none for an empty window (no sample, no number)."""
+    """The metrics over ``rows``; none for an empty window (no sample, no number)."""
     if not rows:
         return []
     n = len(rows)
@@ -108,6 +112,7 @@ def compute(window: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         "lead_time_for_changes": statistics.median(r["hours"] for r in rows),
         "tokens_per_met_slice": sum(r["tokens"] for r in rows) / n,
         "measurer_rounds": sum(r["rounds"] for r in rows),
+        "selector_misses": sum(r.get("selector_misses", 0) for r in rows),
     }
     return [{"id": k, "window": window, "value": v, "unit": UNITS[k]} for k, v in value.items()]
 

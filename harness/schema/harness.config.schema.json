@@ -432,6 +432,11 @@
           "type": "integer",
           "minimum": 1,
           "description": "Lines the single Known issues list may hold (default 100); at the limit a line is fixed and removed before a new one is added."
+        },
+        "review_rounds": {
+          "type": "integer",
+          "minimum": 0,
+          "description": "Builder rounds a critical or major review finding may start for one packet (default 1, code review's request changes); a finding still open after them becomes a defect item."
         }
       }
     },

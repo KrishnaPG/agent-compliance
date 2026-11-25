@@ -1,6 +1,7 @@
 name: Defect
 description: A Critical or Major defect, under the slice or decision it breaks. Minor items go in the Known issues list.
 labels: [defect]
+type: Bug
 body:
   - type: input
     id: parent

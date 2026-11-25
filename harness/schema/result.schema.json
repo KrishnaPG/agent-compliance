@@ -5,7 +5,7 @@
   "required": ["schema_version", "command"],
   "properties": {
     "schema_version": {"type": "string"},
-    "command": {"enum": ["run", "measure", "check", "intake", "merge", "decide", "gaps", "owners", "metrics", "vet", "map"]},
+    "command": {"enum": ["run", "measure", "check", "intake", "merge", "decide", "gaps", "owners", "metrics", "vet", "map", "review"]},
     "packet_sha256": {"type": "string"},
     "checks_run": {"type": "array", "items": {"type": "string"}},
     "checks_missed": {"type": "array", "items": {"type": "string"}},
@@ -38,7 +38,7 @@
         "type": "object",
         "required": ["id", "window", "value", "unit"],
         "properties": {
-          "id": {"enum": ["change_failure_rate", "lead_time_for_changes", "tokens_per_met_slice", "measurer_rounds"]},
+          "id": {"enum": ["change_failure_rate", "lead_time_for_changes", "tokens_per_met_slice", "measurer_rounds", "selector_misses"]},
           "window": {"enum": ["current", "baseline"]},
           "value": {"type": "number"},
           "unit": {"enum": ["ratio", "hours", "tokens", "count"]}

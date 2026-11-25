@@ -2281,12 +2281,12 @@ applies = ["dependency-change"]
 cites = ["Fowler:StranglerFigApplication"]
 
 [house.NO-12]
-text = "A defect is fixed in the native file, binding or shared block that owns it, after tracing its users; never by a per-instance patch, a fallback or a widened timeout."
-why = "Local patches hide the cause, leave other instances broken and let the defect recur."
-right = "Fix a defect in the native file, binding or shared block that owns it, after tracing its users; never by instance patch, fallback or longer timeout."
-question = "Is any fix applied at a symptom site instead of the owner?"
-applies = ["always"]
-cites = []
+text = "A defect fix removes the cause in the named design element (contract, schema, data model, owner), not a special case, retry, wider tolerance or test-only branch."
+why = "A patch where the symptom showed leaves the cause in force, so the same defect returns through every other user of that element; fixing the element that allowed it fixes all of them at once."
+right = "Trace the defect to the contract, schema, data model or owner that let it happen, change it there, and name that element in the fix's commit and result."
+question = "Which design element allowed this defect, and does the diff change that element rather than add a case, a retry or a looser check where the symptom showed?"
+applies = ["defect"]
+cites = ["SRE:ch15 Postmortem Culture: Learning from Failure"]
 
 [house.NO-13]
 text = "The design starts from an inventory of what already exists (path and guarantee); each proposal is KEEP, MOVE to the native owner (deleting the old), or NEW for a verified gap only."

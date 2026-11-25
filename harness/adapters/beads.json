@@ -11,7 +11,8 @@
   "types": {
     "goal": "epic",
     "feature": "feature",
-    "item": "task"
+    "item": "task",
+    "defect": "bug"
   },
   "commands": {
     "ready": "bd ready --json --brief -t {type} -n {limit} [--parent {parent}] --actor {actor}",

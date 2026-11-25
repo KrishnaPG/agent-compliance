@@ -1,7 +1,7 @@
 """A stateful stand-in tracker for tests (not a test module): a JSON store and the six
 operations the harness calls, printing entries in the harness's own shape.
 
-    fake_tracker.py STORE ready LIMIT [PARENT] | show REF | list LIMIT
+    fake_tracker.py STORE ready LIMIT [PARENT] [--type TYPE] | show REF | list LIMIT
                           | claim REF ACTOR | close REF REASON | reopen REF REASON
 """
 
@@ -28,12 +28,14 @@ if op == "show":
 elif op == "list":
     print(json.dumps([e for e in db.values() if e["state"] != "closed"][: int(a[0])]))
 elif op == "ready":
+    kind = a[a.index("--type") + 1] if "--type" in a else "item"  # an adapter that reads several types
+    a = a[: a.index("--type")] if "--type" in a else a
     parents = {e["parent"] for e in db.values() if e.get("parent")}
     ok = [
         e
         for e in db.values()
         if e["state"] == "open"
-        and e["type"] == "item"
+        and e["type"] == kind
         and not e.get("assignee")
         and e["ref"] not in parents
         and all(db.get(d, {}).get("state") == "closed" for d in e["deps"])

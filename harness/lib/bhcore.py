@@ -174,7 +174,7 @@ class InputError(HarnessError):
 # Output limits (config ``limits``): they bound what is printed per call, never
 # what is measured.
 SUMMARY_CAP = 25  # rows a printed summary or a report lists; the full data is in the state dict
-LIMIT_DEFAULTS = {"packet_rules": 15, "tracker_read": 200, "known_issues": 100}
+LIMIT_DEFAULTS = {"packet_rules": 15, "tracker_read": 200, "known_issues": 100, "review_rounds": 1}
 
 
 # ---------------------------------------------------------------- schema validation

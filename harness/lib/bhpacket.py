@@ -408,11 +408,16 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
     declared = bhcore._own_paths(b) or ["."]
     # the touched owners and their published interfaces, so the builder extends them (QBC-19)
     owners = bhreview.packet_owners(root, declared, bhreview.limits(cfg.data)["message_chars"])
+    kind = "defect" if b.get("kind") == "defect" else "slice"
+    if b.get("evidence"):  # a defect packet carries what found it
+        goal += " Evidence: " + " | ".join(b["evidence"])
     return {
         "schema_version": "1.0.0",
         "id": item,
-        "kind": "slice",
-        "tier": tier_of(cfg.data, declared)[0],  # a prediction from the declared paths; the diff corrects it (QBC-30)
+        "kind": kind,
+        **({"parent": b["parent"], "found_by": b["found_by"]} if kind == "defect" else {}),
+        # a prediction from the declared paths; the diff corrects it (QBC-30)
+        "tier": tier_of(cfg.data, declared, kind=kind, owners=owners.get("owners"))[0],
         "goal": goal,
         "applies": principles,
         "constraints": {
@@ -427,13 +432,37 @@ def plan_packet(cfg: Any, item: str) -> dict[str, Any]:
         "verifier": {
             "acceptance_paths": [f"{accept_root}/acceptance/{bhinfer.acceptance_name(lang, _slug(item))}"],
             "targets": targets,
-            "rules": [
-                {"id": r["id"], "message": r["text"] or r["id"]}
-                for r in bhcore.packet_rules(cfg, item, ctx)
-            ],
+            "rules": item_rules(cfg, item, ctx),
         },
         "paved_road": road,
         "definition_of_done": DONE,
+    }
+
+
+def item_rules(cfg: Any, item: str, ctx: dict[str, Any] | None = None) -> list[dict[str, str]]:
+    """The rule lines of ``item`` (``bhcore.packet_rules``, the facts' selection): the ones its
+    packet hands the builder and its review judges the diff against, so the builder knows up
+    front what is judged. A defect item's kind selects the root-cause rule (tag ``defect``)."""
+    import bhcore
+
+    return [{"id": r["id"], "message": r["text"] or r["id"]} for r in bhcore.packet_rules(cfg, item, ctx)]
+
+
+def defect_item(cfg: Any, parent: dict[str, Any], found_by: str, evidence: list[str], tag: str) -> dict[str, Any]:
+    """The plan item of a defect found on ``parent`` (its packet): kind ``defect`` under the parent's
+    tracker issue, or the parent item when it has none, owning the parent's paths; ``tag`` names the
+    finding commit so the same defect is planned once."""
+    import bhcore
+
+    b = bhcore.packet_context(cfg)["bricks"].get(parent["id"]) or {}
+    return {
+        "id": f"{parent['id']}-defect-{tag[:8]}",
+        "job": f"Fix the cause of the defect {found_by} found in {parent['id']} in the design element that allowed it.",
+        "kind": "defect",
+        "parent": parent.get("parent_issue") or parent["id"],
+        "found_by": found_by,
+        "evidence": evidence,
+        **{k: b[k] for k in ("path", "paths", "context") if k in b},
     }
 
 

@@ -28,9 +28,43 @@
             "enum": [
               "brick",
               "system",
-              "change"
+              "change",
+              "defect"
             ],
-            "description": "brick = a reusable package (early stage); system = a feature's end-to-end acceptance wired from bricks; change = one tracker issue or a batch of related issues (growth stage). Only items are measured; a feature or goal is never an item."
+            "description": "brick = a reusable package (early stage); system = a feature's end-to-end acceptance wired from bricks; change = one tracker issue or a batch of related issues (growth stage); defect = the fix of a recorded defect, under the slice or decision it was found in (its packet carries the root-cause rule NO-12). Only items are measured; a feature or goal is never an item."
+          },
+          "parent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "minimum": 1
+              },
+              {
+                "type": "string",
+                "pattern": "^[a-z0-9][a-z0-9-]*$"
+              }
+            ],
+            "description": "defect items only: the tracker issue number of the slice or decision the defect sits under, or the plan item id of the slice when it has no tracker issue."
+          },
+          "evidence": {
+            "type": "array",
+            "items": {
+              "type": "string"
+            },
+            "description": "defect items only: the facts that found the defect (open review findings, the measurer's misses at HEAD or the intake issue), as their teaching lines."
+          },
+          "found_by": {
+            "enum": [
+              "planner",
+              "judge",
+              "proposer",
+              "test_author",
+              "builder",
+              "reviewer",
+              "measurer",
+              "person"
+            ],
+            "description": "defect items only: who found the defect; that agent writes its regression row unless it is the builder."
           },
           "features": {
             "type": "array",
@@ -217,6 +251,22 @@
             ],
             "description": "Why a split child was cut (SPIDR): spike, path, interface, data or rules. A child without one is listed as a fact."
           }
+        },
+        "if": {
+          "properties": {
+            "kind": {
+              "const": "defect"
+            }
+          },
+          "required": [
+            "kind"
+          ]
+        },
+        "then": {
+          "required": [
+            "parent",
+            "found_by"
+          ]
         }
       }
     }

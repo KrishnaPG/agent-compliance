@@ -42,9 +42,17 @@
       "description": "slice, or defect for a fix of a recorded defect (a sub-issue under parent)"
     },
     "parent": {
-      "type": "integer",
-      "minimum": 1,
-      "description": "defect packets only: the GitHub issue number of the slice or decision the defect sits under"
+      "anyOf": [
+        {
+          "type": "integer",
+          "minimum": 1
+        },
+        {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9-]*$"
+        }
+      ],
+      "description": "defect packets only: the tracker issue number of the slice or decision the defect sits under, or the plan item id of the slice when it has no tracker issue"
     },
     "found_by": {
       "enum": [
@@ -54,6 +62,7 @@
         "test_author",
         "builder",
         "reviewer",
+        "measurer",
         "person"
       ],
       "description": "defect packets only: who found the defect; its regression row is written by that agent unless it is the builder, then by the test_author job"

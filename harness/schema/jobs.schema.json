@@ -201,7 +201,7 @@
       "properties": {
         "findings": {
           "type": "array",
-          "description": "Each summary teaches (QBC-53): what is wrong -> the right way, and how to prevent it.",
+          "description": "Each summary teaches (QBC-53): what is wrong -> the right way, and how to prevent it; each cites the packet rule or triggered domain it judges (rule).",
           "items": {
             "allOf": [
               {
@@ -210,11 +210,16 @@
               {
                 "required": [
                   "severity",
-                  "where"
+                  "where",
+                  "rule"
                 ],
                 "properties": {
                   "summary": {
                     "pattern": "\\S.* -> \\S"
+                  },
+                  "rule": {
+                    "minLength": 1,
+                    "description": "the id of the packet rule the finding breaks, or the triggered domain it falls under"
                   }
                 }
               }

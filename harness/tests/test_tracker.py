@@ -323,7 +323,7 @@ def test_adapters_are_valid_data_with_only_the_operations_the_harness_calls():
         assert set(ad["commands"]) == OPS | (REST_OPS if n == "github" else set()), n
         assert "capabilities" not in ad
     beads = json.loads((ROOT / "adapters" / "beads.json").read_text())
-    assert beads["types"] == {"goal": "epic", "feature": "feature", "item": "task"}
+    assert beads["types"] == {"goal": "epic", "feature": "feature", "item": "task", "defect": "bug"}
     assert re.fullmatch(r"[0-9a-f]{64}", beads["pin"]["sha256"]["linux_amd64"])
     bad = {"name": "x", "commands": {"ready": "r", "show": "s", "create": "c"}}
     assert bhcore.schema_errors(bad, schema["$defs"]["adapter"], schema)  # no operation nothing calls

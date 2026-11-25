@@ -11,7 +11,11 @@ maintained or declared:
 - grants: a changed SQL statement holding a DCL keyword (GRANT, REVOKE), as sqlparse classifies it;
 - what the project declares in ``review.triggers`` (config, P8): a CODEOWNERS owner (GitHub's owner
   syntax, ``@team`` or an e-mail) whose code the diff touches, or a gitignore path pattern;
-- the packet's tier: design-affecting items get the duplication check (section 6.1).
+- the packet's tier: a design-affecting item (R6, ISTQB risk-based testing) gets the architecture
+  review, its whole diff against the packet's rule lines, and the duplication check (section 6.1);
+- the packet's kind: a defect fix gets the root-cause review (rule NO-12) at any tier.
+
+Every review judges the diff against exactly the packet's rule lines, the ones its builder got.
 
 Money and any other domain no maintained tool sees are the project's to declare there. Owners come
 from the one owner map (``bhpresets.owner_map``). Findings are SARIF 2.1.0 results (the L5 format),
@@ -153,9 +157,12 @@ def _dcl_changed(before: str, after: str) -> bool:
     )
 
 
-def triggers(root: Path, cfg_data: dict[str, Any], base: str, ref: str, tier: str) -> list[dict[str, str]]:
+def triggers(
+    root: Path, cfg_data: dict[str, Any], base: str, ref: str, tier: str, kind: str = "slice"
+) -> list[dict[str, str]]:
     """The review domains the item's whole diff ``base..ref`` touches, one fact per domain with the
-    first path that set it. An empty list: no review runs."""
+    first path that set it. An empty list: no review runs. A design-affecting item is judged
+    against its packet's rules and for duplication; a defect fix, at any tier, for its root cause."""
     import pathspec
 
     changed = [p for p in _git(root, "diff", "--name-only", "-z", base, ref).split("\0") if p]
@@ -182,6 +189,8 @@ def triggers(root: Path, cfg_data: dict[str, Any], base: str, ref: str, tier: st
             hits.setdefault(t, f"{p} is under review.triggers {t}")
     if tier == "design-affecting":
         hits["duplication"] = f"the item is {tier}"
+    if kind == "defect":  # the fix is judged on whether it fixes the design (rule NO-12, Google SRE ch. 15 root cause)
+        hits["root cause"] = "the item is a defect fix"
     return [{"domain": d, "detail": v} for d, v in hits.items()]
 
 

@@ -220,7 +220,7 @@ def test_login_mode_flags_and_review_job_is_read_only(toy, fake):
     assert arg(c, "--setting-sources") == "" and "--disable-slash-commands" in c["argv"]
     argv = o.argv("review", bhorch.job_schema("review"), "login")
     tools = argv[argv.index("--allowedTools") + 1]
-    assert "Bash(git diff:*)" in tools and tools.split(",").count("Bash") == 0
+    assert "Bash(git diff:*)" in tools and "Bash(bh rule:*)" in tools and tools.split(",").count("Bash") == 0
 
 
 def test_a_restart_skips_jobs_whose_result_file_exists(toy, fake):
@@ -453,7 +453,7 @@ def test_job_schemas_are_self_contained_and_check_outputs():
         "gaps": {"gaps": [{"kind": "other", "summary": "s", "tag": "fixable", "evidence": []}]},
         "plan": PLAN_OUT,
         "harvest_find": {"candidates": []},
-        "review": {"findings": [{"summary": "x -> y", "severity": "S2", "where": "a.py:1"}]},
+        "review": {"findings": [{"summary": "x -> y", "rule": "ID-15", "severity": "S2", "where": "a.py:1"}]},
         "test_author": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
         "regression_row": {"acceptance": [ROW], "test_code": "def test_a_AC1(): assert False"},
         "judge": {"options": [{"id": "O1", "targets": [], "rules": [{"id": "RL-08", "verdict": "pass"}]}], "recommended": "O1", "objections": [], "falsifying_calls": []},

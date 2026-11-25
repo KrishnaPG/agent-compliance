@@ -193,8 +193,8 @@ def ids_without_test(spec: str, names: set[str]) -> list[str]:
     return [i for i in ids if not any(n.startswith(f"test_qbc_{i}_") for n in names)]
 
 
-# QBC-107 and QBC-108 (the review) are task S2's; their tests land with it. Empty this set then.
-OWED = {"107", "108"}
+# Ids whose test is still owed; empty: every section 6.6 requirement has its test.
+OWED: set[str] = set()
 
 
 def test_qbc_109_every_section_6_6_requirement_has_a_test_named_for_it():

@@ -165,6 +165,14 @@ STRICT = {  # json-writer's acceptance test runs the code, so a wrong build miss
 WRONG = JSON_WRITER.replace("return json.dumps(rows, ensure_ascii=False)", "return 'x'")
 
 
+def planned_defect(toy):
+    """The one defect item the program planned under json-writer (QBC-36: an open finding)."""
+    items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
+    (d,) = [b for b in items if b.get("kind") == "defect"]
+    assert d["parent"] == "json-writer"
+    return d
+
+
 def spec_for(fake, reviews, builds):
     fake.spec(
         outputs_by_item={"harness-test-author": STRICT},
@@ -216,6 +224,7 @@ def test_findings_left_at_the_round_limit_never_change_met(toy, fake):
     gaps = json.loads(o.cfg.file("gaps").read_text())["gaps"]
     assert any("hmac.compare_digest" in json.dumps(g) for g in gaps)  # recorded where findings live
     assert "stuck" not in [f["kind"] for r in res["phases"]["rounds"] for f in r["facts"]]  # met, not stuck
+    assert planned_defect(toy)["evidence"][0].startswith("src/json_writer.py:3 [secrets]")  # changes requested, none made
 
 
 def test_a_new_feature_whose_diff_triggers_no_domain_still_gets_the_duplication_review(toy, fake):
@@ -238,6 +247,7 @@ def test_a_later_round_that_misses_never_undoes_the_met_build(toy, fake):
     res = run(o.run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
     assert (toy / "src" / "json_writer.py").read_text() == first  # the met build is on main
+    assert planned_defect(toy)["found_by"] == "reviewer"  # the finding of the merged build stays open
     assert len([c for c in fake.calls() if c["agent"] == "harness-reviewer"]) == 1
 
 

@@ -1,13 +1,14 @@
 {
   "name": "github",
-  "description": "GitHub Issues through gh 2.94.0 or later (sub-issues, issue types, blocked-by). The ready filter is a search query (open, unassigned, not blocked, type Task: change the query through config tracker.commands.ready for other types); no atomic claim, an assignee is a soft claim.",
+  "description": "GitHub Issues through gh 2.94.0 or later (sub-issues, issue types, blocked-by). The ready filter is a search query (open, unassigned, not blocked, of the asked type: Task for items, Bug for defect intake; change the query through config tracker.commands.ready for other types); no atomic claim, an assignee is a soft claim.",
   "types": {
     "goal": "Goal",
     "feature": "Feature",
-    "item": "Task"
+    "item": "Task",
+    "defect": "Bug"
   },
   "commands": {
-    "ready": "gh issue list --state open --limit {limit} --search 'no:assignee -is:blocked type:Task' --json number,title,body,state,assignees,issueType,parent,blockedBy",
+    "ready": "gh issue list --state open --limit {limit} --search 'no:assignee -is:blocked type:{type}' --json number,title,body,state,assignees,issueType,parent,blockedBy",
     "show": "gh issue view {ref} --json number,title,body,state,assignees,issueType,parent,blockedBy",
     "list": "gh issue list --state open --limit {limit} --json number,title,body,state,assignees,issueType,parent,blockedBy",
     "claim": "gh issue edit {ref} --add-assignee @me",

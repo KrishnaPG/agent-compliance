@@ -443,7 +443,9 @@ def admission_order(
     return sorted(entries, key=rank)  # stable: equal ranks keep the tracker's order
 
 
-def _append_items(cfg: Config, new: list[dict[str, Any]]) -> None:
+def append_items(cfg: Config, new: list[dict[str, Any]]) -> None:
+    """Add items to the plan (the bricks file), skipping ids it already holds: tracker entries
+    admitted, and the defect items the orchestrator records."""
     p = cfg.file("bricks")
     assert p is not None
     doc = load_json(p, "bricks") if p.exists() else {"bricks": []}
@@ -453,6 +455,11 @@ def _append_items(cfg: Config, new: list[dict[str, Any]]) -> None:
     tmp = p.with_suffix(p.suffix + ".tmp")
     tmp.write_text(json.dumps(doc, indent=2) + "\n")
     tmp.replace(p)
+
+
+def _issue_no(ref: str) -> int | str:
+    """A tracker parent as the plan's ``parent``: its issue number when it is one, else its ref."""
+    return int(ref) if str(ref).isdigit() else str(ref)
 
 
 def admit(cfg: Config, write: bool = False, tr: Tracker | None = None) -> dict[str, Any]:
@@ -527,6 +534,12 @@ def admit(cfg: Config, write: bool = False, tr: Tracker | None = None) -> dict[s
     except TrackerError as e:
         out["unreachable"] = str(e)
         return out
+    if room and "defect" in tr.ad.get("types", {}):  # the defect intake (form type Bug) under its slice
+        try:
+            bugs = tr.ready(limit=cfg.limit("tracker_read"), type="defect")
+            ready = {"entries": [*bugs["entries"], *ready["entries"]], "more": ready["more"] or bugs["more"]}
+        except TrackerError as e:  # items are still admitted; the defect read is reported
+            out["defect_intake_unreachable"] = str(e)
     seen: set[str] = set()
     fresh = []
     for e in [*mine, *admission_order(cfg, ready["entries"], st, tr.ad)]:
@@ -559,10 +572,18 @@ def admit(cfg: Config, write: bool = False, tr: Tracker | None = None) -> dict[s
             if not c["claimed"]:
                 out["claimed_elsewhere"].append({"ref": e["ref"], "holder": c.get("holder")})
                 continue
-            taken.append({"id": a["id"], "job": e["title"], "kind": "change", "refs": [e["ref"]]})
+            defect = e.get("type") == "defect" and e.get("parent")  # a defect intake issue under its slice
+            taken.append(
+                {"id": a["id"], "job": e["title"], "kind": "change", "refs": [e["ref"]]}
+                | (
+                    {"kind": "defect", "parent": _issue_no(e["parent"]), "found_by": "person", "evidence": [e["ref"]]}
+                    if defect
+                    else {}
+                )
+            )
             out["admitted"].append(a["id"])
         if taken:
-            _append_items(cfg, taken)
+            append_items(cfg, taken)
     out["facts"] = tr.facts
     return out
 

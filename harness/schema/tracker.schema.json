@@ -39,6 +39,7 @@
             "goal",
             "feature",
             "item",
+            "defect",
             "other"
           ]
         },
@@ -166,7 +167,7 @@
         },
         "types": {
           "type": "object",
-          "description": "The tracker's names for goal, feature and item.",
+          "description": "The tracker's names for goal, feature, item and defect (the defect intake, admitted as a defect item under its parent).",
           "additionalProperties": {
             "type": "string"
           }
