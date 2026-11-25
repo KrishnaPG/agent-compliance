@@ -260,8 +260,10 @@ def nonempty(v) -> bool:
     return v not in (None, "", [], {})
 
 
-def apply_op(op: str, values: list, expected) -> str | None:
-    """None when op holds for every value (distinct: for the collected values), else a plain reason."""
+def apply_op(op: str, values: list, expected, wildcard: bool = False) -> str | None:
+    """None when op holds for every value (distinct, and contains on a [*] path: for the one collected list), else a plain reason."""
+    if op == "contains" and wildcard:
+        values = [values]
     if op == "distinct":
         flat = [json.dumps(v, sort_keys=True) for v in values]
         return None if len(flat) == len(set(flat)) else "the values have a duplicate"

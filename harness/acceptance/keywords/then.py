@@ -419,7 +419,7 @@ def then_field(ctx, source: str, path, op, value=None):  # noqa: A002
     if op in ("in_file", "covered_by", "exists"):
         why = special_op(ctx, source, obj, op, values, value)
     else:
-        why = apply_op(op, values, subst(ctx, value))
+        why = apply_op(op, values, subst(ctx, value), wildcard="[*]" in path)
     need(why is None, f"{source} {path}: {why}", f"make {path} {op} {value!r}")
 
 

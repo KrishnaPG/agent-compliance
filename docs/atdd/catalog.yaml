@@ -590,7 +590,7 @@ then:
           covered_by: "every value at path appears among the values at the path named by value, in the same source"
           exists: "every value at path is a file path that exists, relative to the directory of the source file"
       value: {type: any, required: false, doc: "omitted for present and absent"}
-    passes_when: "Reading path in source and applying op to value is true. contains on a list = element present; matches = regex; present = exists and is not empty; distinct = the values at path have no duplicate. A path segment [*] applies op to every element, and all must pass (with distinct, the collected values are compared)."
+    passes_when: "Reading path in source and applying op to value is true. contains on a list = element present; matches = regex; present = exists and is not empty; distinct = the values at path have no duplicate. A path segment [*] applies op to every element, and all must pass; with distinct and with contains the values from all elements are collected into one list that the op tests (contains: some element equals value)."
 
   jobs:
     meaning: "The result JSON's `jobs[*]`, in start order. A job's name is its `role` when `kind` is agent and its `step` when `kind` is program_step."
