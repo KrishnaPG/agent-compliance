@@ -239,7 +239,7 @@ class Config:
         self.config_dir = self.path.parent
         raw = json.loads(self.path.read_text()) if self.path.exists() else {}
         if partial:
-            errs = validate(raw, _without_required(load_schema("harness.config")))
+            errs = schema_errors(raw, _without_required(load_schema("harness.config")))
             if errs:
                 raise HarnessError(f"{self.path} fails harness.config schema: " + "; ".join(errs[:10]))
             self.data: dict[str, Any] = raw
