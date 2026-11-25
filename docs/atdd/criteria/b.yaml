@@ -87,7 +87,7 @@ acceptance:
       channel: fact
       wrong: lint or test config section changed in pyproject.toml
       right: the base commit's config section is used for the measurement
-      prevent: keep [tool.pytest*], [tool.ruff*] and [tool.mypy*] unchanged in a build
+      prevent: keep the protected tables such as [tool.ruff*] unchanged in a build
   traces_to:
   - R4
   - QBC-15

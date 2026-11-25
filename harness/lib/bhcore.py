@@ -1148,7 +1148,7 @@ def _lesson(status: str, path: str, accept: list[str]) -> tuple[str, str, str, s
         "config",
         f"lint or test config section changed in {path}",
         "the base commit's config section is used for the measurement",
-        "keep [tool.pytest*], [tool.ruff*] and [tool.mypy*] unchanged in a build",
+        "keep the protected tables " + ", ".join(f"[tool.{t}*]" for t in dict.fromkeys(LINT_TABLES)) + " unchanged in a build",
         False,
     )
 
