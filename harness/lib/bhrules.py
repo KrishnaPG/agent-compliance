@@ -439,7 +439,7 @@ def rule_facts(cfg: Any, bricks: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def feature_review(cfg: Any, feature: str) -> dict[str, Any]:
     """What a fresh reviewer needs for a feature that became sellable: the paths of its items
     (the acceptance item's dependency closure) and the plan commit the diff starts from; the
-    reviewer (``compliance-review``, which scopes the review itself) reads ``git diff BASE HEAD -- PATHS``."""
+    reviewer (which scopes the review itself by ``catalog/method.md``) reads ``git diff BASE HEAD -- PATHS``."""
     ctx = packet_context(cfg)
     by_id, top = ctx["bricks"], ctx["top"]
     feat = next((f for f in load_features(cfg) if f["id"] == feature), None)

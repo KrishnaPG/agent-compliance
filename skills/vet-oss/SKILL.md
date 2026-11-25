@@ -1,6 +1,6 @@
 ---
 name: vet-oss
-description: Vet a third-party tool at its pinned version against the compliance catalog before it is named. Load before any search when about to suggest, compare or adopt an OSS tool, operator, chart, library, container image or SaaS, or to replace the project's own code with one. Do NOT use to upgrade the version of a tool already adopted (read its changelog) or for how-to questions about an adopted tool.
+description: Vet a third-party tool at its pinned version against the compliance catalog before it is named. Load before any search when about to suggest, compare or adopt an OSS tool, operator, chart, library, container image or SaaS, or to replace the project's own code with one. Not for upgrading a tool already adopted or for how-to questions about one.
 ---
 
 # Vet an OSS candidate
@@ -9,8 +9,8 @@ Every verdict names a catalog rule id and its evidence (step 3 sets which eviden
 
 ## Inputs
 
-- **Catalog and overlay:** as `../compliance-review/SKILL.md` "Inputs" loads them. The domains that judge a tool are at least NO, SC, ID, LC, RL, OB, DS and PF, plus those of the job it takes over.
-- **Project bindings:** found as `../compliance-review/SKILL.md` "Inputs" says: where a vetting is recorded, the clone directory, the evidence environment. No bindings: clone to a new temporary directory, put the full result in the reply, say it is unrecorded and give the setup prompt.
+- **Catalog and overlay:** found as `catalog/method.md` "Inputs" says. The domains that judge a tool are at least NO, SC, ID, LC, RL, OB, DS and PF, plus those of the job it takes over.
+- **Project bindings:** found as `catalog/method.md` "Inputs" says: where a vetting is recorded, the clone directory, the evidence environment. No bindings: clone to a new temporary directory, put the full result in the reply, say it is unrecorded.
 
 **Once per candidate and tag.** The result is recorded where the bindings say, headed `Vetted: <tool> <tag>` with the date. Search for that heading first: reuse it unless the tag or a rule it cites changed.
 

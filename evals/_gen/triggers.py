@@ -12,16 +12,6 @@ def case(group,name,prompt,want,ungraded=()):
         if sk==want: open(f"{d}/graders/{sk}-fires.md",'w').write(g(sk,1))
         elif sk not in ungraded: open(f"{d}/graders/{sk}-silent.md",'w').write(g(sk,0,0))
 P=[
-('trigger-review','design-1',"Review docs/design/export-cleanup.md for compliance against our catalog before I send it for approval.",REV),
-('trigger-review','design-2',"Is docs/design/export-cleanup.md okay by our standards? Go through it rule by rule and tell me which rules it breaks.",REV),
-('trigger-review','rereview-1',"I fixed the two BROKEN rules from the last compliance review of docs/design/export-cleanup.md. Re-review it.",REV),
-('trigger-review','rereview-2',"The findings from yesterday's design check on docs/specs/billing.md are fixed in commit 4e1f9aa. Check it again, only what failed.",REV),
-('trigger-review','plan-1',"Run the compliance plan check on docs/plans/migrate-queue.md: can it be followed without decisions?",REV),
-('trigger-review','plan-2',"Could a junior engineer follow docs/plans/migrate-queue.md step by step without having to guess anything? Verify that before we hand it over.",REV),
-('trigger-catalog','overlay-1',"This repo has no compliance overlay yet. Build one from AGENTS.md and the ADRs.",CAT),
-('trigger-catalog','overlay-2',"We are onboarding a new project to the design-review rule set. Collect its own binding rules from CLAUDE.md, the coding standards and the ADRs into the project rule list our reviews check against.",CAT),
-('trigger-catalog','base-1',"SLSA released a new version that changes the provenance requirements. Update the base catalog.",CAT),
-('trigger-catalog','base-2',"The OWASP ASVS section that our review rules cite was revised last month. Bring the affected rule rows up to date and re-audit them.",CAT),
 ('trigger-decision','options-1',"Which option should we choose for storing session state: the existing PostgreSQL cluster or a table in the service's own database?",VD),
 ('trigger-decision','replace-2',"Should we replace the nightly cleanup cron with the bucket's own lifecycle rule?",VD),
 ('trigger-oss','find-1',"Is there an OSS tool that could take over our database backups?",OSS,(VD,)),

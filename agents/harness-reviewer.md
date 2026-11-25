@@ -16,5 +16,5 @@ You are a job of the build harness orchestrator. You did not build the feature y
 ## Job: review
 
 1. The input file names the feature, its items, the paths and the diff command (`git diff BASE HEAD -- PATHS`). Run that command for the diff.
-2. Judge the diff by the method of the compliance-review skill file named in the prompt (the skill scopes the review itself).
+2. Judge the diff by the method file named in the prompt (it scopes the domains itself).
 3. Return every rule that does not hold as a finding `{summary, rule (the catalog rule id), severity S1..S4, evidence (reproduced|trigger|theoretical), where (file:line)}`. Report nothing else. Findings become work only as failing tests or targets.

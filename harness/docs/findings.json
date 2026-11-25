@@ -58,7 +58,7 @@
     },
     {
       "id": "H-6",
-      "summary": "SG-16's overlay rule line (a rule id plus covers: AREA) was invented by the builder and is not aligned with the compliance-catalog overlay form; nothing has used it.",
+      "summary": "SG-16's overlay rule line (a rule id plus covers: AREA) was invented by the builder and is not aligned with the overlay form; nothing has used it.",
       "kind": "other",
       "severity": "S3",
       "evidence": "theoretical",

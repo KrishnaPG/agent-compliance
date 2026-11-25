@@ -37,9 +37,8 @@ timer, poll or retry loop. A job result is saved as ``<measure_out>/jobs/<key>.j
 key = digest of (job, agent file, schema, input incl. the item's own tree key); a restart finds the
 file and skips the job (the same way a measured result is keyed by tree sha).
 
-OSS and stdlib checked before writing any helper (orchestrator vetting is in
-``harness/docs/lean-plan.md``, wave 1b: stdlib asyncio driving the host CLI, vetted 2026-11-20
-at base catalog 1.3.0; claude-agent-sdk 0.2.186 wraps the same CLI and adds dependencies;
+OSS and stdlib checked before writing any helper (orchestrator vetting: stdlib asyncio driving
+the host CLI, vetted 2026-11-20 at base catalog 1.3.0; claude-agent-sdk 0.2.186 wraps the same CLI and adds dependencies;
 ComposioHQ agent-orchestrator, vibe-kanban, chipping-orchestrator, openai/symphony,
 claude-squad, Snakemake, Prefect and DBOS rejected there). Also checked: ``json``,
 ``hashlib``, ``argparse``, ``shutil.which`` (stdlib), ``git worktree`` (git; used for the item
@@ -70,8 +69,8 @@ from bhcore import Config, HarnessError
 PLUGIN_ROOT = Path(__file__).resolve().parents[2]
 AGENTS_DIR = PLUGIN_ROOT / "agents"
 AGENT_PREFIX = "agent-compliance:"  # the plugin name: plugin agents are namespaced by it
-SKILLS = {  # skill files an agent reads by path (a headless job may have skills disabled)
-    "compliance-review": PLUGIN_ROOT / "skills" / "compliance-review" / "SKILL.md",
+SKILLS = {  # the judging method and skill files an agent reads by path (a headless job may have skills disabled)
+    "method": PLUGIN_ROOT / "catalog" / "method.md",
     "vet-oss": PLUGIN_ROOT / "skills" / "vet-oss" / "SKILL.md",
 }
 JOBS: dict[str, tuple[str, str]] = {  # job -> (agent, config phase for model/effort override)
@@ -312,7 +311,7 @@ class Orchestrator:
     def write_gaps(
         self, found: list[dict[str, Any]], source: str, unmet: list[str] | None = None
     ) -> dict[str, Any]:
-        """``bh-gaps``: merge findings (unresolvable evidence is rejected), write the report."""
+        """``merge_gaps``: merge findings (unresolvable evidence is rejected), write the report."""
         cfg = self.cfg
         try:
             return bhcore.merge_gaps(
@@ -630,7 +629,7 @@ class Orchestrator:
             "standards": cfg.data.get("standards"),
             "design_checklist": cfg.data.get("checklist"),
             "not_applicable": cfg.data.get("na"),
-            "skills": {"compliance-review": str(SKILLS["compliance-review"])},
+            "skills": {"method": str(SKILLS["method"])},
         }
         extra = {
             "documents": self.files_view(s),
@@ -672,7 +671,7 @@ class Orchestrator:
             "standards": cfg.data.get("standards"),
             "sizing": cfg.data.get("sizing"),
             "admitted_from_tracker": [a for a in adm.get("admit", []) if a.get("id") in admitted],
-            "skills": {"compliance-review": str(SKILLS["compliance-review"])},
+            "skills": {"method": str(SKILLS["method"])},
         }
         extra = {
             "documents": self.files_view(s),
@@ -1043,7 +1042,7 @@ class Orchestrator:
             core = {
                 "task": "review",
                 "feature": fr,
-                "skills": {"compliance-review": str(SKILLS["compliance-review"])},
+                "skills": {"method": str(SKILLS["method"])},
             }
             j = await self.job(
                 "review",

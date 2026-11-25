@@ -1,6 +1,6 @@
 ---
 name: bug-analysis
-description: Record and fix a defect by its root cause and the catalog rules it broke. Load before any investigation when the work involves a defect of any size, with or without a failing test - a bug, error, wrong value, flaky step, failing test or failed release, to find, diagnose, record or fix - and before any commit whose subject type is `fix`. Do NOT use for new features, redesigns, or prose edits that change no meaning.
+description: Record and fix a defect by its root cause and the catalog rules it broke. Load before any investigation of a defect of any size, with or without a failing test (a bug, error, wrong value, flaky step, failing test or failed release), and before any commit whose subject type is `fix`. Not for new features, redesigns, or prose edits that change no meaning.
 ---
 
 # Bug analysis
@@ -9,8 +9,8 @@ A bug is any defect anyone notices, in any file, however small: wrong behaviour 
 
 ## Inputs
 
-- **Catalog and overlay:** as `../compliance-review/SKILL.md` "Inputs" loads them; only the domains the failing path touches.
-- **Project bindings:** found as `../compliance-review/SKILL.md` "Inputs" says: the tracker, the ledger, the commands that draft, post and close a record, the review command, the forms a `Test:` takes. No bindings: one tracker issue per bug by hand; with no tracker, the full record goes in the reply, says it is unrecorded and gives the setup prompt.
+- **Catalog and overlay:** found as `catalog/method.md` "Inputs" says; only the domains the failing path touches.
+- **Project bindings:** found as `catalog/method.md` "Inputs" says: the tracker, the ledger, the commands that draft, post and close a record, the review command, the forms a `Test:` takes. No bindings: one tracker issue per bug by hand; with no tracker, the full record goes in the reply, says it is unrecorded.
 
 ## The record
 
@@ -18,7 +18,7 @@ Record a bug in the turn it is found, fixed or not, and before the first edit of
 
 - `Class:` product, test, data or environment, with the proof. Anything but product needs the owner's source, a later approved decision or a measurement; a guess stays product.
 - `Cause:` the exact design issue. `Seen`: the operator screen and query, the artifact, or the source `path:line` that shows it. `Inferred`: what was read and which reading would settle it. An inferred cause may be recorded but not fixed: the next work is the observability that makes it seen.
-- `Rule: <id> BROKEN: <evidence>` one line per catalog rule the defect broke, judged by the compliance-review method (a runtime rule needs the failing input or reachable state; a document or process rule needs the location that breaks its text). `Rule: None: <why>` when no catalog rule covers it; then name the possible missing rule for the catalog owner. Never invent a violation to fill the line. A reported state that an approved rule keeps is no defect: before a surviving person account, identity link or authored record is called a leftover, read LC-42 and the overlay rows that tighten it (a person's account outlives a membership), and record `Rule: None:` with the keeping rule when they hold. Access, grants, sessions or tokens that survive the end past their declared bound are BROKEN under LC-39, LC-41 and ID-05. When the failing path or the fix touches a termination (delete, revoke, disable, prune, offboarding, credit or reversal, cleanup, reset, session, token, grant or membership end), the `Rule:` lines cover LC-39 to LC-43, LC-02, DS-01 and DS-04, each BROKEN or held with its evidence.
+- `Rule: <id> BROKEN: <evidence>` one line per catalog rule the defect broke, judged by the method in `catalog/method.md` (a runtime rule needs the failing input or reachable state; a document or process rule needs the location that breaks its text). `Rule: None: <why>` when no catalog rule covers it; then name the possible missing rule for the catalog owner. Never invent a violation to fill the line. A reported state that an approved rule keeps is no defect: before a surviving person account, identity link or authored record is called a leftover, read LC-42 and the overlay rows that tighten it (a person's account outlives a membership), and record `Rule: None:` with the keeping rule when they hold. Access, grants, sessions or tokens that survive the end past their declared bound are BROKEN under LC-39, LC-41 and ID-05. When the failing path or the fix touches a termination (delete, revoke, disable, prune, offboarding, credit or reversal, cleanup, reset, session, token, grant or membership end), the `Rule:` lines cover LC-39 to LC-43, LC-02, DS-01 and DS-04, each BROKEN or held with its evidence.
 - `Siblings:` the exact search for the same defect elsewhere and its result. Siblings are worked as one list with the fix; only a design issue may be deferred.
 - `Test:` the test of the reported item, in a form the bindings name. It must pass on the fixed product before the bug closes.
 - `Falsifying call:` one real call whose stated answer would prove this analysis wrong.
