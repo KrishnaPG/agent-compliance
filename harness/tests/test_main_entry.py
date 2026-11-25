@@ -8,6 +8,7 @@ import subprocess
 import sys
 
 import bhorch
+import bhpacket
 import bhreview
 from bhcore import Config
 from ruamel.yaml import YAML
@@ -44,9 +45,16 @@ def test_qbc_118_an_open_s2_after_its_rounds_is_met_but_not_merged_and_its_slice
     items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
     assert not [b for b in items if b.get("kind") == "defect"]  # QBC-91: no defect filed after the fact
     gaps = json.loads(o.cfg.file("gaps").read_text())["gaps"]
-    assert any("ID-15" in json.dumps(g) for g in gaps)  # the finding is recorded on the slice
+    assert [g["state"] for g in gaps if g.get("rule") == "ID-15" and g["evidence"][0]["file"] == "src/json_writer.py"] == ["open"]  # open, on the slice's code
     at_head = {b["id"]: b["status"] for b in o.state()["bricks"]}
     assert at_head["json-writer"] != "met"  # not met at HEAD: reconcile reopens its tracker entry
+    assert "bh land refs/bh/json-writer --override REASON" in fact["message"]
+    # the merges that start no agent read the same recorded review (0 tokens): main stays as it was
+    code, out, err = bhpacket.step("merge", toy, "json-writer")
+    assert code == 1 and err.startswith("[main-entry] ") and json.loads(out)["merged"] == []
+    m = run(o.phase_measure([{"ref": bhpacket.BUILD_REF.format(item="json-writer"), "items": ["json-writer"]}]))
+    assert m["merged"] == [] and [u["item"] for u in m["not_admitted"]] == ["json-writer"]
+    assert not _merged(toy, "json-writer") and not (toy / "src" / "json_writer.py").exists()  # only a scoreboard commit
 
 
 def test_qbc_118_the_same_item_with_only_an_s3_finding_is_merged(toy, fake):  # noqa: F811

@@ -398,14 +398,23 @@ def admission(log: dict[str, Any] | None, override: str | None = None) -> dict[s
     return out
 
 
-def refusal(blocking: list[str], what: str) -> str:
-    """The teach-form line of a change main does not admit (QBC-118, QBC-53)."""
+def refusal(blocking: list[str], what: str, ref: str) -> str:
+    """The teach-form line of a change main does not admit (QBC-118, QBC-53); ``ref`` is what
+    ``bh land`` takes for the owner's override."""
     return _teach(
         "main-entry",
-        f"{what} has {len(blocking)} open S1/S2 review finding(s), so main does not admit it",
+        f"{what} has {len(blocking)} open S1/S2 review finding(s) or failing tests, so main does not admit it",
         "fix each finding in its design element, then review again",
-        "meet the packet's rule lines while writing; an owner may admit it with bh land --override REASON",
+        f"meet the packet's rule lines while writing; an owner may admit it with bh land {ref} --override REASON",
     )
+
+
+def recorded_admission(out: Path, item: str, sha: str) -> dict[str, Any]:
+    """Main's entry check from the review already recorded for ``item``'s build ``sha`` (its SARIF
+    under the measure output), for a merge that starts no agent (``bh step merge``, ``bh measure``):
+    0 tokens. No recorded review: admitted on its tests, as a build with no trigger is."""
+    path = out / item / f"review-{sha[:12]}.sarif"
+    return admission(json.loads(path.read_text()) if path.is_file() else None)
 
 
 def errors(log: dict[str, Any]) -> list[str]:

@@ -2638,13 +2638,21 @@ def merge_unmerged(cfg: Config) -> dict[str, Any]:
         board, bad = read_board(cfg.file("scoreboard"))  # type: ignore[arg-type]
         if bad:
             raise HarnessError(bad)
-        merged, conflicts = merge_refs(cfg, top, _merge_candidates(cfg, top, bricks, targets, board))
+        import bhreview
+
+        out = cfg.file("measure_out")
+        assert out is not None
+        cands = _merge_candidates(cfg, top, bricks, targets, board)
+        # main's entry check from each build's recorded review, 0 tokens (QBC-118)
+        refused = [u for u in cands if not bhreview.recorded_admission(out, u["item"], u["ref"])["admitted"]]
+        merged, conflicts = merge_refs(cfg, top, [u for u in cands if u not in refused])
         for c in conflicts:
             _record_conflict(cfg, c["item"], c["ref"], c["paths"])
         remeasure = _with_dependents(bricks, {m["item"] for m in merged})
         return {
             "merged": merged,
             "conflicts": conflicts,
+            "not_admitted": refused,
             "remeasure": remeasure,
             "head": _git(top, "rev-parse", "HEAD"),
         }
@@ -2693,6 +2701,8 @@ def merge_step(root: Path, item: str | None) -> tuple[int, str, str]:
     """``bh step merge``: the candidate (the branch checked out, or ``bh/<item>``) is measured
     against the default branch's plan, and only a met verdict lets it merge into that branch.
     Returns (exit code, result JSON, teaching on stderr)."""
+    import bhreview  # main's entry check (QBC-118); bhreview imports this module
+
     cfg = Config(root / HDIR / "config.json")
     top = git_top(root)
     if top is None:
@@ -2724,6 +2734,18 @@ def merge_step(root: Path, item: str | None) -> tuple[int, str, str]:
                         "fix the failing criteria, then measure again",
                         "merge only after the measurer reports met",
                     ),
+                }
+            )
+            err = facts[-1]["message"] + "\n"
+            doc["unmerged"] = [{"item": name, "ref": sha}]
+            code = 1
+        elif not (adm := bhreview.recorded_admission(cfg.file("measure_out"), name, sha))["admitted"]:
+            facts.append(  # main's entry check from the build's recorded review, 0 tokens (QBC-118)
+                {
+                    "kind": "not_admitted",
+                    "item": name,
+                    "detail": "; ".join(adm["blocking"])[:400],
+                    "message": bhreview.refusal(adm["blocking"], name, sha),
                 }
             )
             err = facts[-1]["message"] + "\n"

@@ -180,7 +180,7 @@ Tiering is a prediction, because the diff doesn't exist at launch. Two facts cor
 | L3 Tests first (ATDD) | A test author who is not the builder writes acceptance tests from the packet and contract into protected paths. The measurer records whether they fail on main | test author (sonnet) | structure, fact | Vacuous tests: the red-on-main fact and pinned hashes |
 | L4 Build | A mission-command brief: the packet plus the failing tests. The builder designs freely within the constraints | builder | order | The builder edits the tests until they pass. Counter: the tests sit in protected paths (SG-01), and the measurer runs the protected copy |
 | L5 Verify | The deterministic measurer runs the test entry point, the item's tests and targets, and the verify entry point on a fresh stack for the triggering tiers. Only it says "met". A miss returns the missed numbers for a retry within the round limit | measurer (no agent) | fact, limit | Endless retries: the round limit. A lucky pass on a flaky test: the measurer records the flaky fact |
-| Review | One job per build: design-affecting items and defect fixes, judged against the packet's rule lines and those the diff's facts add, plus a duplication check (a defect fix also for its root cause, rule NO-12), and diffs touching auth, keys, grants, money or signatures. Mechanical items with no trigger get none. The same job reviews any diff through `bh review BASE..HEAD` | sonnet or opus | order, limit | A diff split to dodge the triggers. Counter: triggers are judged on the item's whole diff. Endless review loops: a critical or major finding requests changes for `limits.review_rounds` builder rounds (default 1); past them it becomes a defect item, a minor one a Known issues line |
+| Review | One job per build: design-affecting items and defect fixes, judged against the packet's rule lines and those the diff's facts add, plus a duplication check (a defect fix also for its root cause, rule NO-12), and diffs touching auth, keys, grants, money or signatures. Mechanical items with no trigger get none. The same job reviews any diff through `bh review BASE..HEAD` | sonnet or opus | order, limit | A diff split to dodge the triggers. Counter: triggers are judged on the item's whole diff. Endless review loops: a critical or major finding requests changes for `limits.review_rounds` builder rounds (default 1); past them an open one keeps the change out of main, on its slice (QBC-118, QBC-91), a minor one is a Known issues line |
 
 - QBC-31. Each level MUST do what its row says, with the stated kind, and the stated counter MUST be implemented for the stated gaming route.
 - QBC-32. A decision record (L1) MUST be at most 2 pages by default (QBC-13) and MUST NOT be written per issue.
@@ -404,7 +404,7 @@ Moved to `docs/design/evidence/history.md`.
 | Goal | A scenario or outcome | A milestone | The owner sets it |
 | Decision (epic) | One decision record (L1) and one tracking issue, each linking to the other | The decision record plus its tracking issue | New capability or owner |
 | Slice | A ready work packet: goal, tier, constraints, acceptance | A sub-issue of the tracking issue, created through an issue form with required fields | The planner writes it (L2) |
-| Defect | Critical or Major: wrong behaviour, a breach, a missed target | A sub-issue under the slice or decision it breaks | A test, the measurer, a review or an agent finds it |
+| Defect | Critical or Major: wrong behaviour, a breach, a missed target | A sub-issue under the slice or decision it breaks | A test, the measurer or an agent finds it; a review finding stays on its slice (QBC-91) |
 | Minor with practical value | A small improvement | A checkbox in the single Known issues list, each line naming its parent decision or slice | Found anywhere; theoretical minors are discarded |
 
 - QBC-88. No issue MAY exist without a parent. The issue form MUST require one. A parentless issue MUST get the message: "No parent decision. Every issue sits under a decision's tracking issue: pick one, or start a decision if this is a new capability."
@@ -431,7 +431,7 @@ Moved to `docs/design/evidence/history.md`. The spec holds requirements only.
 
 ## 13. Decisions and open items
 
-- QBC-96. Decided (owner, 2026-11-25), D2, end of build: measurer retry; no blocking local hook; main's entry check is required (QBC-118).
+- QBC-96. Decided (owner, 2026-11-25), D2, end of build: measurer retry; local hooks only warn; main's entry check is required (§0 P7, QBC-118).
 - QBC-97. Decided, P3 (owner, 2026-11-25), plugin path: assemble from host features and OSS, porting only what the host lacks (the measurer core and value order, after their Critical fixes). Order engine: a program, no agent in the mechanical path (QBC-78). This is the shape of the plugin's `bh` since the Workflow-tool path was removed on 2026-11-20.
 - QBC-98. Decided, S: infer from standard files, ship presets, ask once into a standard file (B + C + D).
 - QBC-99. Decided, I2: the GitHub-native hierarchy (section 10). Minors go in the single Known issues list, each line naming its parent. No issue without a parent.

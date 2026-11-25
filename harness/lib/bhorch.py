@@ -700,7 +700,7 @@ class Orchestrator:
             except HarnessError as e:
                 self.errors.append(f"merge: {e}")
                 return {**out, "error": str(e)}
-            out["merged"], out["conflicts"] = m["merged"], m["conflicts"]
+            out["merged"], out["conflicts"], out["not_admitted"] = m["merged"], m["conflicts"], m["not_admitted"]
             out["remeasured"] = await self.measure_all([(i, "HEAD") for i in m["remeasure"]])
         if refs is None:  # standalone: every started item with no current met result at HEAD
             # Chosen by the item's own record, not by build readiness: a commit made by hand (a
@@ -1518,7 +1518,7 @@ class Orchestrator:
                     "kind": "not_admitted",
                     "item": item,
                     "detail": f"{item} {sha[:12]} stays out of main and its slice stays open (QBC-91): " + "; ".join(adm["blocking"])[:400],
-                    "message": bhreview.refusal(adm["blocking"], f"{item} {sha[:12]}"),
+                    "message": bhreview.refusal(adm["blocking"], f"{item} {sha[:12]}", bhpacket.BUILD_REF.format(item=item)),
                 }
             )
             return "met"
@@ -1660,8 +1660,8 @@ class Orchestrator:
     def defect_misses(self, item: str) -> list[dict[str, Any]]:
         """A later defect whose broken rule its parent item's packet lacked, as ``selector_miss``
         facts on the parent (QBC-108). The defect plan item is the one source: every creator (the
-        review's settle, the measurer at HEAD, tracker intake) records it there with ``breaks``. A
-        reviewer's defect is skipped: its finding was already measured at the review, once."""
+        measurer at HEAD, tracker intake) records it there with ``breaks``. A reviewer's finding is
+        never a defect (QBC-91); an older reviewer defect is skipped: it was measured at the review."""
         bricks = bhcore.packet_context(self.cfg)["bricks"]
         d = bricks.get(item) or {}
         if d.get("found_by") == "reviewer" or not d.get("breaks"):
@@ -1743,8 +1743,7 @@ class Orchestrator:
         if tree.returncode != 0:
             facts.append({"kind": "conflict", "item": "(project)", "detail": f"{ref} does not merge cleanly into {base_ref}: {tree.stdout.splitlines()[1:4]}"})
             return {**out, "facts": facts}
-        msg = f"Merge {ref} into {base_ref}" + (f"\n\nBh-Override: {override}" if override else "")
-        merge = git(root, "commit-tree", tree.stdout.split()[0], "-p", tip, "-p", sha, "-m", msg).stdout.strip()
+        merge = git(root, "commit-tree", tree.stdout.split()[0], "-p", tip, "-p", sha, "-m", f"Merge {ref} into {base_ref}").stdout.strip()
         tests = bhcore.tests_pass(self.cfg, merge)
         review = await self.phase_review(f"{base}..{sha}", None)
         blocking = list(review["blocking"])
@@ -1754,9 +1753,11 @@ class Orchestrator:
         out |= {"tests": tests, "review": review, "blocking": blocking}
         actor = git(root, "config", "user.email", check=False).stdout.strip() or "the owner"
         if blocking and not override:
-            facts.append({"kind": "not_admitted", "item": "(project)", "detail": f"{ref}: " + "; ".join(blocking)[:400], "message": bhreview.refusal(blocking, ref)})
+            facts.append({"kind": "not_admitted", "item": "(project)", "detail": f"{ref}: " + "; ".join(blocking)[:400], "message": bhreview.refusal(blocking, ref, ref)})
             return {**out, "facts": facts}
-        if blocking:
+        if blocking:  # the override's audit: a fact and the merge commit's git trailer
+            msg = f"Merge {ref} into {base_ref}\n\nBh-Override: {override}"
+            merge = git(root, "commit-tree", tree.stdout.split()[0], "-p", tip, "-p", sha, "-m", msg).stdout.strip()
             facts.append({"kind": "override", "item": "(project)", "detail": f"{actor} admitted {ref} into {base_ref} over {len(blocking)} S1/S2 finding(s) or failing tests: {override}"})
         out["admitted"] = True
         if not check:

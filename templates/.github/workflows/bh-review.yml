@@ -20,6 +20,7 @@ jobs:
           repository: KrishnaPG/agent-compliance
           ref: __PLUGIN_REF__
           path: .bh-plugin
+      - run: sudo apt-get install --yes bubblewrap # the measurer's sealed test run
       - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
       - run: npm install --global @anthropic-ai/claude-code@2.1.332
       - name: main's entry check
