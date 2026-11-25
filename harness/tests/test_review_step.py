@@ -167,7 +167,17 @@ def spec_for(fake, reviews, builds):
 MAJOR = {"summary": "a secret compared with == -> call hmac.compare_digest . prevent: use the owner's verify", "rule": "keys", "severity": "S2", "evidence": "trigger", "where": "src/json_writer.py:3"}
 
 
+def design_affecting(toy):
+    """The project's own trigger list makes the toy's src/ design-affecting (R6, P8)."""
+    cfgp = toy / ".brick-harness" / "config.json"
+    cfg = json.loads(cfgp.read_text())
+    cfg["tiers"] = {"triggers": [{"paths": ["src/"], "tier": "design-affecting"}]}
+    cfgp.write_text(json.dumps(cfg))
+    commit_all(toy, "src is design-affecting")
+
+
 def test_a_major_finding_goes_back_to_the_same_builder_then_merges(toy, fake):
+    design_affecting(toy)
     first = JSON_WRITER.replace("import json\n", "import hmac\nimport json\n")
     spec_for(fake, [[MAJOR], []], [first, first + "\n# compare_digest\n"])
     o = orch(toy)

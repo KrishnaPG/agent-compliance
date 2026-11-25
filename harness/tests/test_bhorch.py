@@ -347,7 +347,7 @@ def test_a_full_run_goes_from_plan_to_packet_to_build_to_merge(toy, fake):
     builds = [r for r in roles if r[0] == "builder"]
     assert builds == [("builder", "json-writer")]  # the others' tests passed at HEAD already
     jw = [r[0] for r in roles if r[1] == "json-writer"]
-    assert jw == ["test_author", "red_run", "builder", "measurer", "review", "merge"]  # design-affecting: the duplication check
+    assert jw == ["test_author", "red_run", "builder", "measurer", "merge"]  # mechanical (src/ only, R6): no duplication check
     log = git(toy, "log", "--format=%s", "main")
     assert "brick-harness: merge json-writer" in log and "brick-harness: acceptance json-writer" in log
     assert (toy / "tests" / "acceptance" / "test_json_writer.py").is_file()

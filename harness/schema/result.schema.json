@@ -20,6 +20,7 @@
           "id": {"type": "string"},
           "status": {"enum": ["met", "unmet", "stuck", "not_checked"]},
           "out": {"type": "string"},
+          "tier": {"enum": ["mechanical", "design-affecting"], "description": "the tier the item ran at: the packet's, raised by what the diff touched (R6)"},
           "acceptance": {
             "type": "array",
             "items": {

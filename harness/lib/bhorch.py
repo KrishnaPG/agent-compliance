@@ -887,7 +887,9 @@ class Orchestrator:
         budgets = cfg.data.get("budgets", {})
         tried: set[str] = set()
         s = self.state()
-        for _ in range(len(s["bricks"])):  # the state again after each item: a merge makes its dependents ready; every kind is built one way
+        # the state again after each item: a merge makes its dependents ready; every kind is built
+        # one way; a re-tiered item runs once more at its new tier (a tier only rises, so at most once)
+        for _ in range(len(s["bricks"]) * len(bhpacket.TIER_RANK)):
             s = self.state()
             item = next((i for i in s["ready"] + s["ready_system"] if i not in tried), None)
             if item is None:
@@ -905,6 +907,9 @@ class Orchestrator:
             except HarnessError as e:
                 st, facts = "unmet", [*facts, {"kind": "gap", "item": item, "detail": str(e)}]
             res["rounds"].append({"item": item, "status": st, "facts": facts[-FACTS_SHOWN:]})
+            if st == "re-tiered":  # re-planned at the tier its diff showed (QBC-30): queued again
+                tried.discard(item)
+                continue
             if st != "met":
                 why[item] = st
                 break  # the next item is cut from a HEAD this one did not reach
@@ -1030,7 +1035,9 @@ class Orchestrator:
             self.records += built["jobs"]
             if code:
                 break
-            sha, feedback = await self.measure_packet(root, packet, facts)
+            sha, feedback, tier = await self.measure_packet(root, packet, facts)
+            if tier:  # re-planned at the tier its diff showed: built again from that packet
+                return "re-tiered"
             met_sha = sha or met_sha  # a later round that misses never undoes a met build
             if not feedback:
                 break
@@ -1082,12 +1089,13 @@ class Orchestrator:
 
     async def measure_packet(
         self, root: Path, packet: dict[str, Any], facts: list[dict[str, Any]]
-    ) -> tuple[str | None, list[str]]:
+    ) -> tuple[str | None, list[str], str | None]:
         """The measurer step for a packet: the builder's commit is fetched into the repository (a ref
         the builder cannot move) and measured by the one measurer, ``bhcore.measure_ref``, against the
         packet kept in custody; a met build gets the triggered review of its whole diff, recorded
-        before any merge. Returns the met commit (None when unmet) and the builder's feedback for
-        another round: the missed checks' messages, or the critical and major findings."""
+        before any merge. Returns the met commit (None when unmet), the builder's feedback for
+        another round (the missed checks' messages, or the critical and major findings), and the
+        tier the packet was re-planned at when its diff raised it (R6, QBC-30), else None."""
         item, t0 = packet["id"], datetime.now(UTC)
         clones = sorted(
             (root / bhpacket.CLONES_DIR).glob(f"{item}-*"), key=lambda p: p.stat().st_mtime
@@ -1095,12 +1103,16 @@ class Orchestrator:
         digest = bhpacket.custody_digest(root, item) or ""  # identity comes from custody alone
         if not clones:
             self.program_step("measurer", item, t0, digest)
-            return None, []
+            return None, [], None
         ref = f"refs/bh/{item}"
         git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
         res = bhcore.measure_ref(self.cfg, ref, orch=root)
         facts += res["facts"]
         self.program_step("measurer", item, t0, digest)
+        tier = res["items"][0].get("tier") or packet["tier"]
+        if bhpacket.TIER_RANK[tier] > bhpacket.TIER_RANK[packet["tier"]]:  # the diff's tier (QBC-30)
+            self.replan(packet, tier)
+            return None, [], tier
         if res["items"][0]["status"] != "met":  # only the missed checks' messages (QBC-55)
             missed = [f["message"] for f in res["facts"] if f["kind"] in MISSED and f.get("message")]
             missed += [
@@ -1108,9 +1120,9 @@ class Orchestrator:
                 for a in res["items"][0].get("acceptance", [])
                 if a["status"] != "met"
             ]
-            return None, self.shown(missed)
+            return None, self.shown(missed), None
         sha = git(root, "rev-parse", ref).stdout.strip()
-        return sha, self.shown(await self.review_item(packet, digest, sha, facts))
+        return sha, self.shown(await self.review_item(packet, digest, sha, facts)), None
 
     async def merge_item(
         self, root: Path, packet: dict[str, Any], sha: str, facts: list[dict[str, Any]]
@@ -1180,6 +1192,17 @@ class Orchestrator:
             bhcore.add_findings(self.cfg, [{**f, "source": "review"} for f in j["output"]["findings"]], write=True)
             self.commit(f"review {item}")
         return bhreview.errors(log)
+
+    def replan(self, packet: dict[str, Any], tier: str) -> None:
+        """Re-plan a packet at the tier its diff showed (QBC-30): the program rewrites the packet
+        with that tier, keeps it in custody and commits it as a plan commit naming it, so the item
+        is built again from a packet at its real tier. Nothing is refused or merged."""
+        root, item = self.top, packet["id"]
+        path = bhpacket.packet_path(root, item)
+        write_atomic(path, json.dumps({**packet, "tier": tier}, indent=2) + "\n")
+        digest = bhpacket.custody_store(root, path.read_bytes())
+        new, _ = bhpacket.load_packet(root, item)
+        self.commit(f"re-tier {item} as {tier}\n\nPacket: {bhpacket.trailer(new, digest)}")
 
     def over_budget(self, budgets: dict[str, Any]) -> bool:
         return bool(

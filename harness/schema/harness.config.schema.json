@@ -437,6 +437,44 @@
           "description": "Admitted items not met at most (default 20); admission takes tracker entries into the room left."
         }
       }
+    },
+    "tiers": {
+      "type": "object",
+      "additionalProperties": false,
+      "description": "The tier triggers (QBC-25, QBC-27): the plugin's list (bhpacket.TIER_TRIGGERS) is the default; a list here replaces it (P8).",
+      "properties": {
+        "triggers": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+              "paths",
+              "tier"
+            ],
+            "properties": {
+              "paths": {
+                "type": "array",
+                "items": {
+                  "type": "string"
+                },
+                "description": "path patterns (fnmatch, or a directory) that set the tier"
+              },
+              "tier": {
+                "enum": [
+                  "mechanical",
+                  "design-affecting"
+                ],
+                "description": "the tier a trigger sets"
+              },
+              "fresh_stack": {
+                "type": "boolean",
+                "description": "the trigger needs a fresh-stack run"
+              }
+            }
+          }
+        }
+      }
     }
   },
   "$defs": {

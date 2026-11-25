@@ -1960,6 +1960,23 @@ def measure_ref(
         }
         for a in ids
     ]
+    tier = None
+    if pk.get("tier"):  # the tier from the actual diff (R6): a fact for the orchestrator, never a verdict (QBC-30)
+        diff = _git(top, "diff", "--name-only", "--no-renames", base, sha).splitlines() if sha != base else []
+        tier, why = bhpacket.tier_of(cfg.data, diff, major_bumps(top, base, sha, diff))
+        if bhpacket.TIER_RANK[tier] > bhpacket.TIER_RANK[pk["tier"]]:
+            fact(
+                "scope",
+                f"tier {tier} from paths {', '.join(why)}",
+                _teach(
+                    "tier",
+                    f"packet {item} is {pk['tier']} but its diff touches {', '.join(why)}",
+                    f"the orchestrator re-plans it as {tier}",
+                    "declare those paths in the packet, or keep the change inside its declared paths",
+                ),
+            )
+        else:
+            tier = pk["tier"]
     met = not (
         errors or tampered or changes or any(f["kind"] in ("red", "red_by_error") for f in facts)
     ) and all(a["status"] == "met" for a in acceptance)
@@ -1978,6 +1995,7 @@ def measure_ref(
                 "status": "met" if met else "unmet",
                 "out": str(out.relative_to(top)),
                 "acceptance": acceptance,
+                **({"tier": tier} if tier else {}),
                 **({"errors": errors} if errors else {}),
             }
         ],
@@ -2077,11 +2095,6 @@ def _lock_at(top: Path, rev: str, rel: str) -> dict[str, str]:
         return lock_versions([f])
 
 
-def _major(v: str) -> str | None:
-    m = re.match(r"v?(\d+)", v)
-    return m.group(1) if m else None
-
-
 def _dependency_facts(cfg: Config, top: Path, sha: str) -> dict[str, Any]:
     """Packages the ref added or changed in the lockfiles since its fork from HEAD, whether the
     stack record (``standards.stack``) names each, and those whose major version differs from
@@ -2114,7 +2127,8 @@ def _dependency_facts(cfg: Config, top: Path, sha: str) -> dict[str, Any]:
     second = []
     for k, v in touched.items():
         pinned = pins.get(k) or old.get(k)
-        if pinned and _major(pinned) and _major(v) and _major(pinned) != _major(v):
+        was, now = (_major(pinned), _major(v)) if pinned else (None, None)
+        if was is not None and now is not None and was != now:
             second.append(k)
     if second:
         out["second_major"] = sorted(second)
@@ -2689,9 +2703,9 @@ def lock_versions(paths: list[Path], problems: list[str] | None = None) -> dict[
     return out
 
 
-def _lock_versions(p: Path) -> dict[str, str]:
+def _lock_versions(p: Path | PurePosixPath, text: str | None = None) -> dict[str, str]:
     out: dict[str, str] = {}
-    text = p.read_text(errors="replace")
+    text = p.read_text(errors="replace") if text is None else text  # type: ignore[union-attr]
     if p.name == "yarn.lock":
         name = None
         for line in text.splitlines():
@@ -2729,6 +2743,48 @@ def _lock_versions(p: Path) -> dict[str, str]:
             m = re.match(r"\s*([A-Za-z0-9_.\-]+)\s*==\s*([^\s;#]+)", line)
             if m:
                 out[norm(m.group(1))] = m.group(2)
+    return out
+
+
+LOCKFILES = ("uv.lock", "poetry.lock", "Cargo.lock", "package-lock.json", "yarn.lock", "pnpm-lock.yaml", "go.sum", "Gemfile.lock")
+PEP440_LOCKS = ("uv.lock", "poetry.lock")  # Python versions: PEP 440, read by packaging
+
+
+def _major(version: str, lock: str = "") -> int | None:
+    """The major version as the lockfile's ecosystem parses it: ``packaging.version`` (PEP 440)
+    for Python lockfiles and pinned requirements, ``semver`` (SemVer 2.0) for the others; with no
+    lockfile named, SemVer first, then PEP 440 (a stack record's ``rich==13``). None when the
+    version does not parse."""
+    import packaging.version
+    import semver
+
+    pep440 = lock in PEP440_LOCKS or lock.endswith(".txt")
+    for parse in ((lambda v: packaging.version.Version(v).major),) if pep440 else (
+        lambda v: semver.Version.parse(v.removeprefix("v")).major,
+        lambda v: packaging.version.Version(v).major,
+    ):
+        try:
+            return int(parse(version))
+        except (packaging.version.InvalidVersion, ValueError, TypeError):
+            continue
+    return None
+
+
+def major_bumps(top: Path, base: str, sha: str, changed: list[str]) -> list[str]:
+    """Each package whose pinned version changes its major number between ``base`` and ``sha``
+    in a changed lockfile (or pinned requirements file), as ``<lockfile> <package> <old> -> <new>``.
+    A patch or minor bump is not one (Semantic Versioning); a version that does not parse is
+    counted as one, since its compatibility is unknown (R6)."""
+    out: list[str] = []
+    for path in changed:
+        name = PurePosixPath(path).name
+        if name not in LOCKFILES and not re.fullmatch(r"requirements.*\.txt", name):
+            continue
+        old, new = _lock_at(top, base, path), _lock_at(top, sha, path)
+        for pkg in sorted(old.keys() & new.keys()):
+            a, b = old[pkg], new[pkg]
+            if a != b and (_major(a, name) is None or _major(a, name) != _major(b, name)):
+                out.append(f"{path} {pkg} {a} -> {b}")
     return out
 
 

@@ -8,15 +8,14 @@ offers, is one owner question; the answer is that standard file, never a plugin 
 
 import json
 import shutil
-import subprocess
-import sys
 from pathlib import Path
 
+import bhbuilder
 import bhinfer
 import bhorch
 import pytest
 from bhcore import Config
-from test_bhorch import ACCEPT, BH, fake  # noqa: F401  (the fake claude fixture)
+from test_bhorch import ACCEPT, fake  # noqa: F401  (the fake claude fixture)
 from test_toy import JSON_WRITER, commit_all, git
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -29,13 +28,21 @@ GREET_TEST = (
 )
 
 
-def bh_run(repo, *a):
-    """`bh run` from the project root, with no --config: the default path does not exist."""
-    p = subprocess.run(
-        [sys.executable, str(BH), "run", *a], capture_output=True, text=True, cwd=repo
-    )
-    assert "error" not in p.stdout.splitlines()[-1], p.stdout + p.stderr
-    return json.loads((repo / ".brick-harness" / "out" / "run-result.json").read_text()), p.stdout
+@pytest.fixture
+def bh_run(monkeypatch, capsys):
+    """`bh run` from the project root through the bh CLI's own entry, with no --config: the
+    default path does not exist. The builder's host check (R10) is tested in
+    test_launch_probe, not by this host's groups."""
+    monkeypatch.setitem(bhbuilder.LAUNCH_DEFAULTS, "refuse_groups", [])
+
+    def go(repo, *a):
+        monkeypatch.chdir(repo)
+        code = bhorch.main(["run", *a])
+        text = capsys.readouterr().out
+        assert code == 0, text
+        return json.loads((repo / ".brick-harness" / "out" / "run-result.json").read_text()), text
+
+    return go
 
 
 @pytest.fixture
@@ -120,7 +127,7 @@ def node_repo(tmp_path):
     return repo
 
 
-def test_bh_run_builds_the_python_toy_with_no_config(python_toy, fake):  # noqa: F811
+def test_bh_run_builds_the_python_toy_with_no_config(python_toy, fake, bh_run):  # noqa: F811
     fake.spec(
         outputs_by_item={"harness-test-author": ACCEPT},
         files={"harness-builder": {"src/json_writer.py": JSON_WRITER}},
@@ -139,7 +146,7 @@ def test_bh_run_builds_the_python_toy_with_no_config(python_toy, fake):  # noqa:
     assert git(python_toy, "check-ignore", ".brick-harness/out/x")  # the run state is ignored
 
 
-def test_bh_run_builds_a_node_project_with_no_config(node_repo, fake):  # noqa: F811
+def test_bh_run_builds_a_node_project_with_no_config(node_repo, fake, bh_run):  # noqa: F811
     accept = {
         "greet": {
             "acceptance": [
@@ -199,6 +206,7 @@ def test_what_no_file_says_is_asked_once_and_answered_by_a_standard_file(tmp_pat
 def test_one_inference_owner_no_second_detector():
     """bh-init is gone, and no other module keeps a lockfile or test-entry table of its own."""
     assert not (ROOT.parent / "bin" / "bh-init").exists()
+    assert "subprocess" not in (ROOT / "lib" / "bhinfer.py").read_text()  # reads files, runs nothing
     for mod in ("bhcore", "bhpacket", "bhorch"):
         text = (ROOT / "lib" / f"{mod}.py").read_text()
         assert "PREPARE = (" not in text and "LOCK_ADD = (" not in text, mod

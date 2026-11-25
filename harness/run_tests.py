@@ -8,6 +8,8 @@
 #   "PyYAML==6.0.4",
 #   "jsonschema==4.26.0",
 #   "junitparser==5.0.3",
+#   "packaging==26.4",
+#   "semver==3.1.1",
 #   "mitmproxy==12.3.1",
 #   "pathspec==1.1.1",
 #   "sqlparse==0.6.1",
