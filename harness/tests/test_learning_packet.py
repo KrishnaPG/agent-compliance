@@ -219,16 +219,9 @@ def with_context(repo, rules=("RL-01",)):
 
 
 def brief(repo, item, *a):
-    import subprocess
-    import sys
+    from test_toy import call
 
-    from test_toy import BIN, ENV
-
-    p = subprocess.run(
-        [sys.executable, str(BIN / "bh-brief"), "--config", str(repo / ".brick-harness" / "config.json"), item, *a],
-        capture_output=True, text=True, cwd=repo, env=ENV,
-    )  # fmt: skip
-    return p.returncode, p.stdout
+    return call("bh-brief", ["--config", str(repo / ".brick-harness" / "config.json"), item, *a], cwd=repo)
 
 
 def test_bh_brief_assembles_the_packet_from_citations_with_digest_and_dependency_contracts(toy):

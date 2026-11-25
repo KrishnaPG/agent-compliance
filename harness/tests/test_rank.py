@@ -5,13 +5,11 @@ what is left. The toy project is the fixture.
 """
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import bhcore
 import pytest
-from test_toy import BIN, ENV, cli, commit_all, copy_toy, full_state, git, status
+from test_toy import call, cli, commit_all, copy_toy, full_state, git, status
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -26,15 +24,8 @@ def toy(tmp_path):
 
 
 def rank(args, stdin=None, cwd=None):
-    p = subprocess.run(
-        [sys.executable, str(BIN / "bh-rank"), *args],
-        input=stdin,
-        capture_output=True,
-        text=True,
-        cwd=cwd,
-        env=ENV,
-    )
-    return p.returncode, json.loads(p.stdout)
+    code, out = call("bh-rank", args, cwd=cwd, stdin=stdin)
+    return code, json.loads(out)
 
 
 def cfg_of(repo):

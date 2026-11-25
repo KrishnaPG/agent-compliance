@@ -4,11 +4,11 @@ An adapter (adapters/<name>.json, or a file the config names) maps the operation
 calls to shell commands and says where each entry field is in the JSON a command prints:
 
   ready   entries ready to take (the tracker's own filter: bd ready, a gh search query)
-  show    one entry                          (bh-gaps, bh-reconcile)
-  list    live entries, to find claims held  (bh-admit)
-  claim   take an entry                      (bh-admit; absent: no tracker-side claim)
-  close   close an entry                     (bh-reconcile only)
-  reopen  reopen an entry                    (bh-reconcile only)
+  show    one entry                          (merge_gaps, reconcile)
+  list    live entries, to find claims held  (admit)
+  claim   take an entry                      (admit; absent: no tracker-side claim)
+  close   close an entry                     (reconcile only)
+  reopen  reopen an entry                    (reconcile only)
 
 Nothing is hard-coded to one tracker. With no ``tracker.adapter`` in the config there is no
 tracker: the work list is bricks.json in build/value order (bhcore.state), admission and
@@ -607,7 +607,7 @@ def reconcile(cfg: Config, write: bool = False, tr: Tracker | None = None) -> di
     return out
 
 
-# ---------------------------------------------------------------- facts for bh-gaps
+# ---------------------------------------------------------------- facts for merge_gaps
 
 
 def gap_facts(
@@ -626,7 +626,7 @@ def gap_facts(
 
 
 def show_resolver(cfg: Config) -> Callable[[str], dict[str, Any]] | None:
-    """tracker.show with a per-run cache for bh-gaps (a target source '<ref>: "<quote>"')."""
+    """tracker.show with a per-run cache for merge_gaps (a target source '<ref>: "<quote>"')."""
     tr: list[Tracker] = []
     cache: dict[str, dict[str, Any]] = {}
 

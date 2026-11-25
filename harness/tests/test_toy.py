@@ -11,6 +11,7 @@ import subprocess
 import sys
 from pathlib import Path
 
+import cmds
 import pytest
 
 ROOT = Path(__file__).resolve().parent.parent
@@ -71,21 +72,18 @@ def commit_all(repo, msg, *paths):
     return git(repo, "rev-parse", "HEAD")
 
 
+def call(name, argv, cwd=None, stdin=None):
+    """Run a harness command: ``bh-measure`` and ``bh-init`` as the programs they are, the rest as
+    the library calls (``cmds.py``). ``(exit code, stdout text)``."""
+    if name in cmds.COMMANDS:
+        return cmds.run(name, argv, cwd=cwd, env=ENV, stdin=stdin)
+    p = subprocess.run([sys.executable, str(BIN / name), *argv], input=stdin, capture_output=True, text=True, cwd=cwd, env=ENV)
+    return p.returncode, p.stdout
+
+
 def cli(name, repo, *a, config=None):
-    p = subprocess.run(
-        [
-            sys.executable,
-            str(BIN / name),
-            "--config",
-            str(config or repo / ".brick-harness" / "config.json"),
-            *a,
-        ],
-        capture_output=True,
-        text=True,
-        cwd=repo,
-        env=ENV,
-    )
-    return p.returncode, json.loads(p.stdout)
+    code, out = call(name, ["--config", str(config or repo / ".brick-harness" / "config.json"), *a], cwd=repo)
+    return code, json.loads(out)
 
 
 def full_state(repo, config=None):
@@ -657,28 +655,13 @@ def test_system_item_never_hides_an_unmeasured_or_unmet_dependency(toy):
 
 def test_unmet_gaps_carry_reason_errors_and_cover_never_measured_items(toy):
     cli("bh-measure", toy, "--item", "json-writer")  # unbuilt: unmet with errors
-    p = subprocess.run(
-        [
-            sys.executable,
-            str(BIN / "bh-gaps"),
-            "--config",
-            str(toy / ".brick-harness" / "config.json"),
-            "--source",
-            "cycle",
-            "--add",
-            "-",
-            "--unmet",
-            "json-writer:no-change",
-            "csv-reader:not-attempted",
-            "csv2json",
-        ],
-        input="[]",
-        capture_output=True,
-        text=True,
-        cwd=toy,
-        env=ENV,
-    )
-    gaps = [g for g in json.loads(p.stdout)["gaps"] if g["kind"] == "unmet-after-rounds"]
+    code, out = call(
+        "bh-gaps",
+        ["--config", str(toy / ".brick-harness" / "config.json"), "--source", "cycle", "--add", "-",
+         "--unmet", "json-writer:no-change", "csv-reader:not-attempted", "csv2json"],
+        cwd=toy, stdin="[]",
+    )  # fmt: skip
+    gaps = [g for g in json.loads(out)["gaps"] if g["kind"] == "unmet-after-rounds"]
     by = {g["summary"].split()[1]: g for g in gaps}
     assert set(by) == {"json-writer", "csv-reader", "csv2json"}
     assert "no-change" in by["json-writer"]["summary"]

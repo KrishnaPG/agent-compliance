@@ -165,11 +165,11 @@ def test_the_overlay_is_found_as_the_skills_find_it(toy):
     assert bhcore.overlay_file(cfg) is None
     write(toy, "docs/agents/design-compliance.md", "# fallback\n")
     assert bhcore.overlay_path(cfg) == "docs/agents/design-compliance.md"
-    write(toy, "docs/agents/compliance-bindings.md", "| Overlay | `rules/mine.md` |\n")
+    write(toy, "docs/agents/bindings.md", "| Overlay | `rules/mine.md` |\n")
     write(toy, "rules/mine.md", "# mine\n")
     assert bhcore.overlay_path(cfg) == "rules/mine.md"
-    write(toy, "AGENTS.md", "Bindings: `ops/compliance-bindings.md`\n")
-    write(toy, "ops/compliance-bindings.md", "| Overlay | rules/other.md |\n")
+    write(toy, "AGENTS.md", "Bindings: `ops/bindings.md`\n")
+    write(toy, "ops/bindings.md", "| Overlay | rules/other.md |\n")
     write(toy, "rules/other.md", "# other\n")
     assert bhcore.overlay_path(cfg) == "rules/other.md"
 
@@ -372,6 +372,6 @@ def test_a_sellable_feature_has_a_review_brief(toy):
     code, b = cli("bh-brief", toy, "--feature", "F1")
     assert code == 0 and b["items"] == ["csv-reader", "csv2json"]
     assert b["paths"] == ["src/csv2json.py", "src/csv_reader.py", "src/queue_worker.py"]
-    assert "domains" not in b and "packs" not in b  # compliance-review scopes the review itself
+    assert "domains" not in b and "packs" not in b  # the method scopes the review itself
     assert b["diff"] == f"git diff {b['base']} HEAD -- " + " ".join(b["paths"])
     assert cli("bh-brief", toy, "--feature", "NOPE")[0] == 2

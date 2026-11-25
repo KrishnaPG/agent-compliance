@@ -17,7 +17,7 @@ OSS checked before writing this module:
   is stdlib Python or emits gaps with file:line evidence and a tag; the few lines below do.
 - Gap merging: no tool found that recomputes mechanical checks and rejects reviewer findings
   whose file:line does not resolve; rule compliance itself is left to the configured
-  catalog's own review skill, not re-implemented here.
+  the catalog's judging method (``catalog/method.md``), not re-implemented here.
 - Catalogue merges: git's built-in ``union`` merge driver is line-based and can emit
   invalid JSON; the union here works on parsed documents and is schema-checked.
 - Lockfiles (looked up 2026-11-19): @yarnpkg/lockfile 1.1.0 and @pnpm/lockfile-file 9.1.3 (Node), PyYAML 6.0.3 (not
@@ -1296,7 +1296,7 @@ def read_board(path: Path) -> tuple[dict[str, Any], str | None]:
     return board, None
 
 
-# ---------------------------------------------------------------- merging (bh-merge)
+# ---------------------------------------------------------------- merging (merge_unmerged)
 
 
 def union_catalogue(ours: dict[str, Any], theirs: dict[str, Any]) -> dict[str, Any]:
@@ -1341,7 +1341,7 @@ def merge_unmerged(cfg: Config) -> dict[str, Any]:
             raise HarnessError("a merge is in progress; finish or abort it first")
         dirty = _uncommitted(cfg, top)
         if dirty:
-            raise HarnessError(f"commit the plan files first (bh-commit): {dirty}")
+            raise HarnessError(f"commit the plan files first: {dirty}")
         st = state(cfg)
         bricks = _load_plan(cfg, [])[0]
         cat = cfg.file("catalogue")
@@ -1994,20 +1994,20 @@ DEFAULT_TEST_TARGETS = {
 
 
 def overlay_file(cfg: Config) -> Path | None:
-    """The project's overlay, found as the skills find it (``skills/compliance-review/SKILL.md``,
+    """The project's overlay, found as the skills find it (``catalog/method.md``,
     "Inputs"): the Overlay row of the bindings file that the project's AGENTS.md or CLAUDE.md
-    names, else of ``docs/agents/compliance-bindings.md``; failing that
+    names, else of ``docs/agents/bindings.md``; failing that
     ``docs/agents/design-compliance.md``. ``None`` when none of these exists."""
     named = [
         m
         for doc in ("AGENTS.md", "CLAUDE.md")
         if (cfg.dir / doc).is_file()
         for m in re.findall(
-            r"[\w./-]*compliance-bindings[\w.-]*\.md",
+            r"[\w./-]*bindings[\w.-]*\.md",
             (cfg.dir / doc).read_text(errors="ignore"),
         )
     ]
-    for b in [*named, "docs/agents/compliance-bindings.md"]:
+    for b in [*named, "docs/agents/bindings.md"]:
         if (cfg.dir / b).is_file():
             row = re.search(
                 r"^\|\s*Overlay\s*\|\s*`?([^\s`|<][^\s`|]*)", (cfg.dir / b).read_text(), re.M
@@ -2125,7 +2125,7 @@ def _ref_source_problem(
 ) -> str | None:
     """Why a tracker source ``<ref>: "<quote>"`` does not back the target's value, or None:
     the question asked of file:line, put to the entry tracker.show returns. ``show`` None
-    means the caller must not reach the tracker (bh-state): the source is not judged. An
+    means the caller must not reach the tracker (state): the source is not judged. An
     entry that cannot be read (offline included) is unresolved like a missing source."""
     if show is None:
         return None
@@ -2891,35 +2891,8 @@ def _gaps_doc(cfg: Config) -> dict[str, Any]:
     return doc
 
 
-def _committed_finding_ids(cfg: Config) -> set[str] | None:
-    """Ids of findings in HEAD's gaps.json (the outbox); None outside a git repository."""
-    top, gp = git_top(cfg.dir), cfg.file("gaps")
-    if top is None or gp is None or not _git_ok(top, "rev-parse", "--verify", "-q", "HEAD"):
-        return None
-    try:
-        doc = loads(_git(top, "show", f"HEAD:{_under(gp, top)}"))
-    except (HarnessError, ValueError):
-        return set()
-    return {g["id"] for g in doc.get("gaps", []) if g.get("source") == "finding" and "id" in g}
-
-
-def _write_gaps_doc(cfg: Config, doc: dict[str, Any]) -> list[str]:
-    path, written = cfg.file("gaps"), []
-    assert path is not None
-    path.parent.mkdir(parents=True, exist_ok=True)
-    tmp = path.with_suffix(path.suffix + ".tmp")
-    tmp.write_text(json.dumps(doc, indent=2) + "\n")
-    tmp.replace(path)
-    written.append(_rel(cfg, path))
-    md = cfg.file("gaps_md")
-    if md:
-        md.write_text(render_gaps_md(doc))
-        written.append(_rel(cfg, md))
-    return written
-
-
 def _as_finding(g: dict[str, Any]) -> dict[str, Any]:
-    """A finding as bh-rank prints it, from its gaps.json form (evidence level is ``proof``)."""
+    """A finding as rank_findings returns it, from its gaps.json form (evidence level is ``proof``)."""
     f = {k: g[k] for k in ("id", "summary", "severity", "impact", "rule", "source") if k in g}
     return {**f, "evidence": g.get("proof"), "where": _where(g), "state": g.get("state", "open")}
 
@@ -3446,7 +3419,7 @@ def record_answer(
     ``{id, gap, question, answer, source, kinds, areas, date}``. ``source`` is where the
     owner's answer is stated (file:line, checked, or a tracker ref). The same gap and answer
     again returns the record that exists. Written (under the harness lock) only with
-    ``write``; bh-commit commits it."""
+    ``write``; commit_harness commits it."""
     doc = _gaps_doc(cfg)
     listed = doc["gaps"] + [x["gap"] for x in doc.get("answered", []) + doc.get("re_asked", [])]
     found = next((g for g in listed if g.get("id") == gap), None)

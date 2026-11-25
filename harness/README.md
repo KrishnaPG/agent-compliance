@@ -28,15 +28,15 @@ job only for judgement work**.
 
 | Phase | Mechanical (code) | Agent job (agent file) |
 |---|---|---|
-| gaps | mechanical checks, `bh-gaps` merge (a finding whose file:line or quote does not resolve is rejected), commit | `gaps`: `harness-gaps-reader`, read only. A re-review is given only the documents' diff since the last review and the open findings (`bhcore.review_input`); decisions and the owner's answers are settled inputs |
+| gaps | mechanical checks, `bhcore.merge_gaps` (a finding whose file:line or quote does not resolve is rejected), commit | `gaps`: `harness-gaps-reader`, read only. A re-review is given only the documents' diff since the last review and the open findings (`bhcore.review_input`); decisions and the owner's answers are settled inputs |
 | plan | tracker reconcile and admit, gap merge, commit | `plan`: `harness-planner` derives items, targets (each citing the line that states its number), contracts and work packets; adds only what is missing |
 | build | commit plan, measure unmeasured ready items at HEAD (code may already exist), worktree per item from HEAD, work packet written from `bhcore.work_packet`, retry merge of the previous commit, `bh/<item>` branch set from the worktree's HEAD, measure, merge what the scoreboard lists as met, re-measure merged items and dependents at HEAD | `build`: `harness-builder`, one per item still unmet, in its own worktree and environment slot |
 | harvest | settled-pick check against the catalogue, gap merge, commit, measure the applied refs | `harvest_find`: `harness-harvester` (duplicated helpers); `harvest_apply`: `harness-builder` applies a pick the catalogue already settles |
-| review | the brief of a feature that became sellable (`bhrules.feature_review`), finding recorded by `bh-rank` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
+| review | the brief of a feature that became sellable (`bhrules.feature_review`), finding recorded by `bhcore.add_findings` | `review`: `harness-reviewer`, read only (git's read-only commands), a fresh reader that did not build it |
 
 `run` = gaps, plan, rounds of build+measure (stop at `max_rounds`, at a budget, or when a round
 moved no measured number: the scoreboard's numbers are compared before and after), the review of
-each feature that became sellable, `bh-gaps --source cycle` (every item not met is `stuck` with
+each feature that became sellable, `merge_gaps` with source `cycle` (every item not met is `stuck` with
 its reason: `build-failed`, `no-change`, `unmet`, `not-attempted`, `budget`, `oscillating`),
 harvest, measure.
 
@@ -47,8 +47,7 @@ then `status` (met, stuck, gap counts), `owner_questions` (the owner-decides gap
 answers: the main session asks them and records each with `bh-answer`), `auth` (mode at start
 and end, fallbacks), `jobs` (agent, mode, ok, skipped, cost, tokens, duration, error per job)
 and `totals`; `overlay_candidates` lists areas the owner answered often enough to become an overlay rule
-(the plan phase no longer builds the rule itself: the owner's session runs the `compliance-catalog` skill for
-each, one rule line with `covers: <area>`).
+(one rule line with `covers: <area>`, written by the owner).
 
 **Agent jobs.** Each job is the host's CLI, headless, one process:
 
@@ -98,8 +97,8 @@ mode, overrun the budget or fail. A paid toy run still has to prove what it cann
 (`structured_output`, `total_cost_usd`, `usage`) and the budget-overrun result.
 
 **Skills reused, not copied.** Jobs get this plugin's skills by file path in their input (a headless
-job may have skills disabled): `compliance-review` is the method of the gaps and review jobs (read only; it
-returns findings and writes no verdict record), `vet-oss` is the OSS rule builders follow; `vetted-decision`
+job may have skills disabled): `catalog/method.md` is the method of the gaps and review jobs (read only; they
+return findings and write no verdict record), `vet-oss` is the OSS rule builders follow; `vetted-decision`
 is named on `owner-decides` gaps and `bug-analysis` on `unmet-after-rounds` gaps, reported, never run.
 
 ## The measurer and its tools
@@ -129,47 +128,44 @@ agent runs each tool and returns its JSON.
   written as it lands: at HEAD it is *current*; at any other ref it is a *candidate*, which
   never replaces a met current result. An unreadable scoreboard is never
   overwritten.
-- `bh-merge`: merges every met candidate not yet in HEAD, in build order, with
+- `bhcore.merge_unmerged`: merges every met candidate not yet in HEAD, in build order, with
   `git merge --no-ff`. A catalogue-only conflict is resolved by a schema-checked JSON union;
   any other conflict is aborted and recorded, so the item is rebuilt with "conflicts with
   HEAD at <paths>". After each merge the plan and protected paths are restored to their
   pre-merge state in a follow-up commit. It prints the items to re-measure at HEAD.
-- `bh-branch --item ID --ref SHA`: builders run in isolated worktrees and cannot move
+- `bhcore.set_branch(item, ref)`: builders run in isolated worktrees and cannot move
   branches, so they return their commit and this sets `bh/<ID>` to it from the main checkout:
   the commit must exist and be new; created or fast-forwarded, otherwise refused. What it
   holds under plan or protected paths is not judged here.
-- `bh-state [--affected REF]`: the whole state, derived from files, written atomically to
-  `<measure_out>/state.json` (git-ignored); the CLI prints a small summary (`file`, `head`,
-  `plan_head`, `all_met`, `counts` per status, `ready`, `ready_system`, `unmet`, each id list
-  capped at 25 with a `*_more` count, `gaps`, `problems`) and agents read
-  the file themselves (the orchestrator calls `bhcore.state` directly).
+- `bhcore.state` (and `bhcore.affected(ref)`, the items a ref touches with their dependents): the
+  whole state, derived from files, written atomically to `<measure_out>/state.json` (git-ignored).
   Item status is `met` only when the result's ref is in HEAD and the item's paths (with its
   dependencies' and the protected paths) are unchanged since; otherwise `stale`,
   `met-unmerged`, `conflict`, `unmet`, `unmeasured`, or `blocked` (with the gap ids that
   stop it: no targets, a pending command, a failing env_setup). `features` and `merged`
   are the parts plan and harvest read.
-- `bh-commit`: commits only harness files, under a lock; refuses during a merge and when
+- `bhcore.commit_harness`: commits only harness files, under a lock; refuses during a merge and when
   a target in HEAD was dropped or changed (the owner commits that).
-- `bh-gaps`: recomputes the mechanical gaps and merges findings; an empty list clears a
+- `bhcore.merge_gaps`: recomputes the mechanical gaps and merges findings; an empty list clears a
   source's earlier findings.
-- `bh-rank`: orders findings (or gaps) by one fixed key and drops nothing: impact ids (more
+- `bhcore.rank_findings`: orders findings (or gaps) by one fixed key and drops nothing: impact ids (more
   first), severity S1 to S4, evidence `reproduced`, `trigger`, `theoretical`, then id; a
-  missing field ranks last (`schema/finding.schema.json`). `--add FILE|-` records findings by
-  id in `.brick-harness/gaps.json` as entries with `source: "finding"` (only with `--write`;
+  missing field ranks last (`schema/finding.schema.json`). `add_findings` records findings by
+  id in `.brick-harness/gaps.json` as entries with `source: "finding"` (only when asked to write;
   gaps.json is the one place findings live; the owner or an agent files them with the tracker's
   own CLI, `bd create` or `gh issue create`, when wanted); the gaps report lists them in their own section, and they are not
-  counted as spec gaps. Bare `bh-rank` ranks them; `--open` lists the open ones with the
-  review gaps; `--review-input` prints what a re-review gets (document diff since
-  `reviewed_head`, capped at 20000 characters, plus open findings). `bh-gaps --source review
-  --write` records the review's head in gaps.json. A finding is never work by
+  counted as spec gaps. `all_findings` ranks them; `open_findings` lists the open ones with the
+  review gaps; `review_input` returns what a re-review gets (document diff since
+  `reviewed_head`, capped at 20000 characters, plus open findings). `merge_gaps` with source `review`
+  records the review's head in gaps.json. A finding is never work by
   itself: a build round works only on items the measurer reports not met (an unmeasured ready
   item is measured at HEAD first; stale, conflict and met-uncommitted items are redone), so a
   finding becomes work only as a failing test or target.
 - `bh-init`: writes `.brick-harness/config.json` with placeholders and never overwrites;
   `--missing features` opts in to starter documents.
 
-**Time limits.** One `bh-measure` call runs up to three commands, each bounded by
-`commands.timeout_s`, so keep 3 x `timeout_s` under an agent's shell limit (about 10
+**Time limits.** One `bh-measure` call runs the item's test, bench and setup commands, each bounded by
+`commands.timeout_s`, so keep their sum under an agent's shell limit (about 10
 minutes), or the agent starts it as a background task and waits for its completion.
 Nothing in the harness sleeps or polls. Tests or benches can run elsewhere (a VM, a GPU
 box): point the command at the project's own script that leaves results under `{out}`
@@ -186,7 +182,7 @@ Work hierarchy (decision `docs/decisions/0001-work-tracking.md`): goal, feature,
 items are measured. Item `kind` is `brick`, `system` or `change`; `refs` names tracker refs
 an item resolves; `split_from` marks a child of a split, and the parent depends on each child
 (added when read) so it is measured after them. The gaps report carries, derived when read,
-`facts` (shared path; the per-feature met/total is the state's `features` part). `bh-gaps --source cycle` lists every
+`facts` (shared path; the per-feature met/total is the state's `features` part). `merge_gaps` with source `cycle` lists every
 item not met as stuck (the run passes only what it attempted; an oscillating target is named),
 capped in its printed report with `stuck_more`; the full list is in `gaps.json`.
 
@@ -198,14 +194,14 @@ prints JSON; the adapter's `fields` say where each entry field is in it, and the
 checked against `schema/tracker.schema.json`. `ready` is the tracker's own filter (`bd ready`,
 a `gh issue list --search` query). Beads 1.3.4 is pinned by sha256: a `bd` that does not match
 is not run and the tracker is unreachable for that run. With no `tracker.adapter` there is no
-tracker: `bricks.json` in build and value order is the work list and `bh-admit` and
-`bh-reconcile` do nothing. A claim is the adapter's own (`bd update --claim` is atomic; a gh
+tracker: `bricks.json` in build and value order is the work list and `bhtracker.admit` and
+`bhtracker.reconcile` do nothing. A claim is the adapter's own (`bd update --claim` is atomic; a gh
 assignee is soft); builders work on isolated branches `bh/<item>`, which git will not check out
 twice. Measure, build and merge never call the tracker.
-`bh-admit [--write]` takes ready entries of `tracker.goal` into `bricks.json` as items of kind
+`bhtracker.admit` (with write) takes ready entries of `tracker.goal` into `bricks.json` as items of kind
 `change` (id derived from the ref) within `horizon.items` minus the items not met, claiming
 each first, in `value_queue` order for entries that are items already and the tracker's order
-for the rest. `bh-reconcile [--write]` is the only caller of close and reopen: after the
+for the rest. `bhtracker.reconcile` (with write) is the only caller of close and reopen: after the
 scoreboard commit, an open entry of an item measured met at HEAD is closed (acting as its
 claim holder) and a closed entry of an item not met is reopened; it never deletes. The gaps report adds facts: tracker mismatches; the plan agent judges
 INVEST and size against `config.sizing` (no heuristic code); a split parent is measured but
@@ -221,7 +217,7 @@ feature has a ready item, later features' items are not ready (`held_by`). The g
 run result carry sellable at HEAD, if-stopped-today, cost to the next sellable feature.
 
 Work packet (SG-18): items carry `context` (`{path, lines: "a-b"}` citations) and `rules`;
-`bh-brief ITEM` assembles the packet from the plan commit (passages with sha256, dependency
+`bhcore.work_packet(item)` assembles the packet from the plan commit (passages with sha256, dependency
 contracts, pins, rules via `packet_rules`) and the builder reads nothing else; what it lacks is
 a `missing-context` finding. Packet tokens over `sizing.packet_tokens` (1600) and passages
 changed since the plan commit (`stale-context`) are facts in the report.
@@ -241,8 +237,8 @@ from `APIRouter`, `FastAPI(`, `Router(`) and `outbox_modules` (files with SQL `I
 owner-decides gap. Suppression markers a ref adds are a fact per item. The packet's rules are
 the item's own `rules` then judgment rules (not enforced, not `embodies` of a brick it uses)
 chosen by its tags, ranked by findings, at most `limits.packet_rules` (8). A feature that
-becomes sellable in a run gets one review of its diff by a fresh agent (`bh-brief --feature`,
-`compliance-review`), findings recorded by `bh-rank`. The report lists class shares
+becomes sellable in a run gets one review of its diff by a fresh agent (`bhrules.feature_review`,
+judged by `catalog/method.md`), findings recorded by `add_findings`. The report lists class shares
 (enforced, embodied by a brick's `embodies`, judgment) and check candidates (judgment rules
 broken in two or more findings). Tests use `checks.checker` (a fake command) and a fixture catalog.
 
@@ -260,7 +256,7 @@ report counts questions opened, answered and re-asked per cycle.
   config.json  .gitignore (out/)
   targets.json  bricks.json  contracts/  catalogue.json   # plan, committed
   scoreboard.json                                        # measurer only, committed
-  gaps.json  gaps.md                                      # bh-gaps and bh-rank, committed
+  gaps.json  gaps.md                                      # merge_gaps and add_findings, committed
   out/  (history.json: per measurement, each target met or not)  # raw output, ignored
 ```
 
@@ -315,8 +311,8 @@ and run `bh gaps`, then `bh run` (`bh --dry-run run` first lists the agent jobs)
 
 Layout: `bin/` sits at the plugin root, the one place a plugin's executables are put on `PATH`;
 everything else of the harness is under `harness/`; the agents are at the plugin root (`agents/`).
-`python3 -m pytest` in `harness/` (stdlib plus pytest and jsonschema) covers the measurer and its fail-closed cases, every scoring bypass, the
-status table, the toy end to end through the bin tools (build on `bh/json-writer`, measure,
+`python3 -m pytest` in `harness/` (stdlib plus pytest and jsonschema) covers the measurer and its fail-closed cases, the scoring bypasses it guards against, the
+status table, the toy end to end through the library calls and `bh-measure` (build on `bh/json-writer`, measure,
 merge, re-measure, commit, `all_met`), a project in a repo subdirectory, the gap checks,
 schemas, the orchestrator against a fake `claude`, a grep that bans sleep/poll loops, and project-term
 neutrality. Project terms are read from `BH_DENY_TERMS` (a file of regexes) or
@@ -331,7 +327,7 @@ its linux x86_64 asset is pinned by sha256 in `checkers.json`. A per-language li
 
 Tracker interface (pinned): Beads 1.3.4 (tracker, by sha256; `bd ready`, `bd update --claim`), gh 2.94.0 or later (GitHub Issues; no atomic claim; ready is a search query), git 2.53.0 (worktree branches `bh/<item>`); jq and JSONPath libraries and tracker SDKs not used (one path syntax in stdlib, no tracker bound) (see `lib/bhtracker.py`).
 
-Adopted: the host's `claude -p` CLI driven by stdlib asyncio (vetting in `docs/lean-plan.md`), `git worktree`, plugin agents, skills, plugin `bin/`; JUnit XML and the
+Adopted: the host's `claude -p` CLI driven by stdlib asyncio, `git worktree`, plugin agents, skills, plugin `bin/`; JUnit XML and the
 JSON/CSV output of existing bench tools. Rejected for this loop, because each decides "done"
 by a checklist, the agent's report or an LLM verdict, with no gap report with resolvable
 evidence, numeric targets or harvest: Spec Kit v1.4.2, OpenSpec v2.1.0, cc-sdd v3.1.0,

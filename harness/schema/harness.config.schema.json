@@ -88,7 +88,7 @@
         },
         "gaps": {
           "type": "string",
-          "description": "Default .brick-harness/gaps.json; written only by bh-gaps."
+          "description": "Default .brick-harness/gaps.json; written only by the harness's gap merge."
         },
         "gaps_md": {
           "type": "string"
@@ -117,30 +117,10 @@
           "type": "string",
           "description": "How agents call the measurer; default `bh-measure --config <config>`."
         },
-        "state": {
-          "type": "string",
-          "description": "How agents read state; default `bh-state --config <config>`."
-        },
-        "commit": {
-          "type": "string",
-          "description": "How agents commit the plan files; default `bh-commit --config <config>`."
-        },
         "timeout_s": {
           "type": "number",
           "minimum": 1,
           "description": "Per command (env_setup, test, bench). One measurer call runs all three for an item, so 3 x timeout_s must fit the caller's shell limit (about 10 minutes for an agent's shell call in Claude Code); a longer run is started as a background task whose completion the caller waits on."
-        },
-        "gaps": {
-          "type": "string",
-          "description": "How agents write the gap report; default `bh-gaps --config <config>`."
-        },
-        "merge": {
-          "type": "string",
-          "description": "How agents merge met refs; default `bh-merge --config <config>`."
-        },
-        "rank": {
-          "type": "string",
-          "description": "How agents call the findings ranker (bh-rank); default `bh-rank --config <config>`."
         }
       }
     },
@@ -221,7 +201,7 @@
     "standards": {
       "type": "object",
       "additionalProperties": false,
-      "description": "The owner's versioned rule catalog: base rules with provenance, technology packs, and the project's overlay (the rule ids or own rules it holds itself to). The harness authors no rules and uses this plugin's skills by name (agent-compliance:compliance-review is the method of the read-only gaps reviewer, agent-compliance:vet-oss the OSS rule for builders, agent-compliance:vetted-decision is named on owner-level gaps and agent-compliance:bug-analysis on items still unmet after a run; named, never run by the harness). Projects without a catalog list rule documents in paths.standards.",
+      "description": "The owner's versioned rule catalog: base rules with provenance, technology packs, and the project's overlay (the rule ids or own rules it holds itself to). The harness authors no rules and uses this plugin's skills by name (the catalog's `method.md` is the method of the read-only gaps reviewer, agent-compliance:vet-oss the OSS rule for builders, agent-compliance:vetted-decision is named on owner-level gaps and agent-compliance:bug-analysis on items still unmet after a run; named, never run by the harness). Projects without a catalog list rule documents in paths.standards.",
       "properties": {
         "catalog": {
           "type": "string",

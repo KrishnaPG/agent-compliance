@@ -5,15 +5,13 @@ printed; facts change no status. The tracker mechanisms (M5 to M8) are not built
 """
 
 import json
-import subprocess
-import sys
 from pathlib import Path
 
 import bhcore
 import pytest
 from scale_fixture import make_project
 from test_rank import edit_json
-from test_toy import BIN, ENV, cli, commit_all, copy_toy, full_state, git
+from test_toy import call, cli, commit_all, copy_toy, full_state, git
 
 ROOT = Path(__file__).resolve().parent.parent
 
@@ -46,15 +44,8 @@ def plan_edit(repo, name, fn):
 
 
 def run(name, repo, *a, stdin=None):
-    p = subprocess.run(
-        [sys.executable, str(BIN / name), "--config", str(conf(repo)), *a],
-        input=stdin,
-        capture_output=True,
-        text=True,
-        cwd=repo,
-        env=ENV,
-    )
-    return p.returncode, json.loads(p.stdout)
+    code, out = call(name, ["--config", str(conf(repo)), *a], cwd=repo, stdin=stdin)
+    return code, json.loads(out)
 
 
 def measure_and_commit(repo, item="csv-reader"):

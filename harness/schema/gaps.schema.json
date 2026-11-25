@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "title": "spec gap report",
-  "description": "Written by bh-gaps only. Gaps are reported, never decided: owner-decides needs the project owner or lead agent; fixable has one obvious correction.",
+  "description": "Written by merge_gaps only. Gaps are reported, never decided: owner-decides needs the project owner or lead agent; fixable has one obvious correction.",
   "type": "object",
   "required": [
     "gaps"
@@ -185,7 +185,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Ids of the targets or acceptance checks the finding touches; more first in bh-rank."
+          "description": "Ids of the targets or acceptance checks the finding touches; more first when ranked."
         },
         "rule": {
           "type": "string",
@@ -212,7 +212,7 @@
         },
         "answered_by": {
           "type": "string",
-          "description": "Id of the decision record (D-n) or overlay rule that settles this gap's kind and area; bh-gaps checks the cite and lists the gap as answered instead of blocking."
+          "description": "Id of the decision record (D-n) or overlay rule that settles this gap's kind and area; merge_gaps checks the cite and lists the gap as answered instead of blocking."
         }
       }
     }

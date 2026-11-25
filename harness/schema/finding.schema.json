@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
-  "title": "review findings (input of bh-rank --add)",
-  "description": "Recorded by bh-rank in .brick-harness/gaps.json as entries with source finding (the one place findings live; the project's tracker takes them from there). A finding becomes work only as a failing test or target the measurer runs; ranking never drops or decides anything. bh-rank sorts by (impact count desc, severity S1..S4, evidence reproduced..theoretical, id); a missing severity or evidence ranks last. In gaps.json the evidence level is stored as proof and where as evidence.",
+  "title": "review findings (input of add_findings)",
+  "description": "Recorded by add_findings in .brick-harness/gaps.json as entries with source finding (the one place findings live; the project's tracker takes them from there). A finding becomes work only as a failing test or target the measurer runs; ranking never drops or decides anything. rank_findings sorts by (impact count desc, severity S1..S4, evidence reproduced..theoretical, id); a missing severity or evidence ranks last. In gaps.json the evidence level is stored as proof and where as evidence.",
   "type": "object",
   "properties": {
     "findings": {
@@ -55,7 +55,7 @@
           "items": {
             "type": "string"
           },
-          "description": "Ids of the targets or acceptance checks the finding touches; more first in bh-rank."
+          "description": "Ids of the targets or acceptance checks the finding touches; more first when ranked."
         },
         "rule": {
           "type": "string",

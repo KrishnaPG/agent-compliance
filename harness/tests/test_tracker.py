@@ -283,7 +283,7 @@ def test_target_source_is_resolved_through_show_by_bh_gaps_and_never_by_state(to
 
 
 def test_measure_build_and_merge_never_call_the_tracker():
-    for n in ("bh-measure", "bh-merge", "bh-branch", "bh-state", "bh-commit", "bh-init", "bh-rank"):
+    for n in ("bh-measure", "bh-init"):
         assert "bhtracker" not in (BIN / n).read_text(), n
     assert "bhtracker" not in (ROOT / "lib" / "bhcore.py").read_text()
 
@@ -295,7 +295,7 @@ def test_close_and_reopen_are_called_only_from_reconcile():
         *(ROOT / "lib").glob("*.py"),
     ]:
         if names & set(re.findall(r"\w+", p.read_text())):
-            assert p.name in ("bhtracker.py", "bh-reconcile"), p.name
+            assert p.name == "bhtracker.py", p.name
     tree = ast.parse((ROOT / "lib" / "bhtracker.py").read_text())
     for fn in [n for n in ast.walk(tree) if isinstance(n, ast.FunctionDef)]:
         called = {

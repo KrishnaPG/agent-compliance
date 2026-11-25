@@ -1,6 +1,6 @@
 """Fixture helper: a generated project with N change items, N-ready of them met at HEAD.
 
-Used by the SG-15 bound on ``bh-state`` (decision 0001): the tools read every item and the
+Used by the SG-15 bound on ``state`` (decision 0001): the tools read every item and the
 state goes to a file, so the run time must not grow faster than linearly. Items own one path each and carry
 the default test targets; the met ones have a scoreboard record at HEAD that the measurer's own staleness checks accept.
 

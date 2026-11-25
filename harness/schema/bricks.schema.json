@@ -166,7 +166,7 @@
                 }
               }
             },
-            "description": "Citations of the exact spec passages the item needs, as {path, lines: \"a-b\"}; never copied text. bh-brief extracts them into the work packet."
+            "description": "Citations of the exact spec passages the item needs, as {path, lines: \"a-b\"}; never copied text. work_packet extracts them into the work packet."
           },
           "rules": {
             "type": "array",

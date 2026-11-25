@@ -164,7 +164,7 @@
         },
         "commands": {
           "type": "object",
-          "description": "Operation to command template. ready and show are needed; list and claim are used when present; close and reopen are run by bh-reconcile.",
+          "description": "Operation to command template. ready and show are needed; list and claim are used when present; close and reopen are run by reconcile.",
           "additionalProperties": false,
           "required": [
             "ready",
