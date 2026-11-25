@@ -3,8 +3,9 @@ them into pyproject.toml and .pre-commit-config.yaml, derives the import contrac
 map (QBC-19 rung 2), and baselines today's findings so the list only shrinks (P11, QBC-23). Each
 planted defect class is then the same fact for a human (the refused commit) and for the measurer.
 
-Offline like every plugin test (UV_OFFLINE): the pinned tools come from uv's cache, and the
-project's own remote hook is a git repository on disk."""
+Offline whenever the run is (the run's UV_OFFLINE, set for every row): the pinned tools come from uv's
+cache, filled once by provisioning (harness/README.md, Develop), and the project's own remote hook is a
+git repository on disk."""
 
 import shutil
 import subprocess
@@ -121,13 +122,6 @@ def hook_repo(d: Path) -> tuple[str, str]:
     git(d, "add", "-A")
     git(d, "commit", "-qm", "hook")
     return str(d), git(d, "rev-parse", "HEAD").stdout.strip()
-
-
-@pytest.fixture(scope="module", autouse=True)
-def _offline():
-    with pytest.MonkeyPatch.context() as m:  # the module fixture below runs uv too
-        m.setenv("UV_OFFLINE", "1")
-        yield
 
 
 @pytest.fixture(scope="module")

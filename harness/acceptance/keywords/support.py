@@ -96,6 +96,7 @@ def init_env(ctx):
         "GIT_CONFIG_GLOBAL": "/dev/null", "GIT_CONFIG_SYSTEM": "/dev/null",
         "HTTP_PROXY": "http://127.0.0.1:9", "HTTPS_PROXY": "http://127.0.0.1:9", "NO_PROXY": "127.0.0.1,localhost",
         "http_proxy": "http://127.0.0.1:9", "https_proxy": "http://127.0.0.1:9", "no_proxy": "127.0.0.1,localhost",
+        "UV_OFFLINE": "1",  # a row has no network (the proxies above): uv reads the cache provisioning filled instead of retrying
         CONTRACT["env"]["model_log"]: str(work / "model.log.jsonl"),
         CONTRACT["env"]["prompt_log"]: str(work / "prompts.log.jsonl"),
         CONTRACT["env"]["answers_file"]: str(work / "answers.json"),
