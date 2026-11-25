@@ -1386,6 +1386,14 @@ def _hook_facts(top: Path) -> list[dict[str, Any]]:
     return list(mod.read_facts(top))
 
 
+def _error_line(text: str) -> str:
+    """The line of a tool's output that states its error: the first ``error:`` line (the GNU and
+    cargo/uv diagnostic form), else the last line. A teaching quotes it whole, never a cut tail."""
+    m = re.search(r"(?im)\berror:.*$", text)
+    lines = [ln.strip() for ln in text.splitlines() if ln.strip()]
+    return m.group(0).strip() if m else (lines[-1] if lines else "")
+
+
 def _measure_key(top: Path, base: str, sha: str, cfg: Config, packet: str | None) -> str:
     """What a measurement depends on: the ref, the plan commit's protected files (their blobs) and
     the packet. Two measurements with the same key ran the same thing, so the second is the first."""
@@ -1855,7 +1863,7 @@ def measure_ref(
         hooks_error = None if setup_error else _prepare_hooks(co, env, timeout)
         if setup_error:  # its own fact, whatever the checks then do
             errors.append(setup_error)
-            fact("gap", "env_setup", _teach("env_setup", f"the locked toolchain install failed: {setup_error[-120:]}", "update the lockfile with the manifest (uv lock, npm install) and commit both", "run the install before finishing"))
+            fact("gap", "env_setup", _teach("env_setup", f"the locked toolchain install failed: {_error_line(setup_error)}", "update the lockfile with the manifest (uv lock, npm install) and commit both", "run the install before finishing"))
         flags = lambda n: f"--junitxml={shlex.quote(str(co / f'.bh-junit-{n}.xml'))} -p no:cacheprovider"  # noqa: E731
         listed = pk.get("verifier", {}).get("checks") or []
         lang = bhinfer.infer(co).get("language", {}).get("value")
