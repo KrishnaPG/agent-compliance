@@ -1565,18 +1565,23 @@ class Orchestrator:
         if not j["ok"]:
             facts.append({"kind": "gap", "item": item, "detail": f"review of {item} did not finish: {j.get('error')}"})
             return None
-        misses = self.selector_misses(item, [r["id"] for r in selected], j["output"]["findings"], base, sha)
+        # severity and the right way come from each rule's own metadata (QBC-114, QBC-115)
+        house = bhrules.rules_doc(self.cfg).get("house", {})
+        findings, settled = bhreview.settle(j["output"]["findings"], house, root, sha)
+        misses = self.selector_misses(item, [r["id"] for r in selected], findings, base, sha)
         facts += misses
         # the review rounds of a packet are counted from the state; bh metrics counts the misses
         # from the run result's facts (QBC-108: one source)
         self.stamp(j, packet_sha256=digest)
         chars = bhreview.limits(self.cfg.data)["message_chars"]
-        log = bhreview.sarif(j["output"]["findings"], item, digest, chars)
+        log = bhreview.sarif(findings, item, digest, chars, house)
         log["runs"][0]["properties"]["rules"] = [r["id"] for r in rules]  # what the review judged
+        if settled:
+            log["runs"][0]["properties"]["severity_settled"] = settled
         if not self.dry:
             write_atomic(self.out / item / f"review-{sha[:12]}.sarif", json.dumps(log, indent=2) + "\n")
-        if record and j["output"]["findings"]:
-            bhcore.add_findings(self.cfg, [{**f, "source": "review"} for f in j["output"]["findings"]], write=True)
+        if record and findings:
+            bhcore.add_findings(self.cfg, [{**f, "source": "review"} for f in findings], write=True)
             self.commit(f"review {item}")
         return log
 

@@ -40,7 +40,11 @@
             "S3",
             "S4"
           ],
-          "description": "S1 worst. Missing ranks last."
+          "description": "S1 worst. Missing ranks last. On a catalog rule the program sets the rule's default severity unless severity_reason lowers it or reproduced evidence raises it (QBC-114)."
+        },
+        "severity_reason": {
+          "type": "string",
+          "description": "Why the severity is below the rule's default: a file:line of the reviewed tree (other than where) that shows the rule does not apply at full weight, then the reason. Argued-only evidence is no reason (QBC-114)."
         },
         "evidence": {
           "enum": [

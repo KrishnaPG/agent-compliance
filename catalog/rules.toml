@@ -1,8 +1,9 @@
 # The rules a design, plan, packet or review cites: every rule of the v1 base catalog (catalog
 # 1.5.2, its ids kept), each explained in the repo. A house rule has `text` (the rule), `why`
 # (in our own words), `right` (the right way: the packet's one line), `question` (the check),
-# `applies` (fact tags below, which select it for an item), `cites` ("<standard key>:<section>",
-# provenance only; the [standards.*] summary says what the source teaches) and, where the harness
+# `severity` (its default triage class: S1 critical, S2 major or S3 minor, from what the rule
+# protects by QBC-114's mapping), `applies` (fact tags below, which select it for an item),
+# `cites` ("<standard key>:<section>", provenance only; the [standards.*] summary says what the source teaches) and, where the harness
 # does it by mechanism, `embodied_by`. A rule id is a house rule id or "<standard key>:<section>".
 # A project adds rules or opts out (with a reason) in its own overlay; checks/index.json binds a
 # house rule to the linter check that finds its breaches. `bh rule ID` prints one rule in full.
@@ -50,8 +51,8 @@ means = "amounts, prices or currency"
 names = ["decimal", "py-moneyed", "moneyed", "dinero.js", "currency.js"]
 
 [tags.time]
-means = "timestamps, clocks, time zones, schedules or expiry dates"
-names = ["datetime", "zoneinfo", "pytz", "dateutil", "python-dateutil", "pendulum", "arrow", "luxon", "dayjs", "date-fns", "moment"]
+means = "timestamps, clocks, timings, time zones, schedules or expiry dates"
+names = ["time", "timeit", "pyperf", "pytest-benchmark", "perf_hooks", "datetime", "zoneinfo", "pytz", "dateutil", "python-dateutil", "pendulum", "arrow", "luxon", "dayjs", "date-fns", "moment"]
 
 [tags.deploy]
 means = "builds, releases or runs on infrastructure (container, compose, IaC, Kubernetes, systemd, CI pipeline)"
@@ -206,7 +207,7 @@ summary = "Vendor-neutral telemetry specification; the trace SDK section defines
 title = "PostgreSQL documentation"
 version = "18"
 url = "https://www.postgresql.org/docs/18/sql-notify.html"
-summary = "Official manual; the NOTIFY page states that notifications reach only sessions already listening and only after the sender commits."
+summary = "Official manual; the NOTIFY page states that notifications reach only sessions already listening and only after the sender commits, and the TOAST page that a large value is stored out of line and fetched and decoded whole when read."
 
 [standards.Pragmatic-Programmer]
 title = "The Pragmatic Programmer (Hunt and Thomas)"
@@ -327,6 +328,7 @@ text = "Every hand-off between owners MUST travel on one durable, persisted mess
 why = "Side channels lose work silently when a party is down and leave no record of what was sent. One durable channel makes every obligation survive outages and be inspected."
 right = "Send every hand-off between owners over one durable messaging channel with declared retention; never a direct call, shared table or file drop."
 question = "By which channel does each fact, command or obligation leave its owner?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:MessageChannel", "EIP:GuaranteedMessaging"]
 
@@ -335,6 +337,7 @@ text = "A hand-off is published only after its source committed (change-data cap
 why = "Writing a store and the channel separately lets one succeed and the other fail, so facts get announced that never happened or happen unannounced."
 right = "Publish a hand-off only after the source committed, via change capture or an outbox; never write two owners, or an owner and the channel, in one step."
 question = "Is there a dual write, or a publish before commit?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["Microservices-io:TransactionalOutbox", "EIP:TransactionalClient"]
 
@@ -343,6 +346,7 @@ text = "Every message carries: an id deterministic from the source (never random
 why = "Random ids at retry defeat deduplication, and without correlation and trace data nobody can follow one business fact across owners."
 right = "Give every message a source-derived stable id, versioned type, aggregate key, owner commit time, correlation and causation ids, and trace context."
 question = "How is each message id derived, and is it stable across a retry?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["CloudEvents:Context Attributes", "CloudEvents:Distributed Tracing Extension", "EIP:CorrelationIdentifier", "EIP:FormatIndicator"]
 
@@ -351,6 +355,7 @@ text = "A message carries identifiers and small facts within a stated size bound
 why = "Large payloads clog the channel and slow every consumer, and copies of bytes scatter data away from the store that owns it."
 right = "Keep messages to identifiers and small facts within a stated size bound; send bulk bytes as a reference with size and checksum."
 question = "Does any payload carry bulk bytes or exceed the stated bound?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:StoreInLibrary"]
 
@@ -359,6 +364,7 @@ text = "Each producer and consumer has its own broker identity limited to its ch
 why = "Shared or broad identities let one compromised party read or write everything, and address text is trivially forged."
 right = "Give each producer and consumer its own scoped broker identity over an encrypted link; never treat a tenant id in an address as authorization."
 question = "Does each party have its own scoped identity, and is anything authorized by address text?"
+severity = "S2"
 applies = ["messaging", "auth"]
 cites = ["NIST-SP-800-53:AC-6", "NIST-SP-800-53:SC-8"]
 
@@ -367,6 +373,7 @@ text = "Input is acknowledged only after the receiving owner durably received th
 why = "Acknowledging early loses work if the receiver crashes before persisting it, and nobody knows it was lost."
 right = "Acknowledge input only after the receiving owner durably holds the obligation; before that, leave it unacknowledged on a retryable failure."
 question = "At which exact boundary is each input acknowledged?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:GuaranteedMessaging", "EIP:TransactionalClient"]
 
@@ -375,6 +382,7 @@ text = "Each edge has exactly one retry owner with bounded attempts. Nested retr
 why = "Stacked retries multiply load during an outage and turn a blip into a cascade, and retries used to dodge ordering bugs hide the real defect."
 right = "Give each edge one retry owner with bounded attempts outlasting the dependency's longest outage; no nested retries or retries to pass ordering gaps."
 question = "Who retries each edge, is a second retry layered on it, and does any retry exist to get past an ordering gap?"
+severity = "S2"
 applies = ["network-client", "messaging"]
 cites = ["SRE:ch22 Addressing Cascading Failures"]
 
@@ -383,6 +391,7 @@ text = "After the retry bound, or on a non-retryable failure, a reference (never
 why = "Without a dead-letter path poison items either block everything or vanish, and nobody is told that work was not done."
 right = "After the retry bound or a non-retryable failure, send a reference to a dead-letter channel and alert; release only by an audited operator action."
 question = "Where does an undeliverable item go, who is alerted, and how is it released?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:DeadLetterChannel", "EIP:InvalidMessageChannel"]
 
@@ -391,6 +400,7 @@ text = "Order is per aggregate key. Where order matters, consumption is serializ
 why = "Global ordering throttles the whole system, while ignoring order lets an older update overwrite a newer one."
 right = "Order messages per aggregate key only, serialize consumption per partition where order matters, and reject stale versions by the owner's revision."
 question = "Where order matters, what scopes it, and is anything serialized globally?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:Resequencer"]
 
@@ -399,6 +409,7 @@ text = "Work that changes more than one owner is an orchestrated process with pe
 why = "Ad hoc multi-owner changes leave half-applied states nobody can detect or undo."
 right = "Run any change spanning several owners as an orchestrated, persisted process with a step per owner, timeouts, compensations and a terminal state."
 question = "Does any multi-owner change run outside an orchestrated process with compensations and a terminal state?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:ProcessManager", "Sagas-1987:Sagas"]
 
@@ -407,6 +418,7 @@ text = "Each integration declares a reconciliation of owner keys and totals agai
 why = "Hand-offs can still drop or diverge; a reconciliation that passes on a failed read gives false assurance that everything matches."
 right = "Reconcile owner keys and totals against each target, read-only, started by an owner event; a failed or truncated read fails the run."
 question = "What starts each reconciliation, and what does it report when its read fails or is cut?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["SRE:ch26 Data Integrity: What You Read Is What You Wrote"]
 
@@ -415,6 +427,7 @@ text = "Calls to an external provider pass through one throttle per provider acc
 why = "Exceeding provider limits gets the account blocked and makes retry storms worse."
 right = "Send all calls to an external provider through one throttle per account set below its published limit, and honour its retry-delay answers."
 question = "What limits the call rate to each provider, and how is a rate-limit or quota answer handled?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["SRE:ch21 Handling Overload", "RFC-6585:4 429 Too Many Requests"]
 
@@ -423,6 +436,7 @@ text = "A message notifies of a committed fact or requests an effect; it is neve
 why = "Messages go stale or arrive out of order, so acting on their content instead of the owner's truth produces wrong decisions."
 right = "Treat a message as a notice of a committed fact or a request; when current state matters, reread the exact committed revision from the owner."
 question = "Does any consumer act on message content where it needs current owner state?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -431,6 +445,7 @@ text = "Each event type has a schema in the repository, checked against recorded
 why = "Silent incompatible changes break consumers that were never told, and retiring a version too early strands them."
 right = "Version event schemas in the repo: change additively only, and publish a breaking change as a new type version beside the old until consumers move."
 question = "Does a change alter an existing type incompatibly, or retire a version a consumer still reads?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:FormatIndicator"]
 
@@ -439,6 +454,7 @@ text = "A message never carries tokens, secrets, signed URLs or personal data be
 why = "Messages are stored, copied and replayed, so any secret inside them leaks widely and outlives its validity."
 right = "Keep tokens, secrets, signed URLs and extra personal data out of messages; authorize async effects by decision id and the consumer's own identity."
 question = "What is in each payload, and whose identity authorizes the effect?"
+severity = "S1"
 applies = ["messaging", "auth"]
 cites = []
 
@@ -447,6 +463,7 @@ text = "Delivery is at least once, so every effect MUST be idempotent on the eve
 why = "Delivery is at least once, so duplicates are certain; without idempotency they double-charge, double-create or double-send."
 right = "Make every effect idempotent on the event id or a derived key: target-native key first, then provider key, then a persistent repository."
 question = "What makes a second delivery of each effect a no-op?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:IdempotentReceiver"]
 
@@ -455,6 +472,7 @@ text = "When a remote call times out or its connection drops after sending (an a
 why = "A timed-out call may have succeeded, so a blind retry can apply the change twice."
 right = "After a timeout or lost connection on a mutating call, query the target by idempotency key before retrying; never retry a non-idempotent change blind."
 question = "After a timeout or lost connection on each mutating call, what is read before it is repeated?"
+severity = "S2"
 applies = ["network-client"]
 cites = []
 
@@ -463,6 +481,7 @@ text = "Each integration declares its handling per failure class: retryable (tim
 why = "Treating all errors alike either retries hopeless requests forever or discards recoverable work, and hides security failures."
 right = "Declare per failure class: retry transient errors, quarantine invalid ones, quarantine and alert on auth failures, reread the owner on conflicts."
 question = "For each remote call, what happens on 400/404, 401/403, 409, 429 and 5xx?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["EIP:DeadLetterChannel", "EIP:InvalidMessageChannel"]
 
@@ -471,6 +490,7 @@ text = "Every remote call and every multi-step process has an absolute deadline.
 why = "Calls without a shared deadline hang or outlive the caller's patience, pile up work and tie up resources."
 right = "Give every remote call and multi-step process an absolute deadline whose remaining budget travels with the call; no layer extends it."
 question = "Does every call have a timeout derived from the caller's remaining budget, and can anything extend it?"
+severity = "S2"
 applies = ["network-client", "messaging"]
 cites = ["Release-It:Timeouts"]
 
@@ -479,6 +499,7 @@ text = "Each target dependency has one circuit breaker and a bulkhead (a bounded
 why = "Without isolation a failing dependency absorbs every worker and retry, dragging down unrelated work."
 right = "Give each target dependency one circuit breaker and one bounded concurrency pool; stop consuming while open, and alert on queue depth and lag."
 question = "For each dependency, what stops calls when it fails, and what bounds concurrent use?"
+severity = "S2"
 applies = ["network-client", "concurrency"]
 cites = ["Release-It:Circuit Breaker", "Release-It:Bulkheads"]
 
@@ -487,6 +508,7 @@ text = "Business time is the owner's commit time, never the consumer's clock. Pe
 why = "Consumer clocks drift and reruns of periodic jobs double-apply; waiting by time is fragile and wasteful."
 right = "Stamp facts with the owner's commit time, key periodic work by its period, and never wait by sleep loop or poll."
 question = "Which clock stamps each fact, and what keys a periodic run?"
+severity = "S2"
 applies = ["messaging", "time"]
 cites = []
 
@@ -495,6 +517,7 @@ text = "Each integration emits: published, delivered, redelivered, acknowledged,
 why = "An integration without these signals fails invisibly, and nobody can tell whether it is late, stuck or losing work."
 right = "Emit published, delivered, redelivered, acked, quarantined, lag, latency and reconciliation signals per edge, trace-linked, with objectives."
 question = "Which of these signals exists for each edge, and where is it read?"
+severity = "S3"
 applies = ["messaging"]
 cites = ["W3C-Trace-Context:Traceparent Header", "SRE:ch6 Monitoring Distributed Systems"]
 
@@ -503,6 +526,7 @@ text = "Each hand-off names the one hand-off scenario (HS) row that governs it a
 why = "Mixing mechanisms per hand-off yields inconsistent guarantees and designs nobody can check against a standard."
 right = "Name the single hand-off scenario row governing each hand-off and use only that row's mechanism."
 question = "Which HS row governs each hand-off, and does the design match it?"
+severity = "S3"
 applies = ["messaging"]
 cites = []
 
@@ -511,6 +535,7 @@ text = "Each hand-off names its pattern from the Enterprise Integration Patterns
 why = "Hand-built copies of a pattern drift apart, each with its own bugs and missing observability."
 right = "Name the messaging pattern each step uses and reuse one shared implementation of it; never rebuild a pattern by hand or clone a template."
 question = "Which catalogue pattern does each step use, and is any pattern rebuilt by hand?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:Introduction"]
 
@@ -519,6 +544,7 @@ text = "Before an edge is built, its declaration holds exactly: source and targe
 why = "Edges built from vague intent miss guarantees, and copied owner text goes stale and contradicts the owner."
 right = "Declare each edge before building: endpoints, call, stream, ack point, idempotency key, retry owner, deadline, dead letter, principal; no owner text."
 question = "Is each edge's declaration complete before build, and free of copied owner text?"
+severity = "S3"
 applies = ["messaging"]
 cites = []
 
@@ -527,6 +553,7 @@ text = "In flow, route and transformation code: parse once, read once, guards fi
 why = "Catch-and-continue and silent defaults turn real failures into wrong data that is discovered much later."
 right = "In flow and route code, parse once, guard first, keep transforms pure, fail explicitly, and never swallow an error or default a missing owner fact."
 question = "Is any error swallowed, or any absent value replaced by a default?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -535,6 +562,7 @@ text = "A business refusal ends its execution as failed and publishes a typed re
 why = "A refusal recorded only in a log leaves callers waiting forever, and skipping on a missing precondition hides lost work."
 right = "End a business refusal as a failed execution with a typed refusal event (reason, keys); skip a message only if it is not addressed to the consumer."
 question = "How does each refusal surface, and when is a message skipped?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -543,6 +571,7 @@ text = "The owner's client handles documented status and retry; the caller adds 
 why = "Re-implementing owner client behaviour duplicates retries, and raw error bodies leak data into logs."
 right = "Rely on the owner's client for status and retry; add only the retry owner, deadline, ambiguity resolution and quarantine; report no raw bodies."
 question = "What does each call treat as \"already done\", and what does a failure print?"
+severity = "S2"
 applies = ["network-client"]
 cites = []
 
@@ -551,6 +580,7 @@ text = "Code hosted inside an owner (its hooks, server-side scripts, database tr
 why = "In-owner code runs inside its transaction and cannot be retried or observed, so remote calls there cause hangs and inconsistency."
 right = "Never let code hosted inside an owner (hooks, scripts, triggers) call or hand off to another owner."
 question = "Does any code inside an owner's process call another owner?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -559,6 +589,7 @@ text = "A fact required after the pivot (the commit after which the process can 
 why = "A check that one route can bypass lets irreversible effects happen on invalid input, and repeated rechecks disagree."
 right = "Check each post-pivot fact once, by its owner at the pivot commit, on every route in; later steps reread and never recheck."
 question = "Where is each post-pivot fact checked, and can any route bypass it?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -567,6 +598,7 @@ text = "An operation id is bound to its exact payload and schema version. A know
 why = "Reusing an id for different content would silently skip or misapply a real change as if it were a duplicate."
 right = "Bind each operation id to its exact payload and schema version, and refuse a known id arriving with a different payload."
 question = "What does each receiver do with a known id carrying a different payload?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["IETF-Idempotency-Key:The Idempotency-Key HTTP Header Field"]
 
@@ -575,6 +607,7 @@ text = "A quarantine counts only when the write of its dead-letter reference is 
 why = "A failed dead-letter write that is only logged drops the message with no trace."
 right = "Count a quarantine only when the dead-letter write is broker-confirmed; if it fails, keep responsibility or propagate the failure, never just log."
 question = "What happens when the dead-letter write itself fails?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:DeadLetterChannel", "EIP:GuaranteedMessaging"]
 
@@ -583,6 +616,7 @@ text = "A release from quarantine, a re-drive or a replay keeps the original `id
 why = "Authority captured at first delivery would let a replay act for someone whose access was since revoked."
 right = "Keep the original id on release, re-drive or replay and run it under the consumer's authorization at execution time."
 question = "Can a replay act for a principal whose grant was revoked since the first delivery?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -591,6 +625,7 @@ text = "A transformation (translator, enricher, splitter, normalizer) acknowledg
 why = "Early acknowledgement loses data in the middle of a pipeline, and wire taps may drop messages that required observers need."
 right = "Ack a transformation's input only after its output publish is confirmed; one handler per command; required observers get their own durable consumer."
 question = "Can a transformation acknowledge before its output is durable, or a required observer hang off a wire tap?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:MessageTranslator", "EIP:DataEnricher", "EIP:Sequencer", "EIP:Normalizer", "EIP:WireTap", "EIP:GuaranteedMessaging"]
 
@@ -599,6 +634,7 @@ text = "Deduplication, aggregation and process state that a durable obligation d
 why = "State held in memory vanishes on restart, so duplicates reappear and in-flight processes are lost."
 right = "Keep deduplication, aggregation and process state in a persistent repository with declared retention, capacity and recovery objectives."
 question = "Is any aggregator, dedup set or saga state in memory only?"
+severity = "S2"
 applies = ["messaging", "database"]
 cites = ["EIP:IdempotentReceiver", "EIP:Aggregator"]
 
@@ -607,6 +643,7 @@ text = "Each guarantee an edge adds names its conformance test: duplicate (same 
 why = "Untested guarantees are claims; failures like duplicates and crashes are only discovered in production otherwise."
 right = "Test each guarantee an edge adds (duplicate, outage, crash, poison, order, ambiguity, reconciliation, replay); qualified only when all pass."
 question = "Does the design claim an integration qualified without the tests of the guarantees it adds?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -615,6 +652,7 @@ text = "A deviation from a hand-off rule is a recorded exception naming the rule
 why = "Unrecorded deviations become permanent hidden risks that nobody remembers or bounds."
 right = "Record any deviation as an exception naming the rule, reason, loss bound, compensating control and removal trigger."
 question = "Is every deviation a recorded exception with its bound and removal trigger?"
+severity = "S3"
 applies = ["messaging"]
 cites = ["Nygard-ADR:Documenting Architecture Decisions"]
 
@@ -623,6 +661,7 @@ text = "A versioned input carries a generation and a content digest. A consumer 
 why = "Without these, old data overwrites new data and identical content gets reapplied needlessly."
 right = "Carry a generation and content digest on versioned input; apply only newer generations and treat an unchanged digest as a no-op."
 question = "Does an old generation or an unchanged digest re-apply?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:IdempotentReceiver"]
 
@@ -631,6 +670,7 @@ text = "In an orchestration or integration flow, every split, slice, condition, 
 why = "Embedded scripts hide logic outside the engine's tooling, making it untestable and hard to review."
 right = "Write every split, condition and calculation in the flow engine's own expression language, one named program per step with fixtures; no script tasks."
 question = "Is any logic in a script task, and does each program have fixtures?"
+severity = "S3"
 applies = ["messaging"]
 cites = ["EIP:MessageTranslator"]
 
@@ -639,6 +679,7 @@ text = "A wake-up signal that is not durable (a database notification such as Po
 why = "Lost hints would leave work unread until some later signal, and a polling fallback reintroduces the timers the design avoids."
 right = "Treat a non-durable wake-up as a hint only: subscribe, then drain the durable backlog on start, reconnect and each hint; never add a periodic re-scan."
 question = "For each wake-up signal: is it durable? If not, does the consumer subscribe before it drains, and what does it read on start, restart, reconnection and each hint? Can the signal be lost while the consumer stays connected and running? Name a signal whose loss leaves work unread until a later signal."
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:GuaranteedMessaging", "EIP:EventDrivenConsumer", "Kubernetes:API Concepts, Efficient detection of changes", "PostgreSQL:NOTIFY"]
 
@@ -647,6 +688,7 @@ text = "A domain event (an owner's committed change others act on) goes by chang
 why = "Direct calls from the owner couple it to every target and lose events when one is down."
 right = "Move a domain event by change capture onto the durable channel to one durable consumer per target; owner code never calls targets."
 question = "How does each committed change reach its consumers?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:PublishSubscribeChannel", "EIP:DurableSubscription", "EIP:GuaranteedMessaging", "EIP:IdempotentReceiver", "Release-It:Circuit Breaker"]
 
@@ -655,6 +697,7 @@ text = "An asynchronous command to another owner uses a work-queue stream with o
 why = "A command with no deadline or outcome event leaves the sender unable to know whether work happened."
 right = "Send an async command on a work-queue stream: command id as idempotency key, deadline in the envelope, outcome returned as an event by causation id."
 question = "Does each command have a deadline and an outcome event correlated to it?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:CommandMessage", "EIP:CorrelationIdentifier", "EIP:CompetingConsumers", "EIP:IdempotentReceiver"]
 
@@ -663,6 +706,7 @@ text = "An interactive user command goes synchronously to the owner's API throug
 why = "Synchronous fan-out or early success makes user calls slow, partial and unsafe to retry."
 right = "Take an interactive command synchronously to one owner via the authenticating ingress with an idempotency key; return a reference after commit."
 question = "What does the user-facing call do beyond one owner commit?"
+severity = "S2"
 applies = ["http-server", "messaging"]
 cites = ["IETF-Idempotency-Key:The Idempotency-Key HTTP Header Field"]
 
@@ -671,6 +715,7 @@ text = "A synchronous read between services is request-reply to the owner's read
 why = "Long synchronous chains multiply latency and failure, and stale caches answer with data the owner has changed."
 right = "Do sync reads as request-reply to the owner's read API with deadline, breaker, bulkhead and a hop limit; no mutating chains, no unversioned cache."
 question = "How many synchronous hops (against the stated maximum), what bounds each, and does any chain write or any cache answer without a version?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["EIP:RequestReply", "Release-It:Timeouts", "Release-It:Circuit Breaker", "Release-It:Bulkheads"]
 
@@ -679,6 +724,7 @@ text = "An inbound webhook is edge ingest onto the durable channel, answering su
 why = "Inline processing or unsigned bodies lose events on failure or let forged requests act, and webhooks alone can miss events."
 right = "Treat a webhook as edge ingest: verify signature, publish to the durable channel, reply only after publish is confirmed, and reconcile."
 question = "Is the webhook processed inline, unsigned, or trusted as the only source?"
+severity = "S2"
 applies = ["http-server", "messaging"]
 cites = ["EIP:ChannelAdapter"]
 
@@ -687,6 +733,7 @@ text = "Browser or device events are captured at the edge onto the durable chann
 why = "Identity from the body is forgeable, and edges writing stores bypass owners and lose events."
 right = "Capture client events at the edge onto the durable channel; take identity from the authenticated request, assign the id there, write no stores."
 question = "Where does captured identity come from, and where does the edge write?"
+severity = "S2"
 applies = ["http-server", "messaging"]
 cites = ["EIP:ChannelAdapter"]
 
@@ -695,6 +742,7 @@ text = "An outbound call to an external API runs from a consumer of the durable 
 why = "Calling from inside a transaction or retrying blindly causes duplicate external effects and holds locks during slow calls."
 right = "Call external APIs from a consumer or flow step with provider idempotency key, query-before-retry, throttle and breaker; publish the result."
 question = "From where is the provider called, and what makes a repeat safe?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["EIP:MessagingGateway", "Release-It:Circuit Breaker", "Release-It:Timeouts", "IETF-Idempotency-Key:The Idempotency-Key HTTP Header Field"]
 
@@ -703,6 +751,7 @@ text = "A notification to a person is an event, then a route, then the provider:
 why = "Sending inside a transaction can notify about work that rolls back, and unlimited or repeated sends spam people."
 right = "Send person notifications as event, route, provider: notification id as idempotency key, per-recipient limits, never inside an owner transaction."
 question = "Is any message to a person sent inside an owner transaction, unlimited per recipient, or used as integration?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -711,6 +760,7 @@ text = "A long-running multi-owner process is an orchestrated flow started by an
 why = "Choreographed or in-memory sagas lose state on restart and leave stalled approvals nobody notices."
 right = "Run long multi-owner processes as an orchestrated flow: a step and compensation per owner, approval timeout with escalation, terminal state published."
 question = "What coordinates the ordered steps, and what happens when an approval is not given in time?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:ProcessManager", "Microservices-io:Saga"]
 
@@ -719,6 +769,7 @@ text = "A bulk transfer (export, snapshot, backfill, artifact) writes the object
 why = "Bytes on the channel overload it, and partial or corrupted objects get consumed as if complete."
 right = "Upload bulk data resumably with checksum to the object store, then publish a reference; consumers verify size and SHA-256, see no partial object."
 question = "How do bulk bytes move, and when do consumers first see them?"
+severity = "S2"
 applies = ["database"]
 cites = ["EIP:StoreInLibrary"]
 
@@ -727,6 +778,7 @@ text = "Telemetry (metrics, logs, traces, analytics) is declared lossy-bounded a
 why = "Telemetry may drop or sample data, so decisions based on it are wrong or unreproducible."
 right = "Treat telemetry as lossy and never a hand-off; no billing, authorization or effect reads it, and owners re-emit business facts as events."
 question = "Does any decision or effect read a metric, log or trace?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -735,6 +787,7 @@ text = "A data-plane transfer is a direct, authorized byte transfer under a shor
 why = "Proxying bytes burdens application services, and long-lived signed URLs leak access."
 right = "Transfer bytes directly under a short-lived native grant, owner signals completion by event, checksum verified; never proxy bytes through services."
 question = "Which service do the bytes pass through, and how long does the grant live?"
+severity = "S2"
 applies = ["network-client"]
 cites = []
 
@@ -743,6 +796,7 @@ text = "A projection, read model, search index or cache is fed only by its consu
 why = "Projections written elsewhere or expiring by time drift from the owner and get mistaken for the source of truth."
 right = "Feed projections only from an event consumer using versioned upserts; keep them rebuildable, event-invalidated, never TTL-expired, never truth."
 question = "Who writes each projection, and what makes it current?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -751,6 +805,7 @@ text = "Configuration and policy propagate by pull of a signed revision and a de
 why = "Imperative pushes and mutable globals leave unknown configuration on targets with no record of what is applied."
 right = "Pull configuration as a signed revision and applying it declaratively and idempotently, keyed by digest; read readiness from native status."
 question = "How does each configuration change reach its target?"
+severity = "S2"
 applies = ["config", "deploy"]
 cites = ["OpenGitOps:Pulled Automatically"]
 
@@ -759,6 +814,7 @@ text = "A push to the browser comes from a projection fed by the durable channel
 why = "Pushes from transactions announce changes that may roll back, and dropped connections otherwise lose updates."
 right = "Push to the browser from a projection fed by the durable channel, resuming from the last event id with a sync-read fallback; never from a transaction."
 question = "What feeds the browser push, and what is the fallback when the channel drops?"
+severity = "S2"
 applies = ["http-server"]
 cites = []
 
@@ -767,6 +823,7 @@ text = "Across cells, sites or environments, data moves by the broker's store-an
 why = "Direct cross-cell calls make one site's outage take down another and blur ownership."
 right = "Move data across cells by broker store-and-forward replication with idempotent consumers; no cross-cell database access or sync calls."
 question = "Does one environment's function depend on another being reachable?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:MessagingBridge"]
 
@@ -775,6 +832,7 @@ text = "Asynchronous work carries the decision id and correlation in the envelop
 why = "Forwarded user tokens expire, leak through storage and give consumers more authority than their own duty needs."
 right = "Carry decision id and correlation in async envelopes; the consumer acts as its own workload identity via token exchange; never forward user tokens."
 question = "Whose identity performs each asynchronous effect?"
+severity = "S1"
 applies = ["messaging", "auth"]
 cites = ["RFC-8693:2 Token Exchange Request and Response"]
 
@@ -783,6 +841,7 @@ text = "Coordination (singleton consumer, migration, leader) uses native mechani
 why = "Home-made locks fail on crashes or split brain and let two actors work at once."
 right = "Coordinate only with native primitives (single consumer, lease, advisory lock) with expiry and revision fencing; no home-made locks."
 question = "What serializes each singleton, and what happens when its holder dies?"
+severity = "S2"
 applies = ["concurrency"]
 cites = []
 
@@ -791,6 +850,7 @@ text = "Manual repair (quarantine release, re-drive, compensation) is an approve
 why = "Hand-edited data and fresh ids for old events break traceability and cause duplicate effects."
 right = "Repair by an audited flow that republishes the original reference with the same id or runs the compensation, recording actor and reason."
 question = "How does an operator re-drive or repair, and where is that recorded?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -799,6 +859,7 @@ text = "Replay, backfill and rebuild run from the channel's retention or an owne
 why = "Special-purpose scripts bypass the checks consumers enforce and corrupt targets."
 right = "Replay, backfill and rebuild through the normal consumers from retention or a snapshot, rate-limited and marked as replay; no scripts writing targets."
 question = "By which path is lost or new downstream state rebuilt, and does any consumer special-case replay?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -807,6 +868,7 @@ text = "Deletion and erasure is a command to an orchestrated flow that fans out 
 why = "Assuming copies disappear on their own leaves personal data behind with no proof of removal."
 right = "Erase by command to an orchestrated flow fanning out to each owner's native delete with deadlines, confirming events, evidence and a zero-row check."
 question = "How is each downstream copy removed and proved gone?"
+severity = "S2"
 applies = ["database", "messaging"]
 cites = []
 
@@ -815,6 +877,7 @@ text = "Deployment and control-plane work is declarative, idempotent apply under
 why = "Overlapping applies and hand patches leave instances in states no declaration describes."
 right = "Do deployment and control-plane work as declarative idempotent apply under the tool's native lock, with evidence recorded; no probes during converge."
 question = "What locks each apply, and can a probe or second run overlap it?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -823,6 +886,7 @@ text = "A converge-time bootstrap call (creating a user, a project, an identity-
 why = "Unguarded bootstrap calls create duplicates on rerun and hidden retry loops hang the converge."
 right = "Make bootstrap calls as create-if-missing on a natural key with explicit timeouts; the converge is the only retry owner, no loops in scripts."
 question = "What guards each bootstrap call against a second run, and what bounds it?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -831,6 +895,7 @@ text = "A shared control-plane record (host assignment, inventory, tenant record
 why = "Two writers overwrite each other, and readers acting on a stale copy misconfigure systems."
 right = "Give each shared control-plane record one writer; readers reread on their own converge, changes go out as events, and reconcile against effect."
 question = "Who is the one writer of each shared record, and how do readers know it is current?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -839,6 +904,7 @@ text = "No secret appears in process arguments, logs or messages. A token is pas
 why = "Arguments and logs are visible to other users and stored widely, leaking secrets."
 right = "Pass secrets by standard input or file, never in process arguments, logs or messages."
 question = "Where does each secret travel, and is it ever an argument or printed?"
+severity = "S1"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:IA-5(7)"]
 
@@ -847,6 +913,7 @@ text = "A signing key is held in a managed key service or HSM, or signing is key
 why = "Key files on hosts get copied or stolen and allow forged signatures indefinitely."
 right = "Hold signing keys in a managed key service or HSM, or sign keyless with short-lived certificates; verifiers hold only public keys."
 question = "Where does each private key live, and what can read it?"
+severity = "S2"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:SC-12"]
 
@@ -855,6 +922,7 @@ text = "Every account, binding and principal is a declared resource of an IaC ro
 why = "Hand-made access has no owner or expiry, so unused privileges accumulate unseen."
 right = "Declare every account, binding and principal in infrastructure code with a named duty and a removal path; never create or change by hand."
 question = "For each new principal: who owns it, what declares it, what removes it?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:AC-2", "NIST-SP-800-53:CM-3"]
 
@@ -863,6 +931,7 @@ text = "Consumers pick up a re-issued credential at once, by event, never only a
 why = "Waiting for a refresh leaves consumers on a revoked or expired credential and causes outages."
 right = "Make consumers pick up a re-issued credential at once by event, not only on a periodic refresh."
 question = "After a rotation, what makes each consumer pick up the new value?"
+severity = "S2"
 applies = ["auth"]
 cites = []
 
@@ -871,6 +940,7 @@ text = "Revocation removes the credential at its consumer first, then its accoun
 why = "Removing the account first leaves live credentials working, and keeping ended accounts leaves unused access."
 right = "Revoke at the consumer first, then the account; disable accounts whose duty ended; ending a membership never deletes the person's account."
 question = "Which credential does the design remove at its account or state before its consumer, or which ended duty keeps a live account? Name it. NA where the design removes no credential and ends no duty."
+severity = "S1"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:AC-2(3)"]
 
@@ -879,6 +949,7 @@ text = "A read error is never treated as absence: a generated-once value is neve
 why = "Regenerating a secret because a read failed silently overwrites the live one and breaks everything using it."
 right = "Never treat a failed secret read as absence; create a generated-once value only by create-if-missing behind a guard read."
 question = "What happens when the read of an existing secret fails?"
+severity = "S2"
 applies = ["auth"]
 cites = []
 
@@ -887,6 +958,7 @@ text = "Every adapter derives its scope from trusted identity, holds least privi
 why = "Adapters that guess scope or fail open leak one tenant's data to another and expose backing systems."
 right = "Scope adapters from trusted identity, least privilege, short-lived credentials, fail closed, test tenant denial, expose no raw store or secret."
 question = "Which adapter or web surface, on which request, acts without a decided authorization, holds a wider or long-lived credential, or exposes a raw store or provider secret? Name it. NA where the design adds or changes no adapter or web surface."
+severity = "S1"
 applies = ["auth", "http-server"]
 cites = ["NIST-SP-800-53:AC-6", "OWASP-ASVS:V4.1.3", "OWASP-ASVS:V4.1.5"]
 
@@ -895,6 +967,7 @@ text = "Cross-tenant resolution returns the same unknown-or-unauthorized result 
 why = "Different answers let an outsider learn which objects exist in another tenant."
 right = "Return the same unknown-or-unauthorized result for every cross-tenant lookup, revealing no existence, owner, count or timing difference."
 question = "Can a caller in tenant A learn that an object of tenant B exists?"
+severity = "S1"
 applies = ["auth"]
 cites = []
 
@@ -903,6 +976,7 @@ text = "The ingress is the sole entry for backend, authentication, RPC and admin
 why = "Side doors skip authentication and security controls, and relaxed development settings in production are exploitable."
 right = "Make the ingress the sole entry for all traffic; admit exact origins only, take URLs from the profile, no dev exceptions in production."
 question = "Does any service take traffic or identity other than through the ingress?"
+severity = "S2"
 applies = ["http-server"]
 cites = ["NIST-SP-800-53:SC-7"]
 
@@ -911,6 +985,7 @@ text = "A secret reaches a workload only from the secret store, by a declared re
 why = "Secrets in artifacts or second copies leak and drift, and starting without the store creates unmanaged custody."
 right = "Give workloads secrets only by declared reference to the secret store, never by hand or in artifacts; readers do not start if the store is down."
 question = "Which secret reaches which workload by a path other than a declared reference to the secret store, or which reader starts while the store is down? Name the secret and the path."
+severity = "S1"
 applies = ["auth", "deploy"]
 cites = ["NIST-SP-800-53:SC-12", "NIST-SP-800-53:SC-28"]
 
@@ -919,6 +994,7 @@ text = "Each duty (plan, apply, release, read) has its own identity holding the 
 why = "Shared or standing powerful identities let any step or person do far more than it needs."
 right = "Give each duty (plan, apply, release, read) its own least-privileged identity with short-lived credentials; people hold no standing deployment roles."
 question = "Under which identity does each step run, and which grant does it hold that it never uses?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:AC-5", "NIST-SP-800-53:AC-6"]
 
@@ -927,6 +1003,7 @@ text = "A credential is short-lived and scoped to its operation: a step's deadli
 why = "A credential that expires mid-step fails the step, and long-lived ones increase the damage if stolen."
 right = "Scope each credential to its operation and make it short-lived, with every step's deadline within its lifetime minus a grace period."
 question = "How long does each credential live against the step that uses it?"
+severity = "S2"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:IA-5", "NIST-SP-800-53:AC-6"]
 
@@ -935,6 +1012,7 @@ text = "A rotation is one versioned, declared change; a first apply never change
 why = "Abrupt rotation breaks live systems and invalidates retained signed data, while never rotating leaves old keys valid forever."
 right = "Rotate by one declared versioned change that never changes a live secret on first apply; verifiers take old and new keys; cap static key age."
 question = "How is each credential rotated, and what keeps working during it?"
+severity = "S2"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:IA-5", "NIST-SP-800-53:SC-12"]
 
@@ -943,6 +1021,7 @@ text = "A design never relies on a permission nobody granted. A wider grant is a
 why = "Assumed permissions fail in production or get quietly widened, eroding least privilege."
 right = "Never rely on an ungranted permission; widen only by an owner decision quoting the grant held and needed; widen and narrow separately."
 question = "Which step needs which permission that no declared grant gives? Name the step and the permission."
+severity = "S2"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:AC-6"]
 
@@ -951,14 +1030,34 @@ text = "Authentication, token or signature verification and the authorization de
 why = "Repeated verification behind the entry wastes work and creates inconsistent decisions, while missing verified results at the boundary leaves holes."
 right = "Verify identity, signature and authorization once at each trust boundary's entry and pass the result on; re-run only on session expiry or revocation."
 question = "For each service and consumer, where are the token, signature and authorization decision verified on entry, and is any link into the service usable by anything but that entry? Which block behind that point verifies again, re-fetches a key, repeats the decision or acts without the verified result handed to it? What re-runs the entry check of a long-lived session on expiry or revocation? Name the block."
+severity = "S2"
 applies = ["http-server", "auth"]
 cites = ["OWASP-ASVS:V1.4.1", "OWASP-ASVS:V1.4.4", "NIST-SP-800-207:2 Zero Trust Basics", "NIST-SP-800-207:2.1 Tenets of Zero Trust"]
+
+[house.ID-16]
+text = "A read over records that several parties share returns only the rows and fields the caller's own party may see, filtered by the authenticated party inside the query itself. Another party's identity, keys and values never leave in the result, not even as an id, a count or a join column."
+why = "Shared tables keep many parties' data side by side. A query, view or endpoint that returns one column or row too many discloses another party's data, and a bare id is enough to correlate it across results."
+right = "Filter shared-record reads by the caller's authenticated party inside the query; return only its own rows and fields, never another party's ids or values."
+question = "Can any read over records several parties share return another party's row or field, including its id, a count or a join column? Where in the query is the caller's party applied?"
+severity = "S1"
+applies = ["database", "auth", "http-server"]
+cites = ["OWASP-API-Top-10:API3:2023 Broken Object Property Level Authorization", "OWASP-ASVS:V4.2.1", "NIST-SP-800-53:AC-3"]
+
+[house.ID-17]
+text = "Every credential, certificate or key that expires has a durable renewal trigger that runs without a person or a deployment: the issuer's or the platform's native renewal, or an event its owner emits ahead of expiry. Renewal starts well before expiry, and an alert fires when it fails or the remaining lifetime drops below a stated margin. A one-time setup or deploy step is never the only path that renews it."
+why = "A credential renewed only when someone deploys expires during the first quiet stretch, and everything that uses it stops at once. Without an alert on failed renewal or a shrinking lifetime, the outage is the first signal."
+right = "Give each expiring credential a renewal trigger the issuer or platform owns, starting well before expiry, with an alert on failure; never only a setup step."
+question = "For each expiring credential, certificate or key: what renews it when nobody deploys, how long before expiry, and what alerts when renewal fails or the lifetime runs low?"
+severity = "S2"
+applies = ["auth", "deploy", "time"]
+cites = ["NIST-SP-800-57:5.3 Cryptoperiods", "NIST-SP-800-53:IA-5", "NIST-SP-800-53:SC-17"]
 
 [house.RL-01]
 text = "The artifact MUST state, for each failure it can cause or meet, how the failure is detected, remediated through its owner, verified, escalated until fixed, and what prevents data loss, each by the artifact that makes it true (the alert rule, its test, the runbook, the backup object, the admission policy, or a real call: an alert that fired and resolved, a passed restore, a from-scratch run)."
 why = "Failures that lack any of these steps go unnoticed or unfixed, and claims backed only by citations prove nothing."
 right = "State for every failure how it is detected, remediated by its owner, verified, escalated and kept from losing data, each backed by a real artifact."
 question = "Is there a failure with a missing step, or a step backed only by a citation?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -967,6 +1066,7 @@ text = "Each alert rule of ours states how long the condition must hold, has a t
 why = "An alert whose data disappears stays silent, so a broken selector looks like a healthy system."
 right = "Give each alert rule a hold time and a firing test on a fixture, and a same-severity absence rule when its series can vanish."
 question = "For each new rule: its hold time, its test, and what fires when its selector matches nothing?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -975,6 +1075,7 @@ text = "A remediation takes the lowest native rung that does it (delete, else th
 why = "Multiple actors, unbounded attempts or destructive fixes turn a small fault into an outage or data loss."
 right = "Fix with the lowest native rung, one actor, one counted retry owner, on the labelled installation only; never delete data-bearing objects."
 question = "Who runs each remediation, how many times, on which installation, and what happens when there is none?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -983,6 +1084,7 @@ text = "A step or fix is done only when the owner's object status reads healthy 
 why = "Exit codes, logs or silence can look fine while the system is still broken."
 right = "Call a step or fix done only when the owner's status reads healthy at the applied revision and the alert has resolved with its absence rule quiet."
 question = "What exactly is read to call each step or fix done?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -991,6 +1093,7 @@ text = "A process that reaches a dependency at start waits on that dependency's 
 why = "Starting before dependencies are ready causes spurious crashes and unordered boot races."
 right = "Make anything that reaches a dependency at start wait on that dependency's native readiness; never assume network or peer is usable at start."
 question = "For each dependency used at start, what readiness is waited on?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -999,6 +1102,7 @@ text = "Every wait has a deadline whose expiry is a failure the owner's status r
 why = "A wait without a deadline hangs forever with nothing reporting it."
 right = "Give every wait, job, reconcile level and converge-time call an explicit timeout whose expiry the owner's status reports as a failure."
 question = "Which wait in the design has no deadline, or a deadline whose expiry nothing reports?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["Release-It:Timeouts"]
 
@@ -1007,6 +1111,7 @@ text = "Every step, job, managed object, flow and release is idempotent and re-r
 why = "A rerun after a partial failure otherwise duplicates or corrupts state, so recovery needs manual cleanup."
 right = "Make every step, job, object, flow and release idempotent and re-runnable after a crash at any point, with scoped, observable, resumable mutations."
 question = "For each step, what does a second run after a partial first run do?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["EIP:IdempotentReceiver"]
 
@@ -1015,6 +1120,7 @@ text = "No timer or waiting loop of ours (schedule, cron, timer unit, sleep, pol
 why = "Time-based waiting wastes capacity, adds latency and hides races instead of fixing ordering."
 right = "Use no timers, cron, sleeps, polls or requeues of ours; block on the producer's event, and add an event where none exists."
 question = "Does anything in the design start, repeat or wait by time?"
+severity = "S2"
 applies = ["always"]
 cites = []
 
@@ -1023,6 +1129,7 @@ text = "An owner-required periodic field (a reconciler's interval, a backup sche
 why = "Correctness that depends on someone else's timer breaks when that timer changes or stalls."
 right = "Leave owner-required periodic fields (reconciler interval, backup schedule, renewal) to the owner; never rely on their tick for repair."
 question = "Does correctness depend on any periodic tick?"
+severity = "S2"
 applies = ["time"]
 cites = []
 
@@ -1031,6 +1138,7 @@ text = "Inputs and preconditions are checked, and every missing or invalid key r
 why = "Failing late on an input that could have been checked first leaves partial changes behind."
 right = "Validate all inputs and preconditions, reporting each missing or invalid key with expected type and source, before the first effect."
 question = "What is validated before the first write, and can a run fail late on an input it could have read first?"
+severity = "S2"
 applies = ["config"]
 cites = ["Release-It:Fail Fast"]
 
@@ -1039,6 +1147,7 @@ text = "Everything that accumulates in steady operation (logs, run records, arti
 why = "Unbounded growth eventually fills disks and forces a person to purge to keep systems running."
 right = "Give everything that accumulates in steady operation (logs, artifacts, state files, caches, temp files) an automatic bound or cleanup."
 question = "What grows with each run, and what bounds it without a person?"
+severity = "S2"
 applies = ["database"]
 cites = ["Release-It:Steady State"]
 
@@ -1047,6 +1156,7 @@ text = "One component's failure or slowness MUST NOT amplify into its callers or
 why = "A slow dependency otherwise causes callers to pile up retries and queues until the whole system collapses."
 right = "Contain failures: budget retries at one owner, pass deadlines along, and stop pulling, shed load or apply back pressure instead of queueing unbounded."
 question = "When one dependency slows or fails, what stops load piling onto it and its callers?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["SRE:ch22 Addressing Cascading Failures", "Release-It:Cascading Failures", "Release-It:Shed Load", "Release-It:Create Back Pressure"]
 
@@ -1055,6 +1165,7 @@ text = "An irreversible step never runs before a later step that can still refus
 why = "Doing the undoable thing first leaves an unrecoverable state when a later step says no."
 right = "Order steps so an irreversible one never runs before a later step that can still refuse, and test that order where it is our logic."
 question = "Which steps cannot be undone, and can anything after them still say no?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1063,6 +1174,7 @@ text = "When a step ends failed or stays pending, the operator sees that termina
 why = "Hidden failures stay broken, and a repair that needs a code change is slow and risky."
 right = "Make failed or pending terminal states visible to operators with a repair path that is an event or named re-drive, not only a new commit."
 question = "For each terminal failure, what does the operator see and do?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -1071,6 +1183,7 @@ text = "A reconciliation or wait never treats a terminal failed, killed or cance
 why = "Reading failures as completion reports success for work that never happened."
 right = "Never count a failed, killed or cancelled child as done, and never judge a reconciliation or wait by a time window alone."
 question = "Can a failed child or an old failure read as completion?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1079,6 +1192,7 @@ text = "An unattended step never waits for input: no prompt, no terminal, no per
 why = "A step waiting for input hangs forever with nobody present, and personal credentials make automation depend on a person."
 right = "Run unattended steps non-interactively under the step's own least-privileged identity; no prompts, terminals or personal credentials on the path."
 question = "Run with no terminal and no person: where does the design stop and wait?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1087,6 +1201,7 @@ text = "An unattended run ends with one machine-read verdict: its result and a n
 why = "Partial success reported as success hides failures, and designs that assume someone reruns it stall silently."
 right = "End each unattended run with one machine-read verdict and nonzero exit on any failure; a failed release alerts and holds the next start."
 question = "What single result does a caller or machine read, can a failed part still exit zero, and does the design assume someone re-runs it?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1095,6 +1210,7 @@ text = "A retry exists only for a failure that provably did not reach the target
 why = "Retrying a call that may have had effect duplicates the effect."
 right = "Retry only a failure that provably never reached the target."
 question = "For each retried call, what proves the first attempt had no effect?"
+severity = "S2"
 applies = ["network-client"]
 cites = []
 
@@ -1103,6 +1219,7 @@ text = "A `warning` alert whose lead time can run out (a filling disk, exhaustin
 why = "A warning nobody reads lets a filling disk or expiring certificate become an outage."
 right = "Give any warning whose lead time can run out a critical sibling or a machine reader that acts on it."
 question = "For each warning the design can raise, what acts on it before it becomes an outage?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1111,6 +1228,7 @@ text = "Each execution ends failed at its own absolute deadline. The repair of a
 why = "Executions without a deadline linger indefinitely and give no point at which repair starts."
 right = "End each execution as failed at its own absolute deadline and repair failed flows by an audited re-drive or an event-woken reconciliation."
 question = "What ends an execution that never completes?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["Release-It:Timeouts"]
 
@@ -1119,6 +1237,7 @@ text = "A conditionally skipped step never leaves a later step reading an output
 why = "A later step reading a value never produced acts on emptiness or stale data."
 right = "When a step may be skipped, skip the later steps that read its output or state what they do when the output is absent."
 question = "Which later step reads the output of a step that can be skipped?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1127,6 +1246,7 @@ text = "An upgrade never changes the natural key between the old and the new ins
 why = "Re-keying orphans existing rows and replacing owner-shipped sets silently hides data."
 right = "Never let an upgrade change the natural key between old and new install paths, or replace sets in a way that hides rows the owner ships."
 question = "Does a migration re-key existing rows, or replace a set that the owner also writes?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1135,6 +1255,7 @@ text = "Each integration profile declares its loss tolerance, its recovery and f
 why = "Without declared targets nobody knows what an edge promises, and memory-only recovery silently loses durable obligations."
 right = "Declare each integration's loss tolerance, recovery and freshness targets and bounds, and build durable or rebuildable behaviour to match."
 question = "What loss and freshness does each edge promise, and what implements it?"
+severity = "S2"
 applies = ["messaging"]
 cites = ["EIP:GuaranteedMessaging", "EIP:DeadLetterChannel"]
 
@@ -1143,6 +1264,7 @@ text = "A failure the owner already exposes is read through the owner's aggregat
 why = "Per-symptom duplicates of owner status add noise and drift, and dropping defaults without replacement leaves gaps."
 right = "Use the owner's aggregated status and default rules; add own rules only for failures no owner shows; replace any disabled default."
 question = "Does the design add a per-symptom rule where the owner's status already shows the failure, or drop a default without a replacement?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch6 Monitoring Distributed Systems"]
 
@@ -1151,6 +1273,7 @@ text = "Remediation is the owner's own native action or a reviewed, named comman
 why = "Hand changes create drift nobody can reproduce, and recovery that depends on shell access is neither auditable nor repeatable."
 right = "Remediate only by the owner's native action or a reviewed named command in the runbook; never a hand-typed command or hand-placed file."
 question = "Does any recovery step need a shell on the installation or a hand edit?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1159,6 +1282,7 @@ text = "A release or push start reads the firing alerts and refuses to start whi
 why = "Shipping new changes during an active incident compounds it, and unbounded silences hide real problems."
 right = "Refuse a release start while a critical alert fires, except its own or one silenced for a bounded time and tied to a defect record."
 question = "Does any start path bypass the alert read, or any silence lack its record or bound?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1167,6 +1291,7 @@ text = "A change reaches each installation class in order (development, verifica
 why = "Skipping stages or testing on dirty machines hides breakage until production."
 right = "Promote a change through development, verification and production in order; verify an install-path change only by an empty-machine run."
 question = "Does the design change an install path, and where is its empty-machine proof planned?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Twelve-Factor:X Dev/prod parity"]
 
@@ -1175,6 +1300,7 @@ text = "A bad release is undone by applying the previous signed release as a new
 why = "Deleting to undo or destructive migrations make recovery impossible and risk data loss."
 right = "Undo a bad release by applying the previous signed one forward; expand-then-contract schema and data; restore-tested backup before upgrades."
 question = "What is the rollback of each change, and does any step make it impossible?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Fowler:ParallelChange", "NIST-SP-800-53:CP-10"]
 
@@ -1183,6 +1309,7 @@ text = "Every incident that stopped a workflow and every data loss has a record 
 why = "Without classified records the same class of failure repeats and the catalog never improves."
 right = "Record every workflow-stopping incident and data loss with a classified cause: undetected, unremediated, unverified, unescalated, or a missing guard."
 question = "Does the design's failure handling end in a record with that class?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch15 Postmortem Culture: Learning from Failure"]
 
@@ -1191,6 +1318,7 @@ text = "Each affected hot stage names its latency, throughput, concurrency, cost
 why = "Unstated budgets let regressions in speed and cost slip in unnoticed and unbounded buffers exhaust memory."
 right = "For each hot stage state numeric latency, throughput, concurrency, cost and copy budgets with measured values, plus buffering and back pressure."
 question = "For each target: its number, the measurement, the reading location?"
+severity = "S3"
 applies = ["concurrency", "database", "messaging", "http-server", "network-client"]
 cites = ["Knuth-1974:Premature optimization", "SRE:ch6 Monitoring Distributed Systems", "Release-It:Create Back Pressure"]
 
@@ -1199,6 +1327,7 @@ text = "Only dirty nodes run: a node whose content inputs are unchanged is skipp
 why = "Rerunning clean nodes wastes time, and memos keyed on a commit miss or wrongly reuse results."
 right = "Run only dirty nodes, with memos keyed on content and target identity (never commit or ref) and every downstream-read output declared as generated."
 question = "What decides that each node runs, and does a new commit alone re-run it?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1207,6 +1336,7 @@ text = "Independent nodes run in bounded parallelism; only effects wait, each on
 why = "Needless serial edges lengthen every run for no safety gain."
 right = "Run independent nodes in bounded parallelism; make effects wait only for what they consume; add no serial edge without a shared object."
 question = "Which edges of the graph are serial, and what shared object justifies each?"
+severity = "S3"
 applies = ["concurrency"]
 cites = []
 
@@ -1215,6 +1345,7 @@ text = "Owner work runs in one owner process (one import, one migrate); never a 
 why = "Per-record processes multiply startup cost and resource use by the record count."
 right = "Run owner work once in one owner process per import or migrate; never spawn a process or container per record."
 question = "How many owner processes does a bulk step start?"
+severity = "S3"
 applies = ["concurrency"]
 cites = []
 
@@ -1223,6 +1354,7 @@ text = "Large payloads move by immutable reference or direct range transfer, nev
 why = "Copying big data through control paths overloads them and multiplies memory and time."
 right = "Move large payloads by immutable reference or direct range transfer, never through the control plane or an application service."
 question = "Does any byte stream pass through a step that only needs its reference?"
+severity = "S3"
 applies = ["http-server", "messaging"]
 cites = ["EIP:StoreInLibrary"]
 
@@ -1231,6 +1363,7 @@ text = "Queue, batch, retry, timeout, payload and fan-out settings are bounded."
 why = "Unbounded settings turn load spikes or failures into exhaustion and runaway retries."
 right = "Set explicit bounds on every queue, batch, retry, timeout, payload and fan-out."
 question = "Which of these has no stated bound?"
+severity = "S2"
 applies = ["concurrency"]
 cites = ["Release-It:Timeouts", "Release-It:Create Back Pressure"]
 
@@ -1239,6 +1372,7 @@ text = "Concurrency is limited only where order matters, per aggregate partition
 why = "A global limit lets one tenant's slowness delay everyone past their deadlines."
 right = "Limit concurrency only per aggregate partition where order matters; never serialize independent tenants with a flow-wide limit."
 question = "Does one tenant's or installation's work wait behind another's?"
+severity = "S2"
 applies = ["concurrency"]
 cites = []
 
@@ -1247,6 +1381,7 @@ text = "When a time gate is missed, the lever is pipelining chosen by benchmark 
 why = "Cutting checks or stretching timeouts hides slowness and makes releases longer or weaker."
 right = "When a time gate is missed, pipeline work chosen by benchmark with stated runs, wall time and CPU; never remove a check or lengthen a timeout."
 question = "How does the design get faster, and does it drop a check to do so?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Knuth-1974:Premature optimization"]
 
@@ -1255,6 +1390,7 @@ text = "Measure before optimizing: a cache, batch or parallel path is added only
 why = "Unmeasured optimisations add complexity and staleness bugs without proven benefit."
 right = "Add a cache, batch or parallel path only for a concrete measured requirement."
 question = "Which measurement justifies each cache, batch or parallel path?"
+severity = "S3"
 applies = ["always"]
 cites = ["Knuth-1974:Premature optimization"]
 
@@ -1263,6 +1399,7 @@ text = "A changed program (flow, expression, route, engine configuration) has ru
 why = "Validation alone misses runtime limits, so changes pass review then fail or crawl at real size."
 right = "Run any changed program on the pinned engine image with production-size input before landing, stating time and memory before and after."
 question = "On which input size was each changed program run?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -1271,6 +1408,7 @@ text = "Every list read is paged to its end or checked for truncation; a limited
 why = "A silently truncated list makes missing items look absent and produces wrong decisions."
 right = "Page every list read to its end or check for truncation; never treat a limited read as complete."
 question = "Which reads can be cut by a page limit, and what detects it?"
+severity = "S2"
 applies = ["network-client"]
 cites = ["Release-It:Unbounded Result Sets"]
 
@@ -1279,6 +1417,7 @@ text = "A release of a commit already released to that target does not start (a 
 why = "Repeating unchanged work or trusting local markers wastes time and misses real drift."
 right = "Skip releasing an already released commit; run only stages whose inputs changed per the owner's recorded state; meet a stated time ceiling."
 question = "For a commit that changes one stage's inputs, which stages run, what decides each skip, is a release of the already-released commit refused, and is the ceiling met?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1287,6 +1426,7 @@ text = "The platform's footprint with zero customers has a stated ceiling. No al
 why = "Per-tenant always-on copies make idle cost grow with every signup."
 right = "State a ceiling for the platform's footprint with zero customers and add no always-on per-tenant copy of a shared function."
 question = "What does the design add to the idle footprint, and is any of it per tenant?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1295,6 +1435,7 @@ text = "Each cost or usage budget has an alert before its ceiling and a declared
 why = "Without early alerts and a defined action, overspend is found on the bill, and estimates mislead."
 right = "Give each cost or usage budget an alert before the ceiling and a declared action at it, reading spend from the metering owner, not estimates."
 question = "What alerts before each ceiling, and what happens at it?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1303,14 +1444,34 @@ text = "An artifact (image, bundle, model, archive) crosses the network at most 
 why = "Repeated or oversized transfers waste network and time and make deploys slow and fragile."
 right = "Transfer each artifact to a consumer node once by shared digests, with no whole-archive staging or host-path cache and bounded parallel transfers."
 question = "How many times is each artifact transferred or copied on its way to a node?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
+
+[house.PF-16]
+text = "A test or check that asserts a time bound measures the code under test in CPU time, or asserts on a robust statistic (median or a high percentile) of repeated runs after a warm-up, against a bound with a stated margin. It never asserts on one wall-clock sample taken on a shared or loaded machine."
+why = "One wall-clock sample measures the machine's load as much as the code: the check fails at random on a busy runner, people learn to re-run or loosen it, and a real slowdown then passes unnoticed."
+right = "Assert a time bound on CPU time or on a median or percentile of repeated warmed-up runs with a stated margin; never on one wall-clock sample."
+question = "Does any timing assertion rest on a single wall-clock sample, and what margin and statistic does each one state?"
+severity = "S2"
+applies = ["time", "deploy"]
+cites = ["Google-Benchmark:Reducing Variance", "pyperf:Analyze benchmark results"]
+
+[house.PF-17]
+text = "A query selects only the columns and fields its caller uses, and an operation reads a large value (a document, blob, JSON or array column) once, never once per part, row or loop pass. A value that callers read in parts is stored as rows or fields that can be read alone."
+why = "A database fetches and decodes a large value whole on every read, even to take one field from it. Reading it per part multiplies I/O and memory by the number of parts, so an ordinary request becomes a resource spike that grows with the data."
+right = "Select only the fields you use and read a large value once per operation, never per part or loop pass; store parts read alone as their own rows or fields."
+question = "Does any operation read a large value, or more columns than it uses, more than once? Which value is read per part, row or loop pass?"
+severity = "S2"
+applies = ["database"]
+cites = ["PostgreSQL:TOAST"]
 
 [house.OB-01]
 text = "The cause of every failure the design can produce MUST be readable on the screens the platform's operator uses daily (dashboards, log and trace search, alerts, each tool's admin UI). Where they cannot show it, that gap is closed before the product fix, and diagnosis never needs a shell, a direct database read or a raw log file."
 why = "If causes are only visible by logging into machines, incidents take long and rely on a few people."
 right = "Make the cause of every possible failure readable on the operator's daily screens; close any gap there first so diagnosis needs no shell."
 question = "On which screen would an operator read the cause of each failure?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch6 Monitoring Distributed Systems", "SRE:ch12 Effective Troubleshooting"]
 
@@ -1319,6 +1480,7 @@ text = "Status comes from the owner's native status and bounded telemetry. A log
 why = "Log lines can say done while the effect failed, and per-subject labels explode metric storage."
 right = "Take status from the owner's native status and bounded telemetry, never a log line; record per-subject keys on the trace, not as labels."
 question = "What proves each effect happened?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch6 Monitoring Distributed Systems"]
 
@@ -1327,6 +1489,7 @@ text = "Every alert is on a symptom someone or something must act on, and names 
 why = "Informational alerts train people to ignore alerts."
 right = "Alert only on a symptom someone must act on, and name the action by runbook or automatic remediation."
 question = "For each alert: what action follows it?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch6 Monitoring Distributed Systems"]
 
@@ -1335,6 +1498,7 @@ text = "Every run and test prints its environment, run id, where its logs and tr
 why = "Without these, finding the evidence or cleaning up a run is guesswork."
 right = "Make every run and test print its environment, run id, log and trace locations, and its run-scoped cleanup command."
 question = "From a run's output alone, can its logs be found?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1343,6 +1507,7 @@ text = "A failure reports a stable code, the owner or boundary, the safe expecte
 why = "Vague failures force investigation, and unsanitized ones leak secrets."
 right = "Report a failure with a stable code, owner or boundary, safe expected and observed state, sanitized target and remediation."
 question = "What does each failure message tell the reader to do?"
+severity = "S3"
 applies = ["http-server"]
 cites = []
 
@@ -1351,6 +1516,7 @@ text = "Telemetry never authorizes readiness or deployment and never drives a bu
 why = "Telemetry is lossy and delayed, so decisions built on it are unreliable."
 right = "Keep telemetry out of readiness, deployment and business decisions; use owner facts for those."
 question = "Does a gate or decision read telemetry instead of the owner?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1359,6 +1525,7 @@ text = "Telemetry export uses bounded queues and batches, reports drops and retr
 why = "An unbounded or blocking exporter can take down the product it observes."
 right = "Export telemetry with bounded queues and batches, report drops and retry exhaustion, and never block product or release work."
 question = "What happens to the product or release when the telemetry backend is slow or down?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["OpenTelemetry:Batching processor"]
 
@@ -1367,6 +1534,7 @@ text = "Logs never contain secret bytes, signed URLs, bulk payloads or file cont
 why = "Logs are widely readable, so secrets and bulk data in them leak."
 right = "Never log secret bytes, signed URLs, bulk payloads or file contents; log only changes and failures of a converge."
 question = "What does each step log on success and on failure?"
+severity = "S1"
 applies = ["auth"]
 cites = ["OWASP-Logging:Data to exclude"]
 
@@ -1375,6 +1543,7 @@ text = "The monitoring path is itself watched: a dead-man's-switch alert pages t
 why = "A broken alerting system looks exactly like a quiet healthy one."
 right = "Watch the monitoring path itself with a dead-man's-switch alert that pages through a second path when alerts stop."
 question = "What notices that the collector, rule engine or alert route stopped?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1383,6 +1552,7 @@ text = "Telemetry and audit records of an installation are exported to a store o
 why = "Evidence stored inside the failed system disappears with it."
 right = "Export an installation's telemetry and audit records to a store outside it so they survive its loss or reset."
 question = "After the watched installation is destroyed, where are its last records read?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:AU-9(2)"]
 
@@ -1391,6 +1561,7 @@ text = "Unknown is not healthy: when a gate cannot read its source (the alert ma
 why = "Treating unknown as healthy lets broken releases through."
 right = "When a gate cannot read its source, fail closed or mark the run unverified; never admit it as clean."
 question = "What does each gate decide when it cannot read its source?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:SC-24", "NIST-SP-800-53:SI-4"]
 
@@ -1399,6 +1570,7 @@ text = "Each end-to-end user or business flow (a journey) states a completion ob
 why = "Flows that stall quietly are found by customers instead of operators."
 right = "State for each end-to-end flow a completion objective from pivot to the owner's terminal fact, and alert when exceeded."
 question = "What is the deadline from each journey's pivot to its terminal fact, and what fires past it?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch4 Service Level Objectives"]
 
@@ -1407,6 +1579,7 @@ text = "An alert on an objective states how long a failure takes to alert (its h
 why = "Unstated timing makes alerts either noisy or late and hard to trust."
 right = "State for each objective alert its hold time, evaluation window and time to clear after the fix."
 question = "How long until each failure alerts, and until the alert clears?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE-Workbook:ch5 Alerting on SLOs"]
 
@@ -1415,6 +1588,7 @@ text = "User-visible status comes from a native admin or debug surface. A contai
 why = "A healthcheck says the process runs, not that the service works."
 right = "Show user-visible status from a native admin or debug surface; use container healthchecks for startup order only."
 question = "What is \"ready\" measured by, beyond a process answering?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["Kubernetes:Liveness, Readiness and Startup Probes"]
 
@@ -1423,6 +1597,7 @@ text = "The evidence for one run or request is joined by one correlation root (L
 why = "Scattered evidence makes tracing a request across owners slow and error prone."
 right = "Join all evidence of one run or request under one correlation root readable in one query; build observability once into a reused pattern."
 question = "Is the evidence for one run in one place, joined by one id?"
+severity = "S3"
 applies = ["http-server"]
 cites = ["EIP:CorrelationIdentifier"]
 
@@ -1431,6 +1606,7 @@ text = "Every metric and log-stream label set is bounded: no tenant, execution, 
 why = "High-cardinality labels overload the telemetry store and drop data."
 right = "Bound every metric and log label set, never use tenant, execution, user or request ids as labels, and alert on hitting an ingestion cardinality limit."
 question = "Which new label can grow with tenants or requests?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["Prometheus:Metric and label naming"]
 
@@ -1439,6 +1615,7 @@ text = "Certificate expiry and clock synchronization each have a machine-read al
 why = "Expired certificates and clock drift cause sudden outages that are cheap to prevent."
 right = "Give certificate expiry and clock synchronization each a machine-read alert that fires before failure."
 question = "What alerts before a certificate expires or the clock drifts?"
+severity = "S2"
 applies = ["time", "deploy"]
 cites = ["NIST-SP-800-53:SC-17", "NIST-SP-800-53:SC-45"]
 
@@ -1447,6 +1624,7 @@ text = "Each automated run (release, backup, restore drill) exports its duration
 why = "Silent automation failures are noticed only when the backup is needed."
 right = "Export each release, backup and restore drill run's duration and last-success time where the monitor reads them, and alert on failure."
 question = "Where are a run's duration and last success read, and what fires when it fails?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["SRE:ch6 Monitoring Distributed Systems"]
 
@@ -1455,6 +1633,7 @@ text = "Each shared resource has exactly one serializer and none overlaps anothe
 why = "Overlapping writers on one resource race and corrupt it."
 right = "Give each shared resource exactly one serializer (one release per installation, one converge per host, the IaC lock); none may overlap."
 question = "What serializes each shared resource, and do two serializers cover one?"
+severity = "S2"
 applies = ["concurrency"]
 cites = ["Single-Writer:Single Writer Principle"]
 
@@ -1463,6 +1642,7 @@ text = "A second concurrent release of the same installation is refused, never q
 why = "Queued or merged releases apply stale intent in surprising order."
 right = "Refuse a second concurrent release of the same installation; never queue or merge it."
 question = "What happens when a release starts while one runs for the same installation?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Single-Writer:Single Writer Principle"]
 
@@ -1471,6 +1651,7 @@ text = "Mutual exclusion uses native locks, leases and fencing only; no marker f
 why = "Our flags survive crashes and block forever or fail to exclude."
 right = "Use native locks, leases and fencing for mutual exclusion; never our marker file, PID file or flag."
 question = "Is any mutual exclusion implemented by our own file or flag?"
+severity = "S2"
 applies = ["concurrency"]
 cites = []
 
@@ -1479,6 +1660,7 @@ text = "No probe and no second apply overlaps a converge of the same target."
 why = "Overlapping reads see half-applied state and overlapping applies conflict."
 right = "Never start a probe or a second apply while a converge of the same target is running."
 question = "Can a status check or another run touch a target mid-converge?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1487,6 +1669,7 @@ text = "A shared record or file has one writer; readers check its version before
 why = "Several editors overwrite each other and readers act on stale content."
 right = "Give each shared record or file one writer and have readers check its version; regenerate multi-installation files from their separate inputs."
 question = "Which shared record or file has two writers, or a reader that acts without a version check? Name the file and the writers. NA where the design has no shared record or file."
+severity = "S2"
 applies = ["database"]
 cites = ["Single-Writer:Single Writer Principle"]
 
@@ -1495,6 +1678,7 @@ text = "One object comes from one source: no two writers of one object or field,
 why = "Competing writers and shared state cause nondeterministic results."
 right = "Source each object from one place: no two writers of one object or field and no shared mutable state between parallel steps."
 question = "Which objects or fields do two parallel steps or two tools both write?"
+severity = "S2"
 applies = ["concurrency"]
 cites = ["Single-Writer:Single Writer Principle"]
 
@@ -1503,6 +1687,7 @@ text = "On a shared host, each installation's units, inputs and telemetry are pa
 why = "One bad tenant must not take down all others on the same host."
 right = "On a shared host partition each installation's units, inputs and telemetry so one's failure or slowness never fails or blocks another's converge."
 question = "Which input, unit or telemetry path of installation A, when broken or hung, fails or blocks installation B's run? Name it. NA where no host is shared between installations."
+severity = "S2"
 applies = ["deploy"]
 cites = ["Release-It:Bulkheads"]
 
@@ -1511,6 +1696,7 @@ text = "A run or remediation acts only on its own labelled installation; it neve
 why = "Cross-installation cleanup deletes someone else's live resources."
 right = "Make each run or remediation act only on its own labelled installation; never write, prune or remediate another's objects."
 question = "Which step of one installation's run writes, prunes or repairs which object of another installation? Name the step and the object."
+severity = "S1"
 applies = ["deploy"]
 cites = ["Single-Writer:Single Writer Principle", "Release-It:Bulkheads"]
 
@@ -1519,6 +1705,7 @@ text = "Per-installation parts of a shared owner's configuration live in the own
 why = "Editing a shared file or restarting disrupts every installation and one bad edit breaks all."
 right = "Put per-installation parts of a shared owner's config in its drop-in mechanism, owner-checked and reloaded, never a restart or shared-file edit."
 question = "How does one installation change shared configuration without editing the shared file or dropping others' sessions?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1527,6 +1714,7 @@ text = "A failing deployable unit (package) blocks only the units that declare a
 why = "Global stoppage from one failure holds back unrelated work."
 right = "Let a failing deployable unit block only units that declare a dependency on it, leaving siblings and other installations to proceed."
 question = "What else stops when one deployable unit fails?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Release-It:Bulkheads"]
 
@@ -1535,6 +1723,7 @@ text = "A test gives back every shared bounded resource in teardown, pass or fai
 why = "Leaked quota or slots from tests starve later runs and other teams."
 right = "Return every shared bounded resource in test teardown, pass or fail; do not share consumption that cannot be returned."
 question = "What shared resource does each test consume, and when is it returned?"
+severity = "S3"
 applies = ["concurrency"]
 cites = []
 
@@ -1543,6 +1732,7 @@ text = "One shared, independently scaled store per kind, with each tool or tenan
 why = "Per-tool store copies multiply cost and operations, while shared credentials remove isolation."
 right = "Run one shared, independently scaled store per kind, isolating each tool or tenant by own database, role and credentials; split only with a reason."
 question = "How is each user of a shared store separated, and is a second store added?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1551,6 +1741,7 @@ text = "A lock without a lease (a state lock, a migration lock) that is found he
 why = "Auto-breaking a lock whose holder may still run corrupts state, and waiting hides a dead run."
 right = "Report a held lease-less lock as a fault; never wait it out or break it automatically; release only by the owner's unlock after a person confirms."
 question = "What does a run do when it finds the lock held, and how is a stale lock cleared?"
+severity = "S2"
 applies = ["concurrency"]
 cites = []
 
@@ -1559,6 +1750,7 @@ text = "In a system that places data by tenant, cell or shard (a database per te
 why = "A derived or missing key makes data land in the wrong tenant, cell or shard and cannot be moved safely."
 right = "Put the placement key as its own field on every row, event and message, set at creation from the trusted entry; refuse writes without it."
 question = "Which table, event or message lacks its placement key as its own field, takes it by a join or lookup, or allows it to change in place? Which table without a key holds tenant data? Name it."
+severity = "S2"
 applies = ["database"]
 cites = ["Azure-Architecture:Sharding pattern", "Citus:Choosing Distribution Column"]
 
@@ -1567,6 +1759,7 @@ text = "Every managed resource MUST name its level (L0-L6) and be ordered and re
 why = "Hand-written ordering and readiness logic drifts from the real platform and starts things before their parents are usable."
 right = "Tag every resource with its level L0-L6 and let the platform's own reconciler or readiness mechanism order it; never write your own order."
 question = "Does each handle name its level and the native authority that orders and readies it, with no order or readiness model of ours?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["Kubernetes:Controllers"]
 
@@ -1575,6 +1768,7 @@ text = "Acquisition MUST be parent-first and release child-first. No parent stop
 why = "Removing a parent under an active child corrupts in-flight writes and leaves orphaned claims."
 right = "Start parents before children and stop children before parents; never stop, reset or delete a parent while a child still uses it."
 question = "For each create, stop and delete path: is the order parent-first in, child-first out, and what checks that no descendant still borrows?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Kubernetes:Garbage Collection"]
 
@@ -1583,6 +1777,7 @@ text = "A change of version or input MUST dirty the changed node and its exact t
 why = "If dependents are not re-run by construction, they silently keep stale results until someone remembers."
 right = "Auto-dirty a changed node and all its hard descendants; run only dirty nodes and clean them only on the owner's native evidence."
 question = "What marks a node dirty, what cleans it, and does a person ever have to remember a re-run?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1591,6 +1786,7 @@ text = "Each effect MUST declare its hard parents (each resource it needs, its l
 why = "Undeclared or upward dependencies cause races, deadlocks and bootstraps that need the thing they are creating."
 right = "Declare each effect's hard parents, their levels and readiness, and its behaviour before ready; never depend on a higher level."
 question = "Does each effect list its hard parents, their readiness signal and its before-parent behaviour, with no timer as fallback, and does any lower-level or bootstrap step wait on something created above or after it?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1599,6 +1795,7 @@ text = "An L0 deployment record is used only when validated (signed or schema-ch
 why = "An unchecked or prematurely retired top-level record lets two installations collide or strands live children."
 right = "Use a deployment record only when validated and conflict-free; never stop, reset or archive it while any descendant is starting, ready or draining."
 question = "Is the instance record validated before use, and is its stop or reset guarded by its descendants' state?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1607,6 +1804,7 @@ text = "An L1 substrate handle (host, network, data roots, cluster, storage and 
 why = "Using unqualified hosts or storage fails late, and releasing them carelessly destroys the data underneath everything."
 right = "Accept a substrate only when its deployment is ready and device, path, network and capacity are qualified; on release drain children, keep data roots."
 question = "Is capacity (disk, inodes) checked before use, and which approval permits destroying an L1 durable root?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1615,6 +1813,7 @@ text = "An L2 durable authority needs all its L1 handles ready and its native fo
 why = "Starting on the wrong disk or stopping mid-write loses or corrupts the only copy of the truth."
 right = "Start a durable store only after its substrate is ready and format and identity are observed; on release stop writers, flush, keep the bytes."
 question = "Does any path release or recreate an L2 authority without stopping writers and retaining its bytes?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1623,6 +1822,7 @@ text = "L3 configuration needs every affected L2 authority ready, an exact signe
 why = "Deleting or loosely applying configuration under running services breaks them and cannot be traced to a known input."
 right = "Apply configuration only after its stores are ready, from a signed exact digest and passing native validation; replace by version, never live-delete."
 question = "Can the design delete or overwrite configuration a running descendant still reads, or apply configuration the owner did not validate?"
+severity = "S2"
 applies = ["config"]
 cites = []
 
@@ -1631,6 +1831,7 @@ text = "An L4 service needs all hard L1-L3 parents ready and its exact capabilit
 why = "Services that take traffic early or die with state attached drop requests and lose data."
 right = "Start a service only when parents are ready and preflight passes; stop by closing admission, draining, then stopping; never delete state."
 question = "Is admission closed before stop, and can a restart or kill of the process lose durable state?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Twelve-Factor:IX Disposability"]
 
@@ -1639,6 +1840,7 @@ text = "An L5 operation needs its L4 services ready and binds, at entry, a trust
 why = "Operations without bound identity and deadline run forever, cross tenants or leak credentials."
 right = "Bind each operation at entry to a trusted decision, absolute deadline, tenant and immutable inputs; end it terminal, checkpointed or cancelled."
 question = "Does each run, job or execution carry a deadline and end in a terminal state that returns what it held?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1647,6 +1849,7 @@ text = "An L6 durable result is written only by an explicit L5 operation or a na
 why = "Accidental or untracked deletion of results destroys evidence and customer data."
 right = "Write durable results only by an explicit operation or user action with verified commit; delete only when permitted and expired, leaving a tombstone."
 question = "Is every durable result committed by its owner, and is any deletion of one gated by the owner's policy?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1655,6 +1858,7 @@ text = "An L4 peer that a service routes to is an observed target, never a hard 
 why = "Making routed peers hard parents creates cycles and stops the whole front door when one application is down."
 right = "Treat a peer a service routes to as an observed target, not a hard parent, and keep the dependency graph acyclic."
 question = "Is any observed route target declared as a hard parent, and does the graph contain a cycle?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1663,6 +1867,7 @@ text = "A shared database engine is one L2 handle; every logical database on it 
 why = "Vendor bundling hides who owns which bytes, so one owner ends up touching another's data and recovery is unclear."
 right = "Give each logical database its own owner, role, schema, migration, backup entry and readiness; model app, DB, files, queue and secrets separately."
 question = "Is each store of a compound owner a separate handle with its own readiness and backup?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1671,6 +1876,7 @@ text = "A projection, search index or cache is a separate L2 projection unless d
 why = "A lost index silently reported as fine, or treated as truth, gives wrong answers with no way to recover."
 right = "Declare projections and caches non-authoritative with a rebuild from a recorded source generation, fingerprint-verified; report their loss honestly."
 question = "Does each derived store name its source and rebuild path, and what does its loss report?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1679,6 +1885,7 @@ text = "A backup repository MUST sit in a failure domain independent of its sour
 why = "A backup sharing the source's failure dies with it, and a backup dependency can stall production writes."
 right = "Place backup repositories in a failure domain independent of the source and never make normal writes depend on the backup client."
 question = "Where does each backup live relative to what it protects, and can a backup outage stop normal writes?"
+severity = "S2"
 applies = ["database"]
 cites = ["NIST-SP-800-53:CP-6", "NIST-SP-800-53:CP-9"]
 
@@ -1687,6 +1894,7 @@ text = "The recovery root (the key that unlocks storage or the secret store) MUS
 why = "A key held only inside what it protects makes a lockout permanent and unrecoverable."
 right = "Keep the recovery root key outside or below what it unlocks; never store it only inside the encrypted authority."
 question = "After total loss of the installation, which key outside it restores access?"
+severity = "S1"
 applies = ["auth"]
 cites = ["NIST-SP-800-53:SC-12"]
 
@@ -1695,6 +1903,7 @@ text = "A wait MUST be on the owner's native terminal primitive, without polling
 why = "Polling and copied receipts waste time, go stale and disagree with the real state."
 right = "Wait on the owner's native terminal signal without polling, follow the reconciler's order, and store no parallel readiness receipt."
 question = "For each wait, which native primitive ends it, and is any readiness copy kept by us?"
+severity = "S2"
 applies = ["concurrency"]
 cites = []
 
@@ -1703,6 +1912,7 @@ text = "On failure a step MUST close admission, keep the failure evidence, unwin
 why = "Broad cleanup or lost evidence after a failure destroys data that was not ours and hides the cause."
 right = "On failure close admission, keep the evidence, unwind in reverse only what this attempt acquired, and leave durable authorities untouched."
 question = "What does each failure path undo, and can it touch a handle it did not acquire or a durable authority?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1711,6 +1921,7 @@ text = "Shutdown order is: close L4 admission, terminalize or drain L5, verify n
 why = "Wrong shutdown order drops in-flight work and leaves stores unflushed."
 right = "Shut down in order: close admission, drain operations, verify no borrowers, stop services, flush and stop stores, release substrate handles."
 question = "Does the stop sequence follow this order?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Twelve-Factor:IX Disposability"]
 
@@ -1719,6 +1930,7 @@ text = "A reset or destruction MUST resolve the exact L0 instance and its L6 dis
 why = "An imprecise reset deletes the wrong instance or protected data with no proof of what happened."
 right = "Reset only the exact deployment: resolve its results, apply holds and retention, require confirmation, delete via native owners, keep receipts."
 question = "How does a reset prove which instance it acts on, and which native owner performs each deletion?"
+severity = "S1"
 applies = ["database"]
 cites = []
 
@@ -1727,6 +1939,7 @@ text = "Recovery after a crash, SIGKILL, timeout or host reboot MUST reread the 
 why = "Assuming failure causes duplicate or destructive recovery, and needing manual cleanup makes crashes costly."
 right = "After a crash or reboot reread the owner's native state and lease generation first; never assume the effect failed; restart without manual cleanup."
 question = "After a kill at each step, what is reread before the next action?"
+severity = "S2"
 applies = ["database"]
 cites = ["Twelve-Factor:IX Disposability"]
 
@@ -1735,6 +1948,7 @@ text = "A durable authority that exists but does not match its expected generati
 why = "Silently re-initialising or adopting a mismatched store overwrites or mixes data from another generation."
 right = "If a durable store exists but mismatches the expected generation or format, mark it conflicted, stop and alert; never init empty or adopt silently."
 question = "What happens when a store exists but does not match what the consumer expects?"
+severity = "S1"
 applies = ["database"]
 cites = []
 
@@ -1743,6 +1957,7 @@ text = "When a parent is removed or replaced: child admission closes, the exact 
 why = "Children left running against a replaced parent hold stale state or fail unnoticed."
 right = "On parent removal close child admission, drain, migrate, rebuild or mark children conflicted, and re-drive dependents by the parent's event."
 question = "For each parent that can be replaced, which event re-drives its children?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1751,6 +1966,7 @@ text = "A schema or plugin migration MUST follow a backup, use the owner's nativ
 why = "Migrating without backup or proof cannot be undone and turns format changes into outages."
 right = "Back up first, migrate with the owner's native tool, reread, keep rollback evidence; run incompatible changes as a new generation beside the old."
 question = "Does each upgrade name its backup, native migration and rollback?"
+severity = "S2"
 applies = ["database"]
 cites = ["Fowler:BlueGreenDeployment"]
 
@@ -1759,6 +1975,7 @@ text = "Compatibility is exact by default. A version range or a mixed-version ed
 why = "Untested version ranges hide incompatibilities that surface only in production upgrades."
 right = "Pin exact versions; allow a range or mixed-version edge only after a gate for compatibility, rollback and failure injection covers that range."
 question = "Does the design assume two versions work together without a gate that proved it?"
+severity = "S2"
 applies = ["dependency-change"]
 cites = []
 
@@ -1767,6 +1984,7 @@ text = "Each fact MUST have exactly one semantic owner that holds it. A message,
 why = "Two sources of truth diverge and nobody knows which to believe."
 right = "Give each fact one owner that holds it; treat messages, caches, manifests and our records as derived and rebuildable, never as the truth."
 question = "For each fact the design introduces or moves, who is its one owner, and is a second copy ever read as truth?"
+severity = "S2"
 applies = ["always"]
 cites = []
 
@@ -1775,6 +1993,7 @@ text = "A missing parent is a state and a dependency failure is a failure class.
 why = "Disguising an outage as a business answer makes users act on false results."
 right = "Report a missing parent or failed dependency as its own state and failure class; never present it as 'no data', zero differences or a refusal."
 question = "Can an absent or failing dependency surface as an empty or business answer?"
+severity = "S2"
 applies = ["network-client"]
 cites = []
 
@@ -1783,6 +2002,7 @@ text = "A lifecycle, backup or migration operation that is not an HTTP request c
 why = "Without a stable root, retries look like new work and failure history gets overwritten."
 right = "Create one correlation root at entry of any non-HTTP lifecycle operation; keep it and the idempotency key on retries; add recovery as a successor."
 question = "Does each run have one root id from entry, kept across retries, with failures preserved?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -1791,6 +2011,7 @@ text = "An operations view and a release verdict read the reconciler's status an
 why = "A copied catalog can match itself while the real system is broken."
 right = "Build operations views and release verdicts from the reconciler's and owners' live native status, never from a copied lifecycle catalog or receipt."
 question = "Does any status surface or verdict read a copy instead of the owner's status?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1799,6 +2020,7 @@ text = "One-time commissioning (the first administrator) prepares the account, i
 why = "Leftover bootstrap access is a standing back door, and replayed setup wipes real people and revocations."
 right = "Commission the first admin by native enrollment, retire temporary access only after an independent recovery path exists; restarts never replay setup."
 question = "Is temporary authority retired before a recovery path exists, does an install block on a person, or does a restart re-run setup?"
+severity = "S2"
 applies = ["auth"]
 cites = []
 
@@ -1807,6 +2029,7 @@ text = "The ingress creates one untrusted W3C trace root per public request; it 
 why = "Without one trace root across owners a request cannot be followed, and payloads in events leak data."
 right = "Make ingress create one untrusted W3C trace root per request, let each owner add a child id, record it in commits, and send only references in events."
 question = "Is the correlation root replaced mid-operation, or recorded outside the owner's commit?"
+severity = "S3"
 applies = ["http-server"]
 cites = ["W3C-Trace-Context:Traceparent Header"]
 
@@ -1815,6 +2038,7 @@ text = "A node's binding digest covers its parent bindings and its contract, con
 why = "A missed input leaves a node falsely clean, and rewriting past decisions destroys the audit trail."
 right = "Compute each node's digest over its parents, contract, config, schema, image, format, policy and layout revisions; any change dirties it."
 question = "Which input of a node can change without dirtying it?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1823,6 +2047,7 @@ text = "Each persistent service has a versioned state capsule naming owner and c
 why = "Starting a service against mismatched state corrupts data or loses track of whose it is."
 right = "Give each persistent service a versioned state capsule (owner, format, image digest, path, backup, parent generation) and refuse start on a bad one."
 question = "What does a consumer do at start with a stale or missing capsule?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1831,6 +2056,7 @@ text = "Proof that an effect happened, or that something exists, is the owner's 
 why = "Our own flags lie after crashes, and re-runs without natural keys duplicate effects."
 right = "Prove an effect by reading back the owner's record or receipt, never our marker or flag; make re-runs a no-op on the owner's natural key."
 question = "Does anything treat a file or flag of ours as completion?"
+severity = "S2"
 applies = ["messaging"]
 cites = []
 
@@ -1839,6 +2065,7 @@ text = "A value one host publishes for another flows in one declared direction, 
 why = "Reading values before they exist or from a vanishing store gives stale or missing inputs."
 right = "Publish cross-host values one way through a store that outlives the consumer, read with its own identity and only after the producing step."
 question = "Does any value travel against the declared direction, or get read before it is produced?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -1847,6 +2074,7 @@ text = "Every lineage chain a design touches (who decided, what effect, which da
 why = "Inferred or null links make audits guesswork and hide who or what caused an effect."
 right = "End every lineage chain in native immutable ids or a closed not-applicable reason; never infer links or leave them null."
 question = "For each chain the design touches, where does it end, and is any edge inferred or missing?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["W3C-PROV:Entities and Activities", "W3C-PROV:Agents, Responsibility, and Influence", "NIST-SP-800-53:SR-4"]
 
@@ -1855,6 +2083,7 @@ text = "A correlation or lineage index stores ids and relations only (no payload
 why = "Indexes holding payloads leak secrets, and invented edges give false causality."
 right = "Keep correlation and lineage indexes to ids and relations only: no payloads, secrets or signed URLs, and no edges no owner recorded."
 question = "What does the index store, and can it create an edge no owner recorded?"
+severity = "S2"
 applies = ["database"]
 cites = ["W3C-PROV:Entities and Activities"]
 
@@ -1863,6 +2092,7 @@ text = "Each stored source declares a state class (authority, projection or ephe
 why = "Mixing classes puts rebuildable data on authoritative storage or truth on throwaway storage."
 right = "Declare each stored source's state class and storage class and allow only authority-authority, projection-projection and ephemeral-ephemeral pairings."
 question = "Does each stored source carry a permitted class pair?"
+severity = "S3"
 applies = ["database"]
 cites = []
 
@@ -1871,6 +2101,7 @@ text = "Every termination effect (delete, revoke, disable, prune, offboarding, c
 why = "Ending access or deleting without a declared bound leaves late or unguarded execution that costs money or destroys data."
 right = "Declare for every termination effect its tier (T0, T1, T2), its bound (at the action, or a number plus spend cap) and the native mechanism meeting it."
 question = "For each thing the design ends, removes or destroys: which termination tier, which number, which native mechanism?"
+severity = "S3"
 applies = ["auth"]
 cites = []
 
@@ -1879,6 +2110,7 @@ text = "A T0 effect (it destroys or exports data, or commits money, a credit or 
 why = "Authorizing from a cache or earlier read lets destruction or money movement run on stale permission."
 right = "Check a T0 effect at the moment of acting from the owner's current state, after all reversible steps; if impossible, record a measured gap."
 question = "Which read guards each irreversible effect, how old can that read be when the effect runs, and can a later step still refuse after it?"
+severity = "S2"
 applies = ["database", "money"]
 cites = []
 
@@ -1887,6 +2119,7 @@ text = "A T1 or T2 bound is met by a native mechanism of the owner or enforcer, 
 why = "Our own sweeps cost per request, drift and miss cases the owner's native end handles by construction."
 right = "Meet T1 and T2 bounds with the owner's native expiry, push, refusal, revoke or one parent stop; never our own timer, poll or sweep."
 question = "Which native mechanism ends each T1 and T2 operation, does any step enumerate an owner's children, what is its worst-case delay against the bound, and what measures and alerts on a late end?"
+severity = "S2"
 applies = ["auth"]
 cites = []
 
@@ -1895,6 +2128,7 @@ text = "Ending a membership, affiliation, seat, grant or tenant ends access only
 why = "A side-effect deletion destroys a person's identity and records when only their access should end."
 right = "Ending a membership, seat or grant removes access only; never delete the person's account, links or history except on their own erasure request."
 question = "When a member leaves or a tenant ends: what exactly is removed, does the person's account with its links and history survive, and which policy line permits each data deletion; is a removal of the person only their own erasure request (DS-15)?"
+severity = "S1"
 applies = ["auth"]
 cites = []
 
@@ -1903,6 +2137,7 @@ text = "Code at a life site (an acquisition with its parents or dependency edges
 why = "Without the marker at the code, reviewers cannot see which lifecycle and termination rules a site must obey."
 right = "Comment every life site with its level and every death site with its tier, bound, mechanism and what it keeps, in the same change that touches it."
 question = "Does each changed acquisition name its level and each changed termination its tier, mechanism and what is kept, at the site?"
+severity = "S3"
 applies = ["database"]
 cites = []
 
@@ -1911,6 +2146,7 @@ text = "No data-bearing object (volume, database, bucket, stream, storage pool, 
 why = "Deletion without a restorable copy turns a mistake or runaway job into permanent loss."
 right = "Delete no data-bearing object unless a newer native backup with a passed restore exists, or the project owner recorded that it is not retained."
 question = "For each deletion in the design: which backup or which decision authorizes it?"
+severity = "S1"
 applies = ["database"]
 cites = ["NIST-SP-800-53:CP-9", "NIST-SP-800-53:SI-12"]
 
@@ -1919,6 +2155,7 @@ text = "Authorities of one capsule (an application's files and its database) mov
 why = "Half a capsule leaves orphaned or dangling data that cannot be restored consistently."
 right = "Move an application's files and its database together, child first; never delete one of the pair alone."
 question = "Does any step remove part of a paired authority?"
+severity = "S1"
 applies = ["database"]
 cites = []
 
@@ -1927,6 +2164,7 @@ text = "Each L2 authority has a scheduled native backup whose interval meets its
 why = "A backup never restored is an unproven hope, and a silently stopped backup goes unnoticed."
 right = "Back up each authority natively at its tier's interval, alert when the newest backup exceeds the RPO, and drill restores into an isolated target."
 question = "For each new or changed authority: its backup, its staleness alert, its restore drill?"
+severity = "S2"
 applies = ["database"]
 cites = ["NIST-SP-800-53:CP-9"]
 
@@ -1935,6 +2173,7 @@ text = "Deletion walks the reverse reference graph. A record is eligible only wh
 why = "Deleting a record still needed by others or under hold breaks lineage and destroys evidence."
 right = "Delete only after walking the reverse references and checking owner permission, holds, retention and fingerprint; leave an immutable tombstone."
 question = "What is checked immediately before each delete, and what remains after?"
+severity = "S1"
 applies = ["database"]
 cites = ["NIST-SP-800-53:SI-12"]
 
@@ -1943,6 +2182,7 @@ text = "A rebuildable projection (cache, baseline, telemetry store, runner cache
 why = "A projection treated as truth cannot be rebuilt and misleads decisions."
 right = "Declare for each rebuildable projection its source, replay horizon, rebuild path and retention; never let it authorize a deployment."
 question = "Does any cache or baseline decide whether something deploys?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1951,6 +2191,7 @@ text = "A missing owner guarantee is never repaired with custom service code, DT
 why = "Custom repairs duplicate the owner's job and lock the design to one platform."
 right = "When an owner lacks a guarantee, mark it unavailable and fix the architecture; never patch with custom services, triggers or cloud-only storage."
 question = "Where the owner lacks a guarantee, does the design add glue or name the boundary?"
+severity = "S2"
 applies = ["dependency-change"]
 cites = []
 
@@ -1959,6 +2200,7 @@ text = "A seed, migrate, clean or reset (a command or a scheduled job) is explic
 why = "Unscoped or repeated mutations hit the wrong installation or double-apply."
 right = "Make seed, migrate, clean and reset explicit, idempotent and scoped to one installation, print the target first, and confirm durable resets."
 question = "Which seed, migrate, clean or reset acts without printing its target, which clean can delete something that is not generated, run-scoped state, or which durable reset acts without confirmation? Name it and what it deletes."
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1967,6 +2209,7 @@ text = "Every destructive automation (each job, controller or command that can d
 why = "An unbounded delete job can erase everything before anyone reacts."
 right = "Limit or require confirmation for every destructive automation, each with its named limit, so a person can step in before total loss."
 question = "List every automation that can delete data-bearing objects, with its limit or confirmation: which one has none?"
+severity = "S1"
 applies = ["database"]
 cites = ["Release-It:Governor"]
 
@@ -1975,6 +2218,7 @@ text = "Only a fresh install and a restore from backup are supported recoveries;
 why = "Ad hoc recovery paths are untested and hide data loss behind guesses."
 right = "Support only fresh install and restore from backup; after a restore re-drive reconciliations by event or audited operator action; add no sweep job."
 question = "After a restore, what brings dependents back in line, and does the design add a sweep for lost data?"
+severity = "S2"
 applies = ["database"]
 cites = ["NIST-SP-800-53:CP-10"]
 
@@ -1983,6 +2227,7 @@ text = "A failed step leaves durable authorities intact and recovery rolls forwa
 why = "Compensating by deletion turns a transient failure into data loss."
 right = "On a failed step keep durable data intact and roll forward with the next run; never undo by deleting."
 question = "Does any failure path delete data to get clean?"
+severity = "S1"
 applies = ["database"]
 cites = []
 
@@ -1991,6 +2236,7 @@ text = "A test never writes state its owner produces, nor asserts a value copied
 why = "Tests that fake owner state or copy its answers pass while the real system is broken."
 right = "Never write state the owner produces in a test, and never assert a value copied from the owner that derives it."
 question = "Does any test create or hard-code an owner's state?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -1999,6 +2245,7 @@ text = "Each capsule declares its recovery tier. Each tier states a maximum RPO 
 why = "Without stated targets nobody knows how much data or time a failure may cost."
 right = "Give each capsule a recovery tier with stated RPO and RTO, and meet them with backup and restore; never silently weaken a tier."
 question = "Which tier is each new store, and do its backup interval, offsite copy and restore time meet the tier's stated RPO and RTO?"
+severity = "S2"
 applies = ["database"]
 cites = ["NIST-SP-800-53:CP-9", "NIST-SP-800-53:CP-10"]
 
@@ -2007,6 +2254,7 @@ text = "Deletion is never inferred from a cancellation. A destructive mutation p
 why = "Cancelling a service must not destroy the customer's data or remove the way back."
 right = "Never infer deletion from a cancellation; preview a destructive change's impact and preserve rollback, export and retention evidence."
 question = "Can a cancelled order, subscription or run delete data?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -2015,6 +2263,7 @@ text = "Receipts and fingerprints are never fabricated: each is read from the ow
 why = "A made-up receipt looks like proof while proving nothing."
 right = "Read every receipt and fingerprint from its owner; never fabricate one."
 question = "Is any receipt, digest or fingerprint written by us instead of read from the owner?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -2023,6 +2272,7 @@ text = "An erasure states each copy's fate: the owner's delete confirmed by even
 why = "Erasure that forgets copies leaves personal data behind unprovably."
 right = "For an erasure state each copy's fate: owner delete confirmed by event, projections rebuilt, backups expiring, one receipt per owner."
 question = "For each copy of the erased data (owner, projection, telemetry, backup): what removes it, by when?"
+severity = "S2"
 applies = ["database"]
 cites = ["GDPR:Art. 17 Right to erasure", "NIST-SP-800-53:SI-12"]
 
@@ -2031,6 +2281,7 @@ text = "Retirement is a state of the record, in two steps: first drain (children
 why = "Premature destruction loses data, and reused names point old references at new things."
 right = "Retire a record in two steps: drain children, then destroy compute only; protect data, network and keys until approved; never reuse its identifier."
 question = "What does each retirement step destroy, and what stops it destroying more?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:SI-12", "NIST-SP-800-53:MP-6"]
 
@@ -2039,6 +2290,7 @@ text = "A store that holds queued work or any fact someone else must rely on per
 why = "Memory-backed queues lose accepted work on restart."
 right = "Persist queued work and facts others rely on to durable storage with a stated sync interval and snapshot; memory-only is for pure caches."
 question = "Can a restart drop queued work or a data object?"
+severity = "S2"
 applies = ["database"]
 cites = ["NIST-SP-800-53:CP-9"]
 
@@ -2047,6 +2299,7 @@ text = "No tool, plan or test hardcodes one setup's host, user, path, IP, projec
 why = "A literal host or path works on one machine and silently breaks or leaks on every other setup."
 right = "Read every per-setup value (host, user, path, port, domain) from the installation record; never type one in a tool, plan or test."
 question = "Which literal in the artifact would be wrong on another host, project, user or domain?"
+severity = "S2"
 applies = ["always"]
 cites = ["Twelve-Factor:III Config", "Twelve-Factor:X Dev/prod parity"]
 
@@ -2055,6 +2308,7 @@ text = "Every reader takes the record at the revision it renders; no render read
 why = "A render that reads live state gives different output each time and cannot be reproduced or reviewed."
 right = "Render only from the committed record at a fixed revision; never read a live system while rendering."
 question = "Does any render depend on live state?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2063,6 +2317,7 @@ text = "A class difference (development, verification, production) is a declared
 why = "Code forks mean production runs paths that were never tested, and dev shortcuts can leak into production."
 right = "Express differences between development, verification and production as record values or provider bindings; never fork code per class."
 question = "How does behaviour differ per class, and where is each difference declared?"
+severity = "S2"
 applies = ["config"]
 cites = ["Twelve-Factor:X Dev/prod parity"]
 
@@ -2071,6 +2326,7 @@ text = "Every class is installed by the same path, from code, on an empty machin
 why = "Copied state hides undeclared dependencies, so a rebuild after loss fails or differs."
 right = "Install every class by the same path from code on an empty machine; copy nothing from another installation."
 question = "Does any step work only because of state an older installation already has?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Twelve-Factor:X Dev/prod parity"]
 
@@ -2079,6 +2335,7 @@ text = "Zero remembrance: beyond the start command, nobody memorizes an endpoint
 why = "Knowledge held in people's heads is lost, mistyped and drifts from the real system."
 right = "Have startup print every endpoint, path and setup value from the typed authority so nobody has to remember anything beyond the start command."
 question = "What must a person know or type that is not derived?"
+severity = "S3"
 applies = ["config"]
 cites = []
 
@@ -2087,6 +2344,7 @@ text = "A fresh checkout works without a root `.env`. A missing external credent
 why = "Placeholder secrets and invented numbers reach production unnoticed when they are scattered or silently accepted."
 right = "Make a fresh checkout run without a root env file, fail clearly on a missing credential, and keep unmeasured numbers in one dev-only placeholder list."
 question = "What happens on a new machine with no local files?"
+severity = "S3"
 applies = ["config"]
 cites = []
 
@@ -2095,6 +2353,7 @@ text = "Each tool has one authored configuration source; a generated artifact is
 why = "Two editable copies drift apart and the next regeneration erases manual fixes."
 right = "Author each tool's configuration in one source and generate every other file from it, marked as generated; never hand-edit a generated file."
 question = "Is any setting authored in two files?"
+severity = "S2"
 applies = ["config"]
 cites = []
 
@@ -2103,6 +2362,7 @@ text = "Ports and hosts are named registry entries; no numeric port or raw host 
 why = "Scattered literals collide, go stale and make the real topology unknowable."
 right = "Name every port and host once in the registry and reference it; add no server, VM or port without a registry entry."
 question = "Which ports or addresses appear as literals?"
+severity = "S2"
 applies = ["config", "deploy"]
 cites = []
 
@@ -2111,6 +2371,7 @@ text = "An effect's memo covers its target's identity (instance id, registry end
 why = "Without it, a rebuilt machine is wrongly treated as already configured and stays empty."
 right = "Include the target's identity (instance id, endpoint, key fingerprint) in an effect's memo so a replaced target re-runs it."
 question = "After the target is replaced, what makes each effect run again?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2119,6 +2380,7 @@ text = "An immutable object's name covers every value substituted into it after 
 why = "Two different contents under one immutable name make a change invisible or collide."
 right = "Derive an immutable object's name from every value substituted into it after rendering."
 question = "Can a substituted value change under an unchanged name?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2127,6 +2389,7 @@ text = "One term per concept from the project's glossary, with units in names; e
 why = "Synonyms and unitless values cause misreadings and breaking changes to consumers."
 right = "Use the glossary's one term per concept, put units in names, and name events in the past tense with a version."
 question = "Does the artifact use two words for one thing, or a new word for an existing one?"
+severity = "S3"
 applies = ["messaging"]
 cites = ["DDD:Ubiquitous Language"]
 
@@ -2135,6 +2398,7 @@ text = "No invented concept: no stage, environment, tier, account, term or paral
 why = "Invented concepts create parallel paths that nobody owns and that drift from the real design."
 right = "Add only the stages, environments, tiers, accounts and terms the owner asked for; use existing installations and adopted owners."
 question = "Which concept in the artifact has no approved source?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2143,6 +2407,7 @@ text = "Times are UTC RFC 3339. Money and quotas are exact in the owner's unit a
 why = "Local times and repeated rounding cause off-by-hours errors and cents that do not add up."
 right = "Store times as UTC RFC 3339; keep money and quotas exact in the owner's unit, with one rounding authority per value."
 question = "Is any time local or any amount rounded by us?"
+severity = "S2"
 applies = ["time", "money"]
 cites = ["RFC-3339:5.6 Internet Date/Time Format"]
 
@@ -2151,6 +2416,7 @@ text = "A setup the design cannot serve is a named boundary, never silently assu
 why = "Silent assumptions turn into hidden gaps that surface as production failures."
 right = "Name every setup the design cannot serve as a boundary recorded with the owner's approval; never invent one or assume it away."
 question = "Which setups does the design not support, and where is each named?"
+severity = "S3"
 applies = ["config"]
 cites = []
 
@@ -2159,6 +2425,7 @@ text = "No vendor name appears in the model; a registry, provider or cloud is a 
 why = "Vendor names in the model lock the design to one supplier and block replacement."
 right = "Keep vendor names out of the model; express registry, provider and cloud as bindings."
 question = "Would another provider need a code change or only a binding?"
+severity = "S3"
 applies = ["config"]
 cites = ["Hexagonal:Ports and Adapters"]
 
@@ -2167,6 +2434,7 @@ text = "A concurrent edit of one owner record is refused by the owner's conditio
 why = "Last-writer-wins silently destroys concurrent edits."
 right = "Write an owner record with a revision check and refuse a stale write; let automation and operators each write only their own fields."
 question = "What happens when two edits of one record race?"
+severity = "S2"
 applies = ["database"]
 cites = ["RFC-9110:13.1.1 If-Match"]
 
@@ -2175,6 +2443,7 @@ text = "A DNS record is a declared resource applied by its release, and its reco
 why = "Hand-made DNS entries drift and nobody notices a record that no longer matches reality."
 right = "Declare each DNS record as a resource applied by its release, and reconcile by comparing the record with its actual effect."
 question = "Who writes each DNS record, and what detects that the live record differs?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2183,6 +2452,7 @@ text = "Every installation's values live in one versioned record under one schem
 why = "Several sources of values disagree, and prompts make setups unrepeatable."
 right = "Keep all of an installation's values in one versioned record under one schema; reject a missing value with its path and type; no prompts."
 question = "Where is each installation value recorded, and what fails when one is missing?"
+severity = "S2"
 applies = ["config"]
 cites = ["Twelve-Factor:III Config"]
 
@@ -2191,14 +2461,25 @@ text = "The record check and the render hold no credential and read no live stat
 why = "A render that holds secrets or reads live state can leak them and cannot be checked ahead of time."
 right = "Render as a pure function of the committed record with no credentials, and refuse an invalid or over-entitled record before any effect."
 question = "Which read-only step holds a credential or reads live state?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
+
+[house.CF-20]
+text = "A business value (a limit, count, threshold, window, rate, default choice, currency or time zone) is read at run time from the policy or configuration record that owns it, with its unit. Code holds no literal for it, no fallback default and no default in an environment lookup; a missing value fails with its key and source."
+why = "A literal business value hides a product decision in code: changing it takes a release, call sites drift apart, and a silent fallback runs with a value nobody chose."
+right = "Read each business value (limit, count, window, rate, default) from its owning policy or configuration record at run time; never a literal or fallback in code."
+question = "Which limit, count, threshold, window, rate or default does the change write as a literal, a fallback or an environment default instead of reading it from its owning record?"
+severity = "S2"
+applies = ["http-server", "config", "money", "time", "database", "messaging"]
+cites = ["Pragmatic-Programmer:Parameterize Your App Using External Configuration"]
 
 [house.NO-01]
 text = "The owner's native file, client or API is used directly; nothing wraps it. A binding is verified by a real development call and the owner's response or read-back. A declarative import or migration is followed by a read-back of what it should have created; an item the tool skips without error counts as a failure, and the tool's output is logged, never discarded."
 why = "Wrappers and unverified imports hide silent skips and let broken setups look successful."
 right = "Call the owner's native file, client or API directly, verify with a real call or read-back, treat skipped items as failures and log tool output."
 question = "Is there a layer between the design and the owner's own file, client or API?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2207,6 +2488,7 @@ text = "A repository type, field, block, catalog, check or gate exists only for 
 why = "Extra layers duplicate the owner, drift from it and add code to maintain for no protection."
 right = "Keep a type, field, check or gate only if a native call consumes it or it catches what nothing else does; delete wrappers and duplicate validators."
 question = "For each new piece of machinery: which native call consumes it, or which uncaught failure does it catch?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = ["Fowler:Yagni"]
 
@@ -2215,6 +2497,7 @@ text = "Engine configuration is the engine's native file, validated by the engin
 why = "A second language re-encoding the config drifts from the engine and gets validated wrongly."
 right = "Keep engine configuration in the engine's native file validated by the engine; render only installation-specific values into it."
 question = "Is any native configuration expressed through a second language?"
+severity = "S3"
 applies = ["config"]
 cites = []
 
@@ -2223,6 +2506,7 @@ text = "An owner-client call passes only arguments documented at the pinned vers
 why = "Undocumented arguments break or change behaviour silently on the next upgrade."
 right = "Pass an owner client only arguments documented at its pinned version."
 question = "Is each flag and argument in the owner's documentation at the pinned version?"
+severity = "S2"
 applies = ["dependency-change"]
 cites = []
 
@@ -2231,6 +2515,7 @@ text = "Before code is written for a capability, an OSS tool that provides it is
 why = "Rebuilding what an owner already does costs maintenance and is worse than the tested original."
 right = "Before writing code, search for, vet and adopt an OSS tool; exhaust native config and SQL first; write only integration code outside recorded gaps."
 question = "Which OSS owner was checked for each capability the design builds?"
+severity = "S3"
 applies = ["always"]
 cites = ["NIST-SSDF:PW.4"]
 
@@ -2239,6 +2524,7 @@ text = "Work inside an adopted owner takes the lowest rung that does it: 0 delet
 why = "Higher rungs add custom code to maintain where the owner already provides the behaviour."
 right = "Take the lowest rung: delete, declarative artifact, the owner's CLI on a file, one API call; never our code in an extension point or sequencer."
 question = "Which rung is each change, and is a lower one possible?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2247,6 +2533,7 @@ text = "A native behaviour the design relies on is proven from the owner's pinne
 why = "Docs can be wrong or stale, and designs built on unverified behaviour fail on contact."
 right = "Prove each native behaviour relied on from the owner's pinned source at path and line, once per fact and tag; documentation alone is unknown."
 question = "Which pinned source location proves each claimed native behaviour?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2255,6 +2542,7 @@ text = "An inline program (`sh -c`, `python -c`, `node -e`, a heredoc) is not a 
 why = "Inline snippets are untestable, unreviewed and hide logic in quoting."
 right = "Never add an inline program (sh -c, python -c, node -e, heredoc) as a step; use a named file or owner tool."
 question = "Does the design add inline shell or script anywhere?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2263,6 +2551,7 @@ text = "For a capability an adopted owner or OSS tool provides, the repository a
 why = "Custom glue over a native capability duplicates it badly and masks a missing guarantee."
 right = "Add no custom service, daemon, hook, trigger, retry loop or glue for what an owner provides; if a guarantee is missing, rework the architecture."
 question = "What new program or daemon does the design introduce?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2271,6 +2560,7 @@ text = "A toolchain (version control, task runner, build tools) follows conventi
 why = "Repository tooling that becomes a second control plane competes with the real owners."
 right = "Treat toolchains conventionally, never as owners; repository tooling keeps no orchestration state and decides nothing the owners decide."
 question = "Does the tooling keep state, sequence owners or decide what the owners decide?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2279,6 +2569,7 @@ text = "A block that replaces an older path deletes the replaced wiring in the s
 why = "Two live paths diverge and nobody knows which one is in force."
 right = "Delete the replaced wiring in the same change as the new path, after equivalent real-flow qualification; never keep competing implementations."
 question = "What does the design delete, and do old and new run side by side?"
+severity = "S2"
 applies = ["dependency-change"]
 cites = ["Fowler:StranglerFigApplication"]
 
@@ -2287,6 +2578,7 @@ text = "A defect fix removes the cause in the named design element (contract, sc
 why = "A patch where the symptom showed leaves the cause in force, so the same defect returns through every other user of that element; fixing the element that allowed it fixes all of them at once."
 right = "Trace the defect to the contract, schema, data model or owner that let it happen, change it there, and name that element in the fix's commit and result."
 question = "Which design element allowed this defect, and does the diff change that element rather than add a case, a retry or a looser check where the symptom showed?"
+severity = "S2"
 applies = ["defect"]
 cites = ["SRE:ch15 Postmortem Culture: Learning from Failure"]
 
@@ -2295,6 +2587,7 @@ text = "The design starts from an inventory of what already exists (path and gua
 why = "Designing without the inventory duplicates existing things and leaves old ones behind."
 right = "Start design from an inventory of what exists; mark each proposal KEEP, MOVE to the native owner, or NEW only for a verified gap."
 question = "What existing implementation covers each proposed item?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = ["NIST-SSDF:PW.4"]
 
@@ -2303,6 +2596,7 @@ text = "A mechanism the design makes obsolete or finds unused is deleted by it, 
 why = "Dead mechanisms confuse readers and quietly get used again."
 right = "Delete any mechanism the design makes obsolete or finds unused, checked from references and callers; never keep it beside the new one."
 question = "What is on the delete list, and is anything dead left in place?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2311,6 +2605,7 @@ text = "No over-engineering: the least complex profile that meets the stated los
 why = "Unneeded machinery adds failure modes and cost with no measured benefit."
 right = "Choose the least complex profile meeting the stated loss, freshness, recovery and retention budgets; no queue, saga or breaker without a requirement."
 question = "Which stated requirement needs each mechanism?"
+severity = "S3"
 applies = ["always"]
 cites = ["Fowler:Yagni"]
 
@@ -2319,6 +2614,7 @@ text = "SQL against an owner's database is a named program of that database (a r
 why = "Ad hoc SQL from outside bypasses the owner's schema contract and breaks on its changes."
 right = "Run SQL against an owner's database only as a named program (report or view) of that database, executed by the owner's engine."
 question = "Does any SQL run from our scripts instead of the owner's engine?"
+severity = "S2"
 applies = ["database"]
 cites = []
 
@@ -2327,6 +2623,7 @@ text = "Authority order: approved specifications, decisions and instructions out
 why = "If producers and verifiers disagree, the tests either pass wrong output or block right output."
 right = "Follow authority order: approved specs outrank verifiers, verifiers outrank producers; producers call the verifier's own code."
 question = "Do a generator and its checker share one implementation of the rule?"
+severity = "S2"
 applies = ["config"]
 cites = []
 
@@ -2335,6 +2632,7 @@ text = "Owner configuration is the owner's native record, applied by the owner's
 why = "Duplicate validation drifts from the owner's real rules and adds code with no extra protection."
 right = "Keep owner configuration as the owner's native record, applied and validated by the owner; our admission never repeats the owner's validation."
 question = "Who validates each configuration, and is it validated twice?"
+severity = "S3"
 applies = ["config"]
 cites = []
 
@@ -2343,6 +2641,7 @@ text = "A new shared block names the cross-owner guarantee it adds and the pinne
 why = "Shared blocks have wide blast radius, so unclear or oversized ones spread defects everywhere."
 right = "For a new shared block, name its cross-owner guarantee and pinned pattern, keep it small enough to read in full, and review it before writing."
 question = "Is each new block's guarantee, pattern and review named?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2351,6 +2650,7 @@ text = "No fact, graph, list or order is declared in two places."
 why = "Two declarations drift apart and the system then contradicts itself."
 right = "Declare each fact, graph, list or order in exactly one place."
 question = "What is written twice, and which copy would be believed?"
+severity = "S2"
 applies = ["always"]
 cites = ["Pragmatic-Programmer:DRY"]
 
@@ -2359,6 +2659,7 @@ text = "Each tool does one job, takes its inputs by file, standard input or API 
 why = "Monolithic or silent tools hide failures and cannot be composed or trusted in pipelines."
 right = "Make each tool do one job, take input by file, stdin or API, give deterministic output and exit nonzero on any failure."
 question = "Is each tool one job with a defined exit code?"
+severity = "S3"
 applies = ["deploy"]
 cites = ["Unix-Philosophy:Do one thing well"]
 
@@ -2367,6 +2668,7 @@ text = "Responsibility is never relocated between owners and a replaced design i
 why = "Quiet reversals reintroduce settled problems and leave specs contradicting the system."
 right = "Never move responsibility between owners or revive a replaced design; change an approved decision only with owner authorization, updating it first."
 question = "Does the design move a duty or bring back a retired mechanism?"
+severity = "S2"
 applies = ["always"]
 cites = []
 
@@ -2375,6 +2677,7 @@ text = "A UI edit passes the same admission path as a file edit. Hand-edited gen
 why = "A side door for edits bypasses review and gates, and generated output edited by hand is lost on regeneration."
 right = "Send UI edits through the same admission path as file edits; reject hand-edited generated output and baselines edited to silence a gate."
 question = "Can an admin UI change bypass the check a file change gets?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2383,6 +2686,7 @@ text = "A template or binding change names its affected instances, compatibility
 why = "Shared template changes silently break instances that were never considered."
 right = "With every template or binding change, name affected instances, compatibility, real-flow evidence, cutover and rollback."
 question = "Which instances does each template change reach?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2391,6 +2695,7 @@ text = "Every user and consumer of a changed or removed interface is traced and 
 why = "Missed consumers lose behaviour only discovered in production."
 right = "Trace every user and consumer of a changed or removed interface and update them all in the same change."
 question = "Which consumers read what the design changes, and is each updated?"
+severity = "S2"
 applies = ["dependency-change"]
 cites = []
 
@@ -2399,6 +2704,7 @@ text = "Legacy only shrinks: a file inventoried as legacy only loses functionali
 why = "Adding to legacy wrappers prolongs them and compounds defects that keep recurring there."
 right = "Let legacy only shrink: delete it, replace it natively or reduce it; write new duties natively and remove a wrapper when its journey next changes."
 question = "Does the design add to a legacy-listed file? When the design touches a wrapper's journey, does it remove the wrapper?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = ["Fowler:StranglerFigApplication"]
 
@@ -2407,6 +2713,7 @@ text = "The render refuses an artifact in which one object name comes from two s
 why = "These faults pass the owner's own admission and surface only as conflicting or hijacked runtime objects."
 right = "Make the render refuse a name from two sources, an execution escape in a generated instance, or a consumer with no declared producer."
 question = "Would the design's rendered output pass each of the three refusals?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2415,6 +2722,7 @@ text = "A generic capability (one that names no product concept), built because 
 why = "Generic code tangled with product code cannot be reused, tested alone or trusted for its performance."
 right = "Build a generic capability as its own package: documented interface, data configuration, README, standalone tests, benchmark, no product imports."
 question = "For each generic capability, where are its package, its interface (inputs, outputs, errors), its standalone and acceptance tests, its benchmark numbers with runs and host, and its README? Which product module does it import, and which consumer-specific edit configures it instead of data? Name what is missing."
+severity = "S3"
 applies = ["dependency-change"]
 cites = ["SemVer:1 Declared public API", "Clean-Architecture:ch13 Component Cohesion (Reuse/Release Equivalence Principle)", "Clean-Architecture:ch14 Component Coupling (Stable Dependencies Principle)"]
 
@@ -2423,14 +2731,25 @@ text = "Stack-shaping choices (language, framework, database, workflow or messag
 why = "Ad hoc tool or version choices fragment the stack and double the maintenance and failure surface."
 right = "Decide stack tools and major versions once, centrally, in recorded decisions first; later picks follow them and deviation updates the decision."
 question = "Which tool, library, second version or major version does the artifact introduce that the recorded stack does not name? Where is the updated decision with the owner's authorization and the reason the chosen one does not fit? Was each stack choice recorded before the components that depend on it were built? Name it."
+severity = "S3"
 applies = ["dependency-change"]
 cites = ["TOGAF:Principle 20 Control Technical Diversity", "SWE-at-Google:ch16 Version Control and Branch Management (One-Version Rule)"]
+
+[house.NO-30]
+text = "Another unit (package, service or owner) is used only through what it publishes: its exported API, schema, event types or released artifact. No product code, build file or test reads, parses, imports from a private path or copies another unit's source, internal files or private tables."
+why = "A private detail is free to change. A consumer that reads it breaks silently when its owner refactors, and the owner can no longer see who depends on what; a copied file drifts from its original."
+right = "Use another unit only through its published interface (exported API, schema, events, released artifact); never parse, privately import or copy its internals."
+question = "Does any code, build file or test read, parse, import privately or copy another unit's internal source, files or private tables?"
+severity = "S2"
+applies = ["always"]
+cites = ["Parnas-1972:Information hiding", "SemVer:1 Declared public API"]
 
 [house.SC-01]
 text = "A first-party image is built once per input digest, on the one designated build-and-release host (the release node), and that digest is promoted to every installation. A runtime host never builds; no stage or class rebuilds."
 why = "Rebuilding per host or stage yields different bytes under the same name."
 right = "Build each first-party image once per input digest on the release node and promote that digest everywhere; runtime hosts never build."
 question = "Where is each artifact built, and is the same digest promoted everywhere?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Twelve-Factor:V Build, release, run"]
 
@@ -2439,6 +2758,7 @@ text = "Every image, artifact and registry-hosted image volume is referenced by 
 why = "Tags can move, so the running content may differ from what was reviewed."
 right = "Reference every image and artifact by digest taken from the one manifest, enforced by admission; never by tag alone."
 question = "Is any image, chart or volume referenced by a tag or mutable name alone?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["SLSA:Verifying artifacts"]
 
@@ -2447,6 +2767,7 @@ text = "There is one artifact declaration and one list of digests. A first-party
 why = "Copied digests go stale and let unreleased images slip into deployment."
 right = "Keep one artifact declaration and one digest list; write a first-party reference only by manifest lookup, failing the build if absent."
 question = "Where does each digest come from, and is it written twice?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2455,6 +2776,7 @@ text = "Each artifact is signed with the release's key, held in a managed key se
 why = "Unsigned or unlinked artifacts cannot be traced back or trusted."
 right = "Sign each artifact with the release key held in a managed key service, with the signature carrying source commit and build-input digest."
 question = "What is signed, by which key, with which annotations?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["SLSA:Build L2"]
 
@@ -2463,6 +2785,7 @@ text = "Signature verification (against each key in the key set, the digest equa
 why = "Pushing unverified artifacts spreads tampering, and deleting on failure destroys evidence."
 right = "Verify the signature, manifest digest and registry before every push and use; on failure fail the release closed and delete nothing."
 question = "What happens to a release when one signature does not verify?"
+severity = "S1"
 applies = ["deploy"]
 cites = ["SLSA:Verifying artifacts", "NIST-SP-800-53:SI-7"]
 
@@ -2471,6 +2794,7 @@ text = "The canonical registry holds the only authoritative copy of each signed 
 why = "Caches trusted as truth hide tampering, and losing the registry must not lose releases."
 right = "Treat the canonical registry as the only authority, every other copy as rebuildable, and back it up or keep every digest rebuildable and re-signable."
 question = "Does any decision trust a cache or copy as the source?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2479,6 +2803,7 @@ text = "Registry reads and writes are audit-logged, and a denied pull or push ra
 why = "Denials signal misconfiguration or attack and must reach someone."
 right = "Audit-log registry reads and writes and alert, into the incident path, on every denied pull or push."
 question = "What records and reports a denied registry call?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:AU-2", "NIST-SP-800-53:AU-12", "NIST-SP-800-53:SI-4"]
 
@@ -2487,6 +2812,7 @@ text = "OSS versions and digests are pinned exactly; a third-party binary is pin
 why = "Floating versions change behaviour between builds without any code change."
 right = "Pin OSS versions and digests exactly, third-party binaries by version and checksum, and each build-host tool by digest."
 question = "Is anything fetched by a floating version or without a checksum?"
+severity = "S2"
 applies = ["dependency-change", "deploy"]
 cites = []
 embodied_by = "bh vet (deps.dev, Scorecard, OSV)"
@@ -2496,6 +2822,7 @@ text = "A third-party tool, operator, chart, library or image is vetted from its
 why = "Unvetted components import unknown risk and licensing problems."
 right = "Vet every third-party tool or image from its pinned source before adoption and record the result."
 question = "Does the design name a tool with no vetting record?"
+severity = "S2"
 applies = ["dependency-change"]
 cites = ["NIST-SSDF:PW.4"]
 embodied_by = "bh vet (deps.dev, Scorecard, OSV)"
@@ -2505,6 +2832,7 @@ text = "For every deployed digest, its source commit and build inputs are retrie
 why = "Without provenance you cannot tell what code is running or reproduce it."
 right = "Make each deployed digest's source commit and build inputs retrievable from the artifact's own metadata."
 question = "Given a running digest, how is its commit and input set found?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["SLSA:Build L1", "NIST-SP-800-53:SR-4"]
 
@@ -2513,6 +2841,7 @@ text = "Build inputs equal the pinned commit: code is committed before its diges
 why = "Builds from uncommitted inputs cannot be reproduced."
 right = "Commit code before pinning its digest, refuse pinning on a dirty tree, recompute input digests on check, and never release with a stale manifest."
 question = "Can a release ship bytes that differ from its commit?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["SLSA:Build Provenance"]
 
@@ -2521,6 +2850,7 @@ text = "The admission control stays available and cannot lock out its own repair
 why = "A single or self-governing gatekeeper can lock the cluster out of recovery."
 right = "Run admission control redundantly (at least two instances) and exempt system scopes so it cannot block its own repair."
 question = "Can an outage of the admission control block the controllers that restore it, or all first-party workloads?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2529,6 +2859,7 @@ text = "The image path has no script or route of ours that copies, retries or ve
 why = "Custom byte handling bypasses the checks those tools provide."
 right = "Move image bytes only with build, registry, signing and runtime tools; write no script or route that copies, retries or verifies them."
 question = "Does any script of ours handle image bytes?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2537,6 +2868,7 @@ text = "Admission refuses, failing closed, a first-party artifact without a vali
 why = "Without the policy in force first, unsigned images can start."
 right = "Refuse, failing closed, any first-party artifact without a valid signature; admit no workload before the policy exists; alert on every rejection."
 question = "Can a first-party workload start before, or without, the signature check?"
+severity = "S1"
 applies = ["deploy"]
 cites = ["SLSA:Verifying artifacts", "NIST-SP-800-53:SI-7"]
 
@@ -2545,6 +2877,7 @@ text = "Every artifact digest an installation references, and every digest insid
 why = "Pruning a needed digest makes rollback and restarts impossible."
 right = "Retain every digest an installation uses or that is in the rollback horizon with the registry's own keep policy; run no prune of ours."
 question = "Can a digest still referenced, or needed for a rollback inside the horizon, be removed?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:CM-2(3)"]
 
@@ -2553,6 +2886,7 @@ text = "A design claims a build-provenance level, an SBOM, a vulnerability decis
 why = "Overclaimed assurance misleads reviewers, and one identity doing both defeats the check."
 right = "Claim a provenance level, SBOM, vulnerability decision or build isolation only if it exists, else name the boundary; sign and verify separately."
 question = "Does the design claim provenance, SBOM, scanning or build isolation that does not exist?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["SLSA:Levels", "NIST-SP-800-53:SR-4", "NIST-SP-800-53:SI-7"]
 
@@ -2561,6 +2895,7 @@ text = "A build-cache or lookup entry is written only after the artifact is push
 why = "An interrupted build must not leave a cache entry pointing at nothing or unsigned content."
 right = "Write a build-cache entry only after the artifact is pushed and signed, take timestamps from the commit, and fail closed on a repeated lookup failure."
 question = "Can an unsigned or partial artifact be found by lookup?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2569,6 +2904,7 @@ text = "The recovery from loss of the signing key, the canonical registry and a 
 why = "An unplanned key or registry loss otherwise halts releases with no known way back."
 right = "State the recovery for loss of the signing key, canonical registry and derived registry: rotate and re-sign, rebuild, or re-push."
 question = "What is the recovery from losing the key or the registry?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["NIST-SP-800-53:CP-9", "NIST-SP-800-53:SC-12"]
 
@@ -2577,6 +2913,7 @@ text = "Content built by an untrusted party never enters the trusted release reg
 why = "Untrusted builds could poison what every installation runs."
 right = "Keep content built by untrusted parties out of the trusted release registry and out of the release's build tools."
 question = "Can untrusted content reach the release registry or its build tools?"
+severity = "S1"
 applies = ["deploy"]
 cites = []
 
@@ -2585,6 +2922,7 @@ text = "A stuck or slow image pull alerts against a stated bound, and no runtime
 why = "Hung pulls stall rollouts silently, and overridden timeouts hide the cause."
 right = "Alert when an image pull is stuck or slow against a stated bound, and never override a runtime no-progress timeout."
 question = "What alerts on a failed or slow pull, and is any pull unbounded?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2593,6 +2931,7 @@ text = "An operator or break-glass action is one native call that keeps no orche
 why = "Multi-step manual procedures drift and fail halfway, and an unconfirmed reset can destroy the wrong installation."
 right = "Make an operator action one native call, no state or polling, platform-authorized; type the installation name to confirm a destructive reset."
 question = "Is each manual action one call, what authorizes it, and what does it confirm before destroying?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2601,6 +2940,7 @@ text = "Desired state is declared, not scripted; stored versioned and immutable 
 why = "Scripted, hand-pushed or mutable state drifts from what is recorded and cannot be restored or audited."
 right = "Declare desired state, store it versioned and immutable, have the platform's agent pull and reconcile it; keep run-time ops and results out of it."
 question = "Is any desired state imperative, mutable in place, or pushed by hand?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["OpenGitOps:Declarative", "OpenGitOps:Versioned and Immutable", "OpenGitOps:Pulled Automatically", "OpenGitOps:Continuously Reconciled"]
 
@@ -2609,6 +2949,7 @@ text = "Build, release and run are separate stages: a release is an immutable pi
 why = "Editing a live system or a moving checkout makes what runs differ from what was reviewed."
 right = "Separate build, release and run: release a pinned immutable commit, change nothing on a running host, run from an isolated checkout."
 question = "Can the running system differ from its release without a new release? Can an edit, commit or push during a run change what that run executes?"
+severity = "S2"
 applies = ["deploy"]
 cites = ["Twelve-Factor:V Build, release, run"]
 
@@ -2617,6 +2958,7 @@ text = "A dependency is either required (a consumer's readiness waits on its hea
 why = "Mislabelled dependencies either block releases on unneeded services or let the system report healthy while broken."
 right = "Mark each dependency required (readiness waits on it) or optional (nothing waits, one named feature degrades); nothing needed to serve is optional."
 question = "Which dependencies are optional, and does anything wait on them?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2625,6 +2967,7 @@ text = "Every line of a document an agent or engineer reads (instructions, stand
 why = "Agents and engineers load fragments, so a line that depends on elsewhere misleads."
 right = "Make every line of a document correct and usable when read alone, without needing another section."
 question = "Read each section alone: is anything wrong or unusable without another section?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "catalog/rules.toml and the overlay"
@@ -2634,6 +2977,7 @@ text = "A decision rewrites, in the same change, every line in every document th
 why = "Stale copies of an old rule keep getting followed."
 right = "In the same change, rewrite every line in every document that states a rule the decision changes."
 question = "Which other documents state what this artifact changes, and are they in the change?"
+severity = "S3"
 applies = ["defect"]
 cites = ["Pragmatic-Programmer:DRY"]
 
@@ -2642,6 +2986,7 @@ text = "No document carries wording that marks a rule as superseded, withdrawn, 
 why = "History inside documents makes readers unsure which text applies."
 right = "Write only the current rule; keep supersession, revision history, change markers and old-to-new mappings out of documents, in commit and issue."
 question = "Does the artifact describe its own history instead of the current rule?"
+severity = "S3"
 applies = ["defect"]
 cites = []
 
@@ -2650,6 +2995,7 @@ text = "A document that no longer governs anything is deleted. Evidence annexes 
 why = "Orphan documents mislead readers into obeying dead rules."
 right = "Delete any document that governs nothing; keep evidence annexes."
 question = "Does the change leave a document that governs nothing?"
+severity = "S3"
 applies = ["defect"]
 cites = []
 
@@ -2658,6 +3004,7 @@ text = "The design applies every relevant requirement of the project's glossary,
 why = "Ignored approved requirements and re-asked decisions waste time and cause rework."
 right = "Apply every relevant approved requirement, failure cases included, through the owner's native call; never ask the owner to reselect a decision."
 question = "Which approved requirement in scope does the artifact not address?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "bh plan packet (cited passages)"
@@ -2667,6 +3014,7 @@ text = "The design records only a named cross-owner guarantee or an unavailable 
 why = "Static tables go stale and prove nothing; the real call is the proof."
 right = "Record only a named cross-owner guarantee or unavailable native boundary; no clause matrix, function catalog or coverage table as proof."
 question = "Does the artifact carry a clause matrix, an owner-function catalog or a coverage table, or offer one as proof?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "catalog/rules.toml and the overlay"
@@ -2676,6 +3024,7 @@ text = "A design never rewrites the standards to fit itself. Where the standards
 why = "A design that rewrites its own judge always passes."
 right = "Never edit the standards a design is judged by; state the gap separately, have it reviewed alone, and wait."
 question = "Does the change edit a standard it is judged by?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "catalog/rules.toml and the overlay"
@@ -2685,6 +3034,7 @@ text = "A conflict between approved documents, or between an industry standard a
 why = "Silent resolution picks a winner the owner never chose."
 right = "Send a conflict between approved documents or standard and decision to the project owner with both clauses quoted; never design around it."
 question = "Where two sources disagree, is the conflict named or silently resolved?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-gaps-reader job (conflicts between documents are reported as gaps for the owner)"
@@ -2694,6 +3044,7 @@ text = "Agent instructions, notes, hand-off documents and older artifacts never 
 why = "Unrecorded overrides cause behaviour that no approved text supports."
 right = "Let no note, instruction or older artifact override an approved spec; honour an explicit project-owner override and record its scope."
 question = "Does the artifact rely on an unrecorded instruction against an approved text?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (recorded decisions and approved documents are settled inputs)"
@@ -2703,6 +3054,7 @@ text = "A rule has one home; other documents link the existing contract instead 
 why = "Copies diverge, leaving contradictory versions of one rule."
 right = "Give each rule one home and link to it from other documents instead of copying it."
 question = "Is any rule or contract restated in the artifact that lives elsewhere?"
+severity = "S3"
 applies = []
 cites = ["Pragmatic-Programmer:DRY"]
 embodied_by = "catalog/rules.toml and the overlay"
@@ -2712,6 +3064,7 @@ text = "A missing capability or decision is a named blocked gate; never assumed 
 why = "Assumed capabilities make plans that fail when reality is checked."
 right = "Name a missing capability or decision as a blocked gate; never assume support or write placeholders or aspirational prose."
 question = "What does the artifact assume exists that nothing has proved?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-gaps-reader and harness-planner jobs (what cannot be derived is a gap, never assumed)"
@@ -2721,6 +3074,7 @@ text = "A generic claim (\"improve reliability\", \"make it observable\") is inv
 why = "A claim with no owner is nobody's job and cannot be checked."
 right = "Attach to every generic claim its named owner, template, contract, file or flow stage."
 question = "Which claim names no owner or file?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "catalog/rules.toml and the overlay"
@@ -2730,6 +3084,7 @@ text = "Each step states: File (path with a symbol, state id or grep anchor, nev
 why = "Steps missing any of these force guessing and fail when lines shift."
 right = "Write each step with File (path plus symbol or anchor, no line numbers), Do, Expect, Verify and If it fails."
 question = "Does every step carry all five parts?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2739,6 +3094,7 @@ text = "No step leaves a decision to the implementer: no \"decide\", \"choose\",
 why = "Left-open choices get made differently by each implementer."
 right = "Write every instruction so a junior engineer can follow it without deciding; no 'decide', 'choose', 'as appropriate' or 'e.g.'."
 question = "Which steps need judgement?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2748,6 +3104,7 @@ text = "An unproven claim is a gate step with both outcomes written in advance."
 why = "Plans built on unchecked claims break midway with no branch to follow."
 right = "Turn each unproven claim into a gate step with both outcomes written in advance."
 question = "Which claims has nothing run yet, and what does the plan say for each result?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2757,6 +3114,7 @@ text = "The plan never contradicts its spec; the spec is rewritten in place in t
 why = "Contradicting documents leave the builder unable to know what is right."
 right = "Rewrite the spec in place in the same pass whenever the plan changes it; never leave plan and spec in conflict."
 question = "Where do plan and spec differ?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2766,6 +3124,7 @@ text = "Per-setup values in commands come from the installation record and are c
 why = "Literals work on the author's machine only."
 right = "Take per-setup values in plan commands from the installation record and check them against the machine; no literal host, user or path."
 question = "Which command would fail or act on the wrong machine in another setup?"
+severity = "S3"
 applies = ["config"]
 cites = ["Twelve-Factor:III Config"]
 
@@ -2774,6 +3133,7 @@ text = "The plan records a dry run of its first steps by a reader with no contex
 why = "Authors cannot see their own unstated assumptions."
 right = "Record a dry run of the first steps by a reader with no context and fix every guess that reader made."
 question = "Is the dry run recorded, and are its guesses fixed?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-reviewer job (fresh reader of a sellable diff)"
@@ -2783,6 +3143,7 @@ text = "The plan names its user-visible outcome, non-goals, dependencies and del
 why = "Without scope and deletions, plans grow and settled decisions get relitigated."
 right = "State the user-visible outcome, non-goals, dependencies and delete list, and cite governing specs and decisions without reopening them."
 question = "Are outcome, non-goals and delete list present?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2792,6 +3153,7 @@ text = "Every normative requirement maps to its journey, acceptance id, evidence
 why = "Unmapped requirements get dropped without anyone noticing."
 right = "Map every normative requirement to its journey, acceptance id, evidence owner and task."
 question = "Which requirement of the spec has no task?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2801,6 +3163,7 @@ text = "The end-to-end flow is mapped before structure is chosen: input, native 
 why = "Structure chosen first misses hand-offs and failure paths."
 right = "Map the full end-to-end flow, including owners, trust boundaries, timeouts and error paths, before choosing structure."
 question = "Is the flow from input to completion and recovery written, with each owner's limits?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2810,6 +3173,7 @@ text = "The plan reuses before it extends, searches the fix history of the engin
 why = "Repeating old mistakes and duplicating mechanisms wastes work and reintroduces bugs."
 right = "Reuse before extending, search past fixes for the areas touched, cite what you rely on, and do not re-decide what a past fix settled."
 question = "Which earlier fixes in the touched areas does the plan cite?"
+severity = "S3"
 applies = ["dependency-change"]
 cites = []
 
@@ -2818,6 +3182,7 @@ text = "Code a plan gives verbatim has passed the project's commit check in a sc
 why = "Plan text that was never run may not parse or work."
 right = "Run code given verbatim in a plan through the project's commit check in a scratch tree before approving the plan."
 question = "Was each verbatim block run through the check?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-reviewer job (fresh reader of a sellable diff)"
@@ -2827,6 +3192,7 @@ text = "The plan names its reliability profile, classifies stored sources (autho
 why = "Misclassified data gets the wrong durability, and unbudgeted hot paths become slow."
 right = "Name the plan's reliability profile, classify each stored source as authority, projection or ephemeral first, and give budgets for hot stages."
 question = "Are the profile, the classification and the budgets stated?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2836,6 +3202,7 @@ text = "Tasks are small and vertical, each with one owner, files, inputs and out
 why = "Large or ownerless tasks cannot be verified, reversed or cleanly removed."
 right = "Split work into small vertical tasks, each with one owner, files, inputs, outputs, prohibited writes, a real-flow gate, rollback and cleanup."
 question = "Does each task name its prohibited writes and its gate?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-planner job (plan from the build order)"
@@ -2845,6 +3212,7 @@ text = "Acceptance is through real staged services, deterministic native seeds a
 why = "Mocks and test-only paths can pass while the real feature fails."
 right = "Prove acceptance through real staged services, deterministic seeds and public entry points, reporting source, runtime and journey evidence separately."
 question = "What proves each task, and is any proof a mock or a source check?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2853,6 +3221,7 @@ text = "A step's verification is the real call and the owner's response or read-
 why = "Unverified steps hide breakage until a fresh install."
 right = "Verify each step by the real call and the owner's response or read-back; include an empty-machine run for steps changing an install path."
 question = "Which step is verified only by its own exit code or text?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2861,6 +3230,7 @@ text = "A step that cannot pass stops the work and reports the gap; it is never 
 why = "Bypassing a failure hides a real defect and lowers the bar."
 right = "When a step cannot pass, stop and report the gap; never work around it or weaken a check."
 question = "What does each step say to do when it fails, and does any branch weaken a check?"
+severity = "S2"
 applies = ["defect"]
 cites = []
 
@@ -2869,6 +3239,7 @@ text = "Irreversible steps come after every step that can refuse, and each cutov
 why = "An irreversible step done early leaves no way back when a later check fails."
 right = "Order steps so irreversible ones come after every step that can refuse, and give each cutover a rollback."
 question = "Which step cannot be undone, and what precedes it?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2877,6 +3248,7 @@ text = "The plan records a bounded second-pass audit with concrete corrections o
 why = "One pass misses classes of defects an explicit checklist catches."
 right = "Record a bounded second-pass audit with concrete corrections or open gaps across alignment, coverage, reuse, root cause, durability and test realism."
 question = "Is the audit present with findings, not ticks?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-reviewer job (fresh reader of a sellable diff)"
@@ -2886,6 +3258,7 @@ text = "A target with no surface (zero-copy where no data path exists) is marked
 why = "Padding adds fake work and noise that hides real gaps."
 right = "Mark a target with no surface as not applicable; never pad it."
 question = "Is any target claimed that the work cannot affect?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-reviewer job (fresh reader of a sellable diff)"
@@ -2895,6 +3268,7 @@ text = "A defect of any size gets a record with its root cause and a test that r
 why = "Defects without records and guarding tests come back unnoticed."
 right = "Record every defect with its root cause and a reproducing test, reference the record in the fix, and close it only when the test passes."
 question = "What does the artifact say to do when a defect is found during the work, and when does its record close?"
+severity = "S3"
 applies = ["defect"]
 cites = ["SRE:ch15 Postmortem Culture: Learning from Failure"]
 embodied_by = "bug-analysis skill (defect record)"
@@ -2904,6 +3278,7 @@ text = "No rule requires a test. One is written only for what no dashboard, log,
 why = "Redundant tests add upkeep and false confidence without catching new failures."
 right = "Write a test only for what no dashboard, check or release smoke shows (edge logic, money arithmetic, step order); never test source text."
 question = "What does each proposed test catch that nothing else shows?"
+severity = "S3"
 applies = ["defect"]
 cites = []
 
@@ -2912,6 +3287,7 @@ text = "Pushed history is never rewritten and the main branch is never force-pus
 why = "Rewritten history breaks everyone else's copies and the audit trail."
 right = "Never rewrite pushed history or force-push main; correct a pushed commit with a later commit naming it."
 question = "Does any step rewrite or force-push history?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2920,6 +3296,7 @@ text = "The review is by a reviewer who did not write the artifact and shares no
 why = "Authors and their reasoning blind reviewers to the same mistakes."
 right = "Have a reviewer who did not write the artifact and shares no context review it without the author's reasoning, naming location and fix per finding."
 question = "Who reviews, and what is the reviewer given?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "harness-reviewer job (fresh reader of a sellable diff)"
@@ -2929,6 +3306,7 @@ text = "The owner's validator (server dry-run, chart template with merged values
 why = "Invalid files caught only after commit break the pipeline for everyone."
 right = "Run the owner's validator on changed files before commit and name it in the commit."
 question = "Which validator covers each changed file?"
+severity = "S3"
 applies = ["deploy"]
 cites = []
 
@@ -2937,6 +3315,7 @@ text = "People's and agents' own waits follow RL-08: no sleep or poll loop in a 
 why = "Polling wastes time, hides races and drifts from real readiness."
 right = "Wait on the producer's event or a background task's completion; never use sleep or poll loops in a shell."
 question = "Does any instruction tell a person or agent to sleep or poll?"
+severity = "S2"
 applies = ["deploy"]
 cites = []
 
@@ -2945,6 +3324,7 @@ text = "The standards win over a brief or an older artifact. A gate's refusal me
 why = "Bypassing a gate defeats the rule it enforces."
 right = "Follow the standards over any brief or older artifact; answer a gate refusal by stepping back to design, never by bypassing it."
 question = "What does the process do when a gate refuses?"
+severity = "S2"
 applies = ["defect"]
 cites = []
 
@@ -2953,6 +3333,7 @@ text = "No existing acceptance test is changed, loosened, skipped, re-timed or r
 why = "Weakening tests hides real defects."
 right = "Never change, loosen, skip, re-time or re-seed an acceptance test to pass; treat its failure as a product defect, with a recorded-proof exception."
 question = "Does the work edit an existing acceptance test, and under which exception?"
+severity = "S2"
 applies = ["always"]
 cites = []
 embodied_by = "builder sandbox and protected paths"
@@ -2962,6 +3343,7 @@ text = "Every confirmed review or audit finding is recorded on its tracker in th
 why = "Findings left in prose get forgotten."
 right = "Record each confirmed review or audit finding on its tracker the same turn; leave none in prose."
 question = "Where does each finding go, and when?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "tracker intake (GitHub issues)"
@@ -2971,6 +3353,7 @@ text = "Only decisions that are the project owner's to make are escalated (a con
 why = "Over-escalation stalls work, and unescalated owner decisions are made by the wrong person."
 right = "Escalate only decisions that are the project owner's, named as such; decide everything else by standard and record it; never stop work to escalate."
 question = "Is each open question the project owner's to decide, and does work continue around it?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "tracker intake (GitHub issues)"
@@ -2980,6 +3363,7 @@ text = "A place that two fixes have already rewritten since its last verified re
 why = "Repeated patches show the cause is unaddressed and keep failing."
 right = "Redesign at the cause a place that two fixes already rewrote since its last verified release; never patch it a third time."
 question = "Does the work patch a place already fixed twice?"
+severity = "S2"
 applies = ["defect"]
 cites = ["SRE:ch15 Postmortem Culture: Learning from Failure"]
 embodied_by = "bug-analysis skill (defect record)"
@@ -2989,6 +3373,7 @@ text = "An end-to-end test derives from one acceptance criterion of a journey, n
 why = "Tests without a criterion cover nothing agreed and rot."
 right = "Derive each end-to-end test from one named acceptance criterion and assert only its outcome; delete tests with no criterion or add the criterion."
 question = "Does each proposed end-to-end test name its criterion?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "the test-author step (acceptance tests written from the packet's acceptance criteria, R3)"
@@ -2998,6 +3383,7 @@ text = "An agent session never runs a command that discards uncommitted or unpus
 why = "Such commands destroy work that exists nowhere else."
 right = "Never run an agent command that discards uncommitted or unpushed work (stash, hard reset, path checkout, clean, force push); commit or back up first."
 question = "Does any step discard uncommitted or unpushed work?"
+severity = "S1"
 applies = ["deploy"]
 cites = []
 
@@ -3006,6 +3392,7 @@ text = "Questions that unattended runs, agent jobs included, raise for the proje
 why = "Blocking per question stalls runs, and repeated questions waste the owner's time."
 right = "Collect owner-only questions from unattended runs into one list asked once at the end, record answers, look them up first, and never wait."
 question = "Where are a run's owner questions collected and their answers recorded, what does a run read before it asks, and which question in the records was asked twice?"
+severity = "S3"
 applies = []
 cites = []
 embodied_by = "tracker intake (GitHub issues)"
@@ -3027,5 +3414,36 @@ text = "Values are stored locale-neutral (UTC instants, ISO 4217 currency code w
 why = "A value stored in one country's format or language cannot be read correctly by a tenant in another, and string-built messages cannot be translated."
 right = "Store neutral values; format dates, numbers, currencies, units and messages per the user's locale at the edge with the platform's CLDR-backed library."
 question = "Where is a stored value tied to one locale, or a user-facing string built in code instead of a message catalog?"
+severity = "S3"
 applies = ["http-server", "money", "time"]
 cites = ["Unicode-CLDR", "ISO-4217", "RFC-3339"]
+
+[standards.Google-Benchmark]
+title = "Google Benchmark user guide"
+version = "1.10.0"
+url = "https://github.com/google/benchmark/blob/main/docs/reducing_variance.md"
+summary = "Library and guide for micro-benchmarks; the Reducing Variance page explains why wall-clock timings on a shared or frequency-scaled machine are noisy and how repeated runs, CPU time and aggregates reduce it."
+
+[standards.NIST-SP-800-57]
+title = "NIST SP 800-57 Part 1 Recommendation for Key Management"
+version = "Rev. 5"
+url = "https://csrc.nist.gov/pubs/sp/800/57/pt1/r5/final"
+summary = "NIST guidance on the key lifecycle; section 5.3 sets cryptoperiods, the limited time a key or credential may be used before it must be replaced."
+
+[standards.OWASP-API-Top-10]
+title = "OWASP API Security Top 10"
+version = "2023"
+url = "https://owasp.org/API-Security/editions/2023/en/0x11-t10/"
+summary = "OWASP's ranked list of API security risks; API3:2023 Broken Object Property Level Authorization covers responses that expose fields the caller may not see."
+
+[standards.Parnas-1972]
+title = "On the Criteria To Be Used in Decomposing Systems into Modules (Parnas)"
+version = "1972"
+url = "https://dl.acm.org/doi/10.1145/361598.361623"
+summary = "Paper that introduced information hiding: each module hides a design decision behind its interface, so others depend only on that interface and the decision can change."
+
+[standards.pyperf]
+title = "pyperf documentation"
+version = "2.11.0"
+url = "https://pyperf.readthedocs.io/en/latest/analyze.html"
+summary = "Python benchmarking toolkit; its analysis guide explains why one timing is unreliable and how to judge results by repeated runs, warm-ups and statistics such as the median and standard deviation."

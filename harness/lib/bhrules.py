@@ -362,12 +362,16 @@ TAGS = (
     "concurrency", "money", "time", "config", "dependency-change", "defect",
 )  # fmt: skip
 CORE_MAX = 10  # QBC-103: the always core holds at most 10 rules
+# QBC-114: a house rule's default severity, the ISTQB triage class of what it protects (SARIF
+# ``reportingDescriptor.defaultConfiguration.level``, Semgrep rule ``severity``)
+SEVERITY = {"S1": "critical", "S2": "major", "S3": "minor"}
 
 
 def rules_doc(cfg: Any) -> dict[str, Any]:
     """``catalog/rules.toml`` parsed: ``standards``, ``tags`` and ``house`` tables (empty if
     absent). A tag outside the closed set ``TAGS``, in ``[tags.*]`` or a rule's ``applies``, and
-    a core of more than ``CORE_MAX`` rules are catalog errors (QBC-103)."""
+    a core of more than ``CORE_MAX`` rules are catalog errors (QBC-103), as is a rule whose
+    ``severity`` is missing or outside ``SEVERITY`` (QBC-114)."""
     f = rules_file(cfg)
     doc = tomllib.loads(f.read_text()) if f.is_file() else {}
     bad = sorted(set(doc.get("tags", {})) - set(TAGS)) + [
@@ -378,6 +382,12 @@ def rules_doc(cfg: Any) -> dict[str, Any]:
         raise HarnessError(
             f"[catalog-tags] {f}: tags outside the closed set ({', '.join(bad) or 'none'}) or a core of"
             f" {len(core)} rules (at most {CORE_MAX}) -> use only {', '.join(TAGS)} . QBC-103"
+        )
+    sev = sorted(k for k, v in doc.get("house", {}).items() if v.get("severity") not in SEVERITY)
+    if sev:
+        raise HarnessError(
+            f"[catalog-severity] {f}: rules without a default severity ({', '.join(sev[:10])}) -> give each"
+            f" rule severity {', '.join(f'{k} ({v})' for k, v in SEVERITY.items())} by what it protects . QBC-114"
         )
     return doc
 
@@ -421,6 +431,7 @@ def rule_detail(cfg: Any, rid: str) -> str:
         return f"{rid}: {line}\n"
     out = [f"{rid}: {r['text']}"]
     out += [f"{k.capitalize()}: {r[k]}" for k in ("why", "right", "question", "embodied_by") if r.get(k)]
+    out.append(f"Severity: {r['severity']} ({SEVERITY[r['severity']]}), the default a finding on it takes")
     out.append("Applies: " + (", ".join(r.get("applies", [])) or "when the plan pins it"))
     for c in r.get("cites", []):
         key, _, section = c.partition(":")

@@ -28,6 +28,7 @@ from __future__ import annotations
 
 import ast
 import json
+import re
 import subprocess
 import tempfile
 from pathlib import Path
@@ -194,23 +195,84 @@ def triggers(
     return [{"domain": d, "detail": v} for d, v in hits.items()]
 
 
+# ---------------------------------------------------------------- severity from the rule (QBC-114)
+
+RANK = {"S1": 1, "S2": 2, "S3": 3, "S4": 4}
+CITE = re.compile(r"([\w./-]+\.\w+):(\d+)")
+
+
+def _cited(root: Path, ref: str, reason: str, where: str) -> bool:
+    """True when ``reason`` cites a ``file:line`` other than the finding's own ``where`` that exists
+    in the reviewed tree at ``ref``: the evidence a lowering rests on, checkable by anyone."""
+    for path, line in CITE.findall(reason or ""):
+        text = _show(root, ref, path)
+        if f"{path}:{line}" != where and text is not None and 0 < int(line) <= len(text.splitlines()):
+            return True
+    return False
+
+
+def settle(
+    findings: list[dict[str, Any]], house: dict[str, Any], root: Path, ref: str
+) -> tuple[list[dict[str, Any]], list[dict[str, str]]]:
+    """Each finding on a house rule takes the rule's default ``severity`` (SARIF
+    ``defaultConfiguration.level``, Semgrep rule ``severity``), not the reviewer's feel. The reviewer
+    may lower it only with a ``severity_reason`` citing a file:line of the reviewed tree that shows
+    the rule does not apply at full weight, and raise it only with ``reproduced`` evidence; anything
+    else is set back to the default. A finding on a triggered domain or an overlay row keeps the
+    reviewer's triage. Returns the settled findings and one record per change or refusal."""
+    out, changes = [], []
+    for f in findings:
+        rule = house.get(f.get("rule") or "")
+        if rule is None:
+            out.append(f)
+            continue
+        default, asked = rule["severity"], f.get("severity") or rule["severity"]
+        sev, why = asked, ""
+        if RANK[asked] < RANK[default] and f.get("evidence") != "reproduced":
+            sev, why = default, "raise refused: only reproduced evidence raises a rule's default"
+        elif RANK[asked] > RANK[default]:
+            if _cited(root, ref, f.get("severity_reason", ""), f.get("where", "")):
+                why = f"lowered: {f['severity_reason']}"
+            else:
+                sev, why = default, "lowering refused: severity_reason cites no other file:line of the reviewed tree"
+        if why or sev != f.get("severity"):
+            changes.append({"rule": f["rule"], "where": f.get("where", ""), "asked": f.get("severity", ""), "severity": sev, "why": why or "the rule's default"})
+        out.append({**f, "severity": sev})
+    return out, changes
+
+
 # ---------------------------------------------------------------- findings as SARIF facts
 
 
-def sarif(findings: list[dict[str, Any]], item: str, digest: str, chars: int) -> dict[str, Any]:
+def sarif(
+    findings: list[dict[str, Any]], item: str, digest: str, chars: int, house: dict[str, Any] | None = None
+) -> dict[str, Any]:
     """The reviewer's findings as one SARIF 2.1.0 log, checked against the official schema. The
-    summary is written ``wrong -> the right way, and how to prevent it`` (the review job schema)."""
+    summary is written ``wrong -> the right way, and how to prevent it`` (the review job schema).
+    On a house rule (QBC-115) the right way is the rule's own ``right`` text, then the reviewer's
+    concrete application of it (``here: ...``), so no finding teaches a weaker remedy than its
+    rule; the rule goes in ``tool.driver.rules`` with its default level and that text as ``help``."""
     from jsonschema.validators import validator_for
 
-    results = []
+    house = house or {}
+    results, described = [], {}
     for f in findings:
         wrong, _, right = f["summary"].partition("->")
         rule = f.get("rule") or "review"
+        right = right.strip()
+        if rule in house:
+            right = f"{house[rule]['right'].rstrip('.')}; here: {right}" if right else house[rule]["right"]
+            described[rule] = {
+                "id": rule,
+                "defaultConfiguration": {"level": LEVEL[house[rule]["severity"]]},
+                "help": {"text": house[rule]["right"]},
+                "properties": {"severity": house[rule]["severity"]},
+            }
         res: dict[str, Any] = {
             "ruleId": rule,
             "level": LEVEL.get(f.get("severity", ""), "warning"),
-            "message": {"text": _teach(rule, wrong.strip(), right.strip(), STANDARD)[:chars]},
-            "properties": {k: f[k] for k in ("severity", "evidence") if k in f},
+            "message": {"text": _teach(rule, wrong.strip(), right, STANDARD)[:chars]},
+            "properties": {k: f[k] for k in ("severity", "evidence", "severity_reason") if k in f},
         }
         file, _, line = (f.get("where") or "").partition(":")
         if file:
@@ -223,7 +285,13 @@ def sarif(findings: list[dict[str, Any]], item: str, digest: str, chars: int) ->
         "version": "2.1.0",
         "runs": [
             {
-                "tool": {"driver": {"name": "harness-reviewer", "informationUri": "https://csrc.nist.gov/pubs/sp/800/218/final"}},
+                "tool": {
+                    "driver": {
+                        "name": "harness-reviewer",
+                        "informationUri": "https://csrc.nist.gov/pubs/sp/800/218/final",
+                        **({"rules": list(described.values())} if described else {}),
+                    }
+                },
                 "results": results,
                 "properties": {"packet_sha256": digest, "item": item},
             }

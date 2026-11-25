@@ -78,11 +78,11 @@ def test_qbc_103_core_and_closed_tags(tmp_path):
     assert all(r["applies"] and set(r["applies"]) <= CLOSED for r in HOUSE.values() if not r.get("embodied_by"))
     core = [k for k, r in HOUSE.items() if "always" in r["applies"]]
     assert 0 < len(core) <= 10
-    assert bhrules.rules_doc(catalog(tmp_path, '[house.XX-01]\ntext = "t"\napplies = ["time"]\n'))
-    ten = "".join(f'[house.XX-{i}]\ntext = "t"\napplies = ["always"]\n' for i in range(10))
+    assert bhrules.rules_doc(catalog(tmp_path, '[house.XX-01]\ntext = "t"\nseverity = "S2"\napplies = ["time"]\n'))
+    ten = "".join(f'[house.XX-{i}]\ntext = "t"\nseverity = "S2"\napplies = ["always"]\n' for i in range(10))
     assert len(bhrules.rules_doc(catalog(tmp_path, ten))["house"]) == 10  # a core of exactly 10 is allowed
-    for bad in ('[house.XX-01]\ntext = "t"\napplies = ["queues"]\n', "[tags.queues]\n",
-                "".join(f'[house.XX-{i}]\ntext = "t"\napplies = ["always"]\n' for i in range(11))):  # fmt: skip
+    for bad in ('[house.XX-01]\ntext = "t"\nseverity = "S2"\napplies = ["queues"]\n', "[tags.queues]\n",
+                "".join(f'[house.XX-{i}]\ntext = "t"\nseverity = "S2"\napplies = ["always"]\n' for i in range(11))):  # fmt: skip
         with pytest.raises(HarnessError, match="catalog-tags"):  # negative control: refused
             bhrules.rules_doc(catalog(tmp_path, bad))
 
