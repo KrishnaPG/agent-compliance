@@ -35,3 +35,25 @@ The packet is the single contract. The test author (L3), the builder (L4) and th
 | Mutation testing (mutmut, Stryker) in the Definition of Done | Costly per item. Vacuous tests are countered by red-on-main and the review trigger; an option once a measured need appears |
 | SLSA provenance for packets and builds | No measured need yet. Kept as a later extension |
 | Formal verification of the order engine (TLA+) | Excess for a sequential program with tested steps (P10) |
+
+## Every stage's output format (owner question, 2026-11-25)
+
+Each stage writes one standard format. Every output carries the packet's id and its sha256, so all of them refer to the same contract.
+
+| Stage | Output | Standard | Checked by the program |
+|---|---|---|---|
+| L1 Epic design | A decision record plus a tracking issue that links to it | MADR 4.0 (Markdown Architectural Decision Records, based on Nygard), with front matter for status, date and deciders. Its constraints cite the §0 items, and its falsifying calls become L2 criteria | The front matter and the required sections are present; every constraint cites a G, P, R or QBC id |
+| L2 Plan | The work packet (JSON) and its Markdown rendering | JSON Schema 2020-12 (see the table above). Acceptance criteria are keyword-driven rows from `docs/atdd/catalog.yaml` | Schema-valid; closed catalogs as enums; every §0 item that applies is traced |
+| L3 Tests | Tests generated from the packet's rows, a manifest (criterion id → test node id), and the red-on-main run | Generated pytest (or the project's own framework), with each test marked by its criterion id; the run in JUnit XML | One test per criterion and one criterion per test; every test fails on main with an assertion failure, not an error |
+| L4 Build | A commit on the builder's branch | Conventional Commits 1.0, with git trailers `Packet: <id>@<sha256>` and `Criteria: <ids>` | The trailer's sha256 matches the packet; the diff's paths are compared with the packet's declared paths (a fact) |
+| L5 Verify | The measurement: per-criterion met or unmet, plus facts | JUnit XML for tests; SARIF 2.1.0 (OASIS) for lint and fitness findings, with the teaching message in `message`, `help` and `fixes`; a result JSON, schema-validated, that names the packet sha256 | Only the measurer writes it; it reads the packet and tests from the base commit, never from the builder's copy |
+| Review (triggered) | Findings | SARIF 2.1.0, with triage severity mapped to `level` (error = Critical or Major, warning = Minor with value) | Findings are facts that never change "met"; each cites the packet sha256 |
+
+### How "one packet, one definition of success" is enforced
+
+These are mechanisms, not agent discipline.
+1. **One file.** The packet is one schema-valid file at a path only the planner or orchestrator writes. Its sha256 identifies it.
+2. **L3 is generated from it.** Tests are produced by the generator from the packet's rows, so the tests can't differ from the criteria, and the manifest maps each one.
+3. **L4 receives the same bytes.** The builder's session-start context is the packet's rendering. The builder's `bh check` reads the same packet and runs the same verifier list.
+4. **L5 reads it from the base.** The measurer takes the packet and the generated tests from the base commit by their sha256, never from the builder's clone. A packet or test that changed in the build is recorded as tampering and has no effect.
+5. **Every output names the sha256.** The commit trailer, the result JSON and the SARIF properties do. A mismatch is recorded as a fact and the item is re-run against the right packet; the outputs are never judged against two contracts.
