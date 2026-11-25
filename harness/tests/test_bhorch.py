@@ -363,9 +363,12 @@ def test_a_run_over_its_token_budget_stops_before_a_round(toy, fake):
     d["budgets"] = {"run_tokens": 1}
     cfg.write_text(json.dumps(d))
     commit_all(toy, "budget")
+    fake.spec(outputs_by_item={"harness-test-author": ACCEPT})
     res = run(orch(toy).run())
     assert res["phases"]["stopped"] == "budget"
-    assert [j["job"] for j in res["jobs"]] == ["gaps", "plan"] and res["phases"]["rounds"] == []
+    # the first item's test author spent the budget; no further item starts (Kanban: ready work
+    # waited, so gaps and plan never ran)
+    assert [j["job"] for j in res["jobs"] if j.get("job")] == ["test_author"] and len(res["phases"]["rounds"]) == 1
 
 
 def test_dry_run_lists_jobs_and_changes_nothing(toy, fake):
@@ -384,7 +387,9 @@ def test_dry_run_lists_jobs_and_changes_nothing(toy, fake):
         cwd=toy,
     )
     assert fake.calls() == [] and git(toy, "rev-parse", "HEAD") == head
-    assert p.stdout.startswith("PRODUCT") and "gaps review" in p.stdout, p.stderr
+    # ready work waits (Kanban pull): the first queued item's test author is listed, never gaps or plan
+    assert p.stdout.startswith("PRODUCT") and "gaps review" not in p.stdout, p.stderr
+    assert '"role": "test_author"' in p.stdout.splitlines()[-1].replace('":"', '": "'), p.stdout
     assert not (toy / ".brick-harness" / "run-result.json").exists()
 
 
@@ -410,7 +415,8 @@ def test_owner_decides_gaps_become_the_owner_questions(toy, fake):
         "evidence": [{"file": "features.md", "line": 1}],
     }
     fake.spec(outputs={**OUTPUTS, "harness-gaps-reader": {"gaps": [gap]}})
-    res = run(orch(toy).run(skip=["plan", "harvest"]))
+    subprocess.run([sys.executable, str(BH), "gaps", "--config", str(toy / ".brick-harness" / "config.json")], capture_output=True, cwd=toy, check=True)
+    res = json.loads((toy / ".brick-harness" / "out" / "gaps-result.json").read_text())
     gaps = [q for q in res["owner_questions"] if q["id"] != "Q-setup"]  # setup asks its own
     assert [q["summary"] for q in gaps] == ["the speed target is missing"]
     assert gaps[0]["id"].startswith("review:no-numeric-target:")

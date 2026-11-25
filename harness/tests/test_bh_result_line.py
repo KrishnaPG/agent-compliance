@@ -28,4 +28,5 @@ def test_bh_run_prints_the_result_json_last_with_decided_fields_only(toy, fake):
     assert res["schema_version"] and res["command"] == "run"
     assert set(res) <= decided("result") | {"jobs"}
     assert {k for j in res["jobs"] for k in j} <= {f["path"].removeprefix("jobs[*].").split("[")[0] for f in FIELDS if f["schema"] == "jobs"}
-    assert [j.get("role") for j in res["jobs"]][:1] == [None] and "phases" in json.loads((toy / ".brick-harness" / "out" / "run-result.json").read_text())
+    # Kanban pull: the plan has ready work, so its first item's test author starts; gaps and plan wait
+    assert [j.get("role") for j in res["jobs"]][:1] == ["test_author"] and "phases" in json.loads((toy / ".brick-harness" / "out" / "run-result.json").read_text())

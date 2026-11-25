@@ -352,6 +352,8 @@ class Orchestrator:
         self.records: list[dict[str, Any]] = []
         self.errors: list[str] = []
         self.spent = {"cost_usd": 0.0, "tokens": 0}
+        self.facts: list[dict[str, Any]] = []  # every fact of this run's items, for the run report
+        self.outs: dict[str, str] = {}  # each item's last measurement output dir (result items[*].out)
 
     # ------------------------------------------------------------ files and state
 
@@ -969,28 +971,33 @@ class Orchestrator:
         }
         s0 = self.state()
         sellable0 = set(s0["value"]["sellable_at_head"])
-        if "gaps" not in skip:
-            res["gaps"] = await self.phase_gaps()
-        if "plan" not in skip:
-            res["plan"] = await self.phase_plan()
-        # Building goes one way only: each ready item in plan order gets its packet from the plan,
-        # the test author's acceptance tests, the builder's clone, the measurer and, when met, the merge.
+        # Kanban pull (WIP limit, finish before start): the work queue is every packet that is not
+        # met (R5: the planner's and orchestrator's output is packets, L2). Gaps and plan run only
+        # when that queue is empty; their jobs are keyed by their inputs' digest, so unchanged
+        # documents never re-plan. Each ready plan item then gets its packet from the program.
+        if not self.queue(set()):
+            if "gaps" not in skip:
+                res["gaps"] = await self.phase_gaps()
+            if "plan" not in skip:
+                res["plan"] = await self.phase_plan()
+        # Building goes one way only: each queued packet gets the test author's acceptance tests,
+        # the builder's clone, the measurer and, when met, the merge.
         why: dict[str, str] = {}
         budgets = cfg.data.get("budgets", {})
         tried: set[str] = set()
         s = self.state()
-        # the state again after each item: a merge makes its dependents ready; every kind is built
+        # the queue again after each item: a merge makes its dependents ready; every kind is built
         # one way; a re-tiered item runs once more at its new tier (a tier only rises, so at most once)
-        for _ in range(len(s["bricks"]) * len(bhpacket.TIER_RANK)):
-            s = self.state()
-            item = next((i for i in s["ready"] + s["ready_system"] if i not in tried), None)
+        for _ in range((len(s["bricks"]) + len(self.held())) * len(bhpacket.TIER_RANK)):
+            item = next(iter(self.queue(tried)), None)
             if item is None:
                 break
             tried.add(item)
             if self.over_budget(budgets):
                 res["stopped"] = "budget"
                 break
-            if self.dry:
+            if self.dry:  # the first agent job this item would start, listed and not launched
+                await self.job("test_author", f"{item}:1", {"task": "test_author", "item": item}, {}, "")
                 res["rounds"].append({"item": item, "dry_run": True})
                 continue
             facts: list[dict[str, Any]] = []
@@ -998,7 +1005,10 @@ class Orchestrator:
                 st = await self.packet_flow(item, facts)
             except HarnessError as e:
                 st, facts = "unmet", [*facts, {"kind": "gap", "item": item, "detail": str(e)}]
-            res["rounds"].append({"item": item, "status": st, "facts": facts[-FACTS_SHOWN:]})
+            self.facts += facts  # all of them go to the run report; the result keeps the last ones
+            res["rounds"].append(
+                {"item": item, "status": st, "facts": facts[-FACTS_SHOWN:], **({"out": self.outs[item]} if item in self.outs else {})}
+            )
             if st == "re-tiered":  # re-planned at the tier its diff showed (QBC-30): queued again
                 tried.discard(item)
                 continue
@@ -1032,9 +1042,46 @@ class Orchestrator:
             h = await self.phase_harvest()
             res["harvest"] = h
             self.tracker("reconcile")
+        if not self.dry:  # the run report: one line per fact of the run, as every program step writes it
+            lines = [f"{f['kind']}: {f.get('item', '')}: {f.get('detail', '')}\n" for f in self.facts]
+            write_atomic(self.top / bhpacket.RUN_REPORT, "".join(lines) or "no facts\n")
         return self.finish(res, cyc, sellable0)
 
     # ------------------------------------------------------------ packets: the test author goes first (d6)
+
+    def held(self) -> list[str]:
+        """The items whose packet the planner or orchestrator wrote (R5)."""
+        return sorted(p.stem for p in (self.top / bhpacket.PACKETS_DIR).glob("*.json"))
+
+    def queue(self, tried: set[str]) -> list[str]:
+        """The work queue: every packet not yet met, in plan order. A ready plan item gets its
+        packet from the program first (no agent); a plan item that is not ready waits for its
+        dependencies; a packet outside the plan is met when the measurer recorded it met."""
+        s = self.state()
+        if not self.dry:
+            for i in s["ready"] + s["ready_system"]:
+                bhpacket.write_plan_packet(self.cfg, i)
+        plan = {b["id"]: b for b in s["bricks"]}
+        ready = set(s["ready"] + s["ready_system"])
+        order = [i for i in s["ready"] + s["ready_system"] if i not in tried]
+        for i in self.held():
+            if i in tried or i in order or (i in plan and i not in ready):
+                continue
+            if i not in plan and self.packet_met(i):
+                continue
+            order.append(i)
+        return order
+
+    def packet_met(self, item: str) -> bool:
+        """A packet outside the plan (the scoreboard holds plan items only) is met when the order
+        engine's state records, for its current bytes, the merge of a met build, or the measurer's
+        met verdict with no build (its tests passed at HEAD already)."""
+        digest = hashlib.sha256(bhpacket.packet_path(self.top, item).read_bytes()).hexdigest()
+        mine = [j for j in self.recorded(item) if j.get("packet_sha256") == digest]
+        if any(j.get("step") == "merge" for j in mine):
+            return True
+        built = any(j.get("role") == "builder" for j in mine)
+        return not built and any(j.get("step") == "measurer" and j.get("exit_code") == 0 for j in mine)
 
     def program_step(
         self, name: str, item: str, started: datetime, digest: str, code: int = 0
@@ -1173,9 +1220,11 @@ class Orchestrator:
             root, "log", "-1", "--format=%H", "--fixed-strings", f"--grep=Packet: {bhpacket.trailer(packet, digest)}", check=False
         ).stdout.strip()
         res = bhcore.measure_ref(self.cfg, plan or "HEAD", orch=root)
+        self.outs[item] = res["items"][0]["out"]
         accept = res["items"][0]["acceptance"]
         if accept and all(a["status"] == "met" for a in accept):  # no criterion measured is never met
             self.program_step("red_run", item, t0, digest, 1)  # not red: exit 0 is recorded only for red
+            self.program_step("measurer", item, t0, digest, 0)  # the measurer's verdict: met at HEAD
             return [], True  # every criterion's test passes at HEAD
         module = bhpacket.acceptance_file(packet).removesuffix(".py").replace("/", ".")
         ids = [a["id"] for a in packet["acceptance"]]
@@ -1200,6 +1249,14 @@ class Orchestrator:
                     }
                 )
         self.program_step("red_run", item, t0, digest, 1 if feedback else 0)  # 0: every criterion is red
+        if packet.get("kind") == "defect" and not feedback:  # the regression test's first half, observed
+            facts.append(
+                {
+                    "kind": "regression_recorded",
+                    "item": item,
+                    "detail": f"the regression tests of {item} fail by an assertion at the parent {(plan or 'HEAD')[:12]}",
+                }
+            )
         return feedback, False
 
     async def measure_packet(
@@ -1217,13 +1274,14 @@ class Orchestrator:
         )
         digest = bhpacket.custody_digest(root, item) or ""  # identity comes from custody alone
         if not clones:
-            self.program_step("measurer", item, t0, digest)
+            self.program_step("measurer", item, t0, digest, 1)
             return None, [], None
         ref = f"refs/bh/{item}"
         git(root, "fetch", "-q", str(clones[-1]), f"+HEAD:{ref}")
         res = bhcore.measure_ref(self.cfg, ref, orch=root)
+        self.outs[item] = res["items"][0]["out"]
         facts += res["facts"]
-        self.program_step("measurer", item, t0, digest)
+        self.program_step("measurer", item, t0, digest, 0 if res["items"][0]["status"] == "met" else 1)  # the verdict
         tier = res["items"][0].get("tier") or packet["tier"]
         if bhpacket.TIER_RANK[tier] > bhpacket.TIER_RANK[packet["tier"]]:  # the diff's tier (QBC-30)
             self.replan(packet, tier)
@@ -1251,7 +1309,7 @@ class Orchestrator:
                 {
                     "kind": "regression_recorded",
                     "item": item,
-                    "detail": f"the packet's rows pass at the builder's result {item}",
+                    "detail": f"the regression tests of {item} pass at the fix {sha[:12]}",
                 }
             )
         merged, conflicts = bhcore.merge_refs(self.cfg, root, [{"item": item, "ref": sha}])
@@ -1479,7 +1537,9 @@ def result_doc(cmd: str, r: dict[str, Any]) -> dict[str, Any]:
     return {
         "schema_version": bhcore.RESULT_VERSION,
         "command": cmd,
-        "items": [{"id": x["item"], "status": verdict(x["status"])} for x in rounds],
+        "items": [
+            {"id": x["item"], "status": verdict(x["status"]), **({"out": x["out"]} if x.get("out") else {})} for x in rounds
+        ],
         "facts": [
             {k: str(f[k]) for k in ("kind", "detail", "item", "message") if f.get(k) is not None}
             for x in rounds
