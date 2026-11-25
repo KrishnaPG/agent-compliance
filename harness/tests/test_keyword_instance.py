@@ -25,3 +25,18 @@ def test_a_bare_schema_name_is_a_schema_of_the_repo_under_test(tmp_path):
     (tmp_path / "harness" / "schema" / "x.schema.json").write_text('{"title": "planted"}')
     ctx = SimpleNamespace(state={"repo": tmp_path}, tree=tmp_path / "none")
     assert load_schema(ctx, "x.schema.json") == {"title": "planted"}
+
+def test_a_lines_pattern_may_write_the_teaching_shape_inside_an_alternation():
+    from then import then_lines
+
+    def run(*lines):
+        return SimpleNamespace(last=SimpleNamespace(stdout="\n".join(lines)))
+
+    ok = run("[R-1] wrong thing -> right thing . ref", "fresh-stack runs are skipped")
+    then_lines(ok, "stdout", "@teaching_shape|fresh-stack", every=True)
+    bad = run("[R-1] wrong thing -> right thing . ref", "something else")
+    try:
+        then_lines(bad, "stdout", "@teaching_shape|fresh-stack", every=True)
+    except AssertionError:
+        return
+    raise AssertionError("a line matching neither alternative must fail the row")

@@ -238,8 +238,7 @@ def special_op(ctx, src, obj, op, values, value):
 
 def then_lines(ctx, channel, pattern, count=None, op=None, every=False):
     run = last(ctx)
-    if pattern == "@teaching_shape":
-        pattern = r"^\[[^\]]+\] .+ -> .+ \. \S.*$"
+    pattern = pattern.replace("@teaching_shape", r"^\[[^\]]+\] .+ -> .+ \. \S.*$")
     ls = _lines(run.stdout)
     rx = re.compile(pattern)
     n = sum(1 for ln in ls if rx.search(ln))
