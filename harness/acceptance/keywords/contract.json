@@ -1,0 +1,110 @@
+{
+  "_note": "Names the program has not fixed yet (d0 and the later tasks). Every keyword reads them from here, so fixing a name is a one-line change.",
+  "argv": {
+    "bh": [
+      "bin/bh"
+    ],
+    "program_step": [
+      "bin/bh",
+      "step",
+      "{step}"
+    ],
+    "hook_command_env": "CLAUDE_PLUGIN_ROOT"
+  },
+  "paths": {
+    "run_report": ".brick-harness/run-report.txt",
+    "packets_dir": ".brick-harness/packets",
+    "config_file": ".brick-harness/config.json",
+    "builder_settings": ".brick-harness/builder-settings.json",
+    "register": ".brick-harness/register.json",
+    "manifest": ".brick-harness/manifest.json",
+    "baselines_dir": ".brick-harness/baselines",
+    "junit": ".brick-harness/junit.xml",
+    "sarif_glob": ".brick-harness/*.sarif",
+    "clones_dir": ".brick-harness/clones",
+    "decision_glob": "docs/decisions/*.md",
+    "hooks_json": "hooks/hooks.json"
+  },
+  "result_json": {
+    "items": "items",
+    "facts": "facts",
+    "jobs": "jobs",
+    "run_report": "run_report",
+    "config_effective": "config",
+    "packet_sha256": "packet_sha256",
+    "fact_text_keys": [
+      "detail"
+    ],
+    "command": "command"
+  },
+  "refs": {
+    "base_tag": "base",
+    "candidate_branch": "candidate",
+    "main_branch": "main",
+    "plan_ref": "main"
+  },
+  "program_identity": "bh",
+  "hooks": {
+    "H0": {
+      "event": "PreToolUse",
+      "command_contains": "h0"
+    },
+    "H1": {
+      "event": "SessionStart",
+      "command_contains": "h1"
+    },
+    "H2": {
+      "event": "PreToolUse",
+      "command_contains": "h2"
+    },
+    "bash_note": {
+      "event": "PostToolUse",
+      "command_contains": "bash_note"
+    }
+  },
+  "env": {
+    "answers_file": "BH_ANSWERS_FILE",
+    "prompt_log": "BH_PROMPT_LOG",
+    "model_log": "ATDD_MODEL_LOG",
+    "model_fixture": "ATDD_MODEL_FIXTURE",
+    "api_urls": {
+      "github": [
+        "GITHUB_API_URL",
+        "GH_API_URL"
+      ],
+      "scorecard": [
+        "SCORECARD_API_URL"
+      ],
+      "deps_dev": [
+        "DEPS_DEV_API_URL"
+      ],
+      "osv": [
+        "OSV_API_URL"
+      ]
+    }
+  },
+  "metrics": {
+    "measure_overhead_s": "wall time in seconds of the `bh measure` run",
+    "longest_message_chars": "longest string among the result JSON facts",
+    "skill_description_chars": "scan description_chars (largest)",
+    "skill_chars": "scan file_chars (largest)",
+    "skill_md_chars": "scan file_chars (largest)"
+  },
+  "recipes": [
+    "justfile",
+    "Makefile",
+    "package.json"
+  ],
+  "project_config_files": [
+    "pyproject.toml",
+    "package.json",
+    "ruff.toml",
+    "pytest.ini",
+    "setup.cfg",
+    "tox.ini",
+    "justfile",
+    "Makefile",
+    ".brick-harness/config.json",
+    "tsconfig.json"
+  ]
+}

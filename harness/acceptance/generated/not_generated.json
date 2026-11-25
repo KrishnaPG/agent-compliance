@@ -1,0 +1,118 @@
+{
+  "a3-AC3": {
+    "reason": "needs_keyword: \"reports guesses as a count\" needs a keyword asserting a template placeholder holds a number; no catalog entry renders a template",
+    "slice": "a"
+  },
+  "b1-AC1": {
+    "reason": "ambiguous then.same_result: the result ids it compares (result_ref_a, result_ref_b) are named nowhere in the catalog",
+    "slice": "b"
+  },
+  "b12-AC6": {
+    "reason": "needs_keyword: no keyword asserts that the link checker lychee ran and its result",
+    "slice": "b"
+  },
+  "b13-AC3": {
+    "reason": "ambiguous then.threshold: metric round_spend_usd has no definition of how it is measured",
+    "slice": "b"
+  },
+  "b13-AC9": {
+    "reason": "needs_keyword: the plan names no symbol for the restated targets, so no scan pattern can express one home",
+    "slice": "b"
+  },
+  "b2-AC11": {
+    "reason": "ambiguous then.same_result: the result ids it compares (result_ref_a, result_ref_b) are named nowhere in the catalog",
+    "slice": "b"
+  },
+  "b2-AC2": {
+    "reason": "ambiguous then.same_result: the result ids it compares (first_run, second_run) are named nowhere in the catalog",
+    "slice": "b"
+  },
+  "b2-AC9": {
+    "reason": "ambiguous then.same_result: the result ids it compares (before_plan_change, after_plan_change) are named nowhere in the catalog",
+    "slice": "b"
+  },
+  "b6-AC2": {
+    "reason": "needs_keyword: no keyword counts finding lines shown versus the grouped count line in a channel",
+    "slice": "b"
+  },
+  "b6-AC9": {
+    "reason": "needs_keyword: no keyword asserts a shape over every scanned site",
+    "slice": "b"
+  },
+  "b8-AC5": {
+    "reason": "needs_keyword: no keyword asserts that a register row's marked test is a named earlier task's planted case",
+    "slice": "b"
+  },
+  "b8-AC8": {
+    "reason": "needs_keyword: no keyword asserts that a hand-set status is overwritten by regeneration",
+    "slice": "b"
+  },
+  "c7-AC5": {
+    "reason": "needs_keyword: no keyword selects whether the connection comes from the PG* variables or from DATABASE_URL, so each form cannot be a separate row",
+    "slice": "c"
+  },
+  "d0-AC1": {
+    "reason": "needs_keyword: that the test author, builder and measurer all read this one schema is a statement about shared reading, not an observable output",
+    "slice": "d"
+  },
+  "d0-AC11": {
+    "reason": "ambiguous then.same_result: the result ids it compares (check_run_checks, measure_run_checks) are named nowhere in the catalog",
+    "slice": "d"
+  },
+  "d0-AC15": {
+    "reason": "needs_keyword: that each applicable section 0 item appears in some scenario's traces_to needs a cross-check of applies against traces_to",
+    "slice": "d"
+  },
+  "d0-AC4": {
+    "reason": "needs_keyword: that each applies item is copied verbatim from spec section 0 needs a comparison of packet text with a spec source",
+    "slice": "d"
+  },
+  "d0-AC7": {
+    "reason": "needs_keyword: the file name that carries the moved text is not named by the plan, so the path reference cannot be matched",
+    "slice": "d"
+  },
+  "d1-AC3": {
+    "reason": "ambiguous then.threshold: metric planner_fields_tokens has no definition of how it is measured",
+    "slice": "d"
+  },
+  "d1-AC4": {
+    "reason": "needs_keyword: the moved text's file and the reference to it in the packet are not named by the plan",
+    "slice": "d"
+  },
+  "d2-AC5": {
+    "reason": "needs_keyword: that every cited id has its source text in the packet needs a per-id comparison with the cited document",
+    "slice": "d"
+  },
+  "d3-AC1": {
+    "reason": "needs_keyword: that the check runs in a temp dir under the clone and reuses the measurer's code rather than a copy is internal; only the equal result of d3-AC5 is observable",
+    "slice": "d"
+  },
+  "d3-AC4": {
+    "reason": "needs_keyword: that stdout holds nothing besides the missed checks' messages and the skip statement",
+    "slice": "d"
+  },
+  "d3-AC5": {
+    "reason": "ambiguous then.same_result: the result ids it compares (check_missed_checks, measure_missed_checks) are named nowhere in the catalog",
+    "slice": "d"
+  },
+  "d3-AC7": {
+    "reason": "ambiguous then.same_result: the result ids it compares (check_packet_sha256, measure_packet_sha256) are named nowhere in the catalog",
+    "slice": "d"
+  },
+  "d4-AC1": {
+    "reason": "needs_keyword: that the stored packet is addressed by its digest in .brick-harness is an internal storage fact",
+    "slice": "d"
+  },
+  "d6-AC6": {
+    "reason": "ambiguous then.same_result: the result ids it compares (manifest_criterion_ids, packet_criterion_ids) are named nowhere in the catalog",
+    "slice": "d"
+  },
+  "d7-AC3": {
+    "reason": "ambiguous then.same_result: the result ids it compares (judge_falsifying_calls, item_new_targets) are named nowhere in the catalog",
+    "slice": "d"
+  },
+  "d9-AC6": {
+    "reason": "ambiguous then.threshold: metric concurrent_agents has no definition of how it is measured",
+    "slice": "d"
+  }
+}
