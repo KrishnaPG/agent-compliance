@@ -1574,6 +1574,21 @@ def _test_cmd(co: Path, junit: Path, env: dict[str, str]) -> str:
     return test
 
 
+def tests_pass(cfg: Config, ref: str) -> dict[str, Any]:
+    """The project's one test entry (QBC-16) on a clean checkout of ``ref``, as the measurer runs
+    it on a base, for a change that has no packet (main's entry check, QBC-118): whether it
+    exited 0, and its last lines."""
+    top = git_top(cfg.dir)
+    if top is None:
+        raise HarnessError("not a git repository")
+    with clean_checkout(top, ref) as co:
+        env = dict(_project_environ(), BH_OUT=str(co))
+        prepare(cfg, co, env, {"out": co, "workdir": co, "root": co, **cfg.slot(0)})
+        cmd = _test_cmd(co, co / ".bh-junit.xml", env)
+        r = _run(cmd, co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)), [top / HDIR])
+    return {"passed": r["exit"] == 0, "cmd": cmd, "tail": r["tail"][-300:]}
+
+
 def _node_id(co: Path, classname: str, name: str) -> str | None:
     """The pytest node id of a JUnit case: the longest dotted prefix of its classname that is a
     file of the checkout is the module, the rest are classes (pytest's own JUnit naming)."""
@@ -2669,6 +2684,11 @@ def merge_refs(
     return merged, conflicts
 
 
+def default_branch(top: Path) -> str | None:
+    """The protected default branch: ``main``, else ``master`` (git's default names)."""
+    return next((b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), None)
+
+
 def merge_step(root: Path, item: str | None) -> tuple[int, str, str]:
     """``bh step merge``: the candidate (the branch checked out, or ``bh/<item>``) is measured
     against the default branch's plan, and only a met verdict lets it merge into that branch.
@@ -2677,9 +2697,7 @@ def merge_step(root: Path, item: str | None) -> tuple[int, str, str]:
     top = git_top(root)
     if top is None:
         raise HarnessError("not a git repository")
-    main = next(
-        (b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), None
-    )
+    main = default_branch(top)
     here = _git(top, "rev-parse", "--abbrev-ref", "HEAD")
     cand = f"bh/{item}" if item else here
     if main is None or cand == main or not _git_ok(top, "rev-parse", "--verify", "-q", cand):

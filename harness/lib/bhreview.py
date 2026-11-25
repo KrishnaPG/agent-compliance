@@ -35,7 +35,7 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
-from bhcore import SCHEMA_DIR, HarnessError, _git, _teach
+from bhcore import SCHEMA_DIR, HarnessError, _git, _teach, default_branch
 
 LEVEL = {"S1": "error", "S2": "error", "S3": "warning", "S4": "note"}
 LIMITS = {"findings_shown": 10, "message_chars": 300}  # defaults of limits.* (QBC-55)
@@ -373,6 +373,41 @@ def sarif(
     return log
 
 
+def finished(log: dict[str, Any]) -> bool:
+    """Whether the review ran to its end: SARIF 2.1.0 ``invocations[].executionSuccessful``."""
+    return all(i.get("executionSuccessful", True) for i in log["runs"][0].get("invocations", []))
+
+
+def admission(log: dict[str, Any] | None, override: str | None = None) -> dict[str, Any]:
+    """Main's entry check (QBC-118): the one decision of whether a reviewed change enters the
+    protected default branch, for the builder's merge, ``bh land`` and ``bh review`` in a pull
+    request's required status check alike (G2). An open S1 or S2 finding (SARIF ``error``) is not
+    admitted and goes back to its author in teach form; S3 and S4 are annotations. A review that
+    did not finish is not admitted (main cannot judge an unreviewed change). No review (no trigger,
+    0 tokens) is admitted. An owner ``override`` admits with its reason, which the caller records
+    as a fact (GitHub ruleset bypass list with its audit)."""
+    if log is None:
+        return {"admitted": True, "reviewed": False, "blocking": [], "annotations": []}
+    blocking = errors(log)
+    if not finished(log):
+        blocking.append(_teach("main-entry", "the review did not finish, so main cannot judge the change", "run the review again", "bh review BASE..HEAD"))
+    notes = [r["message"]["text"] for r in log["runs"][0]["results"] if r["level"] != "error"]
+    out = {"admitted": not blocking, "reviewed": True, "blocking": blocking, "annotations": notes}
+    if blocking and override:
+        out |= {"admitted": True, "override": override}
+    return out
+
+
+def refusal(blocking: list[str], what: str) -> str:
+    """The teach-form line of a change main does not admit (QBC-118, QBC-53)."""
+    return _teach(
+        "main-entry",
+        f"{what} has {len(blocking)} open S1/S2 review finding(s), so main does not admit it",
+        "fix each finding in its design element, then review again",
+        "meet the packet's rule lines while writing; an owner may admit it with bh land --override REASON",
+    )
+
+
 def errors(log: dict[str, Any]) -> list[str]:
     """The error-level results (critical or major) as the builder's feedback lines."""
     out = []
@@ -382,4 +417,63 @@ def errors(log: dict[str, Any]) -> list[str]:
             at = where.get("artifactLocation", {}).get("uri", "")
             line = where.get("region", {}).get("startLine")
             out.append(f"{at}{f':{line}' if line else ''} {r['message']['text']}".strip())
+    return out
+
+
+# ---------------------------------------------------------------- main's entry check on GitHub (QBC-119)
+
+GITHUB_TEMPLATES = Path(__file__).resolve().parents[2] / "templates" / ".github"
+ENTRY_FILES = ("workflows/bh-review.yml", "rulesets/bh-main.json")
+GITHUB_REMOTE = re.compile(r"github\.com[:/]([^/]+/[^/]+?)(?:\.git)?/?$")
+
+
+def github_slug(root: Path) -> str | None:
+    """``owner/repo`` of the ``origin`` remote when it is on GitHub, else None (no hosting)."""
+    url = subprocess.run(["git", "config", "--get", "remote.origin.url"], cwd=root, capture_output=True, text=True).stdout.strip()
+    m = GITHUB_REMOTE.search(url)
+    return m.group(1) if m else None
+
+
+def repo_owner(slug: str) -> dict[str, Any] | None:
+    """The repository owner as a ruleset bypass actor (``User``, or ``OrganizationAdmin`` for an
+    organization's repository), read with ``gh api``; None when gh cannot read it."""
+    p = subprocess.run(["gh", "api", f"repos/{slug}", "--jq", ".owner.type + \" \" + (.owner.id|tostring)"], capture_output=True, text=True)
+    kind, _, oid = p.stdout.strip().partition(" ")
+    if p.returncode != 0 or not oid.isdigit():
+        return None
+    if kind == "Organization":
+        return {"actor_id": None, "actor_type": "OrganizationAdmin", "bypass_mode": "pull_request"}
+    return {"actor_id": int(oid), "actor_type": "User", "bypass_mode": "pull_request"}
+
+
+def install_entry(root: Path, approved: bool) -> dict[str, Any]:
+    """Main's entry check as GitHub's own standard files (QBC-119), one setup write in the one
+    setup question: a ruleset for the default branch (pull request required, the required status
+    check ``bh-review``, the repository owner on the bypass list; GitHub's ruleset JSON, imported
+    with ``gh api``) and the workflow whose job ``bh-review`` runs ``bh land --check`` on the pull
+    request. Never over a file the project has. With no GitHub remote there is nothing to write:
+    ``bh land`` is the path (P12)."""
+    slug = github_slug(root)
+    if slug is None:
+        return {"written": [], "pending": []}
+    missing = [f for f in ENTRY_FILES if not (root / ".github" / f).exists()]
+    if not approved:
+        return {"written": [], "pending": [f".github/{f}" for f in missing]}
+    version = json.loads((GITHUB_TEMPLATES.parents[1] / ".claude-plugin" / "plugin.json").read_text())["version"]
+    out: dict[str, Any] = {"written": [], "skipped": [f".github/{f}" for f in ENTRY_FILES if f not in missing]}
+    for f in missing:
+        text = (GITHUB_TEMPLATES / f).read_text()
+        if f.endswith(".yml"):
+            text = text.replace("__DEFAULT_BRANCH__", default_branch(root) or "main").replace("__PLUGIN_REF__", f"v{version}")
+        else:
+            doc = json.loads(text)
+            owner = repo_owner(slug)
+            doc["bypass_actors"] = [owner] if owner else []
+            if not owner:
+                out["note"] = "gh could not read the repository owner: add the owner to the ruleset's bypass list before importing it"
+            text = json.dumps(doc, indent=2) + "\n"
+        (root / ".github" / f).parent.mkdir(parents=True, exist_ok=True)
+        (root / ".github" / f).write_text(text)
+        out["written"].append(f".github/{f}")
+    out["apply"] = f"gh api -X POST repos/{slug}/rulesets --input .github/rulesets/bh-main.json"
     return out

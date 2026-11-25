@@ -114,7 +114,7 @@ agent runs each tool and returns its JSON.
   item's env_setup, test (JUnit XML) and bench (JSON or CSV extractor), and compares raw
   numbers with `targets.json` from the invoking checkout. It fails closed on: no targets, a
   pending command, a non-zero exit, a timeout, zero tests, an unreadable or odd result and a
-  missing or non-finite metric. No gates: a ref's edits never refuse or fail it. Before
+  missing or non-finite metric. No fail-at-exit gate (spec §0 P7): a ref's edits never refuse or fail it. Before
   measuring, the plan commit's (HEAD's) plan and `protected` paths are laid over the ref's
   checkout (a `git clone --shared`; a guarded file the ref added is deleted), so edits there have no effect; they are listed under the item as
   `ignored_edits`. The command runs sealed by bubblewrap (read-only `/`, no network, only the
@@ -192,7 +192,7 @@ written yet.
 
 Gaps are listed in rank order. Per measurement the measurer notes each target met or not in `out/history.json`; a target of one item that went met to unmet after another item went met, twice, is reported `oscillating` (both named) and never changes a status.
 
-No gates: gates invite gaming. An item moves on only when its targets are measured met. `safeguards.json` registers the pitfalls the harness guards against and how, each by structure (gaming is impossible by construction), fact (recorded and reported, never scored), order (ranks work, never filters it) or limit (caps cost, lists what is left), with the catalog rules it serves, its status and the tests that prove it. `tests/test_safeguards.py` fails when an entry claims more than its tests show, or when a gate is anything but a mechanism being removed.
+No fail-at-exit gates (spec §0 P7, owner 2026-11-26): rules bind every author and checks act while the work is written, because a check that fails finished work invites gaming. Main is protected: a change enters it only through its entry check, tests passing and no open S1/S2 review finding (`bh land`, or GitHub's required `bh-review` check). An item moves on only when its targets are measured met. `safeguards.json` registers the pitfalls the harness guards against and how, each by structure (gaming is impossible by construction), fact (recorded and reported, never scored), order (ranks work, never filters it) or limit (caps cost, lists what is left), with the catalog rules it serves, its status and the tests that prove it. `tests/test_safeguards.py` fails when an entry claims more than its tests show, or when a gate is anything but a mechanism being removed.
 
 Work hierarchy (decision `docs/decisions/0001-work-tracking.md`): goal, feature, item; only
 items are measured. Item `kind` is `brick`, `system` or `change`; `refs` names tracker refs

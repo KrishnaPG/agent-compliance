@@ -5,7 +5,7 @@
   "required": ["schema_version", "command"],
   "properties": {
     "schema_version": {"type": "string"},
-    "command": {"enum": ["run", "measure", "check", "intake", "merge", "decide", "gaps", "owners", "metrics", "vet", "map", "review"]},
+    "command": {"enum": ["run", "measure", "check", "intake", "merge", "decide", "gaps", "owners", "metrics", "vet", "map", "review", "land"]},
     "packet_sha256": {"type": "string"},
     "checks_run": {"type": "array", "items": {"type": "string"}},
     "checks_missed": {"type": "array", "items": {"type": "string"}},

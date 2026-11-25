@@ -1,0 +1,30 @@
+# Main's entry check (agent-compliance QBC-118, QBC-119): the required status check `bh-review`
+# of the default branch's ruleset. It runs `bh land --check` on the pull request: the head merged
+# into the base must pass the project's tests and its review must leave no open S1 or S2 finding.
+# S3 and S4 findings are annotations. An owner bypass is GitHub's ruleset bypass, audited by GitHub.
+name: bh-review
+on:
+  pull_request:
+    branches: [__DEFAULT_BRANCH__]
+permissions:
+  contents: read
+jobs:
+  bh-review:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          repository: KrishnaPG/agent-compliance
+          ref: __PLUGIN_REF__
+          path: .bh-plugin
+      - uses: astral-sh/setup-uv@1db35dd8eee11c5894872e0b383ae6c406cf738d # v10.4.0
+      - run: npm install --global @anthropic-ai/claude-code@2.1.332
+      - name: main's entry check
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          BASE: ${{ github.event.pull_request.base.sha }}
+          HEAD: ${{ github.event.pull_request.head.sha }}
+        run: .bh-plugin/bin/bh land "$HEAD" --onto "$BASE" --check

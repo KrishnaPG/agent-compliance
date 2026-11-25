@@ -357,7 +357,7 @@ class Orchestrator:
         self.errors: list[str] = []
         self.spent = {"cost_usd": 0.0, "tokens": 0}
         self.facts: list[dict[str, Any]] = []  # every fact of this run's items, for the run report
-        self.open_reviews: dict[str, tuple[dict[str, Any], str]] = {}  # item -> (SARIF log, sha) of changes requested
+        self.reviewed: dict[str, dict[str, Any]] = {}  # build sha -> its review's SARIF log (main's entry check)
         self.outs: dict[str, str] = {}  # each item's last measurement output dir (result items[*].out)
 
     # ------------------------------------------------------------ files and state
@@ -928,7 +928,9 @@ class Orchestrator:
 
     # Standard-file writes setup offers (QBC-61 D): name -> writer(root, approved) returning
     # {"written", ...} when approved, else {"pending": [...]} naming what it would write.
-    SETUP_WRITES: dict[str, Any] = {"forms": bhintake.install_forms, "presets": None}  # presets: setup_presets
+    # main: main's entry check as GitHub's ruleset and workflow (QBC-119); with no GitHub remote it
+    # writes nothing and asks nothing, since ``bh land`` is the path (P12)
+    SETUP_WRITES: dict[str, Any] = {"forms": bhintake.install_forms, "presets": None, "main": bhreview.install_entry}  # presets: setup_presets
 
     def phase_setup(
         self,
@@ -1268,11 +1270,8 @@ class Orchestrator:
                 feedback = taught + feedback
             if not feedback:
                 break
-        if met_sha:  # findings left at the round limit never change met (P4)
-            if item in self.open_reviews:  # changes requested, no reviewed build followed: settle them
-                log, at = self.open_reviews.pop(item)
-                self.settle_findings(packet, log, at, facts)
-            return await self.merge_item(root, packet, met_sha, facts)
+        if met_sha:  # findings never change met (P4); they decide admission to main (QBC-118)
+            return await self.enter_main(root, packet, met_sha, facts)
         if feedback or first > limit:
             facts.append(
                 {"kind": "stuck", "item": item, "detail": f"{item} reached the round limit of {len(rounds)} builder rounds for this packet; a changed packet or a higher max_rounds starts more"}
@@ -1503,6 +1502,30 @@ class Orchestrator:
             self.plan_defect(packet, "measurer", misses, git(root, "rev-parse", "HEAD").stdout.strip(), facts)
         return "met"
 
+    async def enter_main(
+        self, root: Path, packet: dict[str, Any], sha: str, facts: list[dict[str, Any]]
+    ) -> str:
+        """Main's entry check for a met build (QBC-118, QBC-119): its tests passed (met), and the
+        review of that build, past its ``limits.review_rounds``, decides admission. An open S1 or S2
+        finding keeps it out of main: the item stays met by its tests, its slice stays open with the
+        findings recorded under it (QBC-91), and nothing is merged or filed after the fact. S3 and S4
+        findings are annotations: Known issues lines (§0 R8)."""
+        item, log = packet["id"], self.reviewed.get(sha)
+        adm = bhreview.admission(log)
+        if not adm["admitted"]:
+            facts.append(
+                {
+                    "kind": "not_admitted",
+                    "item": item,
+                    "detail": f"{item} {sha[:12]} stays out of main and its slice stays open (QBC-91): " + "; ".join(adm["blocking"])[:400],
+                    "message": bhreview.refusal(adm["blocking"], f"{item} {sha[:12]}"),
+                }
+            )
+            return "met"
+        if log is not None:
+            self.settle_findings(packet, log, sha, facts)
+        return await self.merge_item(root, packet, sha, facts)
+
     def shown(self, lines: list[str]) -> list[str]:
         """The first ``limits.findings_shown`` messages, then the count of the rest (QBC-55)."""
         n = bhreview.limits(self.cfg.data)["findings_shown"]
@@ -1514,10 +1537,10 @@ class Orchestrator:
         """The review (QBC-36) of a met build, before its merge, in code review's request-changes
         loop (Google engineering practices): the one review job judges the item's whole diff, and a
         critical or major finding goes back to the builder for at most ``limits.review_rounds``
-        rounds per packet, counted from the state. Past them the review still runs on the build that
-        merges; its critical and major findings become a defect item under this one, its minor and
-        trivial ones Known issues lines (§0 R8, P4: findings never change met). Returns the
-        builder's feedback lines."""
+        rounds per packet, counted from the state; its minor and
+        trivial ones annotations. Past them the log of the build is kept for main's entry check
+        (``enter_main``, QBC-118): findings never change met (P4), only admission to main. Returns
+        the builder's feedback lines."""
         root, item = self.top, packet["id"]
         base = git(root, "merge-base", "HEAD", sha).stdout.strip()
         label = f"{item}:review:{sha[:12]}"
@@ -1529,12 +1552,10 @@ class Orchestrator:
         log = await self.review_diff(packet, digest, base, sha, tier, facts)
         if log is None:
             return []
-        errs = bhreview.errors(log)
-        self.open_reviews.pop(item, None)  # this review supersedes an earlier one
+        self.reviewed[sha] = log  # main's entry check reads the review of the build that is met
+        errs = bhreview.errors(log) if bhreview.finished(log) else []
         if errs and prior < self.cfg.limit("review_rounds"):  # request changes
-            self.open_reviews[item] = (log, sha)  # settled at the merge if no reviewed build follows
             return errs
-        self.settle_findings(packet, log, sha, facts)
         return []
 
     async def review_diff(
@@ -1551,7 +1572,8 @@ class Orchestrator:
         program judges the triggers on the whole diff ``base..sha``; a fresh reviewer that never
         built it (P6) judges the diff against exactly the packet's rule lines (the builder's) and
         the triggered domains; its findings are recorded as SARIF facts and, for a build
-        (``record``), in gaps.json with a commit. Returns the SARIF log, or None when no review runs."""
+        (``record``), in gaps.json with a commit. Returns the SARIF log (one whose invocation did not
+        succeed when the job did not finish), or None when no review runs."""
         root, item = self.top, packet["id"]
         trig = bhreview.triggers(root, self.cfg.data, base, sha, tier, packet.get("kind", "slice"))
         if not trig:
@@ -1584,7 +1606,9 @@ class Orchestrator:
         )
         if not j["ok"]:
             facts.append({"kind": "gap", "item": item, "detail": f"review of {item} did not finish: {j.get('error')}"})
-            return None
+            log = bhreview.sarif([], item, digest, bhreview.limits(self.cfg.data)["message_chars"])
+            log["runs"][0]["invocations"] = [{"executionSuccessful": False}]  # SARIF 2.1.0: main does not admit it (QBC-118)
+            return log
         # severity and the right way come from each rule's own metadata (QBC-114, QBC-115)
         meta = bhrules.rule_meta(self.cfg)
         findings, settled = bhreview.settle(j["output"]["findings"], meta, root, sha)
@@ -1683,27 +1707,74 @@ class Orchestrator:
         # a review of any diff writes no commit: a pre-push hook or a replay leaves the branch as it was
         log = await self.review_diff(packet, digest, base, sha, tier, facts, record=False)
         results = log["runs"][0]["results"] if log else []
+        adm = bhreview.admission(log)  # main's entry check reads this review (QBC-118)
         return {
             "item": packet["id"],
             "tier": tier,
-            "reviewed": log is not None,
-            "rules": log["runs"][0]["properties"]["rules"] if log else [],
+            "reviewed": log is not None and bhreview.finished(log),
+            "rules": log["runs"][0]["properties"].get("rules", []) if log else [],
             "findings": [r["message"]["text"] for r in results],
+            "admitted": adm["admitted"],
+            "blocking": adm["blocking"],
             "facts": facts,
         }
+
+    async def phase_land(self, ref: str, onto: str | None, override: str | None, check: bool) -> dict[str, Any]:
+        """``bh land REF [--onto BASE] [--override REASON] [--check]``: main's entry check (QBC-118,
+        QBC-119) for any author's branch, where no hosting enforces it (P12), and in a pull request's
+        required status check where one does. The change is ``REF`` merged into ``BASE`` (default: the
+        default branch), as a pull request's merge ref is: its tests pass there (the project's one
+        test entry, QBC-16) and ``bh review BASE..REF`` leaves no open S1 or S2 finding. Otherwise
+        it is not admitted and goes back to its author in teach form, unless the owner overrides with
+        a reason, recorded as a fact and as a ``Bh-Override`` trailer of the merge commit (git
+        trailers; GitHub's ruleset bypass audit). Admitted and not ``--check``, the default branch
+        moves to that merge commit (``git merge --ff-only``); a conflict is a fact and merges nothing."""
+        root = self.top
+        main = bhcore.default_branch(root)
+        if main is None and onto is None:
+            raise HarnessError("[land] there is no main or master branch -> name the branch to land onto with --onto")
+        base_ref = onto or main
+        sha = git(root, "rev-parse", "--verify", f"{ref}^{{commit}}").stdout.strip()
+        tip = git(root, "rev-parse", "--verify", f"{base_ref}^{{commit}}").stdout.strip()
+        base = git(root, "merge-base", tip, sha).stdout.strip()
+        facts: list[dict[str, Any]] = []
+        out: dict[str, Any] = {"ref": ref, "onto": base_ref, "admitted": False, "merged": None}
+        tree = git(root, "merge-tree", "--write-tree", tip, sha, check=False)
+        if tree.returncode != 0:
+            facts.append({"kind": "conflict", "item": "(project)", "detail": f"{ref} does not merge cleanly into {base_ref}: {tree.stdout.splitlines()[1:4]}"})
+            return {**out, "facts": facts}
+        msg = f"Merge {ref} into {base_ref}" + (f"\n\nBh-Override: {override}" if override else "")
+        merge = git(root, "commit-tree", tree.stdout.split()[0], "-p", tip, "-p", sha, "-m", msg).stdout.strip()
+        tests = bhcore.tests_pass(self.cfg, merge)
+        review = await self.phase_review(f"{base}..{sha}", None)
+        blocking = list(review["blocking"])
+        if not tests["passed"]:
+            blocking.insert(0, bhcore._teach("main-entry", f"the tests fail on {ref} merged into {base_ref}", "make the project's test entry pass on the merge", "run it before landing"))
+        facts += review["facts"]
+        out |= {"tests": tests, "review": review, "blocking": blocking}
+        actor = git(root, "config", "user.email", check=False).stdout.strip() or "the owner"
+        if blocking and not override:
+            facts.append({"kind": "not_admitted", "item": "(project)", "detail": f"{ref}: " + "; ".join(blocking)[:400], "message": bhreview.refusal(blocking, ref)})
+            return {**out, "facts": facts}
+        if blocking:
+            facts.append({"kind": "override", "item": "(project)", "detail": f"{actor} admitted {ref} into {base_ref} over {len(blocking)} S1/S2 finding(s) or failing tests: {override}"})
+        out["admitted"] = True
+        if not check:
+            if main is None or base_ref != main:
+                raise HarnessError(f"[land] only the default branch is landed onto -> drop --onto {base_ref}, or add --check")
+            if git(root, "symbolic-ref", "-q", "--short", "HEAD", check=False).stdout.strip() != main:
+                git(root, "checkout", "-q", main)
+            git(root, "merge", "--ff-only", "-q", merge)  # git moves the ref and the tree together
+            out["merged"] = merge
+        return {**out, "facts": facts}
 
     def settle_findings(
         self, packet: dict[str, Any], log: dict[str, Any], sha: str, facts: list[dict[str, Any]]
     ) -> None:
-        """Findings left open by the review that starts no round: the critical and major ones become
-        one defect item under this item (planned once per build), the minor and trivial ones lines
-        of the single Known issues list (§0 R8), or facts when the project keeps no such list."""
+        """The annotations of a build main admitted (QBC-118): its minor and trivial findings become
+        lines of the single Known issues list (§0 R8), or facts when the project keeps no such list."""
         item = packet["id"]
-        major = bhreview.errors(log)
-        minor = [r["message"]["text"] for r in log["runs"][0]["results"] if r["level"] != "error"]
-        if major:
-            broke = [r["ruleId"] for r in log["runs"][0]["results"] if r["level"] == "error"]
-            self.plan_defect(packet, "reviewer", major, sha, facts, broke)
+        minor = bhreview.admission(log)["annotations"]
         ref, parent = (self.cfg.data.get("tracker") or {}).get("known_issues"), packet.get("parent_issue")
         for line in minor:
             added = False
@@ -1962,9 +2033,14 @@ def summary_text(r: dict[str, Any], path: Path | None) -> str:
         lines.append(f"  stuck: {x.get('item') or x.get('id') or x}: {x.get('reason', '')}")
     lines.append(f"  gaps: {st['gaps']}")
     review = (r.get("phases") or {}).get("review")
-    if review is not None:  # bh review: its findings in teach form; it never blocks (P4)
+    if review is not None and "item" in review:  # bh review: its findings in teach form; S1/S2 decide admission to main (QBC-118)
         lines.append(f"REVIEW {review['item']} ({review['tier']}): " + (f"{len(review['findings'])} findings" if review["reviewed"] else "no review ran (no trigger, 0 tokens)"))
         lines += [f"  {f}" for f in review["findings"][:20]]
+    land = (r.get("phases") or {}).get("land")
+    if land is not None:
+        state = "merged " + land["merged"][:12] if land.get("merged") else ("admitted" if land["admitted"] else "not admitted")
+        lines.append(f"LAND {land['ref']} -> {land['onto']}: {state}")
+        lines += [f"  {f.get('message') or f['detail']}" for f in land["facts"] if f["kind"] in ("not_admitted", "override", "conflict")]
     misses = [
         f
         for f in [*(f for x in (r.get("phases") or {}).get("rounds") or [] for f in x.get("facts", [])), *(review or {}).get("facts", [])]
@@ -2035,6 +2111,9 @@ async def dispatch(orch: Orchestrator, cmd: str, a: argparse.Namespace) -> dict[
         phases = {"harvest": await orch.phase_harvest()}
     elif cmd == "review":
         phases = {"review": await orch.phase_review(a.range, a.item)}
+    elif cmd == "land":
+        land = await orch.phase_land(a.ref, a.onto, a.override, a.check)
+        phases = {"land": land, "review": {**(land.get("review") or {}), "facts": land["facts"]}}
     else:
         raise HarnessError(f"unknown command {cmd}")
     s = orch.state()
@@ -2104,6 +2183,13 @@ def main(argv: list[str] | None = None) -> int:
     )
     rv.add_argument("range", metavar="BASE..HEAD")
     rv.add_argument("--item", help="the planned item whose rules judge the diff (default: the items it touches)")
+    la = sub.add_parser(
+        "land", parents=[common], help="main's entry check, then merge REF into the default branch: tests pass and no open S1/S2 review finding"
+    )
+    la.add_argument("ref", metavar="REF", help="the branch or commit to land")
+    la.add_argument("--onto", metavar="BASE", help="the branch it enters (default: the default branch)")
+    la.add_argument("--override", metavar="REASON", help="the owner admits it over open findings; recorded as a fact and a commit trailer")
+    la.add_argument("--check", action="store_true", help="decide admission only; merge nothing (a pull request's required check)")
     sub.add_parser("metrics", parents=[common], help="DORA measures, baseline and current")
     it = sub.add_parser("intake", parents=[common], help="parent check on open issues; --known LINE adds a Known issues line")
     it.add_argument("--known", metavar="LINE")
@@ -2185,7 +2271,8 @@ def main(argv: list[str] | None = None) -> int:
         write_atomic(path, json.dumps(result, indent=2, default=str) + "\n")
     print(summary_text(result, None if a.dry_run else path))  # the human's view first, the result JSON last
     print(json.dumps(result_doc(a.cmd, result), default=str))
-    return 1 if result["errors"] else 0
+    land = (result.get("phases") or {}).get("land") or {}
+    return 1 if result["errors"] or land.get("admitted") is False else 0  # main's entry check (QBC-118); bh review only reports
 
 
 if __name__ == "__main__":

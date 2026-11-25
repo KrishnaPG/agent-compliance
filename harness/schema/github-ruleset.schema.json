@@ -1,0 +1,1111 @@
+{
+ "$schema": "https://json-schema.org/draft/2020-12/schema",
+ "$comment": "The request body of GitHub REST `repos/create-repo-ruleset` (POST /repos/{owner}/{repo}/rulesets), extracted with its $refs from github/rest-api-description at c9c95fe34ced05fe076001f5c55704742bc8e7f8, descriptions-next/api.github.com/api.github.com.json (OpenAPI 3.1, JSON Schema 2020-12). check-jsonschema vendors no ruleset schema.",
+ "type": "object",
+ "properties": {
+  "name": {
+   "type": "string"
+  },
+  "target": {
+   "type": "string",
+   "enum": [
+    "branch",
+    "tag",
+    "push"
+   ],
+   "default": "branch"
+  },
+  "enforcement": {
+   "$ref": "#/$defs/repository-rule-enforcement"
+  },
+  "bypass_actors": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/repository-ruleset-bypass-actor"
+   }
+  },
+  "conditions": {
+   "$ref": "#/$defs/repository-ruleset-conditions"
+  },
+  "rules": {
+   "type": "array",
+   "items": {
+    "$ref": "#/$defs/repository-rule"
+   }
+  }
+ },
+ "required": [
+  "name",
+  "enforcement"
+ ],
+ "$defs": {
+  "repository-rule-enforcement": {
+   "type": "string",
+   "enum": [
+    "disabled",
+    "active",
+    "evaluate"
+   ]
+  },
+  "repository-ruleset-bypass-actor": {
+   "type": "object",
+   "required": [
+    "actor_type"
+   ],
+   "properties": {
+    "actor_id": {
+     "type": [
+      "integer",
+      "null"
+     ]
+    },
+    "actor_type": {
+     "type": "string",
+     "enum": [
+      "Integration",
+      "OrganizationAdmin",
+      "RepositoryRole",
+      "Team",
+      "DeployKey",
+      "User"
+     ]
+    },
+    "bypass_mode": {
+     "type": "string",
+     "enum": [
+      "always",
+      "pull_request",
+      "exempt"
+     ],
+     "default": "always"
+    }
+   }
+  },
+  "repository-ruleset-conditions": {
+   "type": "object",
+   "properties": {
+    "ref_name": {
+     "type": "object",
+     "properties": {
+      "include": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "exclude": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     }
+    }
+   }
+  },
+  "repository-rule": {
+   "type": "object",
+   "oneOf": [
+    {
+     "$ref": "#/$defs/repository-rule-creation"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-update"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-deletion"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-required-linear-history"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-merge-queue"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-required-deployments"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-required-signatures"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-pull-request"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-required-status-checks"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-non-fast-forward"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-commit-message-pattern"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-commit-author-email-pattern"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-committer-email-pattern"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-branch-name-pattern"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-tag-name-pattern"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-workflows"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-code-scanning"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-code-quality"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-code-coverage"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-copilot-code-review"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-license-compliance-scanning"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-file-path-restriction"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-max-file-path-length"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-file-extension-restriction"
+    },
+    {
+     "$ref": "#/$defs/repository-rule-max-file-size"
+    }
+   ]
+  },
+  "repository-rule-creation": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "creation"
+     ]
+    }
+   }
+  },
+  "repository-rule-update": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "update"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "update_allows_fetch_and_merge": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "update_allows_fetch_and_merge"
+     ]
+    }
+   }
+  },
+  "repository-rule-deletion": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "deletion"
+     ]
+    }
+   }
+  },
+  "repository-rule-required-linear-history": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "required_linear_history"
+     ]
+    }
+   }
+  },
+  "repository-rule-merge-queue": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "merge_queue"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "check_response_timeout_minutes": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 360
+      },
+      "grouping_strategy": {
+       "type": "string",
+       "enum": [
+        "ALLGREEN",
+        "HEADGREEN"
+       ]
+      },
+      "max_entries_to_build": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 100
+      },
+      "max_entries_to_merge": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 100
+      },
+      "merge_method": {
+       "type": "string",
+       "enum": [
+        "MERGE",
+        "SQUASH",
+        "REBASE"
+       ]
+      },
+      "min_entries_to_merge": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 100
+      },
+      "min_entries_to_merge_wait_minutes": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 360
+      }
+     },
+     "required": [
+      "check_response_timeout_minutes",
+      "grouping_strategy",
+      "max_entries_to_build",
+      "max_entries_to_merge",
+      "merge_method",
+      "min_entries_to_merge",
+      "min_entries_to_merge_wait_minutes"
+     ]
+    }
+   }
+  },
+  "repository-rule-required-deployments": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "required_deployments"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "required_deployment_environments": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "required": [
+      "required_deployment_environments"
+     ]
+    }
+   }
+  },
+  "repository-rule-required-signatures": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "required_signatures"
+     ]
+    }
+   }
+  },
+  "repository-rule-pull-request": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "pull_request"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "allowed_merge_methods": {
+       "type": "array",
+       "items": {
+        "type": "string",
+        "enum": [
+         "merge",
+         "squash",
+         "rebase"
+        ]
+       }
+      },
+      "dismiss_stale_reviews_on_push": {
+       "type": "boolean"
+      },
+      "dismissal_restriction": {
+       "$ref": "#/$defs/repository-rule-params-dismissal-restriction"
+      },
+      "require_code_owner_review": {
+       "type": "boolean"
+      },
+      "require_extra_approval_for_unattributed_changes": {
+       "type": "boolean"
+      },
+      "require_last_push_approval": {
+       "type": "boolean"
+      },
+      "required_approving_review_count": {
+       "type": "integer",
+       "minimum": 0,
+       "maximum": 10
+      },
+      "required_review_thread_resolution": {
+       "type": "boolean"
+      },
+      "required_reviewers": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/repository-rule-params-required-reviewer-configuration"
+       }
+      }
+     },
+     "required": [
+      "dismiss_stale_reviews_on_push",
+      "require_code_owner_review",
+      "require_last_push_approval",
+      "required_approving_review_count",
+      "required_review_thread_resolution"
+     ]
+    }
+   }
+  },
+  "repository-rule-params-dismissal-restriction": {
+   "type": "object",
+   "properties": {
+    "allowed_actors": {
+     "type": "array",
+     "items": {
+      "$ref": "#/$defs/repository-rule-params-actor"
+     }
+    },
+    "enabled": {
+     "type": "boolean"
+    }
+   },
+   "required": [
+    "enabled"
+   ]
+  },
+  "repository-rule-params-actor": {
+   "type": "object",
+   "properties": {
+    "id": {
+     "type": "integer"
+    },
+    "type": {
+     "type": "string",
+     "enum": [
+      "User",
+      "Team",
+      "IntegrationInstallation",
+      "RepositoryRole"
+     ]
+    }
+   },
+   "required": [
+    "id",
+    "type"
+   ]
+  },
+  "repository-rule-params-required-reviewer-configuration": {
+   "type": "object",
+   "properties": {
+    "file_patterns": {
+     "type": "array",
+     "items": {
+      "type": "string"
+     }
+    },
+    "minimum_approvals": {
+     "type": "integer"
+    },
+    "reviewer": {
+     "$ref": "#/$defs/repository-rule-params-reviewer"
+    }
+   },
+   "required": [
+    "file_patterns",
+    "minimum_approvals",
+    "reviewer"
+   ]
+  },
+  "repository-rule-params-reviewer": {
+   "type": "object",
+   "properties": {
+    "id": {
+     "type": "integer"
+    },
+    "type": {
+     "type": "string",
+     "enum": [
+      "Team"
+     ]
+    }
+   },
+   "required": [
+    "id",
+    "type"
+   ]
+  },
+  "repository-rule-required-status-checks": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "required_status_checks"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "do_not_enforce_on_create": {
+       "type": "boolean"
+      },
+      "required_status_checks": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/repository-rule-params-status-check-configuration"
+       }
+      },
+      "strict_required_status_checks_policy": {
+       "type": "boolean"
+      }
+     },
+     "required": [
+      "required_status_checks",
+      "strict_required_status_checks_policy"
+     ]
+    }
+   }
+  },
+  "repository-rule-params-status-check-configuration": {
+   "type": "object",
+   "properties": {
+    "context": {
+     "type": "string"
+    },
+    "integration_id": {
+     "type": "integer"
+    }
+   },
+   "required": [
+    "context"
+   ]
+  },
+  "repository-rule-non-fast-forward": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "non_fast_forward"
+     ]
+    }
+   }
+  },
+  "repository-rule-commit-message-pattern": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "commit_message_pattern"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "negate": {
+       "type": "boolean"
+      },
+      "operator": {
+       "type": "string",
+       "enum": [
+        "starts_with",
+        "ends_with",
+        "contains",
+        "regex"
+       ]
+      },
+      "pattern": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "operator",
+      "pattern"
+     ]
+    }
+   }
+  },
+  "repository-rule-commit-author-email-pattern": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "commit_author_email_pattern"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "negate": {
+       "type": "boolean"
+      },
+      "operator": {
+       "type": "string",
+       "enum": [
+        "starts_with",
+        "ends_with",
+        "contains",
+        "regex"
+       ]
+      },
+      "pattern": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "operator",
+      "pattern"
+     ]
+    }
+   }
+  },
+  "repository-rule-committer-email-pattern": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "committer_email_pattern"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "negate": {
+       "type": "boolean"
+      },
+      "operator": {
+       "type": "string",
+       "enum": [
+        "starts_with",
+        "ends_with",
+        "contains",
+        "regex"
+       ]
+      },
+      "pattern": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "operator",
+      "pattern"
+     ]
+    }
+   }
+  },
+  "repository-rule-branch-name-pattern": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "branch_name_pattern"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "negate": {
+       "type": "boolean"
+      },
+      "operator": {
+       "type": "string",
+       "enum": [
+        "starts_with",
+        "ends_with",
+        "contains",
+        "regex"
+       ]
+      },
+      "pattern": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "operator",
+      "pattern"
+     ]
+    }
+   }
+  },
+  "repository-rule-tag-name-pattern": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "tag_name_pattern"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "name": {
+       "type": "string"
+      },
+      "negate": {
+       "type": "boolean"
+      },
+      "operator": {
+       "type": "string",
+       "enum": [
+        "starts_with",
+        "ends_with",
+        "contains",
+        "regex"
+       ]
+      },
+      "pattern": {
+       "type": "string"
+      }
+     },
+     "required": [
+      "operator",
+      "pattern"
+     ]
+    }
+   }
+  },
+  "repository-rule-workflows": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "workflows"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "do_not_enforce_on_create": {
+       "type": "boolean"
+      },
+      "workflows": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/repository-rule-params-workflow-file-reference"
+       }
+      }
+     },
+     "required": [
+      "workflows"
+     ]
+    }
+   }
+  },
+  "repository-rule-params-workflow-file-reference": {
+   "type": "object",
+   "properties": {
+    "path": {
+     "type": "string"
+    },
+    "ref": {
+     "type": "string"
+    },
+    "repository_id": {
+     "type": "integer"
+    },
+    "sha": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "path",
+    "repository_id"
+   ]
+  },
+  "repository-rule-code-scanning": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "code_scanning"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "code_scanning_tools": {
+       "type": "array",
+       "items": {
+        "$ref": "#/$defs/repository-rule-params-code-scanning-tool"
+       }
+      }
+     },
+     "required": [
+      "code_scanning_tools"
+     ]
+    }
+   }
+  },
+  "repository-rule-params-code-scanning-tool": {
+   "type": "object",
+   "properties": {
+    "alerts_threshold": {
+     "type": "string",
+     "enum": [
+      "none",
+      "errors",
+      "errors_and_warnings",
+      "all"
+     ]
+    },
+    "security_alerts_threshold": {
+     "type": "string",
+     "enum": [
+      "none",
+      "critical",
+      "high_or_higher",
+      "medium_or_higher",
+      "all"
+     ]
+    },
+    "tool": {
+     "type": "string"
+    }
+   },
+   "required": [
+    "alerts_threshold",
+    "security_alerts_threshold",
+    "tool"
+   ]
+  },
+  "repository-rule-code-quality": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "code_quality"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "severity": {
+       "type": "string",
+       "enum": [
+        "errors",
+        "warnings",
+        "notes",
+        "all"
+       ]
+      }
+     },
+     "required": [
+      "severity"
+     ]
+    }
+   }
+  },
+  "repository-rule-code-coverage": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "code_coverage"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "max_coverage_drop": {
+       "type": "number",
+       "format": "float",
+       "minimum": 0.0,
+       "maximum": 100.0
+      },
+      "minimum_coverage": {
+       "type": "number",
+       "format": "float",
+       "minimum": 0.0,
+       "maximum": 100.0
+      }
+     }
+    }
+   }
+  },
+  "repository-rule-copilot-code-review": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "copilot_code_review"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "review_draft_pull_requests": {
+       "type": "boolean"
+      },
+      "review_on_push": {
+       "type": "boolean"
+      }
+     }
+    }
+   }
+  },
+  "repository-rule-license-compliance-scanning": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "license_compliance_scanning"
+     ]
+    }
+   }
+  },
+  "repository-rule-file-path-restriction": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "file_path_restriction"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "ignored_file_paths": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "restricted_file_paths": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "required": [
+      "restricted_file_paths"
+     ]
+    }
+   }
+  },
+  "repository-rule-max-file-path-length": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "max_file_path_length"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "max_file_path_length": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 32767
+      }
+     },
+     "required": [
+      "max_file_path_length"
+     ]
+    }
+   }
+  },
+  "repository-rule-file-extension-restriction": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "file_extension_restriction"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "restricted_file_extensions": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      }
+     },
+     "required": [
+      "restricted_file_extensions"
+     ]
+    }
+   }
+  },
+  "repository-rule-max-file-size": {
+   "type": "object",
+   "required": [
+    "type"
+   ],
+   "properties": {
+    "type": {
+     "type": "string",
+     "enum": [
+      "max_file_size"
+     ]
+    },
+    "parameters": {
+     "type": "object",
+     "properties": {
+      "ignored_file_paths": {
+       "type": "array",
+       "items": {
+        "type": "string"
+       }
+      },
+      "max_file_size": {
+       "type": "integer",
+       "minimum": 1,
+       "maximum": 100
+      }
+     },
+     "required": [
+      "max_file_size"
+     ]
+    }
+   }
+  }
+ }
+}

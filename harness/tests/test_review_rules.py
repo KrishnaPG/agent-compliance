@@ -1,7 +1,7 @@
 """The review judges against the builder's rules (QBC-36, §0 G3): a design-affecting item gets one
 review job whose input is its packet's rule lines, a mechanical item none; a critical or major
 finding requests changes for one more builder round (Google engineering practices, code review),
-never more, and stays open as a defect item; a defect packet carries rule NO-12 and its review
+never more, and then stays open on its slice, out of main (QBC-91, QBC-118); a defect packet carries rule NO-12 and its review
 judges it (ISTQB root cause analysis)."""
 
 import json
@@ -93,17 +93,11 @@ def test_a_major_finding_gets_one_more_round_with_its_teaching_and_no_further(to
     assert item_jobs.count("builder") == 2  # one requested-changes round, never a third
     assert item_jobs.count("review") == 2  # the build that merges is reviewed too
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
+    # the finding still open after the round stays on its slice and keeps the build out of main (QBC-91, QBC-118)
     items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
-    (defect,) = [b for b in items if b.get("kind") == "defect"]
-    assert defect["parent"] == "json-writer" and defect["found_by"] == "reviewer"
-    assert any("[ID-15]" in e for e in defect["evidence"])
-    assert defect["breaks"] == ["ID-15"]  # the defect names the rule its finding cites (QBC-108's source)
-    # the next run builds it from a valid packet: kind defect under the item id, its parent's path
-    p = bhpacket.plan_packet(Config(toy / ".brick-harness" / "config.json"), defect["id"])
-    assert p["kind"] == "defect" and p["found_by"] == "reviewer" and p["constraints"]["declared_paths"] == ["src/json_writer.py"]
-    assert "NO-12" in [r["id"] for r in p["verifier"]["rules"]]
-    crit = [{"id": f"{defect['id']}-AC1", "scenario": "the open finding is fixed in its design element", "traces_to": ["QBC-36"], "verification": "test"}]
-    assert bhpacket.validate_packet({**p, "acceptance": crit}) == []
+    assert not [b for b in items if b.get("kind") == "defect"]  # no chain of issues
+    (fact,) = [f for r in res["phases"]["rounds"] for f in r["facts"] if f["kind"] == "not_admitted"]
+    assert fact["item"] == "json-writer" and "[ID-15]" in fact["detail"] and fact["message"].startswith("[main-entry] ")
 
 
 def test_a_defect_packet_carries_the_root_cause_rule_and_its_special_case_fix_gets_a_major_finding(toy, fake):  # noqa: F811
