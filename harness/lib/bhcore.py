@@ -142,6 +142,9 @@ DEFAULT_PROTECTED = [
     f"{HDIR}/ratchet.json",
     f"{HDIR}/baselines/",
     f"{HDIR}/packets/",
+    f"{HDIR}/result.json",
+    f"{HDIR}/out/",
+    "out/*/*/result.json",
     "holdout_files/",
     "sitecustomize.py",
     "usercustomize.py",
@@ -150,6 +153,14 @@ DEFAULT_PROTECTED = [
 
 class HarnessError(Exception):
     pass
+
+
+class InputError(HarnessError):
+    """A measured input that cannot be used; ``kind`` is ``nonfinite`` (NaN or inf sample) or ``unreadable``."""
+
+    def __init__(self, kind: str, message: str):
+        super().__init__(message)
+        self.kind = kind
 
 
 # Output limits (config ``limits``): they bound what is printed per call, never
@@ -204,6 +215,15 @@ def load_json(path: Path, schema: str | None = None) -> Any:
 # ---------------------------------------------------------------- config
 
 
+def _without_required(node: Any) -> Any:
+    """A copy of a JSON Schema with every ``required`` list dropped: the schema of a patch."""
+    if isinstance(node, dict):
+        return {k: _without_required(v) for k, v in node.items() if k != "required"}
+    if isinstance(node, list):
+        return [_without_required(v) for v in node]
+    return node
+
+
 class Config:
     """A validated project config.
 
@@ -212,14 +232,19 @@ class Config:
     else the config file's directory.
     """
 
-    def __init__(self, path: str | Path) -> None:
+    def __init__(self, path: str | Path, partial: bool = False) -> None:
+        """``partial`` reads the file as an override over the defaults (a bare measurement has no
+        plan): it is still checked against the schema, with the completeness (``required``) left out."""
         self.path = Path(path).resolve()
         self.config_dir = self.path.parent
         raw = json.loads(self.path.read_text()) if self.path.exists() else {}
-        # a file with no commands is an override over the defaults (measure_ref); a full one is validated
-        self.data: dict[str, Any] = (
-            load_json(self.path, "harness.config") if "commands" in raw else raw
-        )
+        if partial:
+            errs = validate(raw, _without_required(load_schema("harness.config")))
+            if errs:
+                raise HarnessError(f"{self.path} fails harness.config schema: " + "; ".join(errs[:10]))
+            self.data: dict[str, Any] = raw
+        else:  # a file with no commands is an override too; a full one is validated whole
+            self.data = load_json(self.path, "harness.config") if "commands" in raw else raw
         if "root" in self.data:
             self.dir = (self.config_dir / self.data["root"]).resolve()
         elif self.config_dir.name == HDIR:
@@ -325,6 +350,8 @@ def extract(results: Path, fmt: str, spec: str) -> float:
             col, _, agg = spec.partition(":")
             with results.open(newline="") as f:
                 vals = [float(r[col]) for r in csv.DictReader(f)]
+            if not all(math.isfinite(v) for v in vals):  # every sample, not only the aggregated one
+                raise InputError("nonfinite", f"bench metric {spec!r} has a NaN or inf sample in {results}")
             if not vals:
                 raise HarnessError(f"{results}: no rows")
             agg = agg or "first"
@@ -337,12 +364,16 @@ def extract(results: Path, fmt: str, spec: str) -> float:
                 "median": statistics.median,
             }
             value = aggs[agg](vals)
-    except (OSError, ValueError, KeyError, IndexError, TypeError) as e:
+    except InputError:
+        raise
+    except OSError as e:
+        raise InputError("unreadable", f"bench metric {spec!r} from {results}: {e!r}") from e
+    except (ValueError, KeyError, IndexError, TypeError) as e:
         raise HarnessError(f"bench metric {spec!r} from {results}: {e!r}") from e
     if isinstance(value, bool) or not isinstance(value, int | float):
         raise HarnessError(f"bench metric {spec!r} is not a number: {value!r}")
     if not math.isfinite(value):
-        raise HarnessError(f"bench metric {spec!r} is not finite: {value!r}")
+        raise InputError("nonfinite", f"bench metric {spec!r} is not finite: {value!r}")
     return float(value)
 
 
@@ -987,7 +1018,7 @@ def measure(cfg: Config, items: list[tuple[str, str]], slot: int = 0) -> dict[st
 
 # ---------------------------------------------------------------- measuring one ref against its plan commit
 
-RESULT_VERSION = "1"
+RESULT_VERSION = "1.0.0"
 CANARY = HARNESS_DIR / "canary" / "test_bh_canary.py"
 RECIPES = ("justfile", "Makefile")
 
@@ -999,6 +1030,14 @@ def _teach(rule: str, wrong: str, right: str, ref: str) -> str:
 def _lesson(status: str, path: str, accept: list[str]) -> tuple[str, str, str, str, bool]:
     """(rule, wrong, right, prevent, tampered) for a change to a protected path."""
     name = path.rsplit("/", 1)[-1]
+    if name == "result.json":
+        return (
+            "result-file",
+            "result file written by the builder",
+            "only the measurer writes the result JSON",
+            "result files are not read from the builder's clone",
+            True,
+        )
     if path.startswith(f"{HDIR}/packets/"):
         return (
             "packet",
@@ -1121,7 +1160,32 @@ def merge_sarif(logs: list[Path]) -> dict[str, Any]:
     return log
 
 
-def _lint_sarif(co: Path, env: dict[str, str], out: Path, hide: list[Path]) -> None:
+def _teach_sarif(log: dict[str, Any], digest: str | None) -> None:
+    """Put the teaching into every finding of the log (message, then the rule's help) and name the
+    packet in each run's properties. SARIF 2.1.0 carries the text in ``message``, ``help``, ``fixes``."""
+    for run in log["runs"]:
+        rules = {r.get("id"): r for r in run.get("tool", {}).get("driver", {}).get("rules", [])}
+        for res in run.get("results", []):
+            rid = res.get("ruleId", "lint")
+            rule = rules.get(rid, {})
+            ref = rule.get("helpUri") or "run the linter before finishing"
+            res["message"] = {
+                "text": _teach(
+                    rid,
+                    f"{res.get('message', {}).get('text', 'finding')[:120]} (a finding in the SARIF log)",
+                    f"fix it as the help text of rule {rid} says",
+                    ref,
+                )
+            }
+        for r in rules.values():
+            r.setdefault("help", {"text": r.get("shortDescription", {}).get("text", "see the rule")})
+        if digest:
+            run.setdefault("properties", {})["packet_sha256"] = digest
+
+
+def _lint_sarif(
+    co: Path, env: dict[str, str], out: Path, hide: list[Path], digest: str | None = None
+) -> None:
     """Lint the checkout with ruff (its own SARIF output, sealed like the tests) when it has a ruff config."""
     if not shutil.which("ruff") or not any(
         (co / f).is_file() for f in ("ruff.toml", ".ruff.toml", "pyproject.toml")
@@ -1130,7 +1194,9 @@ def _lint_sarif(co: Path, env: dict[str, str], out: Path, hide: list[Path]) -> N
     raw = co / ".bh-ruff.sarif"
     _run(f"ruff check --output-format sarif --output-file {raw} .", co, co, env, 60, hide)
     if raw.is_file():
-        (out / "findings.sarif").write_text(json.dumps(merge_sarif([raw])))
+        log = merge_sarif([raw])
+        _teach_sarif(log, digest)
+        (out / "findings.sarif").write_text(json.dumps(log))
 
 
 def _canary_into(co: Path) -> None:
@@ -1139,13 +1205,56 @@ def _canary_into(co: Path) -> None:
     shutil.copy2(CANARY, dest / CANARY.name)
 
 
+def _hook_facts(top: Path) -> list[dict[str, Any]]:
+    """The facts the hooks recorded in the working tree, read through the hooks' own reader."""
+    import importlib.util
+
+    path = HARNESS_DIR.parent / "hooks" / "_common.py"
+    spec = importlib.util.spec_from_file_location("bh_hooks_common", path)
+    if spec is None or spec.loader is None:
+        return []
+    mod = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(mod)
+    return list(mod.read_facts(top))
+
+
+def _measure_key(top: Path, base: str, sha: str, cfg: Config, packet: str | None) -> str:
+    """What a measurement depends on: the ref, the plan commit's protected files (their blobs) and
+    the packet. Two measurements with the same key ran the same thing, so the second is the first."""
+    plan = [
+        ln.split("\t")[0] + " " + ln.split("\t")[1]
+        for ln in _git(top, "ls-tree", "-r", base).splitlines()
+        if _matches(ln.split("\t")[1], cfg.protected)
+    ]
+    return digest([sha, sorted(plan), packet])
+
+
+def _find_done(root: Path, key: str) -> Path | None:
+    """The finished output directory with this key, if one exists."""
+    for d in sorted(root.glob("*-*")):
+        if (d / ".key").is_file() and (d / ".key").read_text() == key and (d / "result.json").is_file():
+            return d
+    return None
+
+
+def _acceptance_of(name: str, ids: list[str]) -> str | None:
+    """The acceptance id a test belongs to: its node name carries the id (``test_<id>`` with ``-`` as ``_``)."""
+    low = (name or "").lower()
+    return next((i for i in ids if i.replace("-", "_").lower() in low), None)
+
+
 def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
     """Measure ``ref`` of the repository against its plan commit (merge base with the default
     branch), without a plan or scoreboard: a ``git clone --shared`` checkout, the plan commit's
     protected paths laid over it, the project's test recipe and a canary run sealed by ``_jail``.
 
-    The packets the orchestrator holds (``$BH_ORCHESTRATOR_DIR/packets``, default the repo's own
-    ``.brick-harness``) name the items; none means one item named after the repository.
+    The orchestrator names the packet it measures against by digest (``$BH_PACKET_SHA256``) and
+    the measurer reads it only through packet custody (``bhpacket.custody_read``, in
+    ``$BH_ORCHESTRATOR_DIR``, default the repository): the bytes must still hash to the digest.
+    No digest means one item named by the targets file, else after the repository.
+
+    Every input that cannot be read is a fact with its teaching and the item is unmet; nothing
+    raises. A finished measurement with the same key is returned instead of measured again.
     """
     top = git_top(cfg.dir)
     if top is None:
@@ -1155,21 +1264,61 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
         (b for b in ("main", "master") if _git_ok(top, "rev-parse", "--verify", "-q", b)), "HEAD"
     )
     base = _git(top, "merge-base", sha, main)
-    orch = Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top / HDIR)
-    packets = []
-    for f in sorted((orch / "packets").glob("*.json")):
-        try:
-            packets.append((json.loads(f.read_bytes()), hashlib.sha256(f.read_bytes()).hexdigest()))
-        except ValueError:
-            pass
-    pk = packets[0][0] if packets else {}
-    accept = pk.get("verifier", {}).get("acceptance_paths") or ["tests/acceptance/"]
-    item = pk.get("id") or top.name
+    digest = os.environ.get("BH_PACKET_SHA256")
+    pk: dict[str, Any] = {}
+    errors: list[str] = []
     facts: list[dict[str, Any]] = []
+    if digest:
+        import bhpacket  # imports this module at load; the custody API is the one way to a packet
+
+        orch = Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top)
+        try:
+            pk = json.loads(bhpacket.custody_read(orch, digest))
+        except (HarnessError, ValueError) as e:
+            errors.append(str(e))
+    try:
+        targets = load_json(cfg.file("targets"), "targets")["targets"]  # type: ignore[arg-type]
+    except HarnessError:
+        targets = []
+    named = sorted({t["item"] for t in targets})
+    accept = pk.get("verifier", {}).get("acceptance_paths") or ["tests/acceptance/"]
+    item = pk.get("id") or (named[0] if len(named) == 1 else top.name)
+    ids = [a["id"] for a in pk.get("acceptance", [])]
 
     def fact(kind: str, detail: str, message: str) -> None:
         facts.append({"kind": kind, "detail": detail, "item": item, "message": message})
 
+    out_root = cfg.file("measure_out")
+    assert out_root is not None
+    key = _measure_key(top, base, sha, cfg, digest)
+    done = _find_done(out_root / item, key) if (out_root / item).is_dir() else None
+    if done is not None:
+        return json.loads((done / "result.json").read_text())
+    trailer = _git(top, "log", "-1", "--format=%(trailers:key=Packet,valueonly)", sha).strip()
+    if digest and trailer and trailer != f"{item}@{digest}":
+        fact(
+            "packet_mismatch",
+            trailer,
+            _teach(
+                "packet-mismatch",
+                f"the Packet trailer names {trailer}",
+                "use Packet: <id>@<sha256> from the packet",
+                "measured against the registered packet instead",
+            ),
+        )
+    for hf in _hook_facts(top):
+        fact(hf["kind"], hf["detail"], f"[{hf['kind']}] {hf['detail']}"[:300])
+        if hf["kind"] == "h0_bypass":
+            fact(
+                "scope",
+                hf["detail"],
+                _teach(
+                    "scope",
+                    "an edit was made outside any registered packet",
+                    "work from a packet the harness launch step wrote",
+                    "launch builders through the harness",
+                ),
+            )
     if cfg.protected_gap:
         fact(
             "gap",
@@ -1190,22 +1339,26 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
             tampered = True
             fact("tampered", f"{st} {path}", _teach(rule, wrong, right, prevent))
     slot, clone = _claim(top / HDIR / "clones", sha[:12])
-    out = top / HDIR / "out" / item / f"{sha[:12]}-{slot}"
+    out = out_root / item / f"{sha[:12]}-{slot}"
     out.mkdir(parents=True, exist_ok=True)
-    errors: list[str] = []
     cases: list[Any] = []
     with clean_checkout(top, sha, clone) as co:
         overlay_plan(cfg, top, co, base)
         _canary_into(co)
         junit = co / ".bh-junit.xml"
-        env = dict(
-            os.environ, PYTEST_ADDOPTS=f"--junitxml={junit} -p no:cacheprovider", BH_OUT=str(out)
-        )
-        cmd = (
-            "just test"
-            if (co / "justfile").is_file() and shutil.which("just")
-            else f"{shlex.quote(sys.executable)} -m pytest -q"
-        )
+        flags = f"--junitxml={shlex.quote(str(junit))} -p no:cacheprovider"
+        env = dict(os.environ, BH_OUT=str(out))
+        cmd = f"{shlex.quote(sys.executable)} -m pytest -q {flags}"
+        if (co / "justfile").is_file() and shutil.which("just"):
+            # the base commit's recipe, run as it names itself; a pytest line gets the report flag
+            # on its command line, any other recipe gets it through the environment
+            lines = _run("just --dry-run test 2>&1 >/dev/null", co, co, env, 30)["tail"].splitlines()
+            line = lines[-1].strip() if lines else ""
+            if len(lines) == 1 and "pytest" in line:
+                cmd = f"{line} {flags}"
+            else:
+                cmd = "just test"
+                env["PYTEST_ADDOPTS"] = flags
         r = _run(
             cmd,
             co,
@@ -1214,12 +1367,54 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
             float(cfg.data.get("commands", {}).get("timeout_s", 600)),
             [top / HDIR],
         )
-        _lint_sarif(co, env, out, [top / HDIR])
+        _lint_sarif(co, env, out, [top / HDIR], digest)
         try:
             cases = [c for s in _suites(read_junit(junit)) for c in s]
             shutil.copy2(junit, out / "junit.xml")
         except HarnessError as e:
             errors.append(f"{e}; the test command said: {r['tail'][-300:]}")
+            fact(
+                "gap",
+                "junit",
+                _teach(
+                    "junit",
+                    "JUnit file missing or malformed",
+                    "write well-formed JUnit XML to the report path",
+                    "run the test recipe before finishing",
+                ),
+            )
+        bench = cfg.data.get("commands", {}).get("bench")
+        for t in (t for t in targets_for(targets, item) if t["metric"].startswith("bench.")):
+            name = t["metric"].removeprefix("bench.")
+            if not bench:
+                errors.append("bench targets but no bench command")
+                break
+            _run(
+                bench["run"], co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)),
+                [top / HDIR], [out],
+            )
+            spec = bench.get("metrics", {}).get(name, name)
+            try:
+                v = extract(co / bench["results"], bench.get("format", "json"), spec)
+            except InputError as e:
+                errors.append(str(e))
+                wrong, right, prevent = (
+                    ("NaN or inf sample in the results", "emit finite numbers in the samples", "validate samples before writing them")
+                    if e.kind == "nonfinite"
+                    else ("target unreadable", "make the target readable by the measurer", "check the target path and permissions before the build ends")
+                )
+                fact(e.kind, t["metric"], _teach(e.kind, wrong, right, prevent))
+                continue
+            except HarnessError as e:
+                errors.append(str(e))
+                continue
+            if not OPS[t["op"]](v, t["value"]):
+                errors.append(f"{t['metric']} {v} not {t['op']} {t['value']}")
+                fact(
+                    "red",
+                    t["metric"],
+                    _teach("target", f"{t['metric']} is {v}, not {t['op']} {t['value']}", "make the metric meet its target", "run the bench before finishing"),
+                )
     canary = [c for c in cases if CANARY.stem in (c.name or "")]
     real = [c for c in cases if c not in canary]
     if cases and not any(
@@ -1239,30 +1434,29 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
     for c in real:
         bad = [x for x in c.result if type(x).__name__ in ("Failure", "Error")]
         if bad:
-            kind = "red_by_error" if type(bad[0]).__name__ == "Error" else "red"
+            errored = type(bad[0]).__name__ == "Error"
+            who = _acceptance_of(c.name, ids) or f"{c.classname}::{c.name}"
+            if errored:
+                wrong = f"{who} errored (red-by-error), not an assertion failure"
+                right = "fix the error so the test runs and asserts"
+            else:
+                wrong = f"{who} failed an assertion"
+                right = f"make {who} pass without editing tests/"
             fact(
-                kind,
+                "red_by_error" if errored else "red",
                 f"{c.classname}::{c.name}",
-                _teach(
-                    kind,
-                    f"{c.name} did not pass",
-                    "make it pass in the measured run",
-                    "run the tests before committing",
-                ),
+                _teach("red-by-error" if errored else "red", wrong, right, "run bh check before finishing"),
             )
     if not real:
         errors.append("no test was collected")
     acceptance = [
         {
-            "id": a["id"],
+            "id": a,
             "status": "met"
-            if any(
-                a["id"].replace("-", "_").lower() in (c.name or "").lower() and not c.result
-                for c in real
-            )
+            if any(_acceptance_of(c.name, [a]) and not c.result for c in real)
             else "unmet",
         }
-        for a in pk.get("acceptance", [])
+        for a in ids
     ]
     met = not (
         errors or tampered or changes or any(f["kind"] in ("red", "red_by_error") for f in facts)
@@ -1286,13 +1480,14 @@ def measure_ref(cfg: Config, ref: str = "HEAD") -> dict[str, Any]:
         "facts": facts,
         "config": {**cfg.data, "protected": cfg.protected},
         "run_report": str(report),
-        **({"packet_sha256": packets[0][1]} if packets else {}),
+        **({"packet_sha256": digest} if digest else {}),
     }
     schema = load_schema("result")
     bad_result = next(iter(Draft202012Validator(schema).iter_errors(result)), None)
     if bad_result:
         raise HarnessError(f"result JSON invalid at {bad_result.json_path}: {bad_result.message}")
     (out / "result.json").write_text(json.dumps(result, indent=2) + "\n")
+    (out / ".key").write_text(key)
     return result
 
 

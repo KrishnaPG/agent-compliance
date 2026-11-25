@@ -59,6 +59,17 @@ def record_fact(root: Path, kind: str, detail: str) -> Path:
     return f, {"kind": kind, "detail": detail}
 
 
+def read_facts(root: Path) -> list:
+    """The facts record_fact wrote, in order; an unreadable file is skipped."""
+    out = []
+    for f in sorted((root / ".brick-harness" / "hook-facts").glob("*.json")):
+        try:
+            out.append(json.loads(f.read_text()))
+        except (OSError, ValueError):
+            continue
+    return out
+
+
 def declared_globs(root: Path) -> list:
     out = []
     for f in packet_files(root):

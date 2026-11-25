@@ -1557,12 +1557,17 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd == "step":  # a program step reads only its packet: no orchestrator, no config
         return bhpacket.run_step(a.name, a.item)
     try:
-        cfg = Config(a.config)
+        bare = a.cmd == "measure" and not a.item
+        cfg = Config(a.config, partial=bare)  # a bare measurement reads the file as an override
         bricks = cfg.file("bricks")
-        if a.cmd == "measure" and not a.item and not (bricks and bricks.exists()):
+        if bare and not (bricks and bricks.exists()):
             res = bhcore.measure_ref(cfg)  # no plan: measure HEAD against its plan commit
+            for f in res["facts"]:  # the teaching lines first, the result JSON last
+                print(f["message"])
             print(json.dumps(res))
             return 0 if all(i["status"] == "met" for i in res["items"]) else 1
+        if bare:
+            cfg = Config(a.config)  # a plan exists: the whole config is validated
         orch = Orchestrator(cfg, a.dry_run)
         packets = sorted(p.stem for p in (orch.top / bhpacket.PACKETS_DIR).glob("*.json"))
         if a.cmd == "run" and packets:  # the packet flow: the test author goes first

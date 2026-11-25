@@ -87,7 +87,11 @@ def given_planted(ctx, plant, **kw):
         git(ctx, "checkout", "-q", *([R["candidate_branch"]] if has_cand else ["-b", R["candidate_branch"]]))
         overlay(src, r)
         git(ctx, "add", "-A")
-        git(ctx, "commit", "-q", "-m", f"candidate: {plant}")
+        pk = ctx.state.get("packet")  # the registered packet is the program's file, not the builder's change
+        if pk and not (src / P["packets_dir"] / pk["repo_copy"].name).exists():
+            git(ctx, "reset", "-q", "--", str(pk["repo_copy"].relative_to(r)), check=False)
+        msg = src / ".atdd-message"  # a plant may carry the commit message trailers it needs
+        git(ctx, "commit", "-q", "-m", f"candidate: {plant}" + (f"\n\n{msg.read_text().strip()}" if msg.is_file() else ""))
     ctx.state.setdefault("planted", []).append({"plant": plant, "where": where, "class": kw.get("class")})
 
 
@@ -164,16 +168,18 @@ def given_packet(ctx, fixture, variant):
     raw = p.read_bytes()
     data = fixture_data(ctx, "packet", fixture, variant + ".json")
     pid = data.get("id", fixture)
-    orch = ctx.work / "orchestrator" / "packets"
+    digest = hashlib.sha256(raw).hexdigest()
+    orch = ctx.work / "orchestrator" / P["custody_dir"]  # the orchestrator keeps the packet by digest
     orch.mkdir(parents=True, exist_ok=True)
-    (orch / f"{pid}.json").write_bytes(raw)
+    (orch / f"{digest}.json").write_bytes(raw)
+    ctx.state["env"]["BH_PACKET_SHA256"] = digest  # the orchestrator names the packet it measures against
     r = writable_repo(ctx)
     inrepo = r / P["packets_dir"] / f"{pid}.json"
     tracked = git(ctx, "ls-files", "--error-unmatch", str(inrepo.relative_to(r)), check=False).returncode == 0
     if not tracked:
         inrepo.parent.mkdir(parents=True, exist_ok=True)
         inrepo.write_bytes(raw)
-    ctx.state["packet"] = {"id": pid, "sha256": hashlib.sha256(raw).hexdigest(), "data": data, "variant": variant, "orchestrator": orch / f"{pid}.json", "repo_copy": inrepo}
+    ctx.state["packet"] = {"id": pid, "sha256": hashlib.sha256(raw).hexdigest(), "data": data, "variant": variant, "orchestrator": orch / f"{digest}.json", "repo_copy": inrepo}
 
 
 def given_config(ctx, state, key=None, value=None):

@@ -18,11 +18,11 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-from bhcore import SIZING_DEFAULT, HarnessError, load_schema
+from bhcore import RESULT_VERSION, SIZING_DEFAULT, HarnessError, load_schema
 
 PACKETS_DIR = ".brick-harness/packets"
 RUN_REPORT = ".brick-harness/run-report.txt"
-RESULT_VERSION = "1.0.0"
+
 SPEC = "docs/spec/packet-standards.md"
 CRITERIA_SCHEMA = Path(__file__).resolve().parents[2] / "docs" / "atdd" / "criteria.schema.json"
 STEPS = ("assemble_packet", "validate_packet", "render_packet", "launch_builder", "generate_tests")
@@ -231,7 +231,13 @@ def custody_store(root: Path, raw: bytes) -> str:
 
 def custody_read(root: Path, digest: str) -> bytes:
     """The kept packet; its bytes must still hash to the digest that names the file."""
-    raw = custody_path(root, digest).read_bytes()
+    try:
+        raw = custody_path(root, digest).read_bytes()
+    except OSError as e:
+        raise HarnessError(
+            f"[packet-custody] no kept packet {digest} under {root / CUSTODY_DIR} -> the orchestrator "
+            f"keeps the packet before it measures against it (custody_store) . {SPEC}"
+        ) from e
     if hashlib.sha256(raw).hexdigest() != digest:
         raise HarnessError(
             f"[packet-custody] the kept packet {digest} no longer hashes to its name -> restore it "

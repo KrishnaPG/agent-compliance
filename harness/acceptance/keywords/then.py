@@ -176,7 +176,7 @@ def source(ctx, name):
         tr = git(ctx, "interpret-trailers", "--parse", input=full).stdout.splitlines()
         return {"subject": subject, "body": body.strip(), "trailers": tr, "message": full}
     if name == "sarif":
-        files = sorted(_glob.glob(str(r / P["sarif_glob"])))
+        files = _run_out(ctx, "*.sarif") or sorted(_glob.glob(str(r / P["sarif_glob"])))
         if not files:
             missing(f"no SARIF log matches {P['sarif_glob']}", "write the SARIF log of the stage")
         return json.loads(Path(files[0]).read_text())
@@ -497,9 +497,18 @@ def then_scan_count(ctx, op, value, distinct=False):
     need(_cmp(op, n, value), f"the scan found {n} ({run.extra['scan_kind']}), expected {op} {value}: {run.extra['matches'][:3]}", f"make the count {op} {value}")
 
 
+def _run_out(ctx, pattern) -> list:
+    """Files of the measured run's own output directory (the result JSON names it in items[*].out)."""
+    res = result(ctx) if ctx.last is not None and ctx.last.kind == "bh" else None
+    items = res.get("items") if isinstance(res, dict) else None
+    if not items or not isinstance(items, list) or not items[0].get("out"):
+        return []
+    return sorted(_glob.glob(str(repo(ctx) / items[0]["out"] / pattern)))
+
+
 def then_junit(ctx, tests_min=None, failures=None, errors=None, skipped=None):
     run = last(ctx)
-    p = run.extra.get("junit_path") or (repo(ctx) / P["junit"])
+    p = run.extra.get("junit_path") or (_run_out(ctx, "junit.xml") or [repo(ctx) / P["junit"]])[0]
     if not Path(p).is_file():
         missing(f"the run wrote no JUnit XML at {Path(p).name}", "write the run's JUnit XML")
     root = ET.parse(p).getroot()

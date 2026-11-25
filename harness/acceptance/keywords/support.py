@@ -204,7 +204,7 @@ def overlay(src: Path, dest: Path):
 
     for p in sorted(src.rglob("*")):
         rel = p.relative_to(src)
-        if rel.name == ".atdd-delete" or p.is_dir():
+        if rel.name in (".atdd-delete", ".atdd-message") or p.is_dir():
             continue
         (dest / rel).parent.mkdir(parents=True, exist_ok=True)
         shutil.copy2(p, dest / rel)

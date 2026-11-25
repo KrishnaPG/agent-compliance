@@ -14,6 +14,7 @@
   "paths": {
     "run_report": ".brick-harness/run-report.txt",
     "packets_dir": ".brick-harness/packets",
+    "custody_dir": ".brick-harness/custody",
     "config_file": ".brick-harness/config.json",
     "builder_settings": ".brick-harness/builder-settings.json",
     "register": ".brick-harness/register.json",
