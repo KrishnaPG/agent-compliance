@@ -43,6 +43,7 @@ The work packet, one JSON file per item, harness/schema/packet.schema.json.
 | `paved_road.dependency_command` | string | how the builder adds a dependency | d2-AC7 |
 | `paved_road.check_command` | string | the self-check command, bh check | d0-AC5, d2-AC6 |
 | `definition_of_done` | string | every acceptance criterion met by the measurer | d0-AC5 |
+| `overflow[*].path` | string | a file in the packet directory holding text moved out over the size cap | d0-AC7, d1-AC4 |
 
 ## result
 
@@ -70,6 +71,20 @@ The JSON every bh command and program step prints, harness/schema/result.schema.
 | `options[*].rules[*].id` | string | a rule id scored for the option (command decide) | f1-AC3 |
 | `options[*].rules[*].verdict` | enum: pass, fail, unknown | the option's verdict on that rule (command decide) | f1-AC3 |
 | `recommended` | string | the option id the judge recommends (command decide) | f1-AC3 |
+| `skipped[*].number` | integer | an issue number intake skipped (command intake) | e4-AC4 |
+| `map[*].old_id` | string | an old catalog rule id that is mapped (command map) | g2-AC1 |
+| `map[*].new_id` | string | the standard or house-rule id that old_id maps to (command map) | g2-AC1 |
+| `owner` | string | the owner of the asked path or topic (command owners) | c7-AC1, c7-AC2 |
+| `package` | string | the owner's package (command owners) | c7-AC1, c7-AC2, c7-AC6, c7-AC8 |
+| `database_roles[*]` | string | the owner's database roles (command owners) | c7-AC1, c7-AC2, c7-AC5, c7-AC11 |
+| `operations[*]` | string | the owner's published operations (command owners) | c7-AC1, c7-AC2, c7-AC7 |
+| `sources[*]` | string | the standard files the answer was read from (command owners) | c7-AC3, c7-AC4, c7-AC6, c7-AC7, c7-AC8 |
+| `metrics[*].id` | enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds | the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (summed from jobs[*].rounds) (command metrics) | h1-AC3, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC8 |
+| `metrics[*].window` | enum: current, baseline | the history the metric is computed over: the current history, or the baseline written before the change (command metrics) | h1-AC3, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC8 |
+| `metrics[*].value` | number | the metric value; change_failure_rate is merged slices that later get a defect sub-issue as a share, lead_time_for_changes is slice sub-issue opening to merge (command metrics) | h1-AC3, h3-AC1, h3-AC2, h3-AC3, h3-AC4, h3-AC5, h3-AC8 |
+| `metrics[*].unit` | enum: ratio, hours, tokens, count | the value's unit: ratio for change_failure_rate, hours for lead_time_for_changes, tokens for tokens_per_met_slice, count for measurer_rounds (command metrics) | h1-AC3, h3-AC2, h3-AC4, h3-AC5 |
+| `api_results[*].id` | enum: scorecard, deps.dev, osv | the service whose response is recorded (command vet) | f2-AC2 |
+| `api_results[*].body` | object | that service's recorded response object, with no verdict added (command vet) | f2-AC2 |
 
 ## jobs
 
@@ -80,6 +95,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `jobs[*].id` | string | the job id, unique in the run | b14-AC5 |
 | `jobs[*].kind` | enum: agent, program_step | whether an agent or a program step ran the job | b14-AC2, b14-AC5, d6-AC3, d6-AC12, f2-AC1 |
 | `jobs[*].role` | enum: planner, judge, proposer, test_author, builder, reviewer | the agent's role; agent jobs only | b14-AC2, d2-AC1, d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d7-AC2, d7-AC4, d7-AC5, d11-AC1, d11-AC2, d11-AC3, e5-AC2, e5-AC10, f1-AC1, f1-AC5, f2-AC1 |
+| `jobs[*].step` | string | the program step's name (generator, measurer, merge...); program_step jobs only | b14-AC2, d2-AC1, d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d7-AC2, d7-AC4, d7-AC5, d11-AC1, d11-AC2, d11-AC3, e5-AC2, e5-AC10, f1-AC1, f1-AC5, f2-AC1 |
 | `jobs[*].item` | string | the item the job worked on | b14-AC3, b14-AC5 |
 | `jobs[*].started_at` | string | start time, RFC 3339 | b14-AC5 |
 | `jobs[*].exit_code` | integer | the job's exit code | b14-AC5 |
@@ -96,7 +112,7 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 
 | path | type | default | meaning | rows |
 |---|---|---|---|---|
-| `concurrency` | integer | 5 | agents running at once | d9-AC2 |
+| `concurrency` | integer | 5 | agents running at once | d9-AC2, d9-AC10 |
 | `sizing.packet_tokens` | integer | 1600 | cap on planner-written packet tokens, as bytes/4 | d1-AC4, d9-AC2 |
 | `limits.message_chars` | integer | 300 | longest teaching message per finding | b6-AC3, d9-AC1, d9-AC2 |
 | `limits.findings_shown` | integer | 10 | findings printed before the count of the rest | b6-AC2, d9-AC1, d9-AC2 |
@@ -118,37 +134,15 @@ One entry of the result's jobs[*], harness/schema/result.schema.json $defs/job.
 | `tiers.triggers[*].fresh_stack` | boolean | the plugin's trigger list | the trigger needs a fresh-stack run | d5-AC1 |
 | `review.triggers[*]` | string | inferred from standard files | path patterns whose change launches a reviewer job | d11-AC4, d11-AC5 |
 | `protected[*]` | string | the tests, test and lint config sections, recipe and ratchet files | paths the measurer lays over the build from the plan commit | b1-AC12, b1-AC13 |
-| `budgets.job_usd` | number | the plan states none | spend cap per job launch (--max-budget-usd) | b13-AC2, b13-AC11 |
-| `budgets.run_usd` | number | the plan states none | spend cap per run | b13-AC3, b13-AC11 |
+| `budgets.job_usd` | number | 20 | spend cap per job launch (--max-budget-usd) | b13-AC2, b13-AC11, d9-AC8, d9-AC9 |
+| `budgets.run_usd` | number | budgets.job_usd x concurrency, computed when absent (100 by default) | spend cap per run | b13-AC3, b13-AC11, d9-AC8, d9-AC9, d9-AC10 |
 | `paved_road.test_paths[*]` | string | inferred from pytest testpaths or the JS test runner config | where the builder puts its own tests; copied to the packet | c1-AC8, c1-AC9 |
 | `paved_road.dependency_command` | string | inferred from the lockfile | how a builder adds a dependency; copied to the packet | c1-AC6, c1-AC7 |
 | `right_way.*` | string | the plugin's preset text per enabled rule code | the right-way line for a fixed-message linter rule, keyed by rule code | c6-AC2 |
 
-## Awaiting the owner's decision
-
-Names that acceptance rows use but the owner has not decided for d0; each stays out of the tables above until decided.
-
-- packet `overflow[*].path` (string): a file in the packet directory holding text moved out over the size cap; rows d0-AC7, d1-AC4.
-- result `skipped[*].number` (integer): an issue number intake skipped (command intake); rows e4-AC4.
-- result `map[*].old_id` (string): an old catalog rule id that is mapped (command map); rows g2-AC1.
-- result `owner` (string): the owner of the asked path or topic (command owners); rows c7-AC1, c7-AC2.
-- result `package` (string): the owner's package (command owners); rows c7-AC1, c7-AC2, c7-AC6, c7-AC8.
-- result `database_roles[*]` (string): the owner's database roles (command owners); rows c7-AC1, c7-AC2, c7-AC5, c7-AC11.
-- result `operations[*]` (string): the owner's published operations (command owners); rows c7-AC1, c7-AC2, c7-AC7.
-- result `sources[*]` (string): the standard files the answer was read from (command owners); rows c7-AC3, c7-AC4, c7-AC6, c7-AC7, c7-AC8.
-- result `measurer_rounds` (integer): measurer rounds summed from jobs[*].rounds (command metrics); rows h1-AC3.
-- result `v2.change_failure_rate` (number): merged slices that later get a defect sub-issue, as a share (command metrics); rows h3-AC1, h3-AC2, h3-AC3, h3-AC8.
-- result `v2.lead_time_hours` (number): slice sub-issue opening to merge, in hours (command metrics); rows h3-AC1, h3-AC4.
-- result `v2.tokens_per_met_slice` (number): jobs[*].tokens summed per met slice (command metrics); rows h3-AC1, h3-AC5.
-- result `pre_v2.change_failure_rate` (number): the same rate for the pre-v2 baseline (command metrics); rows h3-AC8.
-- result `scorecard` (object): the OpenSSF Scorecard response as a fact (command vet); rows f2-AC2.
-- result `deps_dev` (object): the deps.dev response as a fact (command vet); rows f2-AC2.
-- result `osv` (object): the OSV-Scanner response as a fact (command vet); rows f2-AC2.
-- jobs `jobs[*].step` (string): the program step's name (generator, measurer, merge...); program_step jobs only; rows b14-AC2, d2-AC1, d6-AC1, d6-AC3, d6-AC9, d6-AC10, d6-AC11, d6-AC12, d7-AC2, d7-AC4, d7-AC5, d11-AC1, d11-AC2, d11-AC3, e5-AC2, e5-AC10, f1-AC1, f1-AC5, f2-AC1.
 
 ## Gaps
 
 Each line is a d0 field that no acceptance criterion tests, or a config key with no stated default.
 
-- config `budgets.job_usd` has no default stated in the plan's d9 limits table.
-- config `budgets.run_usd` has no default stated in the plan's d9 limits table.
+None.

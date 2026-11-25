@@ -103,6 +103,7 @@ acceptance:
       - no_fact: {kind: unmapped_rule_code}
       - no_fact: {kind: unknown_rule}
       - field: {source: result_json, path: "map[*].old_id", op: present}
+      - field: {source: result_json, path: "map[*].new_id", op: present}
     traces_to: [R9, P11, QBC-8, QBC-85]
     plan_gap: "the mapping output shape is not named; the row asserts a map of old ids to standard or house-rule ids"
     verification: test

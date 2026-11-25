@@ -45,7 +45,8 @@ acceptance:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: result_json, path: measurer_rounds, op: present}
+      - field: {source: result_json, path: "metrics[id=measurer_rounds][window=current].value", op: present}
+      - field: {source: result_json, path: "metrics[id=measurer_rounds][window=current].unit", op: eq, value: "count"}
       - field: {source: result_json, path: "jobs[*].rounds", op: present}
     traces_to: [R11, G5, QBC-28]
     verification: test
@@ -196,13 +197,13 @@ acceptance:
       bh: {sub: metrics}
     then:
       - exit_code: {code: 0}
-      - field: {source: result_json, path: v2.change_failure_rate, op: present}
-      - field: {source: result_json, path: v2.lead_time_hours, op: present}
-      - field: {source: result_json, path: v2.tokens_per_met_slice, op: present}
+      - field: {source: result_json, path: "metrics[id=change_failure_rate][window=current].value", op: present}
+      - field: {source: result_json, path: "metrics[id=lead_time_for_changes][window=current].value", op: present}
+      - field: {source: result_json, path: "metrics[id=tokens_per_met_slice][window=current].value", op: present}
     traces_to: [R11, QBC-3]
     verification: test
     deterministic: true
-    plan_gap: "metric field names and the lead-time unit are not stated; the row fixes change_failure_rate, lead_time_hours and tokens_per_met_slice"
+    plan_gap: "the plan does not state the lead-time unit; the metrics[*] entries carry it in unit"
 
   - id: h3-AC2
     scenario: Change-failure rate counts merged slices that later got a defect sub-issue
@@ -213,7 +214,8 @@ acceptance:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: result_json, path: v2.change_failure_rate, op: eq, value: 0.25}
+      - field: {source: result_json, path: "metrics[id=change_failure_rate][window=current].value", op: eq, value: 0.25}
+      - field: {source: result_json, path: "metrics[id=change_failure_rate][window=current].unit", op: eq, value: "ratio"}
     traces_to: [R11, QBC-3]
     verification: test
     deterministic: true
@@ -227,7 +229,7 @@ acceptance:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: result_json, path: v2.change_failure_rate, op: eq, value: 0}
+      - field: {source: result_json, path: "metrics[id=change_failure_rate][window=current].value", op: eq, value: 0}
     traces_to: [R11, QBC-3]
     verification: test
     deterministic: true
@@ -242,7 +244,8 @@ acceptance:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: result_json, path: v2.lead_time_hours, op: eq, value: 48}
+      - field: {source: result_json, path: "metrics[id=lead_time_for_changes][window=current].value", op: eq, value: 48}
+      - field: {source: result_json, path: "metrics[id=lead_time_for_changes][window=current].unit", op: eq, value: "hours"}
     traces_to: [R11, QBC-3]
     verification: test
     deterministic: true
@@ -256,7 +259,8 @@ acceptance:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: result_json, path: v2.tokens_per_met_slice, op: eq, value: 300000}
+      - field: {source: result_json, path: "metrics[id=tokens_per_met_slice][window=current].value", op: eq, value: 300000}
+      - field: {source: result_json, path: "metrics[id=tokens_per_met_slice][window=current].unit", op: eq, value: "tokens"}
     traces_to: [R11, G5, QBC-28]
     verification: test
     deterministic: true
@@ -304,8 +308,8 @@ acceptance:
     when:
       bh: {sub: metrics}
     then:
-      - field: {source: result_json, path: pre_v2.change_failure_rate, op: present}
-      - field: {source: result_json, path: v2.change_failure_rate, op: present}
+      - field: {source: result_json, path: "metrics[id=change_failure_rate][window=baseline].value", op: present}
+      - field: {source: result_json, path: "metrics[id=change_failure_rate][window=current].value", op: present}
       - snapshot: {name: metrics_side_by_side}
     traces_to: [R11, QBC-28]
     verification: test

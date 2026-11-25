@@ -3,7 +3,7 @@
 # absent) and renders docs/atdd/d0-fields.md from this file.
 #
 # path syntax: [*] = every element; `*` as a whole segment = any key (models.*, right_way.*).
-# decided: false = a name rows use that the owner has not decided yet; listed in d0-fields.md.
+# a selector [key=value] picks the element whose key is value; metrics[id=x][window=current] picks by two keys.
 
 schemas:
   packet: "the work packet, one JSON file per item, harness/schema/packet.schema.json"
@@ -48,7 +48,7 @@ fields:
   - {schema: packet, path: paved_road.dependency_command, type: string, meaning: "how the builder adds a dependency"}
   - {schema: packet, path: paved_road.check_command, type: string, meaning: "the self-check command, bh check"}
   - {schema: packet, path: definition_of_done, type: string, meaning: "every acceptance criterion met by the measurer"}
-  - {schema: packet, path: "overflow[*].path", type: string, decided: false, meaning: "a file in the packet directory holding text moved out over the size cap"}
+  - {schema: packet, path: "overflow[*].path", type: string, meaning: "a file in the packet directory holding text moved out over the size cap"}
   # result
   - {schema: result, path: schema_version, type: string, meaning: "version of the result schema the JSON follows"}
   - {schema: result, path: command, type: "enum: run, measure, check, intake, merge, decide, gaps, owners, metrics, vet, map", meaning: "the bh command or program step that printed the result"}
@@ -70,26 +70,25 @@ fields:
   - {schema: result, path: "options[*].rules[*].id", type: string, meaning: "a rule id scored for the option (command decide)"}
   - {schema: result, path: "options[*].rules[*].verdict", type: "enum: pass, fail, unknown", meaning: "the option's verdict on that rule (command decide)"}
   - {schema: result, path: recommended, type: string, meaning: "the option id the judge recommends (command decide)"}
-  - {schema: result, path: "skipped[*].number", type: integer, decided: false, meaning: "an issue number intake skipped (command intake)"}
-  - {schema: result, path: "map[*].old_id", type: string, decided: false, meaning: "an old catalog rule id that is mapped (command map)"}
-  - {schema: result, path: owner, type: string, decided: false, meaning: "the owner of the asked path or topic (command owners)"}
-  - {schema: result, path: package, type: string, decided: false, meaning: "the owner's package (command owners)"}
-  - {schema: result, path: "database_roles[*]", type: string, decided: false, meaning: "the owner's database roles (command owners)"}
-  - {schema: result, path: "operations[*]", type: string, decided: false, meaning: "the owner's published operations (command owners)"}
-  - {schema: result, path: "sources[*]", type: string, decided: false, meaning: "the standard files the answer was read from (command owners)"}
-  - {schema: result, path: measurer_rounds, type: integer, decided: false, meaning: "measurer rounds summed from jobs[*].rounds (command metrics)"}
-  - {schema: result, path: v2.change_failure_rate, type: number, decided: false, meaning: "merged slices that later get a defect sub-issue, as a share (command metrics)"}
-  - {schema: result, path: v2.lead_time_hours, type: number, decided: false, meaning: "slice sub-issue opening to merge, in hours (command metrics)"}
-  - {schema: result, path: v2.tokens_per_met_slice, type: number, decided: false, meaning: "jobs[*].tokens summed per met slice (command metrics)"}
-  - {schema: result, path: pre_v2.change_failure_rate, type: number, decided: false, meaning: "the same rate for the pre-v2 baseline (command metrics)"}
-  - {schema: result, path: scorecard, type: object, decided: false, meaning: "the OpenSSF Scorecard response as a fact (command vet)"}
-  - {schema: result, path: deps_dev, type: object, decided: false, meaning: "the deps.dev response as a fact (command vet)"}
-  - {schema: result, path: osv, type: object, decided: false, meaning: "the OSV-Scanner response as a fact (command vet)"}
+  - {schema: result, path: "skipped[*].number", type: integer, meaning: "an issue number intake skipped (command intake)"}
+  - {schema: result, path: "map[*].old_id", type: string, meaning: "an old catalog rule id that is mapped (command map)"}
+  - {schema: result, path: "map[*].new_id", type: string, meaning: "the standard or house-rule id that old_id maps to (command map)"}
+  - {schema: result, path: owner, type: string, meaning: "the owner of the asked path or topic (command owners)"}
+  - {schema: result, path: package, type: string, meaning: "the owner's package (command owners)"}
+  - {schema: result, path: "database_roles[*]", type: string, meaning: "the owner's database roles (command owners)"}
+  - {schema: result, path: "operations[*]", type: string, meaning: "the owner's published operations (command owners)"}
+  - {schema: result, path: "sources[*]", type: string, meaning: "the standard files the answer was read from (command owners)"}
+  - {schema: result, path: "metrics[*].id", type: "enum: change_failure_rate, lead_time_for_changes, tokens_per_met_slice, measurer_rounds", meaning: "the metric: the DORA names change_failure_rate and lead_time_for_changes, tokens_per_met_slice (jobs[*].tokens summed per met slice) or measurer_rounds (summed from jobs[*].rounds) (command metrics)"}
+  - {schema: result, path: "metrics[*].window", type: "enum: current, baseline", meaning: "the history the metric is computed over: the current history, or the baseline written before the change (command metrics)"}
+  - {schema: result, path: "metrics[*].value", type: number, meaning: "the metric value; change_failure_rate is merged slices that later get a defect sub-issue as a share, lead_time_for_changes is slice sub-issue opening to merge (command metrics)"}
+  - {schema: result, path: "metrics[*].unit", type: "enum: ratio, hours, tokens, count", meaning: "the value's unit: ratio for change_failure_rate, hours for lead_time_for_changes, tokens for tokens_per_met_slice, count for measurer_rounds (command metrics)"}
+  - {schema: result, path: "api_results[*].id", type: "enum: scorecard, deps.dev, osv", meaning: "the service whose response is recorded (command vet)"}
+  - {schema: result, path: "api_results[*].body", type: object, meaning: "that service's recorded response object, with no verdict added (command vet)"}
   # jobs
   - {schema: jobs, path: "jobs[*].id", type: string, meaning: "the job id, unique in the run"}
   - {schema: jobs, path: "jobs[*].kind", type: "enum: agent, program_step", meaning: "whether an agent or a program step ran the job"}
   - {schema: jobs, path: "jobs[*].role", type: "enum: planner, judge, proposer, test_author, builder, reviewer", meaning: "the agent's role; agent jobs only"}
-  - {schema: jobs, path: "jobs[*].step", type: string, decided: false, meaning: "the program step's name (generator, measurer, merge...); program_step jobs only"}
+  - {schema: jobs, path: "jobs[*].step", type: string, meaning: "the program step's name (generator, measurer, merge...); program_step jobs only"}
   - {schema: jobs, path: "jobs[*].item", type: string, meaning: "the item the job worked on"}
   - {schema: jobs, path: "jobs[*].started_at", type: string, meaning: "start time, RFC 3339"}
   - {schema: jobs, path: "jobs[*].exit_code", type: integer, meaning: "the job's exit code"}
@@ -122,8 +121,8 @@ fields:
   - {schema: config, path: "tiers.triggers[*].fresh_stack", type: boolean, default: "the plugin's trigger list", meaning: "the trigger needs a fresh-stack run"}
   - {schema: config, path: "review.triggers[*]", type: string, default: "inferred from standard files", meaning: "path patterns whose change launches a reviewer job"}
   - {schema: config, path: "protected[*]", type: string, default: "the tests, test and lint config sections, recipe and ratchet files", meaning: "paths the measurer lays over the build from the plan commit"}
-  - {schema: config, path: budgets.job_usd, type: number, meaning: "spend cap per job launch (--max-budget-usd)"}
-  - {schema: config, path: budgets.run_usd, type: number, meaning: "spend cap per run"}
+  - {schema: config, path: budgets.job_usd, type: number, default: 20, meaning: "spend cap per job launch (--max-budget-usd)"}
+  - {schema: config, path: budgets.run_usd, type: number, default: "budgets.job_usd x concurrency, computed when absent (100 by default)", meaning: "spend cap per run"}
   - {schema: config, path: "paved_road.test_paths[*]", type: string, default: "inferred from pytest testpaths or the JS test runner config", meaning: "where the builder puts its own tests; copied to the packet"}
   - {schema: config, path: paved_road.dependency_command, type: string, default: "inferred from the lockfile", meaning: "how a builder adds a dependency; copied to the packet"}
   - {schema: config, path: "right_way.*", type: string, default: "the plugin's preset text per enabled rule code", meaning: "the right-way line for a fixed-message linter rule, keyed by rule code"}

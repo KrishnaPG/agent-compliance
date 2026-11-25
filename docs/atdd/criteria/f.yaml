@@ -248,9 +248,9 @@ acceptance:
     when:
       bh: {sub: vet, args: [pypi, "example-pkg@1.2.3"]}
     then:
-      - field: {source: result_json, path: scorecard, op: present}
-      - field: {source: result_json, path: deps_dev, op: present}
-      - field: {source: result_json, path: osv, op: present}
+      - field: {source: result_json, path: "api_results[id=scorecard].body", op: present}
+      - field: {source: result_json, path: "api_results[id=deps.dev].body", op: present}
+      - field: {source: result_json, path: "api_results[id=osv].body", op: present}
       - field: {source: result_json, path: verdict, op: absent}
     traces_to: [R9, P2, QBC-84]
     verification: test

@@ -20,12 +20,12 @@ Teaching parts: 336; 132 name at least one identifier token that the message mus
 | a | 5 | 5 | 19 |
 | b | 14 | 14 | 139 |
 | c | 9 | 9 | 72 |
-| d | 12 | 12 | 107 |
+| d | 12 | 12 | 110 |
 | e | 6 | 6 | 47 |
 | f | 3 | 3 | 25 |
 | g | 2 | 2 | 12 |
 | h | 3 | 3 | 21 |
-| all | 54 | 54 | 442 |
+| all | 54 | 54 | 445 |
 
 | Catalog | Entries |
 |---|---|
@@ -33,7 +33,7 @@ Teaching parts: 336; 132 name at least one identifier token that the message mus
 | when | 8 |
 | then | 23 |
 
-Verification: fitness 8, lint 72, measure 10, test 352.
+Verification: fitness 8, lint 72, measure 10, test 355.
 Non-deterministic rows (slice h only): h1-AC1, h1-AC2.
 
 ## §0 items × criteria
@@ -53,7 +53,7 @@ Non-deterministic rows (slice h only): h1-AC1, h1-AC2.
 | P5 | 1 | 7 | 2 | 7 | 6 | 4 | 3 | 0 | 30 | a5-AC1, b2-AC13, b2-AC16, b6-AC1, b6-AC8, b9-AC14, b10-AC2, b10-AC3, c6-AC1, c6-AC3, d8-AC1, d8-AC2, d8-AC3, d8-AC5, d8-AC7, d8-AC8, d8-AC9, e1-AC4, e1-AC7, e1-AC8, e3-AC3, e4-AC3, e4-AC6, f1-AC11, f1-AC12, f2-AC3, f3-AC6, g1-AC2, g1-AC5, g1-AC6 |
 | P6 | 0 | 20 | 0 | 21 | 0 | 3 | 0 | 0 | 44 | b1-AC2, b1-AC9, b1-AC14, b1-AC15, b1-AC16, b1-AC22, b1-AC23, b2-AC12, b2-AC14, b2-AC15, b3-AC1, b3-AC2, b3-AC3, b3-AC4, b3-AC5, b3-AC6, b8-AC1, b8-AC4, b8-AC6, b8-AC8, d0-AC3, d0-AC16, d4-AC5, d5-AC3, d5-AC5, d5-AC8, d6-AC1, d6-AC7, d6-AC9, d6-AC12, d6-AC14, d6-AC15, d7-AC1, d7-AC2, d7-AC5, d11-AC1, d11-AC3, d11-AC7, d11-AC8, d11-AC9, d11-AC10, f1-AC1, f1-AC4, f1-AC13 |
 | P7 | 0 | 1 | 0 | 1 | 0 | 0 | 0 | 0 | 2 | b9-AC6, d2-AC7 |
-| P8 | 0 | 2 | 0 | 14 | 2 | 0 | 0 | 0 | 18 | b9-AC15, b13-AC11, d1-AC3, d1-AC4, d5-AC1, d5-AC2, d9-AC1, d9-AC2, d9-AC3, d9-AC4, d9-AC5, d9-AC6, d9-AC7, d11-AC2, d11-AC5, d11-AC7, e3-AC4, e3-AC5 |
+| P8 | 0 | 2 | 0 | 17 | 2 | 0 | 0 | 0 | 21 | b9-AC15, b13-AC11, d1-AC3, d1-AC4, d5-AC1, d5-AC2, d9-AC1, d9-AC2, d9-AC3, d9-AC4, d9-AC5, d9-AC6, d9-AC7, d9-AC8, d9-AC9, d9-AC10, d11-AC2, d11-AC5, d11-AC7, e3-AC4, e3-AC5 |
 | P9 | 0 | 0 | 22 | 0 | 0 | 0 | 0 | 0 | 22 | c1-AC1, c1-AC2, c1-AC3, c1-AC4, c1-AC5, c1-AC6, c1-AC7, c1-AC8, c1-AC9, c1-AC10, c1-AC11, c1-AC12, c1-AC13, c1-AC14, c1-AC15, c2-AC1, c2-AC2, c2-AC5, c7-AC1, c7-AC2, c7-AC9, c7-AC10 |
 | P10 | 4 | 0 | 0 | 0 | 0 | 0 | 0 | 0 | 4 | a2-AC1, a2-AC3, a2-AC4, a2-AC5 |
 | P11 | 0 | 2 | 9 | 0 | 0 | 0 | 6 | 0 | 17 | b4-AC10, b4-AC11, c4-AC2, c4-AC3, c4-AC4, c4-AC5, c4-AC6, c4-AC7, c5-AC1, c5-AC2, c5-AC3, g2-AC1, g2-AC2, g2-AC3, g2-AC4, g2-AC5, g2-AC6 |
@@ -154,7 +154,7 @@ Distinct fixture ids the rows name, with how many rows name each; near-duplicate
 - recorded_answer.question: create_hierarchy (3), owner_of_unowned_paths (4), write_issue_forms (4), write_pre_commit_hooks (3), write_presets (5)
 - recorded_api.fixture: create_issue_with_parent (2), empty_repository (2), five_issues_three_filtered_out (1), form_issue_with_parent_field (1), hierarchy_already_set_up (1), human_closed_issue (1), issue_list_for_origin (1), issue_with_long_body (1), known_list_by_label (5), maintenance_issue_exists (1), no_maintenance_issue (1), package_ok (6), parentless_issue (3), three_claims_one_malformed (1), tracking_issue_last_sub_issue_closed (1), tracking_issue_one_sub_issue_open (1), tracking_issue_with_checklist (8), two_known_lists (1), two_ready_issues (1)
 - recorded_model.fixture: any_job (1), decision_proposer_then_judge (5), defect_inside_packet_paths (1), defect_outside_packet_paths (1), finder_regression_row (1), judge_oss_option_unverified_rule (1), judge_two_objections (3), judge_with_falsifying_call (2), planner_judge_author_builder (2), proposer_record_800_chars (1), proposer_record_uncited_constraint (1), proposer_record_without_front_matter (1), reviewer_critical_finding (2), reviewer_mixed_findings (1), reviewer_one_critical_finding (1), reviewer_one_finding (3), reviewer_one_minor_finding (1), reviewer_two_major_findings (1), reviewer_vulnerability_finding (1), test_author_regression (1), test_author_rows (5), toy_ablation_arm (1), toy_e2e (5), toy_flaky_test (1), toy_honest (15), toy_junit_error (1), toy_junit_ids_missing (1), toy_never_met (2), toy_out_of_scope_edit (1), toy_passing_canary (1), toy_probe_fails (1), toy_scope (2), toy_suppressions_grown (1), toy_two_items (2), trigger_cases (1)
-- repo.state: node_toy:base (1), node_toy:baselines_adopted (1), node_toy:mixed_python_typescript (1), node_toy:no_harness_config (1), node_toy:no_presets (2), node_toy:package_exports_only (1), node_toy:package_json_scripts (2), node_toy:pnpm_lockfile (1), node_toy:runner_config (1), node_toy:workspace_members_only (1), plugin:candidate (98), project:codeowners_only (1), project:database_roles_only (2), project:decision_record_written (1), project:defect_without_tracking_issue (2), project:fitness_clean (8), project:fresh_github_repo (3), project:known_list_with_100_lines (1), project:known_list_with_three_lines (1), project:known_list_with_two_lines (3), project:no_codeowners (1), project:no_issue_forms (4), project:openapi_tags_only (1), project:owners_fixture (3), project:pre_v2_history (2), project:room_for_one (1), project:six_ready_items (1), project:slice_in_progress (2), project:slice_merged_checklist_ticked (3), project:tracking_issue_open (14), project:two_labelled_lists (1), project:v2_history (7), toy:base (231), toy:baselines_adopted (5), toy:codeowners_present (1), toy:codeowners_written_by_answer (1), toy:dunder_all_only (1), toy:justfile_recipes (1), toy:makefile_targets (1), toy:no_codeowners (2), toy:no_harness_config (1), toy:no_origin_remote (1), toy:no_presets (5), toy:openapi_tags (1), toy:openapi_without_owner_tag (1), toy:origin_remote_set (1), toy:presets_applied (11), toy:pyproject_only (1), toy:pytest_testpaths (1), toy:recipe_without_owner_line (1), toy:rule_enabled_without_entry (1), toy:sql_files_no_presets (1), toy:uv_lockfile (1)
+- repo.state: node_toy:base (1), node_toy:baselines_adopted (1), node_toy:mixed_python_typescript (1), node_toy:no_harness_config (1), node_toy:no_presets (2), node_toy:package_exports_only (1), node_toy:package_json_scripts (2), node_toy:pnpm_lockfile (1), node_toy:runner_config (1), node_toy:workspace_members_only (1), plugin:candidate (101), project:codeowners_only (1), project:database_roles_only (2), project:decision_record_written (1), project:defect_without_tracking_issue (2), project:fitness_clean (8), project:fresh_github_repo (3), project:known_list_with_100_lines (1), project:known_list_with_three_lines (1), project:known_list_with_two_lines (3), project:no_codeowners (1), project:no_issue_forms (4), project:openapi_tags_only (1), project:owners_fixture (3), project:pre_v2_history (2), project:room_for_one (1), project:six_ready_items (1), project:slice_in_progress (2), project:slice_merged_checklist_ticked (3), project:tracking_issue_open (14), project:two_labelled_lists (1), project:v2_history (7), toy:base (231), toy:baselines_adopted (5), toy:codeowners_present (1), toy:codeowners_written_by_answer (1), toy:dunder_all_only (1), toy:justfile_recipes (1), toy:makefile_targets (1), toy:no_codeowners (2), toy:no_harness_config (1), toy:no_origin_remote (1), toy:no_presets (5), toy:openapi_tags (1), toy:openapi_without_owner_tag (1), toy:origin_remote_set (1), toy:presets_applied (11), toy:pyproject_only (1), toy:pytest_testpaths (1), toy:recipe_without_owner_line (1), toy:rule_enabled_without_entry (1), toy:sql_files_no_presets (1), toy:uv_lockfile (1)
 
 ## needs-keyword
 
@@ -383,7 +383,7 @@ None.
 - h2-AC2: stale results are not located in the plan; the row names evals/results and the evals/_gen generator directory
 - h2-AC4: the count of kept skills from a4 is not in the plan; the row cannot assert one case per skill and asserts at least one
 - h2-AC5: the plan names no report field names; with the stub claude on PATH the eval run makes no live call
-- h3-AC1: metric field names and the lead-time unit are not stated; the row fixes change_failure_rate, lead_time_hours and tokens_per_met_slice
+- h3-AC1: the plan does not state the lead-time unit; the metrics[*] entries carry it in unit
 - h3-AC3: the plan says later defects count; the row reads before-merge defects as not counting
 - h3-AC5: the plan does not say whether tokens of unmet slices count; the row counts all job-record tokens
 - h3-AC6: the plan names no argument for writing the baseline; the row uses --baseline

@@ -1387,7 +1387,7 @@ acceptance:
     deterministic: true
   - id: d9-AC5
     scenario: "An override changes behaviour: a lower H2 limit shortens the hook line"
-    covers: [18]
+    covers: [20]
     given:
       - repo: {name: toy, state: base}
       - packet: {fixture: toy_item, variant: valid}
@@ -1403,7 +1403,7 @@ acceptance:
 
   - id: d9-AC6
     scenario: With six ready items at most five agents run at once
-    covers: [19]
+    covers: [21]
     given:
       - repo: {name: project, state: six_ready_items}
       - config: {state: absent}
@@ -1418,7 +1418,7 @@ acceptance:
 
   - id: d9-AC7
     scenario: ruff PLR2004 is clean over harness
-    covers: [20]
+    covers: [22]
     given:
       - repo: {name: plugin, state: candidate}
     when:
@@ -1445,6 +1445,49 @@ acceptance:
       - field: {source: skill_md, path: body, op: contains, value: bh check}
     traces_to: [G3, QBC-82]
     verification: lint
+    deterministic: true
+
+  - id: d9-AC8
+    scenario: With no override file the job budget is 20 and the run budget is the job budget times the concurrency
+    covers: [18, 19]
+    given:
+      - repo: {name: plugin, state: candidate}
+      - config: {state: absent}
+    when:
+      bh: {sub: owners, args: ["--config"]}
+    then:
+      - field: {source: config_effective, path: budgets.job_usd, op: eq, value: 20}
+      - field: {source: config_effective, path: budgets.run_usd, op: eq, value: 100}
+    traces_to: [P8, QBC-13, QBC-33]
+    verification: test
+    deterministic: true
+
+  - id: d9-AC9
+    scenario: An overridden job budget scales the computed run budget
+    covers: [19]
+    given:
+      - repo: {name: plugin, state: candidate}
+      - config: {state: override, key: budgets.job_usd, value: 10}
+    when:
+      bh: {sub: owners, args: ["--config"]}
+    then:
+      - field: {source: config_effective, path: budgets.run_usd, op: eq, value: 50}
+    traces_to: [P8, QBC-13]
+    verification: test
+    deterministic: true
+
+  - id: d9-AC10
+    scenario: An overridden concurrency scales the computed run budget
+    covers: [19]
+    given:
+      - repo: {name: plugin, state: candidate}
+      - config: {state: override, key: concurrency, value: 2}
+    when:
+      bh: {sub: owners, args: ["--config"]}
+    then:
+      - field: {source: config_effective, path: budgets.run_usd, op: eq, value: 40}
+    traces_to: [P8, QBC-13]
+    verification: test
     deterministic: true
 
   - id: d10-AC2

@@ -624,7 +624,9 @@ d0-d3 need only b1 (d0 also needs b5's jsonschema). d4-d11 come after b9.
     - `sandbox`, the Claude Code `sandbox` settings object passed verbatim into the builder's settings, with `sandbox.network.allowAllUnixSockets` false;
     - `evals.runs` 3;
     - `models.<role>` for each agent role (planner, judge, test_author, builder, reviewer);
-    - `tiers.triggers`.
+    - `tiers.triggers`;
+    - `budgets.job_usd` 20, passed to every launch as `--max-budget-usd`: the pilot's largest measured agent job was 420k tokens, twice that priced entirely at the highest per-token rate among the models the plugin launches by default (Opus 5.5 output, $20 per million tokens) is $16.80, rounded up to $20, an upper bound so a normal job is never cut off;
+    - `budgets.run_usd` is `budgets.job_usd` x `concurrency` when absent, so 100 by default.
     
   Also:
     - an override that differs from the default (for example `limits.idle_days` 7, `evals.runs` 5) changes behaviour in a test;
