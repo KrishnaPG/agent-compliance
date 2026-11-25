@@ -106,8 +106,9 @@ def when_entry_point(ctx, entry, mode=None):
     env["HOME"] = os.environ["HOME"]  # the host's python tooling (pyenv, mise shims) is found through HOME
     if entry == "plugin_pytest":
         junit = ctx.work / "junit-plugin-pytest.xml"
-        argv = ["uv", "run", "--script", "--managed-python", str(ctx.tree / "harness" / "run_tests.py"), "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
-        run = execute(ctx, argv, cwd=ctx.tree / "harness", env_extra=env, timeout=1200)
+        root = repo(ctx)  # the plugin tree, or its copy when a plant was applied to it
+        argv = ["uv", "run", "--script", "--managed-python", str(root / "harness" / "run_tests.py"), "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
+        run = execute(ctx, argv, cwd=root / "harness", env_extra=env, timeout=1200)
         run.extra["junit_path"] = junit
     else:
         r = repo(ctx)
