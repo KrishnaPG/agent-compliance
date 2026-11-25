@@ -1,5 +1,0 @@
---- a/docs/agents/design-compliance.md
-+++ b/docs/agents/design-compliance.md
-@@ -7 +7 @@
--| MINI-DS-01 | A customer export is deleted no later than 30 days after its creation. | docs/adr/0012-export-retention.md §2 | Does the design delete every export within 30 days? |
-+| MINI-DS-01 | A customer export is deleted no later than 14 days after its creation. | docs/adr/0012-export-retention.md §2 | Does the design delete every export within 14 days? |

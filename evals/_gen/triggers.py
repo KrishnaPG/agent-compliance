@@ -1,12 +1,12 @@
 """Writes the trigger, disambiguation and no-trigger cases. Run after changing a prompt here."""
-import os,shutil
+import os
 E=os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-REV,CAT,VD,OSS,BUG='compliance-review','compliance-catalog','vetted-decision','vet-oss','bug-analysis'
-ALL=[REV,CAT,VD,OSS,BUG]
+VD,OSS,BUG='vetted-decision','vet-oss','bug-analysis'
+ALL=[VD,OSS,BUG]
 def g(skill,lo,hi=None):
     return f"---\ntype: tool_used\ntool: Skill\ninput_match: '{skill}'\nmin: {lo}\n"+(f"max: {hi}\n" if hi is not None else "")+"arm: both\n---\n"
 def case(group,name,prompt,want,ungraded=()):
-    d=f"{E}/{group}/{name}"; shutil.rmtree(d,ignore_errors=True); os.makedirs(d+'/graders')
+    d=f"{E}/{group}/{name}"; os.makedirs(d+'/graders',exist_ok=True)
     open(d+'/prompt.md','w').write(f"---\ntags: [trigger, {group}]\nmodel: sonnet\nmax_turns: 2\nallowed_tools: [Skill]\n---\n{prompt}\n")
     for sk in ALL:
         if sk==want: open(f"{d}/graders/{sk}-fires.md",'w').write(g(sk,1))
@@ -19,18 +19,11 @@ P=[
 ('trigger-bug','test-fails-1',"tests/test_export.py::test_expired fails on main with an AssertionError. Find out why.",BUG),
 ('trigger-bug','release-broke-2',"The release broke: the cleanup job ends in ImagePullBackOff.",BUG),
 ('trigger-bug','wrong-value-3',"The invoice total shows 104.50 instead of 100.45. Fix this wrong value.",BUG),
-('disambiguation','rules-changed-update',"Our rules changed: ADR-0012 now requires 14-day retention for exports. Update the catalog.",CAT),
-('disambiguation','check-spec-against-rules',"Check docs/specs/billing.md against our rules.",REV),
-('disambiguation','accepted-missing-rule',"The last review of the billing spec listed a possible missing rule about webhook retries, and the owner accepted it. Add it.",CAT),
-('disambiguation','standard-changed-still-holds',"The catalog was already updated for the new supply-chain standard. Does docs/design/release.md still hold?",REV),
-('disambiguation','design-review-not-decision',"Review docs/design/session-store.md, which proposes a shared PostgreSQL table for sessions, against our rules.",REV),
 ('disambiguation','decision-not-design-review',"docs/design/session-store.md lists three options for the session store. Which one should we take?",VD),
 ('disambiguation','tool-adoption-not-decision',"Should we adopt Velero or keep our own backup script?",OSS,(VD,)),
 ('disambiguation','decision-not-tool-adoption',"Should backups be run by the platform team's one job or by each service itself?",VD),
 ('disambiguation','bug-not-design-review',"Exports are being deleted after 3 days instead of 30 in production.",BUG),
-('disambiguation','design-review-not-bug',"Check the retention section of docs/design/export-cleanup.md against our standards.",REV),
-('disambiguation','failing-test-not-plan-check',"The test in step 4 of docs/plans/migrate-queue.md fails when I run it: `queue_depth` returns -1.",BUG),
-('disambiguation','plan-check-not-failing-test',"Before we start: can docs/plans/migrate-queue.md be followed exactly as written, including its test steps?",REV),
+('no-trigger','unmerged-test-fails',"My change on this branch makes tests/test_export.py::test_expired fail. Make it pass before I open the PR.",None),
 ('no-trigger','explain-function',"Explain what this function does:\n\n```python\ndef expired(keys, now, days=30):\n    return [k for k in keys if (now - k.created).days > days]\n```",None),
 ('no-trigger','run-test',"Run `pytest tests/test_export.py -q` and tell me whether it passes.",None),
 ('no-trigger','rename-variable',"In src/export.py rename the variable `tmp` to `expired_keys`.",None),

@@ -1,7 +1,0 @@
---- a/docs/design.md
-+++ b/docs/design.md
-@@ -17,3 +17,3 @@ This section supersedes the 2025 storage note.
- ## Retention
- 
--Exports older than 30 days are deleted by the nightly job. No backup of the bucket exists and no retention decision is recorded.
-+Exports are deleted 30 days after creation. The project owner decided on 2026-10-02 (issue #41) that exports are not retained beyond 30 days; each is rebuilt on request from the orders database.
