@@ -17,14 +17,31 @@ H0_TO_ORCHESTRATOR = (
     "Builder {id} started without a packet. Launch builders through the harness launch step, "
     "which writes the packet first; mechanical work gets a minimal one."
 )
-SG01_PRE = (
-    "[SG-01] acceptance test is protected (SG-01): {path} -> ask the orchestrator to change it in the plan; "
-    "tests sit in protected paths . docs/spec/packet-standards.md"
-)
-OUTSIDE_PRE = (
-    "[R4] path is outside the clone: {path} (the packet and every file beyond the clone are orchestrator-owned) -> "
-    "write only inside the clone; the orchestrator writes the packet . file tools are scoped to the clone"
-)
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent / "harness" / "lib"))
+from atdd_engine.teaching import teach  # noqa: E402 (one owner of the teaching shape)
+
+
+def sg01_pre(path: str) -> str:
+    """SG-01's refusal of an edit to a protected acceptance test: one capped teaching line."""
+    return teach(
+        "SG-01",
+        f"acceptance test is protected (SG-01): {path}",
+        "ask the orchestrator to change it in the plan; tests sit in protected paths",
+        "docs/spec/packet-standards.md",
+    )
+
+
+def outside_pre(path: str) -> str:
+    """SG-01's refusal of a write beyond the clone: one capped teaching line. The path comes last in
+    the wrong part, so the cap cuts the path, never what is wrong or the right way (P5, QBC-43)."""
+    return teach(
+        "R4",
+        f"path is outside the clone; the packet and every file beyond the clone are orchestrator-owned: {path}",
+        "write only inside the clone; the orchestrator writes the packet",
+        "file tools are scoped to the clone",
+    )
+
+
 SG01_NOTE = (
     "[SG-01] SG-01 note: read-only file system, tests are protected -> ask the orchestrator to change them; "
     "do not write into tests/, tests sit in protected paths . docs/spec/packet-standards.md"

@@ -18,9 +18,9 @@ path = c.target_path(data, root)
 if not c.is_builder(data) or not path:
     c.emit()
 if c.outside(root, path):
-    reason = c.OUTSIDE_PRE.format(path=path)
+    reason = c.outside_pre(path)
 elif c.inside(path, c.acceptance_globs(root)):
-    reason = c.SG01_PRE.format(path=path)
+    reason = c.sg01_pre(path)
 else:
     c.emit()
 print(json.dumps({
