@@ -262,13 +262,26 @@ These are the mechanisms outside the levels table above.
 
 Industry practice adopted: static analysers turn rule packs on by the languages and frameworks they detect (Semgrep, CodeQL), and ISTQB risk-based testing picks checks from what a change touches. So facts decide, never an agent's judgment, and each measured miss corrects the mapping. Every catalog rule is kept: v1's rows are all present, with `embodied_by` naming the mechanism for a row a v2 mechanism enforces. Each rule is explained from the repo itself (`text`, `why`, `right`, `question`, with `cites` as a provenance label only).
 
-- QBC-103. Core and tags. A small core, tagged `always` (at most 15 rules), MUST apply to every item. Every other rule MUST carry `applies` tags from one closed set: messaging, network-client, http-server, database, auth, deploy, concurrency, money, time, config, dependency-change, defect. A tag outside the set is a catalog error.
-- QBC-104. Facts decide, at 0 tokens. The program MUST derive an item's tags without any agent, from (a) the project stack (lock-file dependencies through a capability table, plus the project's `stack` declarations), (b) the item's contract (declared interfaces and owned paths), and (c) the actual diff (imports added, file kinds). The packet MUST carry core + (a) + (b), one line per rule and at most `limits.packet_rules` lines. The same inputs MUST give the same selection. Inclusion leans toward recall.
-- QBC-105. Nobody is left without a rule. (i) `bh rules --diff [BASE [REF]]` MUST print, at 0 tokens, the rules that the change's facts (c) add, and the packet MUST name this command as the builder's self-check. (ii) The review MUST judge the packet's rules plus the rules (c) adds on the item's actual diff. (iii) `bh rule <id>` MUST print a rule's full text from the repo.
+- QBC-103. Core and tags. A small core tagged `always` (at most 10 rules) MUST apply to every item. Every other rule MUST carry `applies` tags from one closed set: messaging, network-client, http-server, database, auth, deploy, concurrency, money, time, config, dependency-change, defect. A tag outside the set MUST be refused as a catalog error.
+- QBC-104. Facts decide, at 0 tokens. The program MUST derive an item's tags with no agent, from three sources: (a) the project stack (lock-file dependencies through a capability table, plus the project's `stack` declarations in config); (b) the item's contract (declared interfaces and owned paths); (c) the actual diff (imports added, file kinds). The packet MUST carry core + (a) + (b). The same inputs MUST give the same selection. Inclusion leans toward recall: a false inclusion costs one line, a false exclusion costs a defect. Recall is measured by QBC-108, not asserted in a unit test.
+- QBC-105. Nobody is left without a rule.
+  - (i) `bh rules --diff [BASE [REF]]` MUST print, at 0 tokens, the rules the change's facts (c) add. The packet MUST name it as the builder's self-check.
+  - (ii) The review MUST judge the packet's rules plus the rules (c) adds on the item's actual diff.
+  - (iii) `bh rule <id>` MUST print a rule's full text from the repo.
+  - (iv) A rule is never dropped for size. The first `limits.packet_rules` rules (default 15, with an override in config) are full lines; any beyond that are listed by id and title only, for `bh rule <id>`.
 - QBC-106. Agents add, owners remove. The planner MAY add rules to an item, each with a one-line reason, and MUST NOT remove any. Only the project's overlay MAY remove a rule, and only with a reason. No agent's input MAY hold the whole catalog.
-- QBC-107. Same rules for every author (G2). `bh review BASE..HEAD [--item X]` MUST judge any author's diff against the rules selected for it by QBC-104 and QBC-105, and MUST be the one review entry point for humans and agents (QBC-16).
-- QBC-108. Misses are measured and corrected. A finding, or a later defect, whose rule was not selected MUST be recorded as a fact `selector_miss {rule, missing_tag}` in the run result. The mapping is fixed from these facts (a ratchet). Release acceptance: on a held-out replay of real history, the covering rule is selected in at least 90% of cases, and the median packet is at most 15 rule lines.
-- QBC-109. Release check. Each of QBC-103 to QBC-108 MUST have a plain pytest in `harness/tests` named for its id. The full harness pytest is the release bar, so a release cannot ship with a QBC-103 to QBC-108 check red.
+- QBC-107. Same rules for every author (G2). `bh review BASE..HEAD [--item X]` MUST judge any author's diff and MUST be the one review entry point for humans and agents (QBC-16). The rules it judges are fixed by QBC-104 and QBC-105: with `--item`, that item's selection plus (c); without, core + (a) + (c).
+- QBC-108. Misses are measured and corrected.
+  - A finding, or a later defect, whose rule was not selected MUST be recorded as a fact `selector_miss {rule, missing_tag}` in the run result.
+  - `bh run` MUST report each miss in teach form, naming the capability-table or `applies` entry that would have selected the rule, and `bh metrics` MUST count misses per run. The mapping is fixed from these facts (a ratchet).
+  - Release acceptance: on a held-out replay of real history, the covering rule is selected in at least 90% of cases, and the median packet is at most 15 rule lines.
+- QBC-110. No rule lost. Every rule id of the v1 base catalog (vendored as a fixture list) MUST be present in `catalog/rules.toml`. A rule that a v2 mechanism enforces keeps its text and names that mechanism in `embodied_by`.
+- QBC-111. Explained in the repo. Every rule MUST have non-empty `text`, `why`, `right` and `question` in the plugin's own words. `cites` is a provenance label only, and no rule's explanation MAY be only a URL. Every `[standards.*]` entry MUST have a `summary`.
+- QBC-109. Release check, requirements traceability (ISO/IEC/IEEE 29148).
+  - Each of QBC-103 to QBC-108, QBC-110 and QBC-111 MUST have a plain pytest in `harness/tests` named for its id.
+  - Each such test MUST include a negative control: the same assertion run on an input that breaks the property, which MUST fail. A test that cannot fail does not count.
+  - One traceability test MUST read the ids in this section and assert that a test is named for each.
+  - The full harness pytest is the release bar.
 
 ## 7. A self-sustained plugin
 
