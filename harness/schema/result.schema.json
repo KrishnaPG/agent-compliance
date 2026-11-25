@@ -7,6 +7,8 @@
     "schema_version": {"type": "string"},
     "command": {"enum": ["run", "measure", "check", "intake", "merge", "decide", "gaps", "owners", "metrics", "vet", "map"]},
     "packet_sha256": {"type": "string"},
+    "checks_run": {"type": "array", "items": {"type": "string"}},
+    "checks_missed": {"type": "array", "items": {"type": "string"}},
     "run_report": {"type": "string"},
     "config": {"type": "object"},
     "items": {

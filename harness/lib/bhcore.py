@@ -1123,6 +1123,51 @@ def _lesson(status: str, path: str, accept: list[str]) -> tuple[str, str, str, s
     )
 
 
+def _check_lesson(cmd: str, r: dict[str, Any], rules: list[dict[str, str]], log: Path) -> str:
+    """The teaching message for a verifier check that exited non-zero with no failing test: the
+    packet's own message for the first rule whose id the check's output names (the way ruff,
+    semgrep and ast-grep report a rule), else a generic one pointing at the saved output."""
+    log.write_text(r["tail"])
+    for rule in rules:
+        if re.search(rf"(?<![\w-]){re.escape(rule['id'])}(?![\w-])", r["tail"]):
+            return rule["message"][:300]
+    how = "timed out" if r["exit"] is None else f"exited {r['exit']}"
+    return _teach(
+        "check", f"{cmd} {how}", f"make it exit 0, its output is in {log.name}", "bh check"
+    )
+
+
+def snapshot_working_tree(top: Path) -> str:
+    """The sha of a commit holding HEAD plus the working tree, built with a temporary index so
+    the repository's own index, branches and refs stay as they are. The packet directory and the
+    harness's own clones and outputs are left out: they are not part of the tree being checked."""
+    scratch_root = top / HDIR / "clones"
+    scratch_root.mkdir(parents=True, exist_ok=True)
+    scratch = Path(tempfile.mkdtemp(prefix="index-", dir=scratch_root))
+    try:
+        env = {
+            **os.environ,
+            "GIT_INDEX_FILE": str(scratch / "index"),
+            "GIT_AUTHOR_NAME": "bh",
+            "GIT_AUTHOR_EMAIL": "bh@localhost",
+            "GIT_COMMITTER_NAME": "bh",
+            "GIT_COMMITTER_EMAIL": "bh@localhost",
+        }
+
+        def git(*a: str) -> str:
+            p = subprocess.run(["git", "-C", str(top), *a], capture_output=True, text=True, env=env)
+            if p.returncode != 0:
+                raise HarnessError(f"git {' '.join(a)}: {p.stderr.strip()}")
+            return p.stdout.strip()
+
+        git("read-tree", "HEAD")
+        skip = [f":(exclude){HDIR}/{d}" for d in ("packets", "clones", "out")]
+        git("add", "-A", "--", ".", *skip)
+        return git("commit-tree", git("write-tree"), "-p", "HEAD", "-m", "bh check snapshot")
+    finally:
+        shutil.rmtree(scratch)
+
+
 def _claim(root: Path, stem: str) -> tuple[int, Path]:
     """Create the first free ``root/<stem>-<slot>`` (mkdir is atomic, so parallel runs never share one)."""
     root.mkdir(parents=True, exist_ok=True)
@@ -1540,7 +1585,9 @@ def diff_facts(
             diff_fact(facts, item, kind, f"{what} {old[key]} -> {cand[key]}")
 
 
-def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dict[str, Any]:
+def measure_ref(
+    cfg: Config, ref: str = "HEAD", orch: Path | None = None, self_check: bool = False
+) -> dict[str, Any]:
     """Measure ``ref`` of the repository against its plan commit (merge base with the default
     branch), without a plan or scoreboard: a ``git clone --shared`` checkout, the plan commit's
     protected paths laid over it, the project's test recipe and a canary run sealed by ``_jail``.
@@ -1553,6 +1600,12 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
 
     Every input that cannot be read is a fact with its teaching and the item is unmet; nothing
     raises. A finished measurement with the same key is returned instead of measured again.
+
+    It runs exactly the packet's ``verifier.checks`` (the project's test recipe when the packet
+    lists none) and reports them as ``checks_run`` and the ones that exited non-zero as
+    ``checks_missed``. ``self_check`` is ``bh check`` (d3): the same code on a snapshot of the
+    builder's working tree, inside the builder's own sandbox. It reads the packet the clone holds
+    (the builder has no other), adds no jail and no canary, and states what it skips.
     """
     top = git_top(cfg.dir)
     if top is None:
@@ -1576,7 +1629,15 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
     root = orch or Path(os.environ.get("BH_ORCHESTRATOR_DIR") or top)
     key = trailer.partition("@")[0] or (named[0] if len(named) == 1 else None)
     digest = (key and bhpacket.custody_digest(root, key)) or bhpacket.custody_digest(root)
-    if digest:
+    if self_check:  # the builder holds no custody: the packet its clone was given
+        held = sorted((top / HDIR / "packets").glob("*.json"))
+        raw = held[0].read_bytes() if held else b"{}"
+        digest = hashlib.sha256(raw).hexdigest() if held else None
+        try:
+            pk = json.loads(raw)
+        except ValueError as e:
+            errors.append(f"{held[0]}: {e}")
+    elif digest:
         try:
             pk = json.loads(bhpacket.custody_read(root, digest))
         except (HarnessError, ValueError) as e:
@@ -1641,34 +1702,66 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
     out = out_root / item / f"{sha[:12]}-{slot}"
     out.mkdir(parents=True, exist_ok=True)
     cases: list[Any] = []
+    seal = None if self_check else [top / HDIR]
+    timeout = float(cfg.data.get("commands", {}).get("timeout_s", 600))
+    rules = pk.get("verifier", {}).get("rules", [])
+    checks_run: list[str] = []
+    checks_missed: list[str] = []
+    canary_cases: list[Any] = []
+    reports = JUnitXml()  # one JUnit XML for the whole measurement, the reports of every check
     with clean_checkout(top, sha, clone) as co:
         overlay_plan(cfg, top, co, base)
-        _canary_into(co)
-        junit = co / ".bh-junit.xml"
         env = dict(_project_environ(), BH_OUT=str(out))
-        setup_error = _prepare(cfg, co, env, slot)
-        cmd = _test_cmd(co, junit, env)
-        r = _run(
-            cmd,
-            co,
-            co,
-            env,
-            float(cfg.data.get("commands", {}).get("timeout_s", 600)),
-            [top / HDIR],
-        )
-        _lint_sarif(co, env, out, [top / HDIR], digest)
-        try:
-            cases = [c for s in _suites(read_junit(junit)) for c in s]
-            shutil.copy2(junit, out / "junit.xml")
-        except HarnessError as e:
-            errors.append(setup_error or f"{e}; the test command said: {r['tail'][-300:]}")
-            lesson = (
-                ("env_setup", "the toolchain install from the lockfile failed", "keep the lockfile installable (frozen)", "run the install before finishing")
-                if setup_error
-                else ("junit", "JUnit file missing or malformed", "write well-formed JUnit XML to the report path", "run the test recipe before finishing")
-            )
-            fact("gap", lesson[0], _teach(*lesson))
+        setup_error = None if self_check else _prepare(cfg, co, env, slot)  # a check runs on what setup installed
+        flags = lambda n: f"--junitxml={shlex.quote(str(co / f'.bh-junit-{n}.xml'))} -p no:cacheprovider"  # noqa: E731
+        listed = pk.get("verifier", {}).get("checks") or []
+        plan = [(c, c, {"PYTEST_ADDOPTS": flags(n)}) for n, c in enumerate(listed)]
+        if not plan:  # no list in the packet: the base commit's test recipe, run as it names itself
+            recipe_env = dict(env)
+            cmd = _test_cmd(co, co / ".bh-junit-0.xml", recipe_env)
+            plan = [(cmd, cmd, recipe_env)]
+        for n, (label, cmd, extra) in enumerate(plan):
+            r = _run(cmd, co, co, env | extra, timeout, seal)
+            checks_run.append(label)
+            junit = co / f".bh-junit-{n}.xml"
+            found: list[Any] = []
+            try:
+                xml = read_junit(junit)
+                found = [c for s in _suites(xml) for c in s]
+                reports += xml
+            except HarnessError as e:
+                if len(plan) == 1 or "pytest" in cmd:
+                    errors.append(setup_error or f"{e}; the test command said: {r['tail'][-300:]}")
+                    lesson = (
+                        ("env_setup", "the toolchain install from the lockfile failed", "keep the lockfile installable (frozen)", "run the install before finishing")
+                        if setup_error
+                        else ("junit", "JUnit file missing or malformed", "write well-formed JUnit XML to the report path", "run the test recipe before finishing")
+                    )
+                    fact("gap", lesson[0], _teach(*lesson))
+            cases += found
+            if r["exit"] != 0:
+                checks_missed.append(label)
+                if not any(type(x).__name__ in ("Failure", "Error") for c in found for x in c.result):
+                    fact("red", label, _check_lesson(label, r, rules, out / f"check-{n}.txt"))
+        if len(reports):
+            reports.write(str(out / "junit.xml"))
+        _lint_sarif(co, env, out, seal, digest)
         diff_facts(cfg, top, base, sha, item, facts, co, cases)
+        if not self_check:
+            _canary_into(co)
+            junit = co / ".bh-junit-canary.xml"
+            r = _run(
+                f"python -m pytest -q {CANARY.name} {flags('canary')}",  # the project's own pytest
+                co,
+                co / "tests" if (co / "tests").is_dir() else co,
+                env,
+                timeout,
+                seal,
+            )
+            try:
+                canary_cases = [c for s in _suites(read_junit(junit)) for c in s]
+            except HarnessError as e:
+                errors.append(f"{e}; the canary run said: {r['tail'][-300:]}")
         bench = cfg.data.get("commands", {}).get("bench")
         for t in (t for t in targets_for(targets, item) if t["metric"].startswith("bench.")):
             name = t["metric"].removeprefix("bench.")
@@ -1678,7 +1771,7 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
             ctx = {"item": item, "out": out, "root": co, "workdir": co, "ref": sha}  # the config's placeholders
             _run(
                 _render(bench["run"], ctx), co, co, env, float(cfg.data.get("commands", {}).get("timeout_s", 600)),
-                [top / HDIR], [out],
+                seal, [out],
             )
             spec = bench.get("metrics", {}).get(name, name)
             try:
@@ -1702,10 +1795,9 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
                     t["metric"],
                     _teach("target", f"{t['metric']} is {v}, not {t['op']} {t['value']}", "make the metric meet its target", "run the bench before finishing"),
                 )
-    canary = [c for c in cases if CANARY.stem in (c.name or "")]
-    real = [c for c in cases if c not in canary]
-    if cases and not any(
-        type(x).__name__ in ("Failure", "Error") for c in canary for x in c.result
+    real = cases
+    if not self_check and not any(
+        type(x).__name__ in ("Failure", "Error") for c in canary_cases for x in c.result
     ):
         tampered = True
         fact(
@@ -1736,6 +1828,17 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
             )
     if not real:
         errors.append("no test was collected")
+    if self_check:
+        fact(
+            "not_checked",
+            "fresh-stack",
+            _teach(
+                "fresh-stack",
+                "bh check skips the fresh-stack runs and the canary",
+                "the measurer runs them when the item is measured",
+                "bh measure",
+            ),
+        )
     acceptance = [
         {
             "id": a,
@@ -1754,7 +1857,9 @@ def measure_ref(cfg: Config, ref: str = "HEAD", orch: Path | None = None) -> dic
     )
     result: dict[str, Any] = {
         "schema_version": RESULT_VERSION,
-        "command": "measure",
+        "command": "check" if self_check else "measure",
+        "checks_run": checks_run,
+        "checks_missed": checks_missed,
         "items": [
             {
                 "id": item,

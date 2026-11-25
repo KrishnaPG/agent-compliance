@@ -1398,6 +1398,9 @@ def main(argv: list[str] | None = None) -> int:
     fm.add_argument("--approve", action="store_true", help="the owner approved writing .github/ISSUE_TEMPLATE/")
     it = sub.add_parser("intake", parents=[common], help="parent check on open issues; --known LINE adds a Known issues line")
     it.add_argument("--known", metavar="LINE")
+    sub.add_parser(
+        "check", parents=[common], help="measure the working tree as the measurer does (builder)"
+    )
     st = sub.add_parser("step", help="run one program step with no agent and no config")
     st.add_argument("name", choices=bhpacket.STEPS)
     st.add_argument("--item")  # required by every step but merge
@@ -1407,8 +1410,17 @@ def main(argv: list[str] | None = None) -> int:
     if a.cmd in ("metrics", "forms", "intake"):  # tracker and git facts only: no orchestrator
         return _intake_cmd(a)
     try:
-        bare = a.cmd == "measure" and not a.item
+        bare = (a.cmd == "measure" and not a.item) or a.cmd == "check"
         cfg = Config(a.config, partial=bare)  # a bare measurement reads the file as an override
+        if a.cmd == "check":  # no orchestrator and no lock: it only reads and writes under the clone
+            top = bhcore.git_top(cfg.dir)
+            if top is None:
+                raise HarnessError("not a git repository")
+            res = bhcore.measure_ref(cfg, bhcore.snapshot_working_tree(top), self_check=True)
+            for f in res["facts"]:  # the teaching lines first, the result JSON last
+                print(f["message"])
+            print(json.dumps(res))
+            return 0 if all(i["status"] == "met" for i in res["items"]) else 1
         bricks = cfg.file("bricks")
         if bare and not (bricks and bricks.exists()):
             res = bhcore.measure_ref(cfg)  # no plan: measure HEAD against its plan commit

@@ -9,6 +9,7 @@
   bh gaps | plan | harvest                  one phase
   bh build [--item ID ...]                  build the ready items (one round, no measuring)
   bh measure [--item ID[@REF] ...]          measure, merge, re-measure (no item: ready items at HEAD)
+  bh check                                  measure the working tree as the measurer does (builder self-check)
 
 Global: --config .brick-harness/config.json, --dry-run (list the agent jobs, change nothing).
 Mechanical steps run as code; an agent job starts only for judgement work. See lib/bhorch.py.

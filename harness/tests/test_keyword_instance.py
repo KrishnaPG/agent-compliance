@@ -26,6 +26,7 @@ def test_a_bare_schema_name_is_a_schema_of_the_repo_under_test(tmp_path):
     ctx = SimpleNamespace(state={"repo": tmp_path}, tree=tmp_path / "none")
     assert load_schema(ctx, "x.schema.json") == {"title": "planted"}
 
+
 def test_a_lines_pattern_may_write_the_teaching_shape_inside_an_alternation():
     from then import then_lines
 
