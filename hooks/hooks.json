@@ -6,7 +6,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h1.py\"",
+            "command": "uv run --script --managed-python \"${CLAUDE_PLUGIN_ROOT}/hooks/h1.py\"",
             "onFailure": "block"
           }
         ]
@@ -18,12 +18,12 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h0.py\"",
+            "command": "uv run --script --managed-python \"${CLAUDE_PLUGIN_ROOT}/hooks/h0.py\"",
             "onFailure": "block"
           },
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h2.py\"",
+            "command": "uv run --script --managed-python \"${CLAUDE_PLUGIN_ROOT}/hooks/h2.py\"",
             "onFailure": "block"
           }
         ]
@@ -35,7 +35,7 @@
         "hooks": [
           {
             "type": "command",
-            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/bash_note.py\"",
+            "command": "uv run --script --managed-python \"${CLAUDE_PLUGIN_ROOT}/hooks/bash_note.py\"",
             "onFailure": "block"
           }
         ]

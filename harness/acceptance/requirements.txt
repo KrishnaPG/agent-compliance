@@ -1,8 +1,0 @@
-# Tools of the acceptance layer, pinned. Rows are collected by pytest itself (lib/atdd_engine/plugin.py).
-pytest==9.2.0
-syrupy==7.0.3
-check-jsonschema==0.39.0
-PyYAML==6.0.4
-jsonschema==4.26.0
-junitparser==5.0.3
-mitmproxy==12.3.1

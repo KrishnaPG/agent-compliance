@@ -123,7 +123,7 @@ def _start_replay(ctx, flows):
     if ready[:1] != ["ATDD-PROXY-READY"]:
         proc.kill()
         proc.wait()
-        raise FixtureError(say("ATDD-FIXTURE", f"the replay proxy did not start (it said {ready}): " + (ctx.work / "mitm.err").read_text()[-500:], "install the tools pinned in harness/acceptance/requirements.txt", REF))
+        raise FixtureError(say("ATDD-FIXTURE", f"the replay proxy did not start (it said {ready}): " + (ctx.work / "mitm.err").read_text()[-500:], "run the rows through harness/run_tests.py, which pins the tools", REF))
     url = f"http://127.0.0.1:{ready[1]}"
     ca = str(confdir / "mitmproxy-ca-cert.pem")
     for var in ("HTTP_PROXY", "HTTPS_PROXY", "http_proxy", "https_proxy"):

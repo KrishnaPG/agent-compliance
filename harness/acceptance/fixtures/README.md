@@ -31,7 +31,7 @@ The stub `claude` (first on PATH) answers the Nth launch with reply N and logs e
 
 Recording: `ATDD_REDACT=1 mitmdump -s keywords/mitm_addon.py -w <fixture>.flows`, then run the program once with `HTTPS_PROXY=http://127.0.0.1:8080` and `SSL_CERT_FILE=~/.mitmproxy/mitmproxy-ca-cert.pem`. The addon replaces `Authorization` and cookies before the flow is saved. To name the call for `api_call`, add the response header `X-Recorded-Operation: createIssue`; the proxy removes it before the program sees the response.
 
-Replay: mitmproxy (pinned in `requirements.txt`) answers from the flow files with `--server-replay`, `connection_strategy=lazy`, `upstream_cert=false` and `keepserving=true` (mitmdump otherwise exits once the recordings are replayed); the addon refuses every upstream connection (`server_connect`), because mitmproxy's own `server_replay_extra=kill` forwards again once the last recording is spent. Each recorded response answers one request whose method, URL and body equal the recorded request; a repeated request takes the next recording of it. A request with no recording is never forwarded: the proxy answers 502 and it is logged with operation `unmatched`. Every request is logged; `api_call` counts by `operation`. The program is unchanged: it reaches the real hosts through the proxy variables (`HTTP(S)_PROXY`) and trusts the proxy's CA through the variables in `contract.json`, `env.ca_bundles`. One proxy serves all services of a row.
+Replay: mitmproxy (pinned in `harness/run_tests.py`) answers from the flow files with `--server-replay`, `connection_strategy=lazy`, `upstream_cert=false` and `keepserving=true` (mitmdump otherwise exits once the recordings are replayed); the addon refuses every upstream connection (`server_connect`), because mitmproxy's own `server_replay_extra=kill` forwards again once the last recording is spent. Each recorded response answers one request whose method, URL and body equal the recorded request; a repeated request takes the next recording of it. A request with no recording is never forwarded: the proxy answers 502 and it is logged with operation `unmatched`. Every request is logged; `api_call` counts by `operation`. The program is unchanged: it reaches the real hosts through the proxy variables (`HTTP(S)_PROXY`) and trusts the proxy's CA through the variables in `contract.json`, `env.ca_bundles`. One proxy serves all services of a row.
 
 ## hook_input: `hook_input/<event>.<tool>.<agent_type>.<packet>.<target>.<touch>.json`
 
@@ -70,7 +70,7 @@ Any JSON object (extra fields allowed, `{}` is valid). The harness writes `{ "<q
 
 ## snapshot: `snapshots/<slice>/<row id>[<name>].txt`
 
-The approved output a `snapshot` row compares with, kept by syrupy (pinned in `harness/acceptance/requirements.txt`). A missing file makes the row red; nothing is recorded unless a person runs the rows with `--snapshot-update` and commits the reviewed file.
+The approved output a `snapshot` row compares with, kept by syrupy (pinned in `harness/run_tests.py`). A missing file makes the row red; nothing is recorded unless a person runs the rows with `--snapshot-update` and commits the reviewed file.
 
 ## Names outside the field list
 

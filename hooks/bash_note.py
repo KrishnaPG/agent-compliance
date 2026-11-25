@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script --managed-python
+# /// script
+# requires-python = "==3.14.*"
+# dependencies = []
+# ///
 """PostToolUse on Bash: a hand-launched builder has no H0 cover for Bash edits, so teach once and record the bypass (PC-M10)."""
 import json
 import os

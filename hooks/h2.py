@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script --managed-python
+# /// script
+# requires-python = "==3.14.*"
+# dependencies = []
+# ///
 """H2, PreToolUse on Edit and Write: one owner line on the first touch outside the packet's paths (QBC-50). Never blocks."""
 import json
 import os

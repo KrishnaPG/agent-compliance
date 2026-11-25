@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script --managed-python
+# /// script
+# requires-python = "==3.14.*"
+# dependencies = ["jsonschema==4.26.0", "junitparser==5.0.3"]
+# ///
 """Record the owner's answer to a blocking question as a decision record D-n.
 
 D-n holds {id, gap, question, answer, source, kinds, areas, date} and is written under

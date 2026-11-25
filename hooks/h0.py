@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script --managed-python
+# /// script
+# requires-python = "==3.14.*"
+# dependencies = []
+# ///
 """H0, PreToolUse on Edit and Write: refuse a builder's edit while no packet is registered (QBC-46, QBC-47)."""
 import json
 import os

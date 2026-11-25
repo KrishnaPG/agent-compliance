@@ -103,7 +103,7 @@ def when_entry_point(ctx, entry, mode=None):
     env["HOME"] = os.environ["HOME"]  # the host's python tooling (pyenv, mise shims) is found through HOME
     if entry == "plugin_pytest":
         junit = ctx.work / "junit-plugin-pytest.xml"
-        argv = [sys.executable, "-m", "pytest", "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
+        argv = ["uv", "run", "--script", "--managed-python", str(ctx.tree / "harness" / "run_tests.py"), "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
         run = execute(ctx, argv, cwd=ctx.tree / "harness", env_extra=env, timeout=1200)
         run.extra["junit_path"] = junit
     else:

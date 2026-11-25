@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script --managed-python
+# /// script
+# requires-python = "==3.14.*"
+# dependencies = []
+# ///
 """H1, SessionStart: deliver the builder's registered packet once, as additionalContext (QBC-46, QBC-49).
 
 The one delivery channel: the launch prompt names no goal, and the packet text comes only from here.

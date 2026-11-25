@@ -1,4 +1,8 @@
-#!/usr/bin/env python3
+#!/usr/bin/env -S uv run --script --managed-python
+# /// script
+# requires-python = "==3.14.*"
+# dependencies = ["jsonschema==4.26.0", "junitparser==5.0.3"]
+# ///
 """bh: the one entry of the build harness (orchestrator).
 
   bh run [--skip gaps|plan|harvest ...]     gaps, plan, build+measure rounds, harvest+measure
