@@ -8,7 +8,7 @@ The harness reports gaps in the project's own documents and executes its build o
 ## One item
 
 1. The planner derives the item, targets and work packet; the program sets the tier from the declared paths: `mechanical` or `design-affecting`.
-2. The test-author job writes the acceptance tests in the project's own framework, before any build; the program records them red on main.
+2. The test author, a job that is never the builder, writes the acceptance criteria and tests in the project's own framework before any build; the program records them red on main.
 3. The program writes the packet (acceptance, targets, rules with teaching messages, paved road incl. the self-check `bh check`) into the builder's clone, read-only.
 4. The builder builds in its sealed clone; the program commits and merges.
 5. `bh-measure` alone decides met. `bh step <name> --item ID` runs one program step with no agent (`bh step --help`).
