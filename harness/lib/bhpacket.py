@@ -10,7 +10,11 @@ from __future__ import annotations
 
 import hashlib
 import json
+import os
+import shutil
+import subprocess
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -20,7 +24,17 @@ PACKETS_DIR = ".brick-harness/packets"
 RUN_REPORT = ".brick-harness/run-report.txt"
 RESULT_VERSION = "1.0.0"
 SPEC = "docs/spec/packet-standards.md"
-STEPS = ("assemble_packet", "validate_packet", "render_packet")
+STEPS = ("assemble_packet", "validate_packet", "render_packet", "launch_builder")
+CUSTODY_DIR = (
+    ".brick-harness/custody"  # the authoritative packets, one file per digest, outside every clone
+)
+CLONES_DIR = ".brick-harness/clones"
+BUILDER_AGENT = "harness-builder"
+# The launch prompt is one fixed line: the packet reaches the builder through the SessionStart hook
+# (hooks/h1.py), the one delivery channel, so no packet text travels in argv or stdin.
+LAUNCH_PROMPT = (
+    "Your work packet was delivered when this session started. Read it, then do the work it asks."
+)
 
 
 def validate_packet(packet: Any) -> list[Any]:
@@ -173,30 +187,139 @@ def render_markdown(p: dict[str, Any]) -> str:
     return "\n".join(out)
 
 
-def step(name: str, root: Path, item: str) -> tuple[int, str, str]:
-    """Run one program step; return (exit code, stdout, stderr)."""
+def custody_path(root: Path, digest: str) -> Path:
+    return root / CUSTODY_DIR / f"{digest}.json"
+
+
+def custody_store(root: Path, raw: bytes) -> str:
+    """Keep the packet by its sha256 in the orchestrator's directory; the file is read-only and never rewritten."""
+    from bhorch import write_atomic
+
+    digest = hashlib.sha256(raw).hexdigest()
+    path = custody_path(root, digest)
+    if not path.exists():
+        write_atomic(path, raw.decode())
+        path.chmod(0o444)
+    return digest
+
+
+def custody_read(root: Path, digest: str) -> bytes:
+    """The kept packet; its bytes must still hash to the digest that names the file."""
+    raw = custody_path(root, digest).read_bytes()
+    if hashlib.sha256(raw).hexdigest() != digest:
+        raise HarnessError(
+            f"[packet-custody] the kept packet {digest} no longer hashes to its name -> restore it "
+            f"from the planner's commit; the program never launches from a changed packet . {SPEC}"
+        )
+    return raw
+
+
+def assemble(root: Path, item: str) -> tuple[Any, bytes, list[dict[str, str]], str]:
+    """Validate the packet and apply the size cap; return (packet, bytes, facts, teaching errors)."""
     from bhorch import write_atomic
 
     packet, raw = load_packet(root, item)
     errors = validate_packet(packet)
     if errors:
-        return 1, "", "\n".join(teaching(e) for e in errors) + "\n"
-    facts: list[dict[str, str]] = []
-    if name == "render_packet":
-        return 0, render_markdown(packet), ""
-    if name == "assemble_packet":
-        facts = apply_cap(root, packet)
-        if facts:
-            raw = (json.dumps(packet, indent=2) + "\n").encode()
-            write_atomic(packet_path(root, item), raw.decode())
-            write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
-    result = {
+        return packet, raw, [], "\n".join(teaching(e) for e in errors) + "\n"
+    facts = apply_cap(root, packet)
+    if facts:
+        raw = (json.dumps(packet, indent=2) + "\n").encode()
+        write_atomic(packet_path(root, item), raw.decode())
+        write_atomic(root / RUN_REPORT, "".join(f"{f['kind']}: {f['detail']}\n" for f in facts))
+    return packet, raw, facts, ""
+
+
+def result_json(name: str, raw: bytes, facts: list[dict[str, str]], **extra: Any) -> str:
+    doc = {
         "schema_version": RESULT_VERSION,
-        "command": name,
+        "command": "step",
+        "step": name,
         "packet_sha256": hashlib.sha256(raw).hexdigest(),
         "facts": facts,
+        **extra,
     }
-    return 0, json.dumps(result, indent=2) + "\n", ""
+    return json.dumps(doc, indent=2) + "\n"
+
+
+def register(root: Path, clone: Path, digest: str, packet: dict[str, Any]) -> None:
+    """Put the clone's copy of the packet where the hooks read it (H0, H1, H2): a copy of the
+    kept bytes, so whatever the builder does to it changes nothing the program reads."""
+    from bhorch import write_atomic
+
+    write_atomic(packet_path(clone, packet["id"]), custody_read(root, digest).decode())
+    for o in packet.get("overflow", []):
+        src = root / o["path"]
+        if src.is_file():
+            (clone / o["path"]).parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, clone / o["path"])
+
+
+def launch_builder(root: Path, item: str) -> tuple[int, str, str]:
+    """Launch one builder: keep the packet by digest, make the clone, register the packet in it and
+    start the builder with the fixed prompt. SessionStart delivers the packet (hooks/h1.py)."""
+    import bhorch
+
+    packet, raw, facts, err = assemble(root, item)
+    if err:
+        return 1, "", err
+    digest = custody_store(root, raw)
+    clone = root / CLONES_DIR / f"{item}-{digest[:12]}"
+    if not clone.exists():
+        bhorch.git(root, "clone", "-q", "--shared", str(root), str(clone))
+    register(root, clone, digest, packet)
+    # A login-mode launch with the plugin: bare mode runs no hooks, and the packet arrives by a hook.
+    argv = [
+        os.environ.get("BH_CLAUDE", "claude"),
+        "-p",
+        "--output-format",
+        "json",
+        "--no-session-persistence",
+        "--permission-mode",
+        "dontAsk",
+        "--allowedTools",
+        ",".join(bhorch.agent_def(BUILDER_AGENT)["tools"]),
+        *bhorch.mode_flags("login", None, BUILDER_AGENT),
+    ]
+    started = datetime.now(UTC)
+    try:
+        p = subprocess.run(argv, input=LAUNCH_PROMPT, cwd=clone, capture_output=True, text=True)
+        code, out = p.returncode, p.stdout
+    except OSError as e:
+        code, out = 127, ""
+        facts = [*facts, {"kind": "launch_failed", "detail": f"cannot start {argv[0]}: {e}"}]
+    cli = bhorch.parse_cli_result(out) or {}
+    t = bhorch.tokens_of(cli.get("usage"))
+    job = {
+        "id": f"{item}-builder-{digest[:12]}",
+        "kind": "agent",
+        "role": "builder",
+        "item": item,
+        "started_at": started.isoformat(timespec="seconds"),
+        "ended_at": datetime.now(UTC).isoformat(timespec="seconds"),
+        "exit_code": code,
+        "cost_usd": float(cli.get("total_cost_usd") or 0),
+        "tokens": t["input"] + t["output"],
+        "packet_sha256": digest,
+    }
+    return 0, result_json("launch_builder", raw, facts, jobs=[job]), ""
+
+
+def step(name: str, root: Path, item: str) -> tuple[int, str, str]:
+    """Run one program step; return (exit code, stdout, stderr)."""
+    if name == "launch_builder":
+        return launch_builder(root, item)
+    if name == "assemble_packet":
+        packet, raw, facts, err = assemble(root, item)
+    else:
+        packet, raw = load_packet(root, item)
+        facts, err = [], "\n".join(teaching(e) for e in validate_packet(packet))
+        err = err + "\n" if err else ""
+    if err:
+        return 1, "", err
+    if name == "render_packet":
+        return 0, render_markdown(packet), ""
+    return 0, result_json(name, raw, facts), ""
 
 
 def run_step(name: str, item: str) -> int:

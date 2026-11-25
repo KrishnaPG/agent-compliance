@@ -1,11 +1,31 @@
 {
   "hooks": {
+    "SessionStart": [
+      {
+        "matcher": "startup|clear|compact",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h1.py\"",
+            "onFailure": "block"
+          }
+        ]
+      }
+    ],
     "PreToolUse": [
       {
         "matcher": "Edit|Write",
         "hooks": [
-          {"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h0.py\"", "onFailure": "block"},
-          {"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h2.py\"", "onFailure": "block"}
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h0.py\"",
+            "onFailure": "block"
+          },
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/h2.py\"",
+            "onFailure": "block"
+          }
         ]
       }
     ],
@@ -13,7 +33,11 @@
       {
         "matcher": "Bash",
         "hooks": [
-          {"type": "command", "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/bash_note.py\"", "onFailure": "block"}
+          {
+            "type": "command",
+            "command": "python3 \"${CLAUDE_PLUGIN_ROOT}/hooks/bash_note.py\"",
+            "onFailure": "block"
+          }
         ]
       }
     ]

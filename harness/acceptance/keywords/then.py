@@ -121,7 +121,10 @@ def source(ctx, name):
     r = repo(ctx) if ctx.state.get("repo") else None
     if name == "result_json":
         return result(ctx)
-    if name in ("eval_report", "hook_output"):
+    if name == "hook_output":
+        res = result(ctx)  # Claude Code reads a hook's fields from hookSpecificOutput: they are the hook's output fields
+        return {**res, **res.get("hookSpecificOutput", {})} if isinstance(res, dict) else res
+    if name == "eval_report":
         return result(ctx)
     if name == "config_effective":
         res = result(ctx)

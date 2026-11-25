@@ -1,0 +1,9 @@
+{
+  "session_id": "s1",
+  "transcript_path": "/tmp/t.jsonl",
+  "cwd": "/work/repo",
+  "hook_event_name": "SessionStart",
+  "source": "startup",
+  "agent_type": "builder",
+  "agent_id": "agent-1"
+}
