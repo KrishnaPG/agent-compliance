@@ -188,7 +188,7 @@ def _ruff_s(files: dict[str, str]) -> set[tuple[str, str, str]]:
         for rel, text in files.items():
             (Path(tmp) / rel).parent.mkdir(parents=True, exist_ok=True)
             (Path(tmp) / rel).write_text(text)
-        cmd = ["uvx", ruff.replace("==", "@"), "check", "--isolated", "--no-cache", "--select", ",".join(codes)]
+        cmd = ["uvx", "--no-config", ruff.replace("==", "@"), "check", "--isolated", "--no-cache", "--select", ",".join(codes)]
         p = subprocess.run([*cmd, "--output-format", "json", "."], cwd=tmp, capture_output=True, text=True)
         if p.returncode not in (0, 1):
             raise HarnessError(f"ruff for the review triggers failed: {p.stderr.strip()[:300]}")

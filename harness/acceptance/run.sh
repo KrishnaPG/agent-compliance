@@ -12,4 +12,4 @@ if [ -z "$ATDD_GROUPS_CLEARED" ] && id -nG | tr ' ' '\n' | grep -qx docker && su
 fi
 tree=$1; shift
 cd "$(dirname "$0")/../.." || exit 2
-PYTHONPATH=harness/lib exec uv run --script --managed-python harness/run_tests.py -p atdd_engine.plugin -p no:cacheprovider --snapshot-warn-unused docs/atdd/criteria --tree "$tree" "$@"
+PYTHONPATH=harness/lib exec uv run --script --no-config --managed-python harness/run_tests.py -p atdd_engine.plugin -p no:cacheprovider --snapshot-warn-unused docs/atdd/criteria --tree "$tree" "$@"

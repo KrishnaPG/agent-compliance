@@ -16,7 +16,7 @@ SCRIPTS = [
     PLUGIN / "harness" / "run_tests.py",
 ]
 SCRIPTS = [p for p in SCRIPTS if p.name != "_common.py"]  # imported by the hooks, never run alone
-SHEBANG = "#!/usr/bin/env -S uv run --script --managed-python\n"
+SHEBANG = "#!/usr/bin/env -S uv run --script --no-config --managed-python\n"
 
 
 def header(path: Path) -> dict:
@@ -55,7 +55,7 @@ def test_hooks_run_through_uv_with_the_managed_interpreter():
         for h in g["hooks"]
     ]
     assert commands
-    assert all(c.startswith("uv run --script --managed-python ") for c in commands)
+    assert all(c.startswith("uv run --script --no-config --managed-python ") for c in commands)
 
 
 @pytest.mark.parametrize("path", [p for p in SCRIPTS if header(p)["dependencies"]], ids=lambda p: p.name)

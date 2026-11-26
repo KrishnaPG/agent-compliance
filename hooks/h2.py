@@ -1,4 +1,4 @@
-#!/usr/bin/env -S uv run --script --managed-python
+#!/usr/bin/env -S uv run --script --no-config --managed-python
 # /// script
 # requires-python = "==3.14.*"
 # dependencies = []

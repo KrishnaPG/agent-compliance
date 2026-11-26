@@ -111,7 +111,7 @@ def when_entry_point(ctx, entry, mode=None):
     if entry == "plugin_pytest":
         junit = ctx.work / "junit-plugin-pytest.xml"
         root = repo(ctx)  # the plugin tree, or its copy when a plant was applied to it
-        argv = ["uv", "run", "--script", "--managed-python", str(root / "harness" / "run_tests.py"), "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
+        argv = ["uv", "run", "--script", "--no-config", "--managed-python", str(root / "harness" / "run_tests.py"), "-q", "-p", "no:cacheprovider", f"--junitxml={junit}"]
         run = execute(ctx, argv, cwd=root / "harness", env_extra=env, timeout=1200)
         run.extra["junit_path"] = junit
     else:
