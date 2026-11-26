@@ -170,7 +170,8 @@ def test_bh_run_builds_a_node_project_with_no_config(node_repo, fake, bh_run):  
     assert facts["language"] == "language: node (from package-lock.json)"
     assert facts["install"] == "install: ['npm ci --ignore-scripts'] (from package-lock.json)"
     assert facts["dependency"] == "dependency: npm install <package> (from package-lock.json)"
-    assert [(r["item"], r["status"]) for r in res["phases"]["rounds"]] == [("greet", "met")], res[
+    # a defect planned under greet is pulled by the same queue (QBC-36); greet's own round is the subject here
+    assert [(r["item"], r["status"]) for r in res["phases"]["rounds"] if r["item"] == "greet"] == [("greet", "met")], res[
         "phases"
     ]["rounds"]
     packet = json.loads((node_repo / ".brick-harness" / "packets" / "greet.json").read_text())

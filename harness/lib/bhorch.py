@@ -1158,6 +1158,9 @@ class Orchestrator:
         bhpacket.write_plan_packet(self.cfg, item)
         packet, _ = bhpacket.load_packet(root, item)
         defect = packet.get("kind") == "defect"
+        if not defect and self.awaiting(item):  # met by its tests; enters main with its defect fix (QBC-118)
+            self.awaiting_fact(item, facts)
+            return "met"
         if defect and planned:  # QBC-108: a later defect is measured once, when it is planned
             facts += self.defect_misses(item)
         job = "regression_row" if defect and packet.get("found_by") == "reviewer" else "test_author"
@@ -1234,6 +1237,7 @@ class Orchestrator:
         # met build, goes back to the same builder in its clone with those messages only.
         feedback: list[str] = []
         met_sha, base = None, git(root, "rev-parse", "HEAD").stdout.strip()  # the plan commit
+        base = self.on_awaiting(base, item)  # a defect fix is built on the build that awaits it
         digest = hashlib.sha256(bhpacket.packet_path(root, item).read_bytes()).hexdigest()
         first = 1 + max(  # rounds count per packet across runs: the state, never a counter of this run
             (j.get("round") or 0 for j in self.recorded(item) if j.get("role") == "builder" and j.get("packet_sha256") == digest),
@@ -1291,7 +1295,8 @@ class Orchestrator:
         plan = git(  # the plan commit, found by its Packet trailer (on a restart HEAD has moved on)
             root, "log", "-1", "--format=%H", "--fixed-strings", f"--grep=Packet: {bhpacket.trailer(packet, digest)}", check=False
         ).stdout.strip()
-        res = bhcore.measure_ref(self.cfg, plan or "HEAD", orch=root)
+        at = plan or git(root, "rev-parse", "HEAD").stdout.strip()
+        res = bhcore.measure_ref(self.cfg, self.on_awaiting(at, item), orch=root)
         self.outs[item] = res["items"][0]["out"]
         accept = res["items"][0]["acceptance"]
         if accept and all(a["status"] == "met" for a in accept):  # no criterion measured is never met
@@ -1495,6 +1500,12 @@ class Orchestrator:
             facts += [{"kind": "conflict", "item": item, "detail": ", ".join(c["paths"])} for c in conflicts]
             return "unmet"
         self.program_step("merge", item, t0, digest)
+        parent = bhpacket.defect_parent(item) if packet.get("kind") == "defect" else None
+        entered = parent if parent and git(root, "rev-parse", "-q", "--verify", bhpacket.AWAIT_REF.format(item=parent), check=False).stdout.strip() else None
+        if entered:  # the build that awaited this fix entered main with it, through the same entry check
+            self.program_step("merge", entered, t0, bhpacket.custody_digest(root, entered) or "")
+            git(root, "update-ref", "-d", bhpacket.AWAIT_REF.format(item=entered))
+            await self.measure_all([(entered, "HEAD")])
         (at_head,) = await self.measure_all([(item, "HEAD")])
         self.commit("scoreboard")
         if at_head.get("status") == "unmet":  # red on merged HEAD: a defect under it
@@ -1507,9 +1518,11 @@ class Orchestrator:
     ) -> str:
         """Main's entry check for a met build (QBC-118, QBC-119): its tests passed (met), and the
         review of that build, past its ``limits.review_rounds``, decides admission. An open S1 or S2
-        finding keeps it out of main: the item stays met by its tests, its slice stays open with the
-        findings recorded under it (QBC-91), and nothing is merged or filed after the fact. S3 and S4
-        findings are annotations: Known issues lines (§0 R8)."""
+        finding keeps it out of main: the item stays met by its tests, its build waits under
+        ``bhpacket.AWAIT_REF``, and its rework becomes one defect item under it (QBC-36, QBC-91),
+        built on that build; the fix entering main brings it in (``merge_item``). Until then it is
+        reported as awaiting entry, never stuck. S3 and S4 findings are annotations: Known issues
+        lines (§0 R8)."""
         item, log = packet["id"], self.reviewed.get(sha)
         adm = bhreview.admission(log)
         if not adm["admitted"]:
@@ -1517,14 +1530,52 @@ class Orchestrator:
                 {
                     "kind": "not_admitted",
                     "item": item,
-                    "detail": f"{item} {sha[:12]} stays out of main and its slice stays open (QBC-91): " + "; ".join(adm["blocking"])[:400],
+                    "detail": f"{item} {sha[:12]} stays out of main (QBC-91): " + "; ".join(adm["blocking"])[:400],
                     "message": bhreview.refusal(adm["blocking"], f"{item} {sha[:12]}", bhpacket.BUILD_REF.format(item=item)),
                 }
             )
+            if packet.get("kind") != "defect" and not self.dry:  # the build waits for its fix, kept by a ref
+                git(root, "update-ref", bhpacket.AWAIT_REF.format(item=item), sha)
+            broke = [r["ruleId"] for r in (log or {"runs": [{"results": []}]})["runs"][0]["results"] if r["level"] == "error"]
+            self.plan_defect(packet, "reviewer", adm["blocking"], sha, facts, broke)  # its rework, built on this build
+            self.awaiting_fact(item, facts)
             return "met"
         if log is not None:
             self.settle_findings(packet, log, sha, facts)
         return await self.merge_item(root, packet, sha, facts)
+
+    def awaiting(self, item: str | None) -> str | None:
+        """The met build of ``item`` that main did not admit and that has not reached main since
+        (``bhpacket.AWAIT_REF``), else None."""
+        if not item:
+            return None
+        sha = git(self.top, "rev-parse", "-q", "--verify", bhpacket.AWAIT_REF.format(item=item), check=False).stdout.strip()
+        if not sha or git(self.top, "merge-base", "--is-ancestor", sha, "HEAD", check=False).returncode == 0:
+            return None
+        return sha
+
+    def awaiting_fact(self, item: str, facts: list[dict[str, Any]]) -> None:
+        """An item met by its tests whose build waits for its defect fix to enter main: reported as
+        awaiting entry, never stuck (QBC-118)."""
+        sha = self.awaiting(item) or ""
+        n = len(bhreview.recorded_admission(self.out, item, sha)["blocking"]) if sha else 0
+        queued = [b["id"] for b in self.state()["bricks"] if bhpacket.defect_parent(b["id"]) == item and b["status"] != "met"]
+        detail = f"awaiting entry: {n} open findings, defect {', '.join(queued) or '(none planned)'} queued"
+        facts.append({"kind": "awaiting_entry", "item": item, "detail": detail})
+
+    def on_awaiting(self, at: str, item: str) -> str:
+        """``at`` (a commit with its Packet trailer) with the not-admitted build of the defect
+        ``item``'s parent merged in, so the defect's tests are red and its fix is built on the code
+        it fixes; ``at`` itself when there is none. The commit is the program's, on no branch."""
+        aw = self.awaiting(bhpacket.defect_parent(item))
+        if not aw:
+            return at
+        root = self.top
+        tree = git(root, "merge-tree", "--write-tree", at, aw, check=False)
+        if tree.returncode != 0:
+            raise HarnessError(f"[awaiting-entry] the build awaiting entry does not merge with {at[:12]} -> re-plan {bhpacket.defect_parent(item)}")
+        msg = git(root, "log", "-1", "--format=%B", at).stdout
+        return git(root, "commit-tree", tree.stdout.split()[0], "-p", at, "-p", aw, "-m", msg).stdout.strip()
 
     def shown(self, lines: list[str]) -> list[str]:
         """The first ``limits.findings_shown`` messages, then the count of the rest (QBC-55)."""
@@ -1807,6 +1858,7 @@ class Orchestrator:
         if self.dry:
             return
         bhtracker.append_items(self.cfg, [d])
+        bhcore.add_test_targets(self.cfg, d["id"])  # met when its regression row passes
         self.commit(f"defect {d['id']}")
 
     def replan(self, packet: dict[str, Any], tier: str) -> None:

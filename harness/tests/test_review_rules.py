@@ -1,7 +1,8 @@
 """The review judges against the builder's rules (QBC-36, §0 G3): a design-affecting item gets one
 review job whose input is its packet's rule lines, a mechanical item none; a critical or major
 finding requests changes for one more builder round (Google engineering practices, code review),
-never more, and then stays open on its slice, out of main (QBC-91, QBC-118); a defect packet carries rule NO-12 and its review
+never more, and then keeps the build out of main with its rework planned as a defect item under it
+(QBC-91, QBC-118); a defect packet carries rule NO-12 and its review
 judges it (ISTQB root cause analysis)."""
 
 import json
@@ -95,7 +96,8 @@ def test_a_major_finding_gets_one_more_round_with_its_teaching_and_no_further(to
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
     # the finding still open after the round stays on its slice and keeps the build out of main (QBC-91, QBC-118)
     items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
-    assert not [b for b in items if b.get("kind") == "defect"]  # no chain of issues
+    (defect,) = [b for b in items if b.get("kind") == "defect"]  # its rework, one item under it (QBC-36)
+    assert defect["parent"] == "json-writer" and defect["breaks"] == ["ID-15"]
     (fact,) = [f for r in res["phases"]["rounds"] for f in r["facts"] if f["kind"] == "not_admitted"]
     assert fact["item"] == "json-writer" and "[ID-15]" in fact["detail"] and fact["message"].startswith("[main-entry] ")
 

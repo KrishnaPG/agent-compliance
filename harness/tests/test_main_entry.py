@@ -14,8 +14,8 @@ from bhcore import Config
 from ruamel.yaml import YAML
 from test_bhorch import fake, orch, run  # noqa: F401  (fake is a fixture)
 from test_human_path import _built
-from test_review_rules import MAJOR, NETWORK, plan, reviews
-from test_review_step import spec_for
+from test_review_rules import MAJOR, NETWORK, plan
+from test_review_step import STRICT, spec_for
 from test_toy import JSON_WRITER, commit_all, git
 
 MINOR = {"summary": "the writer repeats a helper the reader has -> call the reader's helper", "rule": "duplication", "severity": "S3", "evidence": "trigger", "where": "src/json_writer.py:1"}
@@ -23,6 +23,10 @@ MINOR = {"summary": "the writer repeats a helper the reader has -> call the read
 
 def _merged(toy, item):
     return any(m.startswith(f"brick-harness: merge {item}") for m in git(toy, "log", "--format=%s", "main").splitlines())
+
+
+def _defects(toy):
+    return [b for b in json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"] if b.get("kind") == "defect"]
 
 
 def _facts(res, kind):
@@ -38,12 +42,16 @@ def test_qbc_118_an_open_s2_after_its_rounds_is_met_but_not_merged_and_its_slice
     o = orch(toy)
     res = run(o.run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"  # findings never change met
-    assert len(reviews(fake)) == 2  # one requested-changes round (limits.review_rounds 1), then the entry check
+    jw = [j.get("job") for j in res["jobs"] if j.get("item") == "json-writer" and j.get("job") == "review"]
+    assert len(jw) == 2  # one requested-changes round (limits.review_rounds 1), then the entry check
     assert not _merged(toy, "json-writer")
     (fact,) = _facts(res, "not_admitted")
     assert fact["message"].startswith("[main-entry] ") and " -> " in fact["message"] and "QBC-91" in fact["detail"]
-    items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
-    assert not [b for b in items if b.get("kind") == "defect"]  # QBC-91: no defect filed after the fact
+    (d,) = _defects(toy)  # its rework: one defect item under it (QBC-36), built on the build that waits
+    assert d["parent"] == "json-writer" and d["found_by"] == "reviewer" and d["breaks"] == ["ID-15"]
+    (wait,) = _facts(res, "awaiting_entry")
+    assert wait["detail"] == f"awaiting entry: 1 open findings, defect {d['id']} queued"
+    assert not _facts(res, "stuck")
     gaps = json.loads(o.cfg.file("gaps").read_text())["gaps"]
     assert [g["state"] for g in gaps if g.get("rule") == "ID-15" and g["evidence"][0]["file"] == "src/json_writer.py"] == ["open"]  # open, on the slice's code
     at_head = {b["id"]: b["status"] for b in o.state()["bricks"]}
@@ -55,6 +63,45 @@ def test_qbc_118_an_open_s2_after_its_rounds_is_met_but_not_merged_and_its_slice
     m = run(o.phase_measure([{"ref": bhpacket.BUILD_REF.format(item="json-writer"), "items": ["json-writer"]}]))
     assert m["merged"] == [] and [u["item"] for u in m["not_admitted"]] == ["json-writer"]
     assert not _merged(toy, "json-writer") and not (toy / "src" / "json_writer.py").exists()  # only a scoreboard commit
+
+
+FIXED = JSON_WRITER + "\n# the verified principal is taken as a value\n"
+
+
+def test_qbc_118_a_second_run_queues_the_defect_fix_and_the_parent_enters_main_with_it(toy, fake):  # noqa: F811
+    """Not admitted is not stuck: the second run reports the parent awaiting entry, the Kanban queue
+    pulls its defect item (the reviewer's regression row, the builder's fix on the waiting build,
+    the measurer), and the fix's admission to main brings the parent in, met at HEAD."""
+    plan(toy)
+    spec_for(fake, [[MAJOR]], [JSON_WRITER, JSON_WRITER + "\n# second round\n"])
+    run(orch(toy).run())
+    (d,) = _defects(toy)
+    did = d["id"].replace("-", "_")
+    c = toy / ".brick-harness" / "config.json"  # the toy's test entry names a folder per item; a defect has none
+    c.write_text(c.read_text().replace(" tests/{item} --junitxml", " $(ls -d tests/{item} 2>/dev/null) --junitxml"))
+    commit_all(toy, "test entry: an item without its own folder")
+    row = {
+        "acceptance": [{"id": f"{d['id']}-AC1", "scenario": "the verified principal is a value", "traces_to": ["QBC-36"], "verification": "test"}],
+        "test_code": f"from pathlib import Path\n\n\ndef test_{did}_AC1_fixed():\n    \"\"\"{d['id']}-AC1\"\"\"\n"
+        "    assert 'verified principal' in (Path(__file__).resolve().parents[2] / 'src' / 'json_writer.py').read_text()\n",
+    }
+    first = [JSON_WRITER, JSON_WRITER + "\n# second round\n"]  # the calls so far, in the fake's one log
+    fake.spec(
+        outputs_by_item={"harness-test-author": STRICT},
+        outputs_seq={"harness-reviewer": [{"findings": [MAJOR]}, {"findings": [MAJOR]}, row, row, {"findings": []}]},
+        files_seq={"harness-builder": [{"src/json_writer.py": b} for b in [*first, FIXED]]},
+    )
+    o = orch(toy)
+    res = run(o.run())
+    rounds = {r["item"]: r for r in res["phases"]["rounds"]}
+    assert rounds["json-writer"]["status"] == "met" and not _facts(res, "stuck")
+    assert any(f["kind"] == "awaiting_entry" for f in rounds["json-writer"]["facts"])
+    jobs = [j.get("job") or j.get("role") or j.get("step") for j in res["jobs"] if j.get("item") == d["id"]]
+    assert jobs[:4] == ["regression_row", "red_run", "builder", "measurer"], jobs
+    assert rounds[d["id"]]["status"] == "met" and _merged(toy, d["id"])
+    assert (toy / "src" / "json_writer.py").read_text() == FIXED  # the parent's build and its fix, on main
+    at_head = {b["id"]: b["status"] for b in o.state()["bricks"]}
+    assert at_head["json-writer"] == "met" and at_head[d["id"]] == "met"
 
 
 def test_qbc_118_the_same_item_with_only_an_s3_finding_is_merged(toy, fake):  # noqa: F811
@@ -161,6 +208,13 @@ def test_qbc_119_the_ruleset_and_workflow_validate_and_name_one_check(tmp_path, 
     assert [c["context"] for c in checks] == list(flow["jobs"]) == ["bh-review"]  # the check is the job GitHub reports
     assert flow["on"]["pull_request"]["branches"] == ["main"] and "pull_request" in [r["type"] for r in ruleset["rules"]]
     assert 'bh land "$HEAD" --onto "$BASE" --check' in wf.read_text()
+    (plugin,) = [s["with"] for s in flow["jobs"]["bh-review"]["steps"] if s.get("with", {}).get("path") == ".bh-plugin"]
+    root = bhreview.PLUGIN_ROOT
+    tag = subprocess.run(["git", "describe", "--exact-match", "--tags", "HEAD"], cwd=root, capture_output=True, text=True).stdout.strip()
+    assert plugin["ref"] == (tag or git(root, "rev-parse", "HEAD").strip())  # the writing plugin's own version
+    monkeypatch.setattr(bhreview, "plugin_ref", lambda: "v9.9.9")  # the plugin was updated
+    assert bhreview.install_entry(repo, False)["written"] == [".github/workflows/bh-review.yml"]  # re-pinned, no question
+    assert "ref: v9.9.9\n" in wf.read_text() and bhreview.install_entry(repo, False)["written"] == []
     # negative controls: an unknown rule type and a job without runs-on fail their schemas
     bad = tmp_path / "bad.json"
     bad.write_text(json.dumps({**ruleset, "rules": [{"type": "required_review_by_magic"}]}))

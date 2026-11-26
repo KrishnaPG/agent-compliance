@@ -26,6 +26,7 @@ from bhcore import RESULT_VERSION, SIZING_DEFAULT, HarnessError, load_schema
 PACKETS_DIR = ".brick-harness/packets"
 RUN_REPORT = ".brick-harness/run-report.txt"
 BUILD_REF = "refs/bh/{item}"  # the item's build commit in the source repository, set by the program only
+AWAIT_REF = "refs/bh-awaiting/{item}"  # a met build main did not admit (QBC-118), set by the program only
 
 SPEC = "docs/spec/packet-standards.md"
 CRITERIA_SCHEMA = Path(__file__).resolve().parents[2] / "docs" / "atdd" / "criteria.schema.json"
@@ -471,6 +472,12 @@ def defect_item(
         **({"breaks": known} if known else {}),
         **{k: b[k] for k in ("path", "paths", "context") if k in b},
     }
+
+
+def defect_parent(item: str) -> str | None:
+    """The plan item a defect item was planned under, from the id ``defect_item`` gives it."""
+    head, sep, _ = item.rpartition("-defect-")
+    return head if sep else None
 
 
 def acceptance_file(packet: dict[str, Any]) -> str:

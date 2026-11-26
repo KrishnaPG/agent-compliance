@@ -455,25 +455,52 @@ def repo_owner(slug: str) -> dict[str, Any] | None:
     return {"actor_id": int(oid), "actor_type": "User", "bypass_mode": "pull_request"}
 
 
+PLUGIN_ROOT = GITHUB_TEMPLATES.parents[1]
+PLUGIN_STEP = re.compile(r"^(\s+ref: ).*$(?=\n\s+path: \.bh-plugin$)", re.M)  # the workflow's plugin checkout
+
+
+def plugin_ref(root: Path = PLUGIN_ROOT) -> str:
+    """The version of the plugin doing the writing, as the workflow checks it out: its release tag
+    when its commit has one, else its commit sha (git), else ``v`` + the manifest's version (a
+    plugin installed from a release has no git of its own)."""
+
+    def git(*a: str) -> str:
+        p = subprocess.run(["git", *a], cwd=root, capture_output=True, text=True)
+        return p.stdout.strip() if p.returncode == 0 else ""
+
+    if Path(git("rev-parse", "--show-toplevel") or "/nonexistent").resolve() == root.resolve():
+        return git("describe", "--exact-match", "--tags", "HEAD") or git("rev-parse", "HEAD")
+    return "v" + json.loads((root / ".claude-plugin" / "plugin.json").read_text())["version"]
+
+
 def install_entry(root: Path, approved: bool) -> dict[str, Any]:
     """Main's entry check as GitHub's own standard files (QBC-119), one setup write in the one
     setup question: a ruleset for the default branch (pull request required, the required status
     check ``bh-review``, the repository owner on the bypass list; GitHub's ruleset JSON, imported
     with ``gh api``) and the workflow whose job ``bh-review`` runs ``bh land --check`` on the pull
-    request. Never over a file the project has. With no GitHub remote there is nothing to write:
-    ``bh land`` is the path (P12)."""
+    request, with the plugin pinned to the version doing the writing (``plugin_ref``). Never over a
+    file the project has; the workflow it wrote is its own, so every later setup re-pins it when
+    the plugin was updated, as ``bh.bin`` is re-recorded. With no GitHub remote there is nothing to
+    write: ``bh land`` is the path (P12)."""
     slug = github_slug(root)
     if slug is None:
         return {"written": [], "pending": []}
     missing = [f for f in ENTRY_FILES if not (root / ".github" / f).exists()]
+    ref = plugin_ref()
+    wf = root / ".github" / ENTRY_FILES[0]
+    out: dict[str, Any] = {"written": []}
+    if wf.is_file() and PLUGIN_STEP.search(old := wf.read_text()):
+        new = PLUGIN_STEP.sub(lambda m: m.group(1) + ref, old)
+        if new != old:  # written by setup before: re-pinned to the plugin now writing
+            wf.write_text(new)
+            out["written"].append(f".github/{ENTRY_FILES[0]}")
     if not approved:
-        return {"written": [], "pending": [f".github/{f}" for f in missing]}
-    version = json.loads((GITHUB_TEMPLATES.parents[1] / ".claude-plugin" / "plugin.json").read_text())["version"]
-    out: dict[str, Any] = {"written": [], "skipped": [f".github/{f}" for f in ENTRY_FILES if f not in missing]}
+        return {**out, "pending": [f".github/{f}" for f in missing]}
+    out["skipped"] = [f".github/{f}" for f in ENTRY_FILES if f not in missing and f".github/{f}" not in out["written"]]
     for f in missing:
         text = (GITHUB_TEMPLATES / f).read_text()
         if f.endswith(".yml"):
-            text = text.replace("__DEFAULT_BRANCH__", default_branch(root) or "main").replace("__PLUGIN_REF__", f"v{version}")
+            text = text.replace("__DEFAULT_BRANCH__", default_branch(root) or "main").replace("__PLUGIN_REF__", ref)
         else:
             doc = json.loads(text)
             owner = repo_owner(slug)

@@ -170,10 +170,13 @@ STRICT = {  # json-writer's acceptance test runs the code, so a wrong build miss
 WRONG = JSON_WRITER.replace("return json.dumps(rows, ensure_ascii=False)", "return 'x'")
 
 
-def no_defect(toy):
-    """No defect item was planned: an open finding stays on its slice (QBC-91, QBC-118)."""
+def planned_defect(toy):
+    """The one defect item the program planned under json-writer: the rework of a build main did
+    not admit (QBC-36, QBC-118), built on that build."""
     items = json.loads((toy / ".brick-harness" / "bricks.json").read_text())["bricks"]
-    return not [b for b in items if b.get("kind") == "defect"]
+    (d,) = [b for b in items if b.get("kind") == "defect"]
+    assert d["parent"] == "json-writer" and d["found_by"] == "reviewer"
+    return d
 
 
 def spec_for(fake, reviews, builds):
@@ -227,7 +230,7 @@ def test_findings_left_at_the_round_limit_never_change_met(toy, fake):
     gaps = json.loads(o.cfg.file("gaps").read_text())["gaps"]
     assert any("hmac.compare_digest" in json.dumps(g) for g in gaps)  # recorded where findings live
     assert "stuck" not in [f["kind"] for r in res["phases"]["rounds"] for f in r["facts"]]  # met, not stuck
-    assert no_defect(toy) and not (toy / "src" / "json_writer.py").exists()  # met, not admitted to main (QBC-118)
+    assert planned_defect(toy)["evidence"][0].startswith("src/json_writer.py:3 [secrets]") and not (toy / "src" / "json_writer.py").exists()  # met, not admitted
 
 
 def test_a_new_feature_whose_diff_triggers_no_domain_still_gets_the_duplication_review(toy, fake):
@@ -251,8 +254,8 @@ def test_a_later_round_that_misses_never_undoes_the_met_build(toy, fake):
     res = run(o.run())
     assert {r["item"]: r["status"] for r in res["phases"]["rounds"]}["json-writer"] == "met"
     assert not (toy / "src" / "json_writer.py").exists()  # the met build is not on main
-    assert no_defect(toy) and "not_admitted" in [f["kind"] for r in res["phases"]["rounds"] for f in r["facts"]]
-    assert len([c for c in fake.calls() if c["agent"] == "harness-reviewer"]) == 1
+    assert planned_defect(toy) and "not_admitted" in [f["kind"] for r in res["phases"]["rounds"] for f in r["facts"]]
+    assert [j.get("job") for j in res["jobs"] if j.get("item") == "json-writer" and j.get("job") == "review"] == ["review"]
 
 
 def test_a_measurer_miss_goes_back_with_only_the_missed_checks(toy, fake):

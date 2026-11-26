@@ -3577,6 +3577,18 @@ DEFAULT_TEST_TARGETS = {
 }
 
 
+def add_test_targets(cfg: Config, item: str) -> None:
+    """Give a program-planned item (a defect) the targets every item may carry without a cited
+    source, so it is measured by its own tests passing, as a planned item is; kept if present."""
+    p = cfg.file("targets")
+    assert p is not None
+    doc = load_json(p, "targets") if p.exists() else {"targets": []}
+    if any(t["item"] == item for t in doc["targets"]):
+        return
+    doc["targets"] += [{"item": item, "metric": m, "op": op, "value": v} for m, op, v in sorted(DEFAULT_TEST_TARGETS)]
+    p.write_text(json.dumps(doc, indent=2) + "\n")
+
+
 def overlay_file(cfg: Config) -> Path | None:
     """The project's own rules (the overlay): the Overlay row of the bindings file that the project's AGENTS.md or CLAUDE.md
     names, else of ``docs/agents/bindings.md``; failing that
