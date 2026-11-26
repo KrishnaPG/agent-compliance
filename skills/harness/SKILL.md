@@ -5,6 +5,8 @@ description: Run the build harness on a project: report spec gaps in its own doc
 
 The harness reports gaps in the project's own documents and executes its build order; it invents no architecture. Its entry is `bh` (plus `bh-answer`, `bh-measure`), on `PATH` while the plugin is enabled; the reference is `${CLAUDE_PLUGIN_ROOT}/harness/README.md`. `bh` is a program: it runs every mechanical step itself (git, measuring, merging, committing, ordering) and starts an agent job only for judgement work. The rules of each job are in `agents/harness-*.md`; you do not start those agents or do their work.
 
+**Paved road, no fail-at-exit gates.** Rules bind every author. The paved road makes them easy to meet; it never makes them optional. Rules and acceptance tests come up front, the author self-checks while writing, and review teaches. Nothing fails finished work after the fact. Local hooks on a work branch only warn; they never block. Main (the release) is protected: every change enters through its entry check: its tests pass and its review has no open S1/S2 finding. An owner override is logged. (spec §0 P7)
+
 ## One item
 
 1. The planner derives the item, targets and work packet; the program sets the tier from the declared paths: `mechanical` or `design-affecting`.

@@ -164,10 +164,12 @@ agent runs each tool and returns its JSON.
   counted as spec gaps. `all_findings` ranks them; `open_findings` lists the open ones with the
   review gaps; `review_input` returns what a re-review gets (document diff since
   `reviewed_head`, capped at 20000 characters, plus open findings). `merge_gaps` with source `review`
-  records the review's head in gaps.json. A finding is never work by
-  itself: a build round works only on items the measurer reports not met (an unmeasured ready
-  item is measured at HEAD first; stale, conflict and met-uncommitted items are redone), so a
-  finding becomes work only as a failing test or target.
+  records the review's head in gaps.json. A review finding
+  of S1/S2 goes back to its builder as requested changes (QBC-36); one still open after
+  `limits.review_rounds` becomes a defect item under its item, which stays out of main until the
+  defect is fixed (main's entry check, spec §0 P7). Otherwise a build round works only on items the
+  measurer reports not met (an unmeasured ready item is measured at HEAD first; stale, conflict
+  and met-uncommitted items are redone).
 - Setup (`lib/bhinfer.py`, the first step of `bh run`): no config file is needed. The test entry
   (justfile, Makefile, package.json, pytest config), language, toolchain install and
   add-a-dependency command (lockfile), build order and features documents are inferred from the
@@ -192,7 +194,7 @@ written yet.
 
 Gaps are listed in rank order. Per measurement the measurer notes each target met or not in `out/history.json`; a target of one item that went met to unmet after another item went met, twice, is reported `oscillating` (both named) and never changes a status.
 
-No fail-at-exit gates, and main enters only through its entry check (spec §0 P7): `bh land BRANCH`, or GitHub's required `bh-review` check. An item moves on only when its targets are measured met. `safeguards.json` registers the pitfalls the harness guards against and how, each by structure (gaming is impossible by construction), fact (recorded and reported, never scored), order (ranks work, never filters it) or limit (caps cost, lists what is left), with the catalog rules it serves, its status and the tests that prove it. `tests/test_safeguards.py` fails when an entry claims more than its tests show, or when a gate is anything but a mechanism being removed.
+No fail-at-exit gates (spec §0 P7). An item is met only when its targets are measured met; it enters main only through main's entry check: its tests pass and its review has no open S1/S2 finding (`bh land BRANCH`, or GitHub's required `bh-review` check; an owner override is logged). `safeguards.json` registers the pitfalls the harness guards against and how, each by structure (gaming is impossible by construction), fact (recorded and reported, never scored), order (ranks work, never filters it) or limit (caps cost, lists what is left), with the catalog rules it serves, its status and the tests that prove it. `tests/test_safeguards.py` fails when an entry claims more than its tests show, or when a gate is anything but a mechanism being removed.
 
 Work hierarchy (decision `docs/decisions/0001-work-tracking.md`): goal, feature, item; only
 items are measured. Item `kind` is `brick`, `system` or `change`; `refs` names tracker refs
@@ -264,7 +266,7 @@ rule into a `selector_miss` fact naming the missing tag. A met item whose
 whole diff touches secrets, grants or a declared trigger, or a design-affecting item (duplication),
 gets one review by a fresh agent before its merge (`bhreview`: ruff's preset S findings, changed
 SQL grants, and the owners or paths the project lists in `review.triggers`); findings are SARIF facts recorded by
-`add_findings`, and a critical or major one goes back to the builder within `max_rounds`. The report lists class shares
+`add_findings`, and a critical or major one goes back to the builder within `max_rounds`; while one stays open the item is not admitted to main. The report lists class shares
 (enforced, embodied by a brick's `embodies`, judgment) and check candidates (judgment rules
 broken in two or more findings). Tests use `checks.checker` (a fake command) and a fixture catalog.
 
