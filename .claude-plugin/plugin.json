@@ -1,6 +1,6 @@
 {
   "name": "agent-compliance",
-  "version": "1.5.2",
+  "version": "2.0.0",
   "description": "A build harness that runs the mechanical steps as a program and starts agents only for judgement, plus skills for design decisions judged by a fresh agent, third-party package facts (deps.dev, OpenSSF Scorecard, OSV) and defect records; rules are maintained standards by reference plus house rules.",
   "author": {
     "name": "KrishnaPG"

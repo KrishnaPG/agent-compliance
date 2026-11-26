@@ -8,11 +8,11 @@
     {
       "name": "agent-compliance",
       "source": "./",
-      "version": "1.5.2",
+      "version": "2.0.0",
       "description": "A build harness with a deterministic measurer, and skills for design decisions judged by a fresh agent, package facts and defect records."
     }
   ],
   "metadata": {
-    "version": "1.5.2"
+    "version": "2.0.0"
   }
 }
