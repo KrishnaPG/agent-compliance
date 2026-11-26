@@ -1520,7 +1520,7 @@ class Orchestrator:
         review of that build, past its ``limits.review_rounds``, decides admission. An open S1 or S2
         finding keeps it out of main: the item stays met by its tests, its build waits under
         ``bhpacket.AWAIT_REF``, and its rework becomes one defect item under it (QBC-36, QBC-91),
-        built on that build; the fix entering main brings it in (``merge_item``). Until then it is
+        built on that build; the fix entering main brings it in (``merge_item``). Meanwhile it is
         reported as awaiting entry, never stuck. S3 and S4 findings are annotations: Known issues
         lines (§0 R8)."""
         item, log = packet["id"], self.reviewed.get(sha)

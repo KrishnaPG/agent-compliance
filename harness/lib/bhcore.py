@@ -365,11 +365,17 @@ def _named(xml: Any, check: str) -> Any:
 
 
 def parse_junit(path: Path) -> dict[str, int]:
-    """Sum JUnit XML counts over the innermost suites; HarnessError when unreadable or not counts."""
+    """Sum JUnit XML counts over the innermost suites and the cases a reporter writes straight
+    under ``<testsuites>`` (``_cases``: node's test runner does); HarnessError when unreadable or
+    not counts."""
+    xml = read_junit(path)
     try:
-        got = [(s.tests, s.failures, s.errors, s.skipped) for s in _suites(read_junit(path))]
+        got = [(s.tests, s.failures, s.errors, s.skipped) for s in _suites(xml)]
     except (ValueError, TypeError) as e:
         raise HarnessError(f"junit {path}: a count is not a number: {e}") from e
+    for c in [] if isinstance(xml, TestSuite) else xml.iterchildren(TestCase):
+        kinds = {type(x).__name__ for x in c.result}
+        got.append((1, int("Failure" in kinds), int("Error" in kinds), int("Skipped" in kinds)))
     total, failed, errors, skipped = (sum(c) for c in zip(*got, strict=True)) if got else (0,) * 4
     if min(total, failed, errors, skipped) < 0 or total - failed - errors - skipped < 0:
         raise HarnessError(

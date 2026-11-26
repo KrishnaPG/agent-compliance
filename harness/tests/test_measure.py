@@ -363,3 +363,14 @@ def test_merged_sarif_is_checked_against_the_official_schema(tmp_path):
     bad.write_text(json.dumps({"runs": [{"tool": {}}]}))
     with pytest.raises(bhcore.HarnessError, match="SARIF log invalid"):
         bhcore.merge_sarif([bad])
+
+
+def test_junit_counts_the_cases_a_reporter_writes_under_testsuites(tmp_path):
+    """node's test runner writes a test outside a describe straight under <testsuites>: it counts,
+    as ``_cases`` lists it (one definition of a report's cases); a suite's own counts still count."""
+    node = tmp_path / "node.xml"
+    node.write_text('<testsuites><testcase name="a" classname="test"/><testcase name="b" classname="test"><failure message="x"/></testcase></testsuites>')
+    assert bhcore.parse_junit(node) == {"total": 2, "failed": 1, "errors": 0, "skipped": 0, "passed": 1}
+    empty = tmp_path / "empty.xml"  # negative control: no case anywhere is zero tests
+    empty.write_text("<testsuites></testsuites>")
+    assert bhcore.parse_junit(empty)["total"] == 0
