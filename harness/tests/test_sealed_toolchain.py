@@ -33,11 +33,11 @@ def git(d, *a):
 @pytest.mark.skipif(
     not all(shutil.which(t) for t in ("uv", "just", "bwrap")), reason="needs uv, just and bwrap"
 )
-def test_a_uv_project_runs_its_own_recipe_sealed(tmp_path, monkeypatch):
+def test_a_uv_project_runs_its_own_recipe_sealed(tmp_path, monkeypatch, suite_pin):
     monkeypatch.setenv("MISE_GLOBAL_CONFIG_FILE", str(PLUGIN / ".tool-versions"))
     (tmp_path / "pyproject.toml").write_text(
         '[project]\nname = "p"\nversion = "0"\nrequires-python = "==3.14.*"\n'
-        '[dependency-groups]\ndev = ["pytest==9.0.2"]\n[tool.uv]\npackage = false\n'
+        f'[dependency-groups]\ndev = ["{suite_pin("pytest")}"]\n[tool.uv]\npackage = false\n'
     )
     (tmp_path / "justfile").write_text("test:\n    uv run pytest -q\n")
     (tmp_path / "tests").mkdir()

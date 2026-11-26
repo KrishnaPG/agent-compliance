@@ -1,5 +1,6 @@
 import importlib.util
 import os
+import re
 import sys
 from pathlib import Path
 
@@ -18,6 +19,19 @@ def hermetic_env(monkeypatch):
     ATDD_MODEL_STATE counter would otherwise answer a test's stub launch with another launch's reply)."""
     for name in [n for n in os.environ if n.startswith(("BH_", "ATDD_"))]:
         monkeypatch.delenv(name)
+
+
+@pytest.fixture(scope="session")
+def suite_pin():
+    """``suite_pin("pytest")`` is ``pytest==<version>`` as run_tests.py pins it, the one place the suite's packages
+    are pinned: a toy project that needs a package asks for that exact pin, so provisioning (one run filling uv's
+    cache) covers it and a row with no network finds it."""
+    header = (ROOT / "run_tests.py").read_text()
+
+    def pin(name):
+        return re.search(rf"^#\s+\"({re.escape(name)}==[^\"]+)\"", header, re.M).group(1)
+
+    return pin
 
 
 @pytest.fixture

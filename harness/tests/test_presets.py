@@ -125,7 +125,7 @@ def hook_repo(d: Path) -> tuple[str, str]:
 
 
 @pytest.fixture(scope="module")
-def toy(tmp_path_factory):
+def toy(tmp_path_factory, suite_pin):
     d = tmp_path_factory.mktemp("toy")
     repo, rev = hook_repo(tmp_path_factory.mktemp("hooks"))
     for f, text in {
@@ -146,7 +146,7 @@ def toy(tmp_path_factory):
         (d / f).write_text(text)
     git(d, "init", "-q", "-b", "main")
     report = presets(d)
-    sh(d, "uv", "add", "-q", "--dev", "pytest==9.2.0")
+    sh(d, "uv", "add", "-q", "--dev", suite_pin("pytest"))
     git(d, "add", "-A")
     git(d, "commit", "-qm", "presets")
     return d, report
